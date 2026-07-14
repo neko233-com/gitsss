@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -13,6 +14,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/neko233-com/gitsss/server/internal/agenthttp"
+	"github.com/neko233-com/gitsss/server/internal/audit"
+	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/backup"
 	"github.com/neko233-com/gitsss/server/internal/runner"
 	"github.com/neko233-com/gitsss/server/internal/takeover"
@@ -40,6 +44,8 @@ func main() {
 		backupRestoreIsolated(os.Args[2:])
 	case "backup-audit-restore":
 		backupAuditRestore(os.Args[2:])
+	case "serve":
+		serve(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -47,7 +53,53 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Fprintln(os.Stderr, "usage: gitsss-agent <probe|runner-report|assess|backup-export|backup-verify|backup-import-plan|backup-restore-isolated|backup-audit-restore> [options]")
+	fmt.Fprintln(os.Stderr, "usage: gitsss-agent <serve|probe|runner-report|assess|backup-export|backup-verify|backup-import-plan|backup-restore-isolated|backup-audit-restore> [options]")
+}
+
+func serve(args []string) {
+	flags := flag.NewFlagSet("serve", flag.ExitOnError)
+	listenAddress := flags.String("listen", "127.0.0.1:8790", "loopback listen address")
+	tokenEnv := flags.String("token-env", "GITSSS_AGENT_HTTP_TOKEN", "environment variable containing the HTTP token")
+	tokenID := flags.String("token-id", "local-agent-http", "non-secret token identifier for audit records")
+	tokenTTL := flags.Duration("token-ttl", 24*time.Hour, "token lifetime; rotate by restarting with a new token")
+	scopes := flags.String("scopes", "agent:read,takeover:assess,backup:verify,audit:read", "comma-separated token scopes")
+	flags.Parse(args)
+	if err := agenthttp.ValidateLoopbackAddress(*listenAddress); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+	if strings.TrimSpace(*tokenEnv) == "" || strings.TrimSpace(*tokenID) == "" || *tokenTTL <= 0 || *tokenTTL > 30*24*time.Hour {
+		fmt.Fprintln(os.Stderr, "--token-env, --token-id and a --token-ttl up to 720h are required")
+		os.Exit(2)
+	}
+	token := os.Getenv(*tokenEnv)
+	if len(token) < 24 {
+		fmt.Fprintf(os.Stderr, "%s must contain at least 24 characters\n", *tokenEnv)
+		os.Exit(1)
+	}
+	allowedScopes := make([]string, 0)
+	for _, scope := range strings.Split(*scopes, ",") {
+		if scope = strings.TrimSpace(scope); scope != "" {
+			allowedScopes = append(allowedScopes, scope)
+		}
+	}
+	if len(allowedScopes) == 0 {
+		fmt.Fprintln(os.Stderr, "--scopes must contain at least one scope")
+		os.Exit(2)
+	}
+	expiresAt := time.Now().UTC().Add(*tokenTTL)
+	verifier := auth.NewVerifier(auth.NewRecord(*tokenID, token, expiresAt, allowedScopes...))
+	handler := agenthttp.NewServer(verifier, &audit.Log{}).Handler()
+	server := &http.Server{
+		Addr: *listenAddress, Handler: handler,
+		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second,
+		WriteTimeout: 5 * time.Minute, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10,
+	}
+	fmt.Printf("gitsss Agent HTTP listening on http://%s (token %s expires %s)\n", *listenAddress, *tokenID, expiresAt.Format(time.RFC3339))
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
 
 type stringList []string

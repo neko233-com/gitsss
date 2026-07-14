@@ -27,12 +27,12 @@ var (
 )
 
 type Options struct {
-	AgentID      string
-	ConfigPath   string
-	WorkPath     string
-	GiteaVersion string
-	MaxEntries   int
-	Now          func() time.Time
+	AgentID      string           `json:"agent_id"`
+	ConfigPath   string           `json:"config_path"`
+	WorkPath     string           `json:"work_path,omitempty"`
+	GiteaVersion string           `json:"gitea_version,omitempty"`
+	MaxEntries   int              `json:"max_entries,omitempty"`
+	Now          func() time.Time `json:"-"`
 }
 
 type Database struct {

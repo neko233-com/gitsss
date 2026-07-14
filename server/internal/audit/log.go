@@ -13,6 +13,7 @@ type Entry struct {
 	Action    string    `json:"action"`
 	Target    string    `json:"target"`
 	RequestID string    `json:"request_id"`
+	Result    string    `json:"result,omitempty"`
 	At        time.Time `json:"at"`
 }
 

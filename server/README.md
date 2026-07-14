@@ -10,6 +10,7 @@ This Go 1.26 module establishes the first server boundaries for gitsss:
 - email, Feishu and WeCom notification configuration, test delivery and transactional outbox endpoints;
 - bounded, read-only Gitea `app.ini` assessment with redacted configuration fingerprints and audited Agent report ingestion;
 - encrypted, atomic takeover export with per-file SHA-256 manifests and read-only verification;
+- loopback-only Agent HTTP with expiring scoped custom tokens, AI-tool-ready JSON contracts and retained audit records;
 - audited preview clearing with retention-based audit cleanup;
 - a native Agent CLI probe over authenticated HTTP.
 
@@ -23,6 +24,15 @@ go run ./cmd/gitsss-agent runner-report --server http://127.0.0.1:8787 --token $
 ```
 
 The current in-memory store is an implementation slice, not production persistence. Tokens, notification secrets, outbox messages and audit records will move to encrypted, durable storage before release. Notification API responses and audit targets never include webhook URLs, SMTP passwords or signing secrets. Feishu and WeCom webhooks are restricted to their official HTTPS hosts; an internal relay requires a future explicit administrator allowlist.
+
+Start the local Agent HTTP control plane with an expiring token read from the environment:
+
+```powershell
+$env:GITSSS_AGENT_HTTP_TOKEN = "replace-with-at-least-24-random-characters"
+go run ./cmd/gitsss-agent serve --listen 127.0.0.1:8790 --token-ttl 24h
+```
+
+The listener rejects non-loopback addresses. Its default token scopes are `agent:read`, `takeover:assess`, `backup:verify` and `audit:read`; narrow them with `--scopes`. Tokens are accepted only as strict `Authorization: Bearer ...` headers and are never written to audit output. `/api/v1/capabilities`, `/api/v1/assessments`, `/api/v1/backups/verify` and `/api/v1/audit` provide the first stable JSON tools for a local AI Agent. Backup verification accepts an environment-variable name rather than a passphrase. See [`docs/architecture/agent-http-v1.md`](../docs/architecture/agent-http-v1.md).
 
 Notification control-plane routes use the `notifications:read`, `notifications:write` and `notifications:dispatch` scopes. Configure a channel, send a test, and inspect the outbox through `/api/v1/notifications/channels`, `/api/v1/notifications/channels/{channel}/test` and `/api/v1/notifications/outbox`. Failed deliveries retry with exponential backoff and move to `dead` after four attempts.
 
