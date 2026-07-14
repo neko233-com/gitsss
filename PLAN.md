@@ -77,7 +77,7 @@ gitsss Agent (CLI + authenticated local HTTP) ── existing Gitea intranet ser
 - **仓库浏览与搜索**：仓库页提供常规 Git 视图之外的固定左侧文件树、按路径/内容/符号搜索、文本预览和二进制资产元信息；大文件搜索经权限过滤、索引限额和审计后执行。
 - **搜索**：统一索引接口、权限过滤、快捷键、最近访问、命令与对象的统一排序；索引不可用时降级到数据库查询。
 - **通知**：事务 outbox、模板、规则、偏好、抑制、重试/死信和投递审计；首批适配器为邮件、飞书和企业微信，预留 Slack、Webhook 与自定义渠道。
-- **CI 与发布**：将现有 Actions 能力包装为 Gitsss Pipelines，提供模板化流水线、运行日志、制品、环境审批、发布记录、回滚入口和 GitHub Actions 发布工作流。
+- **CI 与发布**：将现有 Actions 能力包装为 Gitsss Pipelines，提供模板化流水线、运行日志、制品、环境审批、发布记录和回滚入口；gitsss 自身的发布只允许本机可信脚本与 `gh` 直传，不使用 GitHub Actions。
 - **开箱即用 Runner**：安装器和 Agent 根据平台自动拉起、注册和升级受控 Runner；Runner 状态、工作目录、磁盘预留、失败自愈和离线告警在产品内可见，且支持离线内网软件包源。
 - **备份与导入**：提供带版本清单、校验和、加密元数据与演练恢复的批量导出/导入；数据包涵盖内置数据库、Git 仓库、LFS、附件、配置映射和扩展数据，并支持断点续传与差异报告。旧 PostgreSQL/MySQL 仅作为接管数据源，由 Agent 内嵌驱动读取后迁入 gitsss 内置库。
 - **Agent、CLI 与 HTTP**：提供原生 `gitsss-agent` 与 `gitsss` CLI；Agent 本地 HTTP API 以签发/轮换/撤销的自定义 Token、作用域、过期时间、设备身份和重放防护保护，默认仅监听 loopback 或受控私网地址。
@@ -151,7 +151,7 @@ gitsss Agent (CLI + authenticated local HTTP) ── existing Gitea intranet ser
 
 ## 质量门槛
 
-- Go 改动执行 `make fmt`、`make lint-go`；TypeScript 改动执行 `make lint-js`。在 Windows 使用 `mingw32-make` 作为兼容入口，CI 仍使用 `make`。
+- Go 改动执行 `make fmt`、`make lint-go`；TypeScript 改动执行 `make lint-js`。在 Windows 使用 `mingw32-make` 作为兼容入口；若本机缺少 Makefile 依赖的 POSIX 工具，则直接运行等价的格式化、静态检查和测试命令并记录差异。GitHub Actions 不作为任何质量或发布入口。
 - 单元测试优先；单个 Go 测试使用 `go test -run '^TestName$' ./modulepath/`，单个前端测试使用 `pnpm exec vitest <path-filter>`，单个 E2E 使用 `GITEA_TEST_E2E_FLAGS='<filepath>' make test-e2e`（完成品牌迁移后同步改名该变量和目标）。
 - 每个新 UI 功能必须含键盘操作、焦点状态、屏幕阅读器语义、深浅色和移动端验证；所有命令面板操作必须有权限校验与确认语义。
 - 每个迁移写操作必须先通过只读预检、备份验证和可重复演练；迁移报告不得输出密钥或令牌。

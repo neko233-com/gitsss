@@ -4,7 +4,7 @@ This Go 1.26 module establishes the first server boundaries for gitsss:
 
 - scoped custom-token verification using constant-time hash comparison;
 - dashboard and bounded event-preview HTTP endpoints;
-- storage capacity, write-protection and admission endpoints;
+- live filesystem capacity, reserve-aware write protection, bounded inventory and game-asset attribution endpoints;
 - a bundled Runner reconciliation contract for Agent-driven install, update and health verification;
 - allowlisted Git tree, text preview and repository search endpoints backed by immutable commit snapshots;
 - email, Feishu and WeCom notification configuration, test delivery and transactional outbox endpoints;
@@ -27,6 +27,8 @@ go run ./cmd/gitsss-agent runner-report --server http://127.0.0.1:8787 --token $
 ```
 
 The server creates one permission-restricted embedded SQLite file at `GITSSS_DATA_PATH` (default `data/gitsss.db`) with WAL, full synchronous writes, a busy timeout and a versioned schema. Custom-token hashes and lifecycle metadata, Agent jobs, takeover assessments, notification configurations, the notification outbox, per-principal Dashboard event previews and the main-service audit log survive process restarts. Notification secrets, message content, Dashboard previews and audit entries are AES-256-GCM encrypted with identity-bound associated data and a generated 32-byte key at `GITSSS_MASTER_KEY_PATH` (default `<data-path>.key`). Dashboard previews use bounded event-ID LRU independently for each Token ID; clearing one principal never clears another, and compliance audit records are outside that LRU. Retention cleanup deletes expired audit documents in one transaction before changing the in-memory view. Unix uses `0600`; Windows applies a protected DACL for the service user, SYSTEM and Administrators without calling `icacls`. Losing the key intentionally makes startup fail instead of silently discarding encrypted state. See [`docs/architecture/dashboard-preview-v1.md`](../docs/architecture/dashboard-preview-v1.md).
+
+Storage responses are measured from the live data volume and protect a 10 GiB operator reserve by default. Optional LFS, artifact, backup and attachment roots provide bounded category and game-asset attribution; measurement failures reject projected writes. Configure the reserve and roots with the `GITSSS_STORAGE_*` environment variables described in [`docs/architecture/storage-awareness-v1.md`](../docs/architecture/storage-awareness-v1.md).
 
 On the first startup only, `GITSSS_API_TOKEN` seeds a full-scope `bootstrap` token that expires after 24 hours. Issue a named replacement through `POST /api/v1/auth/tokens` before it expires; the generated secret is returned once, while later lists expose metadata only. Existing token state is never overwritten from the environment. Listing requires `auth:read`; issuing and revoking require `auth:write`. See [`docs/architecture/auth-token-v1.md`](../docs/architecture/auth-token-v1.md).
 

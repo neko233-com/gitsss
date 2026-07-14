@@ -66,12 +66,18 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	storageService := storage.NewService(4<<40, []storage.Usage{
-		{Category: storage.CategoryGitObjects, Bytes: 410 << 30},
-		{Category: storage.CategoryLFSAssets, Bytes: 2310 << 30},
-		{Category: storage.CategoryArtifacts, Bytes: 250 << 30},
-		{Category: storage.CategoryBackups, Bytes: 150 << 30},
-	})
+	repositoryPath := os.Getenv("GITSSS_REPOSITORY_PATH")
+	if repositoryPath == "" {
+		repositoryPath = "."
+	}
+	storageOptions, err := liveStorageOptions(dataPath, repositoryPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	storageService, err := storage.NewLiveService(storageOptions)
+	if err != nil {
+		log.Fatal(err)
+	}
 	runnerService := runner.NewService("0.1.0")
 	notificationService, err := notification.NewPersistentService(notification.NewFactory(), logStore, stateStore, vault)
 	if err != nil {
@@ -84,10 +90,6 @@ func main() {
 	agentJobs, err := agentjob.NewPersistentQueue(logStore, stateStore)
 	if err != nil {
 		log.Fatal(err)
-	}
-	repositoryPath := os.Getenv("GITSSS_REPOSITORY_PATH")
-	if repositoryPath == "" {
-		repositoryPath = "."
 	}
 	repositoryService, err := repository.NewService([]repository.Repository{{ID: "gitsss", Name: "gitsss", DefaultBranch: "main", Path: repositoryPath}})
 	if err != nil {
