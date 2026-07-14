@@ -47,6 +47,7 @@ interface AgentJob {
     | "takeover.shadow-audit"
     | "takeover.freeze-check"
     | "takeover.inventory"
+    | "takeover.materialize"
     | "takeover.cutover"
     | "takeover.rollback"
   status: "queued" | "running" | "succeeded" | "failed"
@@ -59,6 +60,7 @@ interface AgentJob {
     | ShadowAuditResult
     | FreezeEvidence
     | BusinessInventory
+    | MaterializationResult
     | CutoverResult
     | RollbackResult
   error?: string
@@ -176,6 +178,20 @@ interface BusinessInventory {
   inspected_at: string
 }
 
+interface MaterializationResult {
+  version: 1
+  target: string
+  content_path: string
+  active_path: string
+  inventory_sha256: string
+  content_sha256: string
+  source_sha256: string
+  counts: BusinessInventory["counts"]
+  imported_rows: Record<string, number>
+  repositories: number
+  materialized_at: string
+}
+
 interface CutoverResult {
   id: string
   assessment_id: string
@@ -214,6 +230,7 @@ const takeoverSteps = [
   "隔离恢复",
   "数据审计",
   "业务盘点",
+  "业务转换",
   "影子模式",
   "原子切换",
   "回滚保护",
@@ -238,103 +255,42 @@ function jobStatus(job?: AgentJob) {
   if (job.kind === "takeover.shadow-audit") return "影子差异已回传"
   if (job.kind === "takeover.freeze-check") return "停服状态已回传"
   if (job.kind === "takeover.inventory") return "业务对象盘点已回传"
+  if (job.kind === "takeover.materialize") return "gitsss 数据代已生成"
   if (job.kind === "takeover.cutover") return "目录切换已完成"
   if (job.kind === "takeover.rollback") return "回滚已完成"
   return "评估已回传"
 }
 
-function isAssessment(
-  result:
-    | Assessment
-    | BackupAuditResult
-    | BackupExportResult
-    | BackupRestoreResult
-    | ShadowAuditResult
-    | FreezeEvidence
-    | BusinessInventory
-    | CutoverResult
-    | RollbackResult
-    | undefined
-): result is Assessment {
+function isAssessment(result: AgentJob["result"]): result is Assessment {
   return Boolean(result && "assets" in result)
 }
 
 function isBackupExport(
-  result:
-    | Assessment
-    | BackupAuditResult
-    | BackupExportResult
-    | BackupRestoreResult
-    | ShadowAuditResult
-    | FreezeEvidence
-    | BusinessInventory
-    | CutoverResult
-    | RollbackResult
-    | undefined
+  result: AgentJob["result"]
 ): result is BackupExportResult {
   return Boolean(result && "output_path" in result)
 }
 
 function isBackupRestore(
-  result:
-    | Assessment
-    | BackupAuditResult
-    | BackupExportResult
-    | BackupRestoreResult
-    | ShadowAuditResult
-    | FreezeEvidence
-    | BusinessInventory
-    | CutoverResult
-    | RollbackResult
-    | undefined
+  result: AgentJob["result"]
 ): result is BackupRestoreResult {
   return Boolean(result && "content_path" in result)
 }
 
 function isBackupAudit(
-  result:
-    | Assessment
-    | BackupAuditResult
-    | BackupExportResult
-    | BackupRestoreResult
-    | ShadowAuditResult
-    | FreezeEvidence
-    | BusinessInventory
-    | CutoverResult
-    | RollbackResult
-    | undefined
+  result: AgentJob["result"]
 ): result is BackupAuditResult {
   return Boolean(result && "files" in result && "lfs_objects" in result)
 }
 
 function isShadowAudit(
-  result:
-    | Assessment
-    | BackupAuditResult
-    | BackupExportResult
-    | BackupRestoreResult
-    | ShadowAuditResult
-    | FreezeEvidence
-    | BusinessInventory
-    | CutoverResult
-    | RollbackResult
-    | undefined
+  result: AgentJob["result"]
 ): result is ShadowAuditResult {
   return Boolean(result && "repository_summary" in result)
 }
 
 function isFreezeEvidence(
-  result:
-    | Assessment
-    | BackupAuditResult
-    | BackupExportResult
-    | BackupRestoreResult
-    | ShadowAuditResult
-    | FreezeEvidence
-    | BusinessInventory
-    | CutoverResult
-    | RollbackResult
-    | undefined
+  result: AgentJob["result"]
 ): result is FreezeEvidence {
   return Boolean(result && "offline" in result && "network" in result)
 }
@@ -349,6 +305,17 @@ function isBusinessInventory(
   result: AgentJob["result"]
 ): result is BusinessInventory {
   return Boolean(result && "digest" in result && "counts" in result)
+}
+
+function isMaterializationResult(
+  result: AgentJob["result"]
+): result is MaterializationResult {
+  return Boolean(
+    result &&
+    "content_sha256" in result &&
+    "inventory_sha256" in result &&
+    "imported_rows" in result
+  )
 }
 
 function isRollbackResult(
@@ -376,6 +343,9 @@ export function TakeoverCenter({
     "/var/lib/gitsss/imports/source"
   )
   const [restoreConfirmation, setRestoreConfirmation] = useState("")
+  const [materializedTargetPath, setMaterializedTargetPath] = useState(
+    "/var/lib/gitsss/imports/materialized"
+  )
   const [activePath, setActivePath] = useState("/var/lib/gitsss/data")
   const [cutoverConfirmation, setCutoverConfirmation] = useState("")
   const [rollbackConfirmation, setRollbackConfirmation] = useState("")
@@ -468,6 +438,17 @@ export function TakeoverCenter({
     isBusinessInventory(inventoryJob.result)
       ? inventoryJob.result
       : undefined
+  const materializationJob = jobs.find(
+    (job) =>
+      job.kind === "takeover.materialize" &&
+      job.input.target_path === restoreResult?.target &&
+      job.input.expected_inventory_sha256 === inventoryResult?.digest
+  )
+  const materializationResult =
+    materializationJob?.status === "succeeded" &&
+    isMaterializationResult(materializationJob.result)
+      ? materializationJob.result
+      : undefined
   const shadowJob = jobs.find(
     (job) =>
       job.kind === "takeover.shadow-audit" &&
@@ -482,7 +463,9 @@ export function TakeoverCenter({
     (job) =>
       job.kind === "takeover.cutover" &&
       job.input.expected_container_sha256 === backupResult?.container_sha256 &&
-      job.input.target_path === restoreResult?.target
+      job.input.target_path === restoreResult?.target &&
+      job.input.expected_materialization_sha256 ===
+        materializationResult?.content_sha256
   )
   const cutoverResult =
     cutoverJob?.status === "succeeded" && isCutoverResult(cutoverJob.result)
@@ -649,7 +632,8 @@ export function TakeoverCenter({
       !backupResult ||
       !restoreResult ||
       !auditResult ||
-      !inventoryResult
+      !inventoryResult ||
+      !materializationResult
     )
       return
     setLoading(true)
@@ -668,6 +652,7 @@ export function TakeoverCenter({
           target_path: restoreResult.target,
           expected_assessment_id: backupResult.assessment_id,
           expected_container_sha256: backupResult.container_sha256,
+          expected_inventory_sha256: inventoryResult.digest,
           expected_freeze_id: backupResult.freeze_id,
         },
       })
@@ -700,13 +685,39 @@ export function TakeoverCenter({
     }
   }
 
+  const dispatchMaterialization = async () => {
+    if (!selected || !restoreResult || !inventoryResult) return
+    setLoading(true)
+    setError("")
+    try {
+      const job = await apiMutation<AgentJob>("/api/v1/agent/jobs", token, {
+        kind: "takeover.materialize",
+        input: {
+          agent_id: selected.agent_id,
+          target_path: restoreResult.target,
+          output_path: materializedTargetPath,
+          active_path: activePath,
+          expected_inventory_sha256: inventoryResult.digest,
+        },
+      })
+      setJobs((current) => [job, ...current])
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "无法生成 gitsss 数据代"
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const dispatchCutover = async () => {
     if (
       !selected ||
       !backupResult ||
       !restoreResult ||
       !shadowResult ||
-      !inventoryResult
+      !inventoryResult ||
+      !materializationResult
     )
       return
     setLoading(true)
@@ -724,9 +735,11 @@ export function TakeoverCenter({
           passphrase_env: backupPassphraseEnv,
           target_path: restoreResult.target,
           active_path: activePath,
+          materialized_path: materializationResult.target,
           expected_assessment_id: backupResult.assessment_id,
           expected_container_sha256: backupResult.container_sha256,
           expected_inventory_sha256: inventoryResult.digest,
+          expected_materialization_sha256: materializationResult.content_sha256,
           expected_freeze_id: backupResult.freeze_id,
           confirmation: cutoverConfirmation,
         },
@@ -770,24 +783,26 @@ export function TakeoverCenter({
     0
   )
   const completedSteps = cutoverResult
-    ? 10
+    ? 11
     : shadowResult?.ready_for_shadow_mode
-      ? 8
-      : inventoryResult
-        ? 7
-        : auditResult?.ready_for_shadow_mode
-          ? 6
-          : restoreResult
-            ? 5
-            : backupResult
-              ? 4
-              : selected && freezeSatisfied
-                ? 3
-                : selected
-                  ? 2
-                  : assessmentJob?.status === "running"
-                    ? 1
-                    : 0
+      ? 9
+      : materializationResult
+        ? 8
+        : inventoryResult
+          ? 7
+          : auditResult?.ready_for_shadow_mode
+            ? 6
+            : restoreResult
+              ? 5
+              : backupResult
+                ? 4
+                : selected && freezeSatisfied
+                  ? 3
+                  : selected
+                    ? 2
+                    : assessmentJob?.status === "running"
+                      ? 1
+                      : 0
 
   return (
     <section className="mx-auto max-w-5xl pt-8">
@@ -801,7 +816,7 @@ export function TakeoverCenter({
         </p>
       </div>
 
-      <ol className="mt-8 grid grid-cols-2 border-y border-zinc-200 py-4 text-xs text-zinc-500 sm:grid-cols-3 lg:grid-cols-10">
+      <ol className="mt-8 grid grid-cols-2 border-y border-zinc-200 py-4 text-xs text-zinc-500 sm:grid-cols-3 lg:grid-cols-11">
         {takeoverSteps.map((step, index) => {
           const complete = index < completedSteps
           const active = index === completedSteps
@@ -1331,6 +1346,91 @@ export function TakeoverCenter({
             ) : null}
             {inventoryResult ? (
               <div className="mt-7 border-y border-zinc-200 py-5">
+                <p className="text-sm font-medium">
+                  下一步：生成 gitsss 数据代
+                </p>
+                <p className="mt-2 text-xs leading-5 text-zinc-500">
+                  把旧数据库业务记录写入内置 SQLite，重建仓库目录，并迁移
+                  LFS、附件、软件包和流水线留档。输出发布到新目录，失败时不会留下半成品，也不会改写隔离副本。
+                </p>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <label
+                    className="grid gap-2 text-xs font-medium"
+                    htmlFor="materialized-target-path"
+                  >
+                    新数据代输出目录
+                    <Input
+                      id="materialized-target-path"
+                      onChange={(event) =>
+                        setMaterializedTargetPath(event.target.value)
+                      }
+                      value={materializedTargetPath}
+                    />
+                  </label>
+                  <label
+                    className="grid gap-2 text-xs font-medium"
+                    htmlFor="materialized-active-path"
+                  >
+                    最终活跃数据目录
+                    <Input
+                      id="materialized-active-path"
+                      onChange={(event) => setActivePath(event.target.value)}
+                      value={activePath}
+                    />
+                  </label>
+                </div>
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  <Button
+                    disabled={
+                      loading ||
+                      !materializedTargetPath ||
+                      !activePath ||
+                      materializationJob?.status === "queued" ||
+                      materializationJob?.status === "running"
+                    }
+                    onClick={dispatchMaterialization}
+                    variant="outline"
+                  >
+                    {materializationJob
+                      ? "重新生成 gitsss 数据代"
+                      : "生成 gitsss 数据代"}
+                  </Button>
+                  <output
+                    className={
+                      materializationJob?.status === "failed"
+                        ? "text-xs text-red-600"
+                        : "text-xs text-zinc-500"
+                    }
+                  >
+                    {materializationJob
+                      ? jobStatus(materializationJob)
+                      : "输出目录必须尚不存在"}
+                  </output>
+                </div>
+                {materializationResult ? (
+                  <div className="mt-5 border-l-2 border-emerald-500 pl-4 text-xs leading-5 text-zinc-600">
+                    <p className="font-medium text-emerald-800">
+                      可启动的数据代已生成
+                    </p>
+                    <p>
+                      {materializationResult.repositories} 个仓库 ·
+                      {Object.values(
+                        materializationResult.imported_rows
+                      ).reduce((total, count) => total + count, 0)}
+                      条业务记录
+                    </p>
+                    <p className="truncate font-mono text-[11px] text-zinc-500">
+                      {materializationResult.content_path}
+                    </p>
+                    <p className="truncate font-mono text-[11px] text-zinc-500">
+                      数据代 SHA-256：{materializationResult.content_sha256}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {materializationResult ? (
+              <div className="mt-7 border-y border-zinc-200 py-5">
                 <p className="text-sm font-medium">下一步：影子模式预检</p>
                 <p className="mt-2 text-xs leading-5 text-zinc-500">
                   再次读取源配置和资产清单，并逐仓库比较 live refs
@@ -1411,18 +1511,14 @@ export function TakeoverCenter({
                 <p className="text-sm font-medium">最终步骤：原子切换</p>
                 <p className="mt-2 text-xs leading-5 text-zinc-500">
                   Agent
-                  会再次执行完整影子校验，然后保留当前活跃目录作为回滚点，并把隔离副本原子切入。不会删除任一代数据。
+                  会再次执行完整影子校验与数据代摘要校验，然后保留当前活跃目录作为回滚点，并把已转换的数据代原子切入。不会删除任一代数据。
                 </p>
                 <label
                   className="mt-4 grid gap-2 text-xs font-medium"
                   htmlFor="cutover-active-path"
                 >
                   gitsss 活跃数据目录
-                  <Input
-                    id="cutover-active-path"
-                    onChange={(event) => setActivePath(event.target.value)}
-                    value={activePath}
-                  />
+                  <Input disabled id="cutover-active-path" value={activePath} />
                 </label>
                 <label
                   className="mt-4 grid gap-2 text-xs font-medium"

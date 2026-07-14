@@ -89,3 +89,28 @@ func TestStoreDeletesDocumentsInOneNamespace(t *testing.T) {
 		t.Fatalf("unsafe delete error = %v", err)
 	}
 }
+
+func TestStorePutsDocumentBatchAtomically(t *testing.T) {
+	store, err := Open(filepath.Join(t.TempDir(), "gitsss.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	batch := []Document{
+		{ID: "row-1", Payload: json.RawMessage(`{"value":1}`)},
+		{ID: "row-2", Payload: json.RawMessage(`{"value":2}`)},
+	}
+	if err := store.PutMany("source-import", batch); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.PutMany("source-import", append(batch, Document{ID: "bad\nid", Payload: json.RawMessage(`{}`)})); !errors.Is(err, ErrInvalidDocument) {
+		t.Fatalf("invalid batch error = %v", err)
+	}
+	documents, err := store.List("source-import")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(documents) != 2 || documents[0].ID != "row-1" || documents[1].ID != "row-2" {
+		t.Fatalf("documents = %#v", documents)
+	}
+}

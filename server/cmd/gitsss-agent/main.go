@@ -369,6 +369,28 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 			return nil, err
 		}
 		return json.Marshal(inventory)
+	case agentjob.KindMaterialize:
+		var input agentjob.MaterializeInput
+		if err := json.Unmarshal(job.Input, &input); err != nil {
+			return nil, err
+		}
+		if input.AgentID == "" {
+			input.AgentID = agentID
+		}
+		if input.AgentID != agentID {
+			return nil, errors.New("materialization Agent ID does not match the worker")
+		}
+		if strings.TrimSpace(input.TargetPath) == "" || strings.TrimSpace(input.OutputPath) == "" || strings.TrimSpace(input.ActivePath) == "" || !validAgentSHA256(input.ExpectedInventorySHA256) {
+			return nil, errors.New("materialization source, output, active path and inventory digest are required")
+		}
+		result, err := migration.Materialize(
+			filepath.Join(input.TargetPath, "content"), input.OutputPath, input.ActivePath,
+			input.ExpectedInventorySHA256, time.Now(),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(result)
 	case agentjob.KindCutover:
 		var input agentjob.CutoverInput
 		if err := json.Unmarshal(job.Input, &input); err != nil {
@@ -381,7 +403,7 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 		if input.AgentID != agentID {
 			return nil, errors.New("cutover Agent ID does not match the worker")
 		}
-		if strings.TrimSpace(input.ConfigPath) == "" || strings.TrimSpace(input.InputPath) == "" || strings.TrimSpace(input.TargetPath) == "" || strings.TrimSpace(input.ActivePath) == "" || strings.TrimSpace(input.ExpectedAssessmentID) == "" || !validAgentEnvironmentName(input.PassphraseEnv) || len(passphrase) < 12 || !validAgentSHA256(input.ExpectedContainerSHA256) || !validAgentSHA256(input.ExpectedInventorySHA256) {
+		if strings.TrimSpace(input.ConfigPath) == "" || strings.TrimSpace(input.InputPath) == "" || strings.TrimSpace(input.TargetPath) == "" || strings.TrimSpace(input.ActivePath) == "" || strings.TrimSpace(input.MaterializedPath) == "" || strings.TrimSpace(input.ExpectedAssessmentID) == "" || !validAgentEnvironmentName(input.PassphraseEnv) || len(passphrase) < 12 || !validAgentSHA256(input.ExpectedContainerSHA256) || !validAgentSHA256(input.ExpectedInventorySHA256) || !validAgentSHA256(input.ExpectedMaterializationSHA256) {
 			return nil, errors.New("cutover paths, confirmation, digest and a valid passphrase environment are required")
 		}
 		inventory, err := migration.Inspect(filepath.Join(input.TargetPath, "content"), time.Now())
@@ -405,9 +427,17 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 		if !audit.ReadyForShadowMode {
 			return nil, errors.New("cutover requires a current successful shadow audit")
 		}
+		materialized, err := migration.VerifyMaterialization(input.MaterializedPath, input.ExpectedInventorySHA256, input.ExpectedMaterializationSHA256)
+		if err != nil {
+			return nil, err
+		}
+		absoluteActive, err := filepath.Abs(input.ActivePath)
+		if err != nil || materialized.ActivePath != filepath.Clean(absoluteActive) {
+			return nil, errors.New("materialization was prepared for a different active path")
+		}
 		result, err := backup.CutoverVerified(backup.CutoverOptions{
 			AssessmentID: input.ExpectedAssessmentID, ContainerSHA256: input.ExpectedContainerSHA256,
-			RestoredTarget: input.TargetPath, ActivePath: input.ActivePath, Confirmation: input.Confirmation,
+			RestoredTarget: input.MaterializedPath, ActivePath: input.ActivePath, Confirmation: input.Confirmation,
 		})
 		if err != nil {
 			return nil, err

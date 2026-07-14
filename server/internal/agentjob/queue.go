@@ -42,6 +42,7 @@ const (
 	KindShadowAudit   Kind = "takeover.shadow-audit"
 	KindFreezeCheck   Kind = "takeover.freeze-check"
 	KindInventory     Kind = "takeover.inventory"
+	KindMaterialize   Kind = "takeover.materialize"
 	KindCutover       Kind = "takeover.cutover"
 	KindRollback      Kind = "takeover.rollback"
 
@@ -245,7 +246,7 @@ func (queue *Queue) record(actor, action, target, requestID, result string, now 
 }
 
 func validKind(kind Kind) bool {
-	return kind == KindAssessment || kind == KindBackupExport || kind == KindBackupAudit || kind == KindBackupRestore || kind == KindBackupVerify || kind == KindShadowAudit || kind == KindFreezeCheck || kind == KindInventory || kind == KindCutover || kind == KindRollback
+	return kind == KindAssessment || kind == KindBackupExport || kind == KindBackupAudit || kind == KindBackupRestore || kind == KindBackupVerify || kind == KindShadowAudit || kind == KindFreezeCheck || kind == KindInventory || kind == KindMaterialize || kind == KindCutover || kind == KindRollback
 }
 
 func validPersistedJob(job Job) bool {

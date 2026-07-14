@@ -43,13 +43,20 @@ func TestOpenAgentHTTPAuditPersistsAcrossRestart(t *testing.T) {
 	}
 }
 
-func TestExecuteInventoryCutoverAndRollbackBindAgentIdentity(t *testing.T) {
+func TestExecuteTakeoverMutationJobsBindAgentIdentity(t *testing.T) {
 	inventoryInput, err := json.Marshal(agentjob.InventoryInput{AgentID: "other"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := executeAgentJob(agentjob.Job{Kind: agentjob.KindInventory, Input: inventoryInput}, "old-server"); err == nil || !strings.Contains(err.Error(), "does not match") {
 		t.Fatalf("inventory identity error = %v", err)
+	}
+	materializeInput, err := json.Marshal(agentjob.MaterializeInput{AgentID: "other"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := executeAgentJob(agentjob.Job{Kind: agentjob.KindMaterialize, Input: materializeInput}, "old-server"); err == nil || !strings.Contains(err.Error(), "does not match") {
+		t.Fatalf("materialization identity error = %v", err)
 	}
 	cutoverInput, err := json.Marshal(agentjob.CutoverInput{
 		ShadowAuditInput: agentjob.ShadowAuditInput{AgentID: "other"},

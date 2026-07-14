@@ -98,6 +98,40 @@ func (store *Store) Put(namespace, id string, payload json.RawMessage) error {
 	return err
 }
 
+func (store *Store) PutMany(namespace string, documents []Document) error {
+	if !validKey(namespace, 64) {
+		return ErrInvalidDocument
+	}
+	for _, document := range documents {
+		if !validKey(document.ID, 256) || len(document.Payload) == 0 || len(document.Payload) > maxDocumentBytes || !json.Valid(document.Payload) {
+			return ErrInvalidDocument
+		}
+	}
+	if len(documents) == 0 {
+		return nil
+	}
+	transaction, err := store.database.Begin()
+	if err != nil {
+		return err
+	}
+	defer transaction.Rollback()
+	statement, err := transaction.Prepare(`
+		INSERT INTO state_documents (namespace, id, payload)
+		VALUES (?, ?, ?)
+		ON CONFLICT(namespace, id) DO UPDATE SET payload = excluded.payload
+	`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+	for _, document := range documents {
+		if _, err := statement.Exec(namespace, document.ID, []byte(document.Payload)); err != nil {
+			return err
+		}
+	}
+	return transaction.Commit()
+}
+
 func (store *Store) List(namespace string) ([]Document, error) {
 	if !validKey(namespace, 64) {
 		return nil, ErrInvalidDocument

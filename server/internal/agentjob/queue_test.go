@@ -143,7 +143,7 @@ func TestQueueAcceptsFreezeCheck(t *testing.T) {
 
 func TestQueueAcceptsInventoryCutoverAndRollback(t *testing.T) {
 	queue := NewQueue(nil)
-	for _, kind := range []Kind{KindInventory, KindCutover, KindRollback} {
+	for _, kind := range []Kind{KindInventory, KindMaterialize, KindCutover, KindRollback} {
 		job, err := queue.Create("admin", "request", kind, json.RawMessage(`{"agent_id":"old-server"}`), time.Now())
 		if err != nil || job.Kind != kind || job.Status != StatusQueued {
 			t.Fatalf("%s job = %#v, %v", kind, job, err)

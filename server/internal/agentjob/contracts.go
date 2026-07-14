@@ -71,13 +71,23 @@ type ShadowAuditInput struct {
 
 type CutoverInput struct {
 	ShadowAuditInput
-	ActivePath   string `json:"active_path"`
-	Confirmation string `json:"confirmation"`
+	ActivePath                    string `json:"active_path"`
+	MaterializedPath              string `json:"materialized_path"`
+	ExpectedMaterializationSHA256 string `json:"expected_materialization_sha256"`
+	Confirmation                  string `json:"confirmation"`
 }
 
 type InventoryInput struct {
 	AgentID    string `json:"agent_id"`
 	TargetPath string `json:"target_path"`
+}
+
+type MaterializeInput struct {
+	AgentID                 string `json:"agent_id"`
+	TargetPath              string `json:"target_path"`
+	OutputPath              string `json:"output_path"`
+	ActivePath              string `json:"active_path"`
+	ExpectedInventorySHA256 string `json:"expected_inventory_sha256"`
 }
 
 type RollbackInput struct {
