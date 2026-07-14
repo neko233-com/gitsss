@@ -14,6 +14,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/audit"
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/dashboard"
+	"github.com/neko233-com/gitsss/server/internal/lfs"
 	"github.com/neko233-com/gitsss/server/internal/notification"
 	"github.com/neko233-com/gitsss/server/internal/pipeline"
 	"github.com/neko233-com/gitsss/server/internal/repository"
@@ -80,11 +81,26 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	lfsRoot := os.Getenv("GITSSS_LFS_ROOT")
+	if lfsRoot == "" {
+		lfsRoot = filepath.Join(filepath.Dir(dataPath), "lfs")
+	}
+	if err := os.MkdirAll(lfsRoot, 0o700); err != nil {
+		log.Fatal(err)
+	}
+	if err := state.ProtectDirectory(lfsRoot); err != nil {
+		log.Fatal(err)
+	}
 	storageOptions, err := liveStorageOptions(dataPath, repositoryRoot, os.Getenv("GITSSS_REPOSITORY_PATH"))
 	if err != nil {
 		log.Fatal(err)
 	}
+	storageOptions.InventoryRoots = append(storageOptions.InventoryRoots, storage.InventoryRoot{Category: storage.CategoryLFSAssets, Path: lfsRoot})
 	storageService, err := storage.NewLiveService(storageOptions)
+	if err != nil {
+		log.Fatal(err)
+	}
+	lfsHandler, err := lfs.NewHandler(lfs.Options{Root: lfsRoot, PublicURL: os.Getenv("GITSSS_PUBLIC_URL")}, verifier, repositoryService, storageService, logStore)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -113,5 +129,5 @@ func main() {
 		address = "127.0.0.1:8787"
 	}
 	log.Printf("gitsss API listening on %s", address)
-	log.Fatal(http.ListenAndServe(address, api.NewServer(verifier, api.Dependencies{Dashboard: dashboardService, Notifications: notificationService, Pipelines: pipelineService, Repositories: repositoryService, Runners: runnerService, Storage: storageService, Takeovers: takeoverRegistry, Jobs: agentJobs, Audit: logStore}).Handler()))
+	log.Fatal(http.ListenAndServe(address, api.NewServer(verifier, api.Dependencies{Dashboard: dashboardService, Notifications: notificationService, Pipelines: pipelineService, Repositories: repositoryService, Runners: runnerService, Storage: storageService, Takeovers: takeoverRegistry, Jobs: agentJobs, Audit: logStore, LFS: lfsHandler}).Handler()))
 }

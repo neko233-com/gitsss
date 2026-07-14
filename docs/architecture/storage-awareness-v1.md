@@ -29,3 +29,5 @@ The scanner does not follow symbolic links, deduplicates overlapping roots, and 
 ## Game assets
 
 The inventory reports file counts and bytes for recognized game-asset extensions. PSD, PSB, FBX, Blender, WAV, and FLAC files are marked `chunked_lfs`; already compressed MP3, OGG, MP4, MOV, MKV, and WebM files are marked `lfs_no_recompress`. These are transport recommendations only: gitsss does not mutate Git objects, LFS OIDs, or source assets.
+
+The built-in content-addressed LFS root is always registered as `lfs_assets`; operators do not need to repeat it in `GITSSS_LFS_PATHS`. See [`lfs-game-assets-v1.md`](lfs-game-assets-v1.md).

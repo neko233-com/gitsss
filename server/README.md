@@ -8,6 +8,7 @@ This Go 1.26 module establishes the first server boundaries for gitsss:
 - a persistent bundled Runner lifecycle with install/update/pause/repair/verify decisions, health and disk protection;
 - embedded, lease-based Gitsss Pipelines with fixed local templates and a cross-platform Agent Runner mode;
 - persistent bare-repository creation, authenticated Smart HTTP clone/push, and allowlisted tree, text preview and search endpoints;
+- native Git LFS batch/upload/download with SHA-256 deduplication, disk admission, ranges and resumable chunks;
 - email, Feishu and WeCom notification configuration, test delivery and transactional outbox endpoints;
 - bounded, read-only Gitea `app.ini` assessment with redacted configuration fingerprints and audited Agent report ingestion;
 - encrypted, atomic takeover export with per-file SHA-256 manifests and read-only verification;
@@ -85,6 +86,8 @@ Release packages also include the stable `gitsss-launcher` entrypoint. It execut
 Set `GITSSS_REPOSITORY_PATH` to a working tree, subdirectory, or bare repository. The server resolves working-tree subdirectories to the repository root and exposes only configured repository IDs; API callers cannot supply arbitrary filesystem paths. Text previews are capped at 1 MiB, binary game assets return metadata only, and search results are bounded.
 
 New repositories are created under `GITSSS_REPOSITORY_ROOT` (default `<data-directory>/repositories`) through `POST /api/v1/repositories`. Clone/fetch and push use separate `repositories:clone` and `repositories:push` Token scopes at `/git/{repository}.git`; Git credential helpers can use the Token as the password. The catalog survives restart, creation is no-replace and audited, and filesystem paths never appear in API responses. See [`docs/architecture/git-smart-http-v1.md`](../docs/architecture/git-smart-http-v1.md).
+
+Git LFS uses `GITSSS_LFS_ROOT` (default `<data-directory>/lfs`) and the same repository scopes. Objects are content-addressed and streamed without recompression; batch upload checks the live storage reserve, and custom clients can resume sequential `Content-Range` chunks. New hosted repositories also advertise protocol v2 partial-clone filters and maintain commit-graph/bitmap settings. See [`docs/architecture/lfs-game-assets-v1.md`](../docs/architecture/lfs-game-assets-v1.md).
 
 Run a takeover assessment locally without uploading credentials:
 

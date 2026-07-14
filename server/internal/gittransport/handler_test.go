@@ -34,9 +34,12 @@ func TestHandlerClonesAndPushesSmartHTTP(t *testing.T) {
 	defer server.Close()
 
 	clone := filepath.Join(t.TempDir(), "clone")
-	runGitTest(t, "", "-c", "http.extraHeader=Authorization: Bearer clone-secret-token-2026", "clone", server.URL+"/git/game.git", clone)
+	runGitTest(t, "", "-c", "http.extraHeader=Authorization: Bearer clone-secret-token-2026", "clone", "--filter=blob:none", server.URL+"/git/game.git", clone)
 	if content, err := os.ReadFile(filepath.Join(clone, "README.md")); err != nil || strings.ReplaceAll(string(content), "\r\n", "\n") != "# Game\n" {
 		t.Fatalf("cloned README = %q, error = %v", content, err)
+	}
+	if value := strings.TrimSpace(runGitTest(t, clone, "config", "--bool", "remote.origin.promisor")); value != "true" {
+		t.Fatalf("partial clone promisor = %q", value)
 	}
 	if err := os.WriteFile(filepath.Join(clone, "README.md"), []byte("# Game\nship\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -102,6 +105,8 @@ func seedBareRepository(t *testing.T) string {
 	root := t.TempDir()
 	remote := filepath.Join(root, "remote.git")
 	runGitTest(t, "", "init", "--bare", "--initial-branch=main", remote)
+	runGitTest(t, remote, "config", "uploadpack.allowFilter", "true")
+	runGitTest(t, remote, "config", "uploadpack.allowAnySHA1InWant", "true")
 	source := filepath.Join(root, "source")
 	runGitTest(t, "", "init", "--initial-branch=main", source)
 	runGitTest(t, source, "config", "user.name", "gitsss Test")

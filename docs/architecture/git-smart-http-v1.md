@@ -33,4 +33,4 @@ Push and receive-pack advertisement require `repositories:push`. Git credential 
 - Smart HTTP command responses and diagnostics are bounded; upload pack data streams with request cancellation.
 - The service never invokes a shell and never accepts a filesystem path, executable, or Git service name from the request.
 
-This transport covers Git objects and refs. LFS transfer, branch policies, repository-scoped membership, partial-clone policy, and SSH transport remain separate services so they can enforce their own quotas and authorization rules.
+New hosted repositories enable protocol v2 partial-clone filters, reachable object wants, commit graphs and bitmap generation. LFS is a separate content-addressed service so binary transfer can enforce its own integrity, disk admission and resume rules; see [`lfs-game-assets-v1.md`](lfs-game-assets-v1.md). Branch policies, repository-scoped membership and SSH transport remain separate authorization boundaries.

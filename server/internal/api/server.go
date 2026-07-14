@@ -17,6 +17,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/dashboard"
 	"github.com/neko233-com/gitsss/server/internal/gittransport"
+	"github.com/neko233-com/gitsss/server/internal/lfs"
 	"github.com/neko233-com/gitsss/server/internal/notification"
 	"github.com/neko233-com/gitsss/server/internal/pipeline"
 	"github.com/neko233-com/gitsss/server/internal/repository"
@@ -37,6 +38,7 @@ type Server struct {
 	jobs          *agentjob.Queue
 	audit         *audit.Log
 	git           *gittransport.Handler
+	lfs           *lfs.Handler
 	now           func() time.Time
 }
 
@@ -50,6 +52,7 @@ type Dependencies struct {
 	Takeovers     *takeover.Registry
 	Jobs          *agentjob.Queue
 	Audit         *audit.Log
+	LFS           *lfs.Handler
 }
 
 func NewServer(verifier auth.Verifier, dependencies Dependencies) *Server {
@@ -64,6 +67,7 @@ func NewServer(verifier auth.Verifier, dependencies Dependencies) *Server {
 		takeovers:     dependencies.Takeovers,
 		jobs:          dependencies.Jobs,
 		audit:         dependencies.Audit,
+		lfs:           dependencies.LFS,
 		now:           time.Now,
 	}
 	if dependencies.Repositories != nil && dependencies.Audit != nil {
@@ -110,9 +114,17 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/repositories/{repository}/files", s.repositoryFile)
 	mux.HandleFunc("GET /api/v1/repositories/{repository}/search", s.repositorySearch)
 	if s.git != nil {
-		mux.Handle("/git/", s.git)
+		mux.Handle("/git/", http.HandlerFunc(s.gitProtocol))
 	}
 	return mux
+}
+
+func (s *Server) gitProtocol(w http.ResponseWriter, r *http.Request) {
+	if s.lfs != nil && strings.Contains(r.URL.Path, ".git/info/lfs/") {
+		s.lfs.ServeHTTP(w, r)
+		return
+	}
+	s.git.ServeHTTP(w, r)
 }
 
 func (s *Server) authTokens(w http.ResponseWriter, r *http.Request) {

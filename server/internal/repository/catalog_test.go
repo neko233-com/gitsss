@@ -37,6 +37,9 @@ func TestPersistentServiceCreatesAndReloadsHostedRepository(t *testing.T) {
 	if output, err := runGit(context.Background(), created.Path, 256, "symbolic-ref", "HEAD"); err != nil || string(output) != "refs/heads/main\n" {
 		t.Fatalf("bare HEAD = %q, error = %v", output, err)
 	}
+	if output, err := runGit(context.Background(), created.Path, 256, "config", "--bool", "uploadpack.allowFilter"); err != nil || string(output) != "true\n" {
+		t.Fatalf("partial clone config = %q, error = %v", output, err)
+	}
 	reopened, err := NewPersistentService(log, store, repositoryRoot, nil)
 	if err != nil {
 		t.Fatal(err)

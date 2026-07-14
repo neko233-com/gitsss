@@ -138,6 +138,9 @@ func (s *Service) Create(actor, requestID string, input CreateInput, at time.Tim
 	if err != nil {
 		return Repository{}, fmt.Errorf("initialize repository: %w: %s", err, strings.TrimSpace(string(output)))
 	}
+	if err := configureHostedRepository(context.Background(), target); err != nil {
+		return Repository{}, err
+	}
 	repository := Repository{
 		ID: input.ID, Name: input.Name, DefaultBranch: input.DefaultBranch, Path: target,
 		Hosted: true, CreatedAt: at.UTC(),
@@ -158,6 +161,27 @@ func (s *Service) Create(actor, requestID string, input CreateInput, at time.Tim
 	s.repositories[repository.ID] = repository
 	cleanup = false
 	return repository, nil
+}
+
+func configureHostedRepository(parent context.Context, target string) error {
+	settings := [][2]string{
+		{"uploadpack.allowFilter", "true"},
+		{"uploadpack.allowAnySHA1InWant", "true"},
+		{"uploadpack.allowReachableSHA1InWant", "true"},
+		{"repack.writeBitmaps", "true"},
+		{"pack.writeBitmapHashCache", "true"},
+		{"gc.writeCommitGraph", "true"},
+		{"fetch.writeCommitGraph", "true"},
+	}
+	for _, setting := range settings {
+		ctx, cancel := context.WithTimeout(parent, 5*time.Second)
+		output, err := exec.CommandContext(ctx, "git", "-C", target, "config", setting[0], setting[1]).CombinedOutput()
+		cancel()
+		if err != nil {
+			return fmt.Errorf("configure repository optimization %s: %w: %s", setting[0], err, strings.TrimSpace(string(output)))
+		}
+	}
+	return nil
 }
 
 func (s *Service) persist(repository Repository) error {
