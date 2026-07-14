@@ -11,6 +11,7 @@ This Go 1.26 module establishes the first server boundaries for gitsss:
 - bounded, read-only Gitea `app.ini` assessment with redacted configuration fingerprints and audited Agent report ingestion;
 - encrypted, atomic takeover export with per-file SHA-256 manifests and read-only verification;
 - loopback-only Agent HTTP with expiring scoped custom tokens, AI-tool-ready JSON contracts and retained audit records;
+- an outbound Agent job protocol with atomic claims, leases, idempotent completion and strict task allowlisting;
 - audited preview clearing with retention-based audit cleanup;
 - a native Agent CLI probe over authenticated HTTP.
 
@@ -33,6 +34,14 @@ go run ./cmd/gitsss-agent serve --listen 127.0.0.1:8790 --token-ttl 24h
 ```
 
 The listener rejects non-loopback addresses. Its default token scopes are `agent:read`, `takeover:assess`, `backup:verify` and `audit:read`; narrow them with `--scopes`. Tokens are accepted only as strict `Authorization: Bearer ...` headers and are never written to audit output. `/api/v1/capabilities`, `/api/v1/assessments`, `/api/v1/backups/verify` and `/api/v1/audit` provide the first stable JSON tools for a local AI Agent. Backup verification accepts an environment-variable name rather than a passphrase. See [`docs/architecture/agent-http-v1.md`](../docs/architecture/agent-http-v1.md).
+
+For centrally orchestrated takeover, create a typed job through `/api/v1/agent/jobs`, then let the old server initiate the connection:
+
+```powershell
+go run ./cmd/gitsss-agent work-once --server http://gitsss.internal:8787 --token $env:GITSSS_AGENT_WORK_TOKEN --id old-gitea
+```
+
+The queue currently accepts only `takeover.assess` and `backup.verify`; it cannot execute shell commands. A claim has a five-minute lease, is bound to one Agent ID, and terminal completion is idempotent. See [`docs/architecture/agent-jobs-v1.md`](../docs/architecture/agent-jobs-v1.md).
 
 Notification control-plane routes use the `notifications:read`, `notifications:write` and `notifications:dispatch` scopes. Configure a channel, send a test, and inspect the outbox through `/api/v1/notifications/channels`, `/api/v1/notifications/channels/{channel}/test` and `/api/v1/notifications/outbox`. Failed deliveries retry with exponential backoff and move to `dead` after four attempts.
 

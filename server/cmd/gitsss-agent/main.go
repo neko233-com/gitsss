@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/neko233-com/gitsss/server/internal/agenthttp"
+	"github.com/neko233-com/gitsss/server/internal/agentjob"
 	"github.com/neko233-com/gitsss/server/internal/audit"
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/backup"
@@ -46,6 +47,8 @@ func main() {
 		backupAuditRestore(os.Args[2:])
 	case "serve":
 		serve(os.Args[2:])
+	case "work-once":
+		workOnce(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -53,7 +56,141 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Fprintln(os.Stderr, "usage: gitsss-agent <serve|probe|runner-report|assess|backup-export|backup-verify|backup-import-plan|backup-restore-isolated|backup-audit-restore> [options]")
+	fmt.Fprintln(os.Stderr, "usage: gitsss-agent <serve|work-once|probe|runner-report|assess|backup-export|backup-verify|backup-import-plan|backup-restore-isolated|backup-audit-restore> [options]")
+}
+
+func workOnce(args []string) {
+	flags := flag.NewFlagSet("work-once", flag.ExitOnError)
+	serverURL := flags.String("server", "", "gitsss API base URL")
+	token := flags.String("token", "", "Agent work token")
+	agentID := flags.String("id", "", "stable Agent device ID")
+	flags.Parse(args)
+	if strings.TrimSpace(*serverURL) == "" || strings.TrimSpace(*token) == "" || strings.TrimSpace(*agentID) == "" {
+		fmt.Fprintln(os.Stderr, "--server, --token and --id are required")
+		os.Exit(2)
+	}
+	job, found, err := claimAgentJob(*serverURL, *token, *agentID)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if !found {
+		fmt.Println("no Agent job available")
+		return
+	}
+	result, executionErr := executeAgentJob(job, *agentID)
+	failure := ""
+	if executionErr != nil {
+		failure = executionErr.Error()
+	}
+	completed, err := completeAgentJob(*serverURL, *token, *agentID, job.ID, result, failure)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	fmt.Printf("Agent job %s: %s\n", completed.ID, completed.Status)
+	if executionErr != nil {
+		fmt.Fprintln(os.Stderr, executionErr)
+		os.Exit(1)
+	}
+}
+
+func claimAgentJob(serverURL, token, agentID string) (agentjob.Job, bool, error) {
+	payload, _ := json.Marshal(map[string]string{"agent_id": agentID})
+	request, err := http.NewRequest(http.MethodPost, strings.TrimRight(serverURL, "/")+"/api/v1/agent/jobs/claim", bytes.NewReader(payload))
+	if err != nil {
+		return agentjob.Job{}, false, err
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+	response, err := (&http.Client{Timeout: 30 * time.Second}).Do(request)
+	if err != nil {
+		return agentjob.Job{}, false, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode == http.StatusNoContent {
+		return agentjob.Job{}, false, nil
+	}
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(response.Body, 4<<10))
+		return agentjob.Job{}, false, fmt.Errorf("claim Agent job: %s: %s", response.Status, strings.TrimSpace(string(body)))
+	}
+	var job agentjob.Job
+	if err := json.NewDecoder(response.Body).Decode(&job); err != nil {
+		return agentjob.Job{}, false, err
+	}
+	return job, true, nil
+}
+
+func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) {
+	switch job.Kind {
+	case agentjob.KindAssessment:
+		var options takeover.Options
+		if err := json.Unmarshal(job.Input, &options); err != nil {
+			return nil, err
+		}
+		if options.AgentID == "" {
+			options.AgentID = agentID
+		}
+		if options.AgentID != agentID {
+			return nil, errors.New("assessment Agent ID does not match the worker")
+		}
+		report, err := takeover.Assess(options)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(report)
+	case agentjob.KindBackupVerify:
+		var input struct {
+			InputPath     string `json:"input_path"`
+			PassphraseEnv string `json:"passphrase_env"`
+		}
+		if err := json.Unmarshal(job.Input, &input); err != nil {
+			return nil, err
+		}
+		passphrase := os.Getenv(input.PassphraseEnv)
+		if strings.TrimSpace(input.InputPath) == "" || strings.TrimSpace(input.PassphraseEnv) == "" || passphrase == "" {
+			return nil, errors.New("backup input path and passphrase environment are required")
+		}
+		verification, err := backup.Verify(input.InputPath, passphrase)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(verification)
+	default:
+		return nil, errors.New("unsupported Agent job kind")
+	}
+}
+
+func completeAgentJob(serverURL, token, agentID, jobID string, result json.RawMessage, failure string) (agentjob.Job, error) {
+	payload, err := json.Marshal(struct {
+		AgentID string          `json:"agent_id"`
+		Result  json.RawMessage `json:"result,omitempty"`
+		Error   string          `json:"error,omitempty"`
+	}{AgentID: agentID, Result: result, Error: failure})
+	if err != nil {
+		return agentjob.Job{}, err
+	}
+	request, err := http.NewRequest(http.MethodPost, strings.TrimRight(serverURL, "/")+"/api/v1/agent/jobs/"+jobID+"/complete", bytes.NewReader(payload))
+	if err != nil {
+		return agentjob.Job{}, err
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+	response, err := (&http.Client{Timeout: 30 * time.Second}).Do(request)
+	if err != nil {
+		return agentjob.Job{}, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(response.Body, 4<<10))
+		return agentjob.Job{}, fmt.Errorf("complete Agent job: %s: %s", response.Status, strings.TrimSpace(string(body)))
+	}
+	var job agentjob.Job
+	if err := json.NewDecoder(response.Body).Decode(&job); err != nil {
+		return agentjob.Job{}, err
+	}
+	return job, nil
 }
 
 func serve(args []string) {

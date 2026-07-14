@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/neko233-com/gitsss/server/internal/agentjob"
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/dashboard"
 	"github.com/neko233-com/gitsss/server/internal/notification"
@@ -29,6 +30,7 @@ type Server struct {
 	runners       *runner.Service
 	storage       *storage.Service
 	takeovers     *takeover.Registry
+	jobs          *agentjob.Queue
 	now           func() time.Time
 }
 
@@ -39,6 +41,7 @@ type Dependencies struct {
 	Runners       *runner.Service
 	Storage       *storage.Service
 	Takeovers     *takeover.Registry
+	Jobs          *agentjob.Queue
 }
 
 func NewServer(verifier auth.Verifier, dependencies Dependencies) *Server {
@@ -50,6 +53,7 @@ func NewServer(verifier auth.Verifier, dependencies Dependencies) *Server {
 		runners:       dependencies.Runners,
 		storage:       dependencies.Storage,
 		takeovers:     dependencies.Takeovers,
+		jobs:          dependencies.Jobs,
 		now:           time.Now,
 	}
 }
@@ -65,6 +69,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/notifications/dispatch", s.notificationDispatch)
 	mux.HandleFunc("GET /api/v1/takeover/assessments", s.takeoverAssessments)
 	mux.HandleFunc("POST /api/v1/takeover/assessments", s.takeoverAssessmentSubmit)
+	mux.HandleFunc("GET /api/v1/agent/jobs", s.agentJobs)
+	mux.HandleFunc("POST /api/v1/agent/jobs", s.agentJobCreate)
+	mux.HandleFunc("POST /api/v1/agent/jobs/claim", s.agentJobClaim)
+	mux.HandleFunc("POST /api/v1/agent/jobs/{job}/complete", s.agentJobComplete)
 	mux.HandleFunc("DELETE /api/v1/events/preview", s.clearPreview)
 	mux.HandleFunc("GET /api/v1/storage", s.storageSnapshot)
 	mux.HandleFunc("POST /api/v1/storage/admission", s.storageAdmission)
@@ -75,6 +83,84 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/repositories/{repository}/files", s.repositoryFile)
 	mux.HandleFunc("GET /api/v1/repositories/{repository}/search", s.repositorySearch)
 	return mux
+}
+
+func (s *Server) agentJobs(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "agents:read"); !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, s.jobs.Jobs())
+}
+
+func (s *Server) agentJobCreate(w http.ResponseWriter, r *http.Request) {
+	principal, ok := s.authenticate(w, r, "agents:dispatch")
+	if !ok {
+		return
+	}
+	var request struct {
+		Kind  agentjob.Kind   `json:"kind"`
+		Input json.RawMessage `json:"input"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 40<<10)).Decode(&request); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid Agent job"})
+		return
+	}
+	job, err := s.jobs.Create(principal.TokenID, requestID(), request.Kind, request.Input, s.now().UTC())
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusCreated, job)
+}
+
+func (s *Server) agentJobClaim(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "agents:work"); !ok {
+		return
+	}
+	var request struct {
+		AgentID string `json:"agent_id"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&request); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid Agent identity"})
+		return
+	}
+	job, found, err := s.jobs.Claim(request.AgentID, requestID(), s.now().UTC())
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	if !found {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	writeJSON(w, http.StatusOK, job)
+}
+
+func (s *Server) agentJobComplete(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "agents:work"); !ok {
+		return
+	}
+	var request struct {
+		AgentID string          `json:"agent_id"`
+		Result  json.RawMessage `json:"result"`
+		Error   string          `json:"error"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 264<<10)).Decode(&request); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid Agent completion"})
+		return
+	}
+	job, err := s.jobs.Complete(request.AgentID, requestID(), r.PathValue("job"), request.Result, request.Error, s.now().UTC())
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, agentjob.ErrNotFound) {
+			status = http.StatusNotFound
+		} else if errors.Is(err, agentjob.ErrWrongAgent) {
+			status = http.StatusForbidden
+		}
+		writeJSON(w, status, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, job)
 }
 
 func (s *Server) takeoverAssessments(w http.ResponseWriter, r *http.Request) {

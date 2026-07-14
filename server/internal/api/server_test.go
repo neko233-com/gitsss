@@ -4,6 +4,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/neko233-com/gitsss/server/internal/agentjob"
 	"github.com/neko233-com/gitsss/server/internal/audit"
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/dashboard"
@@ -151,5 +153,51 @@ func TestServerAcceptsAuditedTakeoverAssessment(t *testing.T) {
 	server.Handler().ServeHTTP(listResponse, list)
 	if listResponse.Code != http.StatusOK || !strings.Contains(listResponse.Body.String(), "assessment-0011223344556677") {
 		t.Fatalf("list response = %d %s", listResponse.Code, listResponse.Body.String())
+	}
+}
+
+func TestServerDispatchesAgentJobWithScopedClaimAndCompletion(t *testing.T) {
+	log := &audit.Log{}
+	server := NewServer(
+		auth.NewVerifier(
+			auth.NewRecord("admin", "admin-token", time.Time{}, "agents:dispatch", "agents:read"),
+			auth.NewRecord("worker", "worker-token", time.Time{}, "agents:work"),
+		),
+		Dependencies{Jobs: agentjob.NewQueue(log)},
+	)
+	create := httptest.NewRequest(http.MethodPost, "/api/v1/agent/jobs", strings.NewReader(`{"kind":"takeover.assess","input":{"agent_id":"old-server","config_path":"/etc/gitea/app.ini"}}`))
+	create.Header.Set("Authorization", "Bearer admin-token")
+	createResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(createResponse, create)
+	if createResponse.Code != http.StatusCreated {
+		t.Fatalf("create = %d %s", createResponse.Code, createResponse.Body.String())
+	}
+	var created agentjob.Job
+	if err := json.NewDecoder(createResponse.Body).Decode(&created); err != nil {
+		t.Fatal(err)
+	}
+	claim := httptest.NewRequest(http.MethodPost, "/api/v1/agent/jobs/claim", strings.NewReader(`{"agent_id":"old-server"}`))
+	claim.Header.Set("Authorization", "Bearer worker-token")
+	claimResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(claimResponse, claim)
+	if claimResponse.Code != http.StatusOK || !strings.Contains(claimResponse.Body.String(), created.ID) {
+		t.Fatalf("claim = %d %s", claimResponse.Code, claimResponse.Body.String())
+	}
+	wrong := httptest.NewRequest(http.MethodPost, "/api/v1/agent/jobs/"+created.ID+"/complete", strings.NewReader(`{"agent_id":"other","result":{"id":"assessment-1"}}`))
+	wrong.Header.Set("Authorization", "Bearer worker-token")
+	wrongResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(wrongResponse, wrong)
+	if wrongResponse.Code != http.StatusForbidden {
+		t.Fatalf("wrong completion = %d %s", wrongResponse.Code, wrongResponse.Body.String())
+	}
+	complete := httptest.NewRequest(http.MethodPost, "/api/v1/agent/jobs/"+created.ID+"/complete", strings.NewReader(`{"agent_id":"old-server","result":{"id":"assessment-1"}}`))
+	complete.Header.Set("Authorization", "Bearer worker-token")
+	completeResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(completeResponse, complete)
+	if completeResponse.Code != http.StatusOK || !strings.Contains(completeResponse.Body.String(), `"status":"succeeded"`) {
+		t.Fatalf("complete = %d %s", completeResponse.Code, completeResponse.Body.String())
+	}
+	if len(log.Entries()) != 3 {
+		t.Fatalf("audit entries = %#v", log.Entries())
 	}
 }
