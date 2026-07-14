@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/neko233-com/gitsss/server/internal/agentjob"
@@ -18,7 +19,7 @@ import (
 func TestExecuteAgentJobExportsConfirmedEncryptedBackup(t *testing.T) {
 	directory := t.TempDir()
 	configPath := filepath.Join(directory, "app.ini")
-	if err := os.WriteFile(configPath, []byte("[database]\nDB_TYPE = mysql\n"), 0o600); err != nil {
+	if err := os.WriteFile(configPath, []byte("[database]\nDB_TYPE = mssql\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	report, err := takeover.Assess(takeover.Options{AgentID: "old-server", ConfigPath: configPath})
@@ -55,7 +56,7 @@ func TestExecuteAgentJobExportsConfirmedEncryptedBackup(t *testing.T) {
 func TestExecuteAgentJobRejectsStaleBackupConfirmation(t *testing.T) {
 	directory := t.TempDir()
 	configPath := filepath.Join(directory, "app.ini")
-	if err := os.WriteFile(configPath, []byte("[database]\nDB_TYPE = mysql\n"), 0o600); err != nil {
+	if err := os.WriteFile(configPath, []byte("[database]\nDB_TYPE = mssql\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	report, err := takeover.Assess(takeover.Options{AgentID: "old-server", ConfigPath: configPath})
@@ -82,10 +83,57 @@ func TestExecuteAgentJobRejectsStaleBackupConfirmation(t *testing.T) {
 	}
 }
 
+func TestExecuteAgentJobChecksFreezeState(t *testing.T) {
+	directory := t.TempDir()
+	configPath := filepath.Join(directory, "app.ini")
+	if err := os.WriteFile(configPath, []byte("[server]\nHTTP_ADDR = 127.0.0.1\nHTTP_PORT = 1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	input, err := json.Marshal(agentjob.FreezeCheckInput{AgentID: "old-server", ConfigPath: configPath})
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := executeAgentJob(agentjob.Job{Kind: agentjob.KindFreezeCheck, Input: input}, "old-server")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var evidence takeover.FreezeEvidence
+	if err := json.Unmarshal(encoded, &evidence); err != nil {
+		t.Fatal(err)
+	}
+	if !evidence.Offline || evidence.ID == "" || evidence.AgentID != "old-server" {
+		t.Fatalf("freeze evidence = %#v", evidence)
+	}
+}
+
+func TestExecuteAgentJobRejectsRemoteBackupWithoutFreeze(t *testing.T) {
+	directory := t.TempDir()
+	configPath := filepath.Join(directory, "app.ini")
+	configuration := "[server]\nHTTP_ADDR = 127.0.0.1\nHTTP_PORT = 1\n[database]\nDB_TYPE = postgres\nHOST = 127.0.0.1:5432\nNAME = gitea\nUSER = gitsss\nPASSWD = hidden\n"
+	if err := os.WriteFile(configPath, []byte(configuration), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	report, err := takeover.Assess(takeover.Options{AgentID: "old-server", ConfigPath: configPath})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GITSSS_AGENT_JOB_PASSPHRASE", "Agent job test passphrase")
+	input, err := json.Marshal(agentjob.BackupExportInput{
+		AgentID: "old-server", ConfigPath: configPath, OutputPath: filepath.Join(directory, "rejected.gitsss-backup"),
+		PassphraseEnv: "GITSSS_AGENT_JOB_PASSPHRASE", ExpectedAssessmentID: report.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := executeAgentJob(agentjob.Job{Kind: agentjob.KindBackupExport, Input: input}, "old-server"); err == nil || !strings.Contains(err.Error(), "freeze") {
+		t.Fatalf("remote backup without freeze evidence = %v", err)
+	}
+}
+
 func TestExecuteAgentJobRestoresConfirmedContainer(t *testing.T) {
 	directory := t.TempDir()
 	configPath := filepath.Join(directory, "app.ini")
-	if err := os.WriteFile(configPath, []byte("[database]\nDB_TYPE = mysql\n"), 0o600); err != nil {
+	if err := os.WriteFile(configPath, []byte("[database]\nDB_TYPE = mssql\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	report, err := takeover.Assess(takeover.Options{AgentID: "old-server", ConfigPath: configPath})
@@ -129,7 +177,7 @@ func TestExecuteAgentJobRestoresConfirmedContainer(t *testing.T) {
 		t.Fatalf("unexpected restore result: %#v", restoreResult)
 	}
 	content, err := os.ReadFile(filepath.Join(restoreResult.ContentPath, "config", "app.ini"))
-	if err != nil || string(content) != "[database]\nDB_TYPE = mysql\n" {
+	if err != nil || string(content) != "[database]\nDB_TYPE = mssql\n" {
 		t.Fatalf("restored configuration = %q, %v", content, err)
 	}
 	auditInput, err := json.Marshal(agentjob.BackupAuditInput{

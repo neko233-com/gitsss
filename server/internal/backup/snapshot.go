@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	sqliteSnapshotKind    = "database-snapshot"
+	databaseSnapshotKind  = "database-snapshot"
 	sqliteSnapshotTimeout = 10 * time.Minute
 )
 
@@ -28,6 +28,9 @@ type PreparedPlan struct {
 }
 
 func PreparePlan(report takeover.Report, now time.Time) (*PreparedPlan, error) {
+	if report.Database.Type == "postgres" || report.Database.Type == "mysql" {
+		return prepareNativeDatabasePlan(report, now)
+	}
 	if report.Database.Type != "sqlite3" {
 		plan, err := BuildPlan(report, now)
 		if err != nil {
@@ -64,7 +67,7 @@ func PreparePlan(report takeover.Report, now time.Time) (*PreparedPlan, error) {
 			continue
 		}
 		snapshotReport.Assets[index] = takeover.Asset{
-			Kind: sqliteSnapshotKind, Path: snapshotPath, Exists: true, Readable: true,
+			Kind: databaseSnapshotKind, Path: snapshotPath, Exists: true, Readable: true,
 			Files: 1, Bytes: info.Size(),
 		}
 	}

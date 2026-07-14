@@ -38,6 +38,8 @@ func main() {
 		runnerReport(os.Args[2:])
 	case "assess":
 		assess(os.Args[2:])
+	case "freeze-check":
+		freezeCheck(os.Args[2:])
 	case "backup-export":
 		backupExport(os.Args[2:])
 	case "backup-verify":
@@ -75,7 +77,7 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Fprintln(os.Stderr, "usage: gitsss-agent <serve|service-plan|service-install|service-uninstall|update-verify|update-stage|update-activate|health|work|work-once|probe|runner-report|assess|backup-export|backup-verify|backup-import-plan|backup-restore-isolated|backup-audit-restore> [options]")
+	fmt.Fprintln(os.Stderr, "usage: gitsss-agent <serve|service-plan|service-install|service-uninstall|update-verify|update-stage|update-activate|health|work|work-once|probe|runner-report|assess|freeze-check|backup-export|backup-verify|backup-import-plan|backup-restore-isolated|backup-audit-restore> [options]")
 }
 
 func workOnce(args []string) {
@@ -131,6 +133,25 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 			return nil, err
 		}
 		return json.Marshal(report)
+	case agentjob.KindFreezeCheck:
+		var input agentjob.FreezeCheckInput
+		if err := json.Unmarshal(job.Input, &input); err != nil {
+			return nil, err
+		}
+		if input.AgentID == "" {
+			input.AgentID = agentID
+		}
+		if input.AgentID != agentID || strings.TrimSpace(input.ConfigPath) == "" {
+			return nil, errors.New("freeze check Agent ID and config path are required")
+		}
+		evidence, err := takeover.CheckFreeze(takeover.Options{
+			AgentID: input.AgentID, ConfigPath: input.ConfigPath, WorkPath: input.WorkPath,
+			GiteaVersion: input.GiteaVersion, MaxEntries: input.MaxEntries,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(evidence)
 	case agentjob.KindBackupVerify:
 		var input struct {
 			InputPath     string `json:"input_path"`
@@ -162,15 +183,26 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 		if strings.TrimSpace(input.OutputPath) == "" || !validAgentEnvironmentName(input.PassphraseEnv) || len(os.Getenv(input.PassphraseEnv)) < 12 {
 			return nil, errors.New("backup output path and a valid passphrase environment are required")
 		}
-		report, err := takeover.Assess(takeover.Options{
+		options := takeover.Options{
 			AgentID: input.AgentID, ConfigPath: input.ConfigPath, WorkPath: input.WorkPath,
 			GiteaVersion: input.GiteaVersion, MaxEntries: input.MaxEntries,
-		})
+		}
+		report, err := takeover.Assess(options)
 		if err != nil {
 			return nil, err
 		}
 		if input.ExpectedAssessmentID == "" || report.ID != input.ExpectedAssessmentID {
 			return nil, errors.New("backup confirmation does not match the current assessment")
+		}
+		if report.Database.Type == "postgres" || report.Database.Type == "mysql" {
+			evidence, err := takeover.CheckFreeze(options)
+			if err != nil {
+				return nil, err
+			}
+			if input.ExpectedFreezeID == "" || !evidence.Offline || evidence.ID != input.ExpectedFreezeID {
+				return nil, errors.New("native database backup requires current offline freeze evidence")
+			}
+			report.FreezeID = evidence.ID
 		}
 		prepared, err := backup.PreparePlan(report, time.Now())
 		if err != nil {
@@ -185,7 +217,7 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 		}
 		result := agentjob.BackupExportResult{
 			AssessmentID: report.ID, OutputPath: input.OutputPath, Files: len(prepared.Manifest.Entries),
-			ContainerBytes: containerBytes, ContainerSHA256: containerDigest,
+			ContainerBytes: containerBytes, ContainerSHA256: containerDigest, FreezeID: report.FreezeID,
 		}
 		for _, entry := range prepared.Manifest.Entries {
 			result.SourceBytes += entry.Size
@@ -273,7 +305,7 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 			input.InputPath, passphrase, input.TargetPath,
 			takeover.Options{
 				AgentID: input.AgentID, ConfigPath: input.ConfigPath, WorkPath: input.WorkPath,
-				GiteaVersion: input.GiteaVersion, MaxEntries: input.MaxEntries,
+				GiteaVersion: input.GiteaVersion, MaxEntries: input.MaxEntries, FreezeID: input.ExpectedFreezeID,
 			},
 			input.ExpectedAssessmentID, input.ExpectedContainerSHA256,
 		)
@@ -494,6 +526,41 @@ func uploadAssessment(serverURL, token string, report takeover.Report) error {
 	return nil
 }
 
+func freezeCheck(args []string) {
+	flags := flag.NewFlagSet("freeze-check", flag.ExitOnError)
+	configPath := flags.String("config", "", "Gitea app.ini path; auto-discovered when exactly one exists")
+	workPath := flags.String("work-path", "", "Gitea application work path for relative settings")
+	agentID := flags.String("agent-id", "", "stable agent device ID")
+	flags.Parse(args)
+	if strings.TrimSpace(*agentID) == "" {
+		fmt.Fprintln(os.Stderr, "--agent-id is required")
+		os.Exit(2)
+	}
+	resolvedConfig := strings.TrimSpace(*configPath)
+	if resolvedConfig == "" {
+		paths := takeover.DiscoverConfigPaths()
+		if len(paths) != 1 {
+			fmt.Fprintln(os.Stderr, "auto-discovery requires exactly one Gitea app.ini; pass --config explicitly")
+			os.Exit(1)
+		}
+		resolvedConfig = paths[0]
+	}
+	evidence, err := takeover.CheckFreeze(takeover.Options{AgentID: *agentID, ConfigPath: resolvedConfig, WorkPath: *workPath})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(evidence); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if !evidence.Offline {
+		os.Exit(1)
+	}
+}
+
 func backupExport(args []string) {
 	flags := flag.NewFlagSet("backup-export", flag.ExitOnError)
 	configPath := flags.String("config", "", "Gitea app.ini path; auto-discovered when exactly one exists")
@@ -503,6 +570,7 @@ func backupExport(args []string) {
 	agentID := flags.String("agent-id", "", "stable agent device ID")
 	version := flags.String("gitea-version", "", "detected Gitea version when known")
 	maxEntries := flags.Int("max-entries", 10_000, "maximum files scanned per asset category")
+	freezeID := flags.String("freeze-id", "", "current freeze evidence ID; required for PostgreSQL/MySQL")
 	flags.Parse(args)
 	if strings.TrimSpace(*agentID) == "" || strings.TrimSpace(*outputPath) == "" || strings.TrimSpace(*passphraseEnv) == "" {
 		fmt.Fprintln(os.Stderr, "--agent-id, --output and --passphrase-env are required")
@@ -522,13 +590,26 @@ func backupExport(args []string) {
 		fmt.Fprintf(os.Stderr, "%s must contain a passphrase of at least 12 characters\n", *passphraseEnv)
 		os.Exit(1)
 	}
-	report, err := takeover.Assess(takeover.Options{
+	options := takeover.Options{
 		AgentID: *agentID, ConfigPath: resolvedConfig, WorkPath: *workPath,
 		GiteaVersion: *version, MaxEntries: *maxEntries,
-	})
+	}
+	report, err := takeover.Assess(options)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
+	}
+	if report.Database.Type == "postgres" || report.Database.Type == "mysql" {
+		evidence, err := takeover.CheckFreeze(options)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if strings.TrimSpace(*freezeID) == "" || !evidence.Offline || evidence.ID != strings.TrimSpace(*freezeID) {
+			fmt.Fprintln(os.Stderr, "PostgreSQL/MySQL export requires a current --freeze-id from freeze-check")
+			os.Exit(1)
+		}
+		report.FreezeID = evidence.ID
 	}
 	prepared, err := backup.PreparePlan(report, time.Now())
 	if err != nil {

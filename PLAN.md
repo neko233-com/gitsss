@@ -8,6 +8,7 @@ gitsss 是面向团队所有成员（不仅是开发者）的自托管代码协�
 
 - 以 **gitsss** 作为唯一产品、CLI、页面、文档与交付品牌；不保留面向用户的 Gitea 名称、Logo、图标、链接或文案。
 - 运行于 Go 1.26.x，采用 React 19、Vite 8、TypeScript 7 与 shadcn/ui 构建新的前端应用。
+- 服务端只使用随二进制内置的 SQLite 数据库，不要求用户部署 PostgreSQL、MySQL、Redis、Elasticsearch 或外部任务队列；接管旧实例所需的 PostgreSQL/MySQL 读取驱动也编译进 Agent。
 - 首页为精简的可操作工作台，而不是传统仓库列表：数据大盘、近期事件流、存储感知和 Git 客户端下载为四个顶层 Tab。
 - 近期事件流以有界的 LRU 策略维护每位用户的短期预览数据，避免无限增长。
 - 可安全接管既有内网 Gitea 实例：先评估、备份、验证，再切换；不以直接覆盖生产数据库为迁移方式。
@@ -22,7 +23,7 @@ gitsss 是面向团队所有成员（不仅是开发者）的自托管代码协�
 ## 当前基线（2026-07-14）
 
 - 已建立 `neko233-com/gitsss` 私有仓库与 `main` 分支；新的 `PLAN.md`、Go 服务和 React 客户端已提交，原 Gitea 源码快照仍作为未跟踪的兼容输入保留在工作区。
-- `server/` 已提供自定义 Token、审计、事件预览、存储保护、Runner 调和、白名单仓库树/文件/搜索 API、通知 Outbox、Gitea `app.ini` 只读接管评估与审计上报、loopback 限定的本地 Agent HTTP、由 Agent 主动领取的类型化 AI 作业协议，以及带逐文件 SHA-256 清单、分块 AES-GCM、原子提交、只读完整性验证、导入冲突预览、显式确认隔离恢复和 Git/LFS 恢复审计的加密备份 v1；AI 作业已真实贯通只读评估、经评估 ID 确认的加密导出、绑定容器 SHA-256 的隔离恢复、恢复内容审计，以及比较 live 配置/资产清单/裸仓库 refs 与隔离副本的影子模式预检；SQLite 已改为内嵌 online-backup API 生成包含 WAL 的临时一致性快照，影子预检会再次快照并比较 SHA-256；没有一致性 dump 的远程数据库仍会明确阻断；常驻 Agent Worker 已支持环境/受保护文件 Token、可取消请求、空闲/故障退避和完成回传重试去重，并提供不含密钥的 Windows Task Scheduler、macOS launchd、Linux systemd 计划、无覆盖失败回滚的本机安装/卸载事务，以及绑定版本/commit/平台/大小/SHA-256 的 canonical Ed25519 更新验证和有界、无链接、失败清理的隔离 staging；稳定 `gitsss-launcher`、不可变 generation active-state、独占激活锁、启动回执、认证健康探测和失败时更高 generation 回滚已接入 autostart 更新事务；`web/` 已提供首页四 Tab、命令面板、仓库浏览、通知连接和六个阶段均由真实作业驱动的线性 AI 接管向导；快速自动化测试会逐字节验证 PSD、FBX、MP3、MP4 的加密备份与恢复，并验证 SQLite WAL、数据库漂移、有提交/空 bare Git、LFS、篡改阻断和 live refs 漂移；鉴于 GitHub Actions 额度不可用，交付改为本机完整验证、六种 Linux/macOS/Windows 架构打包、远端 digest 复核后上传 GitHub Release；`v0.1.0-alpha.1` 建立无签名 SHA-256 基线，`v0.1.0-alpha.2` 预置 Key ID `11d4f94bdcb5c016` 的信任根，`v0.1.0-alpha.3` 已发布完整激活/回滚事务的六平台签名包，并由包内 Agent 独立完成签名验证和真实 staging。
+- `server/` 已提供自定义 Token、审计、事件预览、存储保护、Runner 调和、白名单仓库树/文件/搜索 API、通知 Outbox、Gitea `app.ini` 只读接管评估与审计上报、loopback 限定的本地 Agent HTTP、由 Agent 主动领取的类型化 AI 作业协议，以及带逐文件 SHA-256 清单、分块 AES-GCM、原子提交、只读完整性验证、导入冲突预览、显式确认隔离恢复和 Git/LFS 恢复审计的加密备份 v1；AI 作业已真实贯通只读评估、冻结证据、加密导出、隔离恢复、恢复审计和影子差异预检；SQLite 使用内嵌 online-backup API 吸收 WAL，PostgreSQL/MySQL 使用编译进 Agent 的纯 Go 驱动导出确定性 JSONL 快照，不依赖 `pg_dump`、`mysqldump` 或目标侧数据库服务；远程源库备份必须绑定明确的旧 Gitea 停服证据，影子预检会再次生成快照并比较 SHA-256；常驻 Agent Worker 已支持环境/受保护文件 Token、可取消请求、空闲/故障退避和完成回传重试去重，并提供不含密钥的 Windows Task Scheduler、macOS launchd、Linux systemd 计划、无覆盖失败回滚的本机安装/卸载事务，以及绑定版本/commit/平台/大小/SHA-256 的 canonical Ed25519 更新验证和有界、无链接、失败清理的隔离 staging；稳定 `gitsss-launcher`、不可变 generation active-state、独占激活锁、启动回执、认证健康探测和失败时更高 generation 回滚已接入 autostart 更新事务；`web/` 已提供首页四 Tab、命令面板、仓库浏览、通知连接和七阶段线性 AI 接管向导；快速自动化测试会逐字节验证 PSD、FBX、MP3、MP4 的加密备份与恢复，并验证 SQLite WAL、数据库漂移、有提交/空 bare Git、LFS、篡改阻断和 live refs 漂移；鉴于 GitHub Actions 额度不可用，交付改为本机完整验证、六种 Linux/macOS/Windows 架构打包、远端 digest 复核后上传 GitHub Release；`v0.1.0-alpha.1` 建立无签名 SHA-256 基线，`v0.1.0-alpha.2` 预置 Key ID `11d4f94bdcb5c016` 的信任根，`v0.1.0-alpha.3` 已发布完整激活/回滚事务的六平台签名包，并由包内 Agent 独立完成签名验证和真实 staging。
 - 原 Gitea 模块名仍为 `gitea.dev`，并含 Vue 3 前端与大量 Gitea 品牌资产、文档和工作流；这些内容尚未接入新远端，也尚未达到可安全删除的替代覆盖率。
 - 本机可用 Go 1.26.4、Node 24.14.0、pnpm 11.7.0；新 `web/` 已固定 Vite 8.1.4、TypeScript 7.0.2、React 19.2.7，未跟踪的上游兼容快照仍包含 Vue 3 与旧 TypeScript 依赖。
 - Windows 环境没有 `make` 别名，但可使用 `mingw32-make`；后续应补一个兼容入口或在开发文档中明确该映射。
@@ -40,7 +41,7 @@ gitsss 是面向团队所有成员（不仅是开发者）的自托管代码协�
 ```text
 React 19 + Vite 8 + TypeScript 7 + shadcn/ui
               │ HTTPS / SSE
-Go 1.26 gitsss API ── command/search/notification services
+Go 1.26 gitsss API ── command/search/notification services ── embedded SQLite
               │
 Compatibility gateway ── Gitea config + DB + Git repos + object storage
               │
@@ -78,7 +79,7 @@ gitsss Agent (CLI + authenticated local HTTP) ── existing Gitea intranet ser
 - **通知**：事务 outbox、模板、规则、偏好、抑制、重试/死信和投递审计；首批适配器为邮件、飞书和企业微信，预留 Slack、Webhook 与自定义渠道。
 - **CI 与发布**：将现有 Actions 能力包装为 Gitsss Pipelines，提供模板化流水线、运行日志、制品、环境审批、发布记录、回滚入口和 GitHub Actions 发布工作流。
 - **开箱即用 Runner**：安装器和 Agent 根据平台自动拉起、注册和升级受控 Runner；Runner 状态、工作目录、磁盘预留、失败自愈和离线告警在产品内可见，且支持离线内网软件包源。
-- **备份与导入**：提供带版本清单、校验和、加密元数据与演练恢复的批量导出/导入；数据包涵盖数据库、Git 仓库、LFS、附件、配置映射和扩展数据，并支持断点续传与差异报告。
+- **备份与导入**：提供带版本清单、校验和、加密元数据与演练恢复的批量导出/导入；数据包涵盖内置数据库、Git 仓库、LFS、附件、配置映射和扩展数据，并支持断点续传与差异报告。旧 PostgreSQL/MySQL 仅作为接管数据源，由 Agent 内嵌驱动读取后迁入 gitsss 内置库。
 - **Agent、CLI 与 HTTP**：提供原生 `gitsss-agent` 与 `gitsss` CLI；Agent 本地 HTTP API 以签发/轮换/撤销的自定义 Token、作用域、过期时间、设备身份和重放防护保护，默认仅监听 loopback 或受控私网地址。
 - **安全与运维**：敏感动作写入追加式审计日志，记录发起人、Agent/设备、目标、授权、请求摘要、结果与关联 ID；事件预览可 LRU 清理，审计日志则按审批的保留策略分层归档和删除，不能被 LRU 清除。密钥加密、最小化服务账户、健康检查、指标、备份验证、结构化日志和升级前检查为必备能力。
 - **跨平台交付**：macOS 采用 `launchd`，Windows 采用 Windows Service 或 Task Scheduler（由安装向导选择），服务器采用 systemd/容器；所有更新包、Agent 和服务端二进制必须签名、可分批发布、可健康检查并可回滚。
@@ -86,11 +87,12 @@ gitsss Agent (CLI + authenticated local HTTP) ── existing Gitea intranet ser
 ### Gitea 内网接管策略
 
 1. Agent 注册与只读发现：管理员在内网主机安装 Agent，通过一次性注册令牌建立设备身份；Agent 在本地读取指定 `app.ini` 和环境覆盖，识别 Gitea 版本、数据库、仓库根目录、LFS、对象存储、OAuth、SMTP、Actions、LDAP 与外部 URL。
-2. 预检与备份：验证连接、权限、容量、版本兼容性，生成配置映射和数据库/Git/LFS/附件备份清单；所有敏感字段只显示掩码。
-3. 影子模式：gitsss 以只读方式连接生产副本，比较用户、组织、仓库、权限、Issue/PR、Actions 和附件计数，输出差异报告。
-4. 试运行迁移：对克隆实例执行可重复导入，验证 Git SHA、LFS OID、权限、链接和通知；通过后才允许产生切换计划。
-5. 受控切换：由 Agent 在维护窗口内执行已签名的计划，冻结写入、最终增量同步、健康检查、DNS/反向代理切换，并保留原实例与明确的回退步骤。
-6. 兼容期：保留 Gitea 配置映射、旧 URL 重定向与管理命令别名，直到每个实例完成验收后再删除。
+2. 预检与冻结：验证连接、权限、容量和版本兼容性；远程源库要求旧 Gitea 本地监听明确停止，超时或网络不可达不能冒充停服证据。
+3. 备份与验证：内嵌驱动生成数据库/Git/LFS/附件备份清单；所有敏感字段只显示掩码，冻结 ID、评估 ID 和容器摘要贯穿后续步骤。
+4. 影子模式：gitsss 以只读方式连接生产副本，比较用户、组织、仓库、权限、Issue/PR、Actions 和附件计数，输出差异报告。
+5. 试运行迁移：对克隆实例执行可重复导入，验证 Git SHA、LFS OID、权限、链接和通知；通过后才允许产生切换计划。
+6. 受控切换：由 Agent 在维护窗口内执行已签名的计划，最终复核、健康检查、DNS/反向代理切换，并保留原实例与明确的回退步骤。
+7. 兼容期：保留 Gitea 配置映射、旧 URL 重定向与管理命令别名，直到每个实例完成验收后再删除。
 
 ## 交付阶段
 
@@ -136,7 +138,7 @@ gitsss Agent (CLI + authenticated local HTTP) ── existing Gitea intranet ser
 
 - 提供 Gitsss Pipelines 概览、模板、环境、审批、制品、发布及回滚页，并兼容现有 Actions 工作流的运行与日志。
 - 内置 Runner 生命周期管理：在一键安装、Agent 接管和服务器更新中自动部署/注册 Runner，验证容器/本地执行器能力，并在磁盘压力和失败时做可审计的暂停或恢复。
-- 新建 GitHub Actions：格式化/静态检查、单元测试、构建、容器镜像、SBOM、跨平台签名包、更新清单与版本发布；不继承上游专用 runner、S3、机器人或镜像命名。
+- GitHub Actions 保持关闭；本机可信发布脚本执行格式化/静态检查、单元测试、构建、SBOM、跨平台签名包、更新清单、远端摘要复核与 GitHub Release 上传，不继承上游专用 runner、S3、机器人或镜像命名。
 - 退出标准：从提交到可审计发布具备可复现流水线、制品来源和回滚记录。
 
 ### 5. 内网接管、性能与正式发布
@@ -160,6 +162,6 @@ gitsss Agent (CLI + authenticated local HTTP) ── existing Gitea intranet ser
 ## 决策记录与待确认输入
 
 - 默认远程仓库设为私有，避免在重构前公开包含上游源码快照的内容；需要公开时再显式调整可见性。
-- 首版优先“兼容接管”而非数据库全量重写，以减小现网中断风险；新能力只写入 gitsss 自己的扩展表/命名空间，并保持可导出。
+- gitsss 运行时数据库固定为内置 SQLite；不提供外接数据库部署模式。旧 SQLite/MySQL/PostgreSQL 只存在于接管读取边界，数据转换完成后不成为 gitsss 运行依赖。
 - 接管实施前需要目标实例的版本、数据库类型与备份方式、`app.ini`（脱敏）、Git/LFS/对象存储路径、身份源、反向代理和允许的维护窗口。
 - Agent 实施前需要目标主机的操作系统、CPU 架构、网络边界、代理/证书策略、可用服务账户、允许的监听地址与更新策略。

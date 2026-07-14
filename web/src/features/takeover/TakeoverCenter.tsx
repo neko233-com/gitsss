@@ -45,6 +45,7 @@ interface AgentJob {
     | "backup.restore-isolated"
     | "backup.verify"
     | "takeover.shadow-audit"
+    | "takeover.freeze-check"
   status: "queued" | "running" | "succeeded" | "failed"
   input: Record<string, unknown>
   result?:
@@ -53,6 +54,7 @@ interface AgentJob {
     | BackupExportResult
     | BackupRestoreResult
     | ShadowAuditResult
+    | FreezeEvidence
   error?: string
   claimed_by?: string
 }
@@ -64,6 +66,17 @@ interface BackupExportResult {
   source_bytes: number
   container_bytes: number
   container_sha256: string
+  freeze_id?: string
+}
+
+interface FreezeEvidence {
+  id: string
+  agent_id: string
+  network: string
+  address: string
+  offline: boolean
+  finding?: string
+  checked_at: string
 }
 
 interface BackupRestoreResult {
@@ -143,11 +156,13 @@ const assetNames: Record<string, string> = {
   "actions-log": "流水线日志",
   "actions-artifacts": "流水线制品",
   database: "数据库文件",
+  "database-snapshot": "内置数据库快照",
 }
 
 const takeoverSteps = [
   "连接 AI Agent",
   "只读评估",
+  "冻结/快照",
   "加密备份",
   "隔离恢复",
   "数据审计",
@@ -171,6 +186,7 @@ function jobStatus(job?: AgentJob) {
   if (job.kind === "backup.restore-isolated") return "隔离恢复已回传"
   if (job.kind === "backup.verify") return "备份验证已回传"
   if (job.kind === "takeover.shadow-audit") return "影子差异已回传"
+  if (job.kind === "takeover.freeze-check") return "停服状态已回传"
   return "评估已回传"
 }
 
@@ -181,6 +197,7 @@ function isAssessment(
     | BackupExportResult
     | BackupRestoreResult
     | ShadowAuditResult
+    | FreezeEvidence
     | undefined
 ): result is Assessment {
   return Boolean(result && "assets" in result)
@@ -193,6 +210,7 @@ function isBackupExport(
     | BackupExportResult
     | BackupRestoreResult
     | ShadowAuditResult
+    | FreezeEvidence
     | undefined
 ): result is BackupExportResult {
   return Boolean(result && "output_path" in result)
@@ -205,6 +223,7 @@ function isBackupRestore(
     | BackupExportResult
     | BackupRestoreResult
     | ShadowAuditResult
+    | FreezeEvidence
     | undefined
 ): result is BackupRestoreResult {
   return Boolean(result && "content_path" in result)
@@ -217,6 +236,7 @@ function isBackupAudit(
     | BackupExportResult
     | BackupRestoreResult
     | ShadowAuditResult
+    | FreezeEvidence
     | undefined
 ): result is BackupAuditResult {
   return Boolean(result && "files" in result && "lfs_objects" in result)
@@ -229,9 +249,23 @@ function isShadowAudit(
     | BackupExportResult
     | BackupRestoreResult
     | ShadowAuditResult
+    | FreezeEvidence
     | undefined
 ): result is ShadowAuditResult {
   return Boolean(result && "repository_summary" in result)
+}
+
+function isFreezeEvidence(
+  result:
+    | Assessment
+    | BackupAuditResult
+    | BackupExportResult
+    | BackupRestoreResult
+    | ShadowAuditResult
+    | FreezeEvidence
+    | undefined
+): result is FreezeEvidence {
+  return Boolean(result && "offline" in result && "network" in result)
 }
 
 export function TakeoverCenter() {
@@ -283,6 +317,19 @@ export function TakeoverCenter() {
     typeof selectedAssessmentJob?.input.work_path === "string"
       ? selectedAssessmentJob.input.work_path
       : workPath
+  const requiresFreeze =
+    selected?.database.type === "postgres" || selected?.database.type === "mysql"
+  const freezeJob = jobs.find(
+    (job) =>
+      job.kind === "takeover.freeze-check" &&
+      job.input.agent_id === selected?.agent_id &&
+      job.input.config_path === selected?.config_path
+  )
+  const freezeResult =
+    freezeJob?.status === "succeeded" && isFreezeEvidence(freezeJob.result)
+      ? freezeJob.result
+      : undefined
+  const freezeSatisfied = !requiresFreeze || freezeResult?.offline === true
   const backupJob = jobs.find(
     (job) =>
       job.kind === "backup.export" &&
@@ -389,11 +436,37 @@ export function TakeoverCenter() {
           output_path: backupOutputPath,
           passphrase_env: passphraseEnv,
           expected_assessment_id: backupConfirmation,
+          expected_freeze_id: freezeResult?.offline
+            ? freezeResult.id
+            : undefined,
         },
       })
       setJobs((current) => [job, ...current])
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "无法下发加密备份")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const dispatchFreezeCheck = async () => {
+    if (!selected) return
+    setLoading(true)
+    setError("")
+    try {
+      const job = await apiMutation<AgentJob>("/api/v1/agent/jobs", token, {
+        kind: "takeover.freeze-check",
+        input: {
+          agent_id: selected.agent_id,
+          config_path: selected.config_path,
+          work_path: assessedWorkPath || undefined,
+          gitea_version: selected.gitea_version,
+          max_entries: 1_000_000,
+        },
+      })
+      setJobs((current) => [job, ...current])
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "无法验证停服状态")
     } finally {
       setLoading(false)
     }
@@ -437,6 +510,7 @@ export function TakeoverCenter() {
           target_path: restoreResult.target,
           expected_assessment_id: backupResult.assessment_id,
           expected_container_sha256: backupResult.container_sha256,
+          expected_freeze_id: backupResult.freeze_id,
         },
       })
       setJobs((current) => [job, ...current])
@@ -483,13 +557,15 @@ export function TakeoverCenter() {
     0
   )
   const completedSteps = shadowResult?.ready_for_shadow_mode
-    ? 6
+    ? 7
     : auditResult?.ready_for_shadow_mode
-      ? 5
+      ? 6
     : restoreResult
-      ? 4
+      ? 5
       : backupResult
-        ? 3
+        ? 4
+        : selected && freezeSatisfied
+          ? 3
         : selected
           ? 2
           : assessmentJob?.status === "running"
@@ -508,7 +584,7 @@ export function TakeoverCenter() {
         </p>
       </div>
 
-      <ol className="mt-8 grid grid-cols-2 border-y border-zinc-200 py-4 text-xs text-zinc-500 sm:grid-cols-3 lg:grid-cols-6">
+      <ol className="mt-8 grid grid-cols-2 border-y border-zinc-200 py-4 text-xs text-zinc-500 sm:grid-cols-3 lg:grid-cols-7">
         {takeoverSteps.map((step, index) => {
           const complete = index < completedSteps
           const active = index === completedSteps
@@ -705,6 +781,48 @@ export function TakeoverCenter() {
                   • {finding.message}
                 </p>
               ))}
+              {requiresFreeze ? (
+                <div className="mt-5 border-l-2 border-amber-500 pl-4 text-xs leading-5 text-zinc-600">
+                  <p className="font-medium text-zinc-900">
+                    先停止旧 Gitea，再验证冻结窗口
+                  </p>
+                  <p className="mt-1">
+                    PostgreSQL/MySQL 由 Agent 内嵌驱动导出，不需要安装数据库工具；为了让数据库、Git
+                    和附件处在同一最终状态，旧实例必须停止写入。
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <Button
+                      disabled={
+                        loading ||
+                        freezeJob?.status === "queued" ||
+                        freezeJob?.status === "running"
+                      }
+                      onClick={dispatchFreezeCheck}
+                      variant="outline"
+                    >
+                      {freezeJob ? "重新验证停服" : "我已停止旧实例，开始验证"}
+                    </Button>
+                    <output
+                      className={
+                        freezeResult?.offline
+                          ? "text-emerald-700"
+                          : "text-zinc-500"
+                      }
+                    >
+                      {freezeResult?.offline
+                        ? `已冻结 · ${freezeResult.id}`
+                        : freezeResult?.finding ||
+                          (freezeJob
+                            ? jobStatus(freezeJob)
+                            : "Agent 将直接探测本地监听")}
+                    </output>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-4 border-l-2 border-emerald-500 pl-4 text-xs leading-5 text-zinc-600">
+                  SQLite 使用 gitsss 内嵌 online-backup 引擎吸收 WAL，不需要任何外部数据库或命令行工具。
+                </p>
+              )}
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <label
                   className="grid gap-2 text-xs font-medium"
@@ -749,6 +867,7 @@ export function TakeoverCenter() {
                 <Button
                   disabled={
                     Boolean(blockers) ||
+                    !freezeSatisfied ||
                     loading ||
                     backupConfirmation !== selected.id ||
                     !backupOutputPath ||
@@ -761,6 +880,8 @@ export function TakeoverCenter() {
                 >
                   {blockers
                     ? "先处理阻断项"
+                    : !freezeSatisfied
+                      ? "先验证旧实例已停止"
                     : backupJob
                       ? "重新下发加密备份"
                       : "下发加密备份"}
@@ -778,6 +899,9 @@ export function TakeoverCenter() {
                     {backupResult.files} 个文件 ·{" "}
                     {formatBytes(backupResult.container_bytes)}
                   </p>
+                  {backupResult.freeze_id ? (
+                    <p>冻结证据 {backupResult.freeze_id}</p>
+                  ) : null}
                   <p className="truncate font-mono text-[11px] text-zinc-500">
                     {backupResult.output_path}
                   </p>
@@ -931,7 +1055,7 @@ export function TakeoverCenter() {
                 <p className="text-sm font-medium">下一步：影子模式预检</p>
                 <p className="mt-2 text-xs leading-5 text-zinc-500">
                   再次读取源配置和资产清单，并逐仓库比较 live refs
-                  指纹与隔离副本。该步骤只读；远程数据库没有一致性快照时会明确阻断。
+                  指纹与隔离副本。SQLite 与远程源库都会由内嵌驱动重新生成确定性快照；冻结证据失效或数据变化会明确阻断。
                 </p>
                 <div className="mt-5 flex flex-wrap items-center gap-3">
                   <Button

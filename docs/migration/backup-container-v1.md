@@ -2,9 +2,9 @@
 
 ## 用途与边界
 
-`gitsss-agent backup-export` 把一次只读 Gitea 评估覆盖的配置、数据库文件（仅文件型数据库）、Git 仓库、LFS、附件、软件包和 Actions 数据打包为单个加密文件。v1 用于离线保管、传输和恢复演练前验证；`backup-verify` 不解压、不写入数据库，也不修改源实例。
+`gitsss-agent backup-export` 把一次只读 Gitea 评估覆盖的配置、内嵌驱动生成的数据库快照、Git 仓库、LFS、附件、软件包和 Actions 数据打包为单个加密文件。v1 用于离线保管、传输和恢复演练前验证；`backup-verify` 不解压、不写入数据库，也不修改源实例。
 
-MySQL、PostgreSQL 和外部对象存储当前只记录在评估报告中，不会伪装成已完成的逻辑备份。SQLite v1 只包含配置指向的主数据库文件，不保证在线事务一致性，也不自动收集 WAL/SHM；在数据库适配器完成前，必须先使用数据库支持的快照或停写流程。后续版本会通过相应数据库或对象存储适配器生成一致性快照，再把快照加入同一清单。
+gitsss 自身只运行内置 SQLite，不要求 PostgreSQL、MySQL、Redis 或外部任务队列。旧 Gitea 的 SQLite 使用内嵌 online-backup API；旧 PostgreSQL/MySQL 使用编译进 Agent 的纯 Go 驱动读取，不需要安装数据库 CLI。MSSQL 与外部对象存储在适配器完成前仍明确阻断，不会伪装成已备份。
 
 ## 文件与密码学格式
 
@@ -38,6 +38,8 @@ tar 的第一项固定为 `manifest.json`。清单包含格式版本、创建时
 
 SQLite 导出使用内嵌 online-backup API 读取包含 WAL 在内的一致视图，临时快照通过 `PRAGMA quick_check`、同步到磁盘并设为 `0600` 后，才作为 `data/database-snapshot/gitea.db` 进入加密流；无论成功或失败，临时明文目录都在导出调用结束后删除。它只保证数据库本身的时间点一致性，不能让数据库、Git 仓库和附件在 Gitea 仍可写时形成同一事务，因此最终切换前仍需冻结旧实例。
 
-线性向导随后用 `takeover.shadow-audit` 重新评估 live 源实例，不写入源或副本。它对 `app.ini` 做原始文件哈希比较（结果不回传哈希或密钥），按普通资产类型比较文件数与总字节数，对 SQLite 再做一次 online snapshot 并比较大小与 SHA-256，并对最多 10,000 个 live bare Git 与恢复副本比较仓库集合及 `show-ref` 确定性摘要；对象数不同但 refs 一致只产生 warning。差异详情限制为 64 条有界记录，完整汇总仍保留。远程数据库没有一致性 dump、旧备份没有 SQLite online snapshot、源配置/资产/数据库变化、仓库缺失或 refs 漂移都会阻断影子模式。
+PostgreSQL/MySQL 接管先用 `takeover.freeze-check` 验证旧 Gitea 的本地 TCP/Unix 监听已经明确停止。Agent 以只读 repeatable-read 事务列举用户 schema 的 base table，按稳定表/行顺序把列名、源类型和带类型值编码成 `gitsss-database-v1` JSONL；二进制按 Base64 保存，密码只在 Agent 内存中使用。freeze ID 进入清单，旧实例重新上线、配置变化或证据不匹配都会拒绝后续影子审计。
 
-下一版本在保持 v1 只读兼容的前提下增加：数据库一致性导出、外部对象存储清单、分卷与断点续传、服务端作业审计、签名清单，以及源实例与隔离副本之间更高层的用户、权限、Issue、PR 和 Actions 差异报告。真正导入仍必须遵循“预览 → 明确确认 → 隔离写入 → 验证 → 可回滚切换”。
+线性向导随后用 `takeover.shadow-audit` 重新评估源实例，不写入源或副本。它对 `app.ini` 做原始文件哈希比较（结果不回传哈希或密钥），按普通资产类型比较文件数与总字节数，对数据库再次生成确定性快照并比较大小与 SHA-256，并对最多 10,000 个 bare Git 与恢复副本比较仓库集合及 `show-ref` 确定性摘要；对象数不同但 refs 一致只产生 warning。差异详情限制为 64 条有界记录，完整汇总仍保留。
+
+下一版本在保持 v1 只读兼容的前提下增加：MSSQL、外部对象存储清单、分卷与断点续传、服务端作业审计、签名清单，以及源实例与隔离副本之间更高层的用户、权限、Issue、PR 和 Actions 差异报告。真正导入仍必须遵循“预览 → 明确确认 → 隔离写入 → 验证 → 可回滚切换”。

@@ -21,7 +21,9 @@ queued → running (5 分钟租约) → succeeded | failed
 - 常驻 Worker 在空队列和控制面故障时分别使用有上限的指数退避；Token 默认只从环境变量读取。
 - 执行已结束但完成请求失败时，进程会保留待回传结果并只重试完成请求，不在同一进程中重复执行作业。
 
-v1 白名单仅包含 `takeover.assess`、`backup.export`、`backup.restore-isolated`、`backup.audit-restore`、`takeover.shadow-audit` 与 `backup.verify`。评估、导出、恢复和审计都强制输入中的 `agent_id` 与执行 Worker 一致；备份口令只按环境变量名称在旧服务器本地读取，不进入作业内容或结果。
+v1 白名单仅包含 `takeover.assess`、`takeover.freeze-check`、`backup.export`、`backup.restore-isolated`、`backup.audit-restore`、`takeover.shadow-audit` 与 `backup.verify`。评估、冻结、导出、恢复和审计都强制输入中的 `agent_id` 与执行 Worker 一致；备份口令只按环境变量名称在旧服务器本地读取，不进入作业内容或结果。
+
+`takeover.freeze-check` 直接探测 `app.ini` 配置的本地 TCP 或 Unix socket。监听仍可连接时结果明确为 online；只有 connection-refused 或 Unix socket 不存在才生成 offline freeze ID，超时、权限错误和网络不可达不会被误判为停服。PostgreSQL/MySQL 导出必须携带该 ID，Agent 会在导出前重新探测并把 ID 写入加密清单。
 
 `backup.export` 必须携带管理员刚刚确认的评估 ID。Agent 会在导出前重新读取配置和资产路径，只有新评估 ID 与确认值完全一致才会生成容器；配置或范围在确认后发生变化时，任务失败且不会创建输出。输出路径使用 no-replace 原子发布，成功结果只回传文件数、字节数、容器路径和 SHA-256。
 
@@ -29,9 +31,9 @@ v1 白名单仅包含 `takeover.assess`、`backup.export`、`backup.restore-isol
 
 `backup.audit-restore` 继承同一评估 ID、容器 SHA-256 和隔离目标，任务本身只读。成功回传只表示恢复内容审计已执行；只有逐文件清单全部一致、所有 Git 仓库严格校验通过且 LFS OID 无异常时，线性向导才允许下发 `takeover.shadow-audit`。
 
-`backup.export` 对 SQLite 不再复制可能遗漏 WAL 的主文件，而是用内嵌 SQLite online-backup API 生成权限为 `0600` 的临时一致性快照，通过 `quick_check` 后才把 `database-snapshot` 写入加密容器；临时目录在导出结束后删除。该数据库快照与其余 Gitea 文件在停服前仍不是跨资源原子快照，因此最终切换必须保留冻结窗口。
+`backup.export` 对 SQLite 不再复制可能遗漏 WAL 的主文件，而是用内嵌 SQLite online-backup API 生成权限为 `0600` 的临时一致性快照，通过 `quick_check` 后才把 `database-snapshot` 写入加密容器。PostgreSQL/MySQL 由编译进 Agent 的纯 Go 驱动开启只读 repeatable-read 事务，按 schema/table/row 稳定排序并编码为带类型的确定性 JSONL；不调用 `pg_dump`、`mysqldump`，也不要求目标部署外部数据库。临时明文目录在导出结束后删除。
 
-`takeover.shadow-audit` 再次读取 live `app.ini`、资产清单和 bare Git refs，并与已确认容器及隔离恢复逐项比较。SQLite 会再次执行 online backup，并把快照大小与 SHA-256 和容器清单比较；旧式直接复制数据库的备份会被要求重新导出。返回内容分离配置、恢复、资产、仓库汇总、最多 64 条有界仓库差异和结构化 blocker/warning；完整差异计数始终保留。只有配置原始文件未变化、恢复审计通过、普通资产文件数/字节数未漂移、SQLite 快照未变化、源/恢复仓库集合及 refs 指纹完全一致时，`ready_for_shadow_mode` 才为 true。MySQL、PostgreSQL、MSSQL 在一致性 dump 适配器完成前必须返回 `database.snapshot_unavailable` blocker。
+`takeover.shadow-audit` 再次读取 live `app.ini`、资产清单和 bare Git refs，并与已确认容器及隔离恢复逐项比较。SQLite 再次执行 online backup；PostgreSQL/MySQL 必须仍处于同一 freeze ID 的 offline 状态，并由内嵌驱动再次生成确定性快照。数据库快照大小与 SHA-256、配置、普通资产和 Git refs 任一变化都会阻断。旧式直接复制数据库的备份会被要求重新导出；MSSQL 在内嵌适配器完成前继续返回 blocker。
 
 ## HTTP 接口
 

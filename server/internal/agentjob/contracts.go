@@ -13,6 +13,7 @@ type BackupExportInput struct {
 	OutputPath           string `json:"output_path"`
 	PassphraseEnv        string `json:"passphrase_env"`
 	ExpectedAssessmentID string `json:"expected_assessment_id"`
+	ExpectedFreezeID     string `json:"expected_freeze_id,omitempty"`
 }
 
 type BackupExportResult struct {
@@ -22,6 +23,7 @@ type BackupExportResult struct {
 	SourceBytes     int64  `json:"source_bytes"`
 	ContainerBytes  int64  `json:"container_bytes"`
 	ContainerSHA256 string `json:"container_sha256"`
+	FreezeID        string `json:"freeze_id,omitempty"`
 }
 
 type BackupRestoreInput struct {
@@ -63,6 +65,15 @@ type ShadowAuditInput struct {
 	TargetPath              string `json:"target_path"`
 	ExpectedAssessmentID    string `json:"expected_assessment_id"`
 	ExpectedContainerSHA256 string `json:"expected_container_sha256"`
+	ExpectedFreezeID        string `json:"expected_freeze_id,omitempty"`
+}
+
+type FreezeCheckInput struct {
+	AgentID      string `json:"agent_id"`
+	ConfigPath   string `json:"config_path"`
+	WorkPath     string `json:"work_path,omitempty"`
+	GiteaVersion string `json:"gitea_version,omitempty"`
+	MaxEntries   int    `json:"max_entries,omitempty"`
 }
 
 type BackupAuditFileSummary struct {

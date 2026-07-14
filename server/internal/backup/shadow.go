@@ -77,6 +77,15 @@ func AuditShadowExact(inputPath, passphrase, target string, options takeover.Opt
 	if expectedAssessmentID == "" || verification.Manifest.Source.AssessmentID != expectedAssessmentID {
 		return ShadowAudit{}, ErrConfirmation
 	}
+	if options.FreezeID != "" {
+		evidence, err := takeover.CheckFreeze(options)
+		if err != nil {
+			return ShadowAudit{}, err
+		}
+		if !evidence.Offline || evidence.ID != options.FreezeID || verification.Manifest.Source.FreezeID != options.FreezeID {
+			return ShadowAudit{}, fmt.Errorf("%w: freeze evidence is absent, stale or no longer offline", ErrConfirmation)
+		}
+	}
 	return auditShadowVerified(verification, target, options)
 }
 
@@ -110,7 +119,7 @@ func auditShadowVerified(verification Verification, target string, options takeo
 	audit.Assets = append(audit.Assets, audit.compareDatabase(source, verification.Manifest))
 	sort.Slice(audit.Assets, func(left, right int) bool { return audit.Assets[left].Kind < audit.Assets[right].Kind })
 	for _, asset := range audit.Assets {
-		if !asset.Matches && asset.Kind != sqliteSnapshotKind {
+		if !asset.Matches && asset.Kind != databaseSnapshotKind {
 			audit.addFinding("blocker", "source.asset_changed", asset.Kind, "源资产清单相对备份快照发生变化")
 		}
 	}
@@ -206,7 +215,7 @@ func compareShadowAssets(assets []takeover.Asset, manifest Manifest) []ShadowAss
 	}
 	snapshot := make(map[string]aggregate)
 	for _, entry := range manifest.Entries {
-		if entry.Kind == "config" || entry.Kind == sqliteSnapshotKind || entry.Kind == "database" {
+		if entry.Kind == "config" || entry.Kind == databaseSnapshotKind || entry.Kind == "database" {
 			continue
 		}
 		value := snapshot[entry.Kind]
@@ -243,12 +252,54 @@ func compareShadowAssets(assets []takeover.Asset, manifest Manifest) []ShadowAss
 }
 
 func (audit *ShadowAudit) compareDatabase(source takeover.Report, manifest Manifest) ShadowAssetComparison {
-	comparison := ShadowAssetComparison{Kind: sqliteSnapshotKind}
+	comparison := ShadowAssetComparison{Kind: databaseSnapshotKind}
 	if source.Database.Type != "sqlite3" {
-		audit.addFinding("blocker", "database.snapshot_unavailable", source.Database.Type, "当前版本尚未生成远程数据库一致性快照，不能声称影子数据完整")
+		if source.Database.Type != "postgres" && source.Database.Type != "mysql" {
+			audit.addFinding("blocker", "database.snapshot_unavailable", source.Database.Type, "当前数据库类型尚无一致性 dump 适配器")
+			return comparison
+		}
+		entry, found := manifestEntryByKind(manifest, databaseSnapshotKind)
+		if !found {
+			audit.addFinding("blocker", "database.snapshot_unavailable", source.Database.Type, "备份没有远程数据库一致性 dump，不能声称影子数据完整")
+			return comparison
+		}
+		comparison.SourceFiles = 1
+		comparison.SourceBytes = entry.Size
+		comparison.SnapshotFiles = 1
+		comparison.SnapshotBytes = entry.Size
+		if source.FreezeID == "" || manifest.Source.FreezeID == "" || source.FreezeID != manifest.Source.FreezeID {
+			audit.addFinding("blocker", "database.freeze_required", source.Database.Type, "远程数据库 dump 必须绑定当前停服证据")
+			return comparison
+		}
+		connection, err := takeover.ReadDatabaseConnection(source.ConfigPath)
+		if err != nil {
+			audit.addFinding("blocker", "database.snapshot_failed", source.Database.Type, "无法读取源数据库连接配置")
+			return comparison
+		}
+		temporaryDirectory, err := os.MkdirTemp("", "gitsss-shadow-database-")
+		if err != nil {
+			audit.addFinding("blocker", "database.snapshot_failed", source.Database.Type, "无法创建数据库影子快照")
+			return comparison
+		}
+		defer os.RemoveAll(temporaryDirectory)
+		snapshotPath := filepath.Join(temporaryDirectory, source.Database.Type+".jsonl")
+		if err := snapshotEmbeddedDatabase(connection, snapshotPath); err != nil {
+			audit.addFinding("blocker", "database.snapshot_failed", source.Database.Type, "无法创建数据库影子快照")
+			return comparison
+		}
+		info, digest, err := hashFile(snapshotPath)
+		if err != nil {
+			audit.addFinding("blocker", "database.snapshot_failed", source.Database.Type, "无法校验数据库影子快照")
+			return comparison
+		}
+		comparison.SourceBytes = info.Size()
+		comparison.Matches = info.Size() == entry.Size && digest == entry.SHA256
+		if !comparison.Matches {
+			audit.addFinding("blocker", "database.source_changed", source.Database.Type, "源数据库相对冻结备份发生变化")
+		}
 		return comparison
 	}
-	entry, found := manifestEntryByKind(manifest, sqliteSnapshotKind)
+	entry, found := manifestEntryByKind(manifest, databaseSnapshotKind)
 	if !found {
 		audit.addFinding("blocker", "database.snapshot_legacy", "sqlite3", "备份未包含 SQLite 在线一致性快照，需要重新导出")
 		return comparison

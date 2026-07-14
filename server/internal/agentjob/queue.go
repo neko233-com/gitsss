@@ -38,6 +38,7 @@ const (
 	KindBackupRestore Kind = "backup.restore-isolated"
 	KindBackupVerify  Kind = "backup.verify"
 	KindShadowAudit   Kind = "takeover.shadow-audit"
+	KindFreezeCheck   Kind = "takeover.freeze-check"
 
 	StatusQueued    Status = "queued"
 	StatusRunning   Status = "running"
@@ -162,7 +163,7 @@ func (queue *Queue) record(actor, action, target, requestID, result string, now 
 }
 
 func validKind(kind Kind) bool {
-	return kind == KindAssessment || kind == KindBackupExport || kind == KindBackupAudit || kind == KindBackupRestore || kind == KindBackupVerify || kind == KindShadowAudit
+	return kind == KindAssessment || kind == KindBackupExport || kind == KindBackupAudit || kind == KindBackupRestore || kind == KindBackupVerify || kind == KindShadowAudit || kind == KindFreezeCheck
 }
 
 func clone(job Job) Job {

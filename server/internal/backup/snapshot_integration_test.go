@@ -33,7 +33,7 @@ func TestPreparePlanSnapshotsSQLiteWAL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshotPath := preparedPlanSourcePath(prepared.Plan, sqliteSnapshotKind)
+	snapshotPath := preparedPlanSourcePath(prepared.Plan, databaseSnapshotKind)
 	if snapshotPath == "" {
 		prepared.Close()
 		t.Fatal("SQLite snapshot source is missing")

@@ -121,6 +121,9 @@ func validateManifest(manifest Manifest) error {
 	if !validConfigDigest(manifest.Source.ConfigDigest) || len(manifest.Entries) == 0 || len(manifest.Entries) > maxManifestEntries {
 		return fmt.Errorf("%w: invalid manifest bounds", ErrInvalidBackup)
 	}
+	if manifest.Source.FreezeID != "" && !validPrefixedDigest(manifest.Source.FreezeID, "freeze-") {
+		return fmt.Errorf("%w: invalid freeze evidence", ErrInvalidBackup)
+	}
 	previous := ""
 	for _, entry := range manifest.Entries {
 		if !safeArchivePath(entry.Path) || !safeKind(entry.Kind) || entry.Size < 0 || !validDigest(entry.SHA256) {
@@ -144,6 +147,14 @@ func validDigest(value string) bool {
 
 func validConfigDigest(value string) bool {
 	return strings.HasPrefix(value, "sha256:") && validDigest(strings.TrimPrefix(value, "sha256:"))
+}
+
+func validPrefixedDigest(value, prefix string) bool {
+	if !strings.HasPrefix(value, prefix) {
+		return false
+	}
+	digest, err := hex.DecodeString(strings.TrimPrefix(value, prefix))
+	return err == nil && len(digest) == 8
 }
 
 func integrityError(cause error) error {

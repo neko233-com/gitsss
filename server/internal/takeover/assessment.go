@@ -32,6 +32,7 @@ type Options struct {
 	WorkPath     string           `json:"work_path,omitempty"`
 	GiteaVersion string           `json:"gitea_version,omitempty"`
 	MaxEntries   int              `json:"max_entries,omitempty"`
+	FreezeID     string           `json:"-"`
 	Now          func() time.Time `json:"-"`
 }
 
@@ -40,6 +41,15 @@ type Database struct {
 	Name     string `json:"name,omitempty"`
 	Location string `json:"location"`
 	TLSMode  string `json:"tls_mode,omitempty"`
+}
+
+type DatabaseConnection struct {
+	Type     string
+	Host     string
+	Name     string
+	User     string
+	Password string
+	TLSMode  string
 }
 
 type Asset struct {
@@ -69,6 +79,7 @@ type Report struct {
 	Assets           []Asset   `json:"assets"`
 	ActionsEnabled   bool      `json:"actions_enabled"`
 	SecretFieldCount int       `json:"secret_field_count"`
+	FreezeID         string    `json:"-"`
 	Findings         []Finding `json:"findings"`
 	AssessedAt       time.Time `json:"assessed_at"`
 }
@@ -77,26 +88,7 @@ func Assess(options Options) (Report, error) {
 	if strings.TrimSpace(options.AgentID) == "" || strings.TrimSpace(options.ConfigPath) == "" {
 		return Report{}, fmt.Errorf("%w: agent ID and config path are required", ErrInvalidConfig)
 	}
-	path, err := filepath.Abs(options.ConfigPath)
-	if err != nil {
-		return Report{}, err
-	}
-	file, err := os.Open(path)
-	if err != nil {
-		return Report{}, err
-	}
-	defer file.Close()
-	info, err := file.Stat()
-	if err != nil {
-		return Report{}, err
-	}
-	if !info.Mode().IsRegular() {
-		return Report{}, fmt.Errorf("%w: config must be a regular file", ErrInvalidConfig)
-	}
-	if info.Size() > maxConfigBytes {
-		return Report{}, ErrConfigTooLarge
-	}
-	configuration, err := parseINI(io.LimitReader(file, maxConfigBytes+1))
+	path, configuration, err := readConfiguration(options.ConfigPath)
 	if err != nil {
 		return Report{}, err
 	}
@@ -130,10 +122,54 @@ func Assess(options Options) (Report, error) {
 		Assets:           assets,
 		ActionsEnabled:   actionsEnabled,
 		SecretFieldCount: secretCount,
+		FreezeID:         strings.TrimSpace(options.FreezeID),
 		AssessedAt:       assessedAt,
 	}
 	report.Findings = findings(report)
 	return report, nil
+}
+
+func ReadDatabaseConnection(configPath string) (DatabaseConnection, error) {
+	_, configuration, err := readConfiguration(configPath)
+	if err != nil {
+		return DatabaseConnection{}, err
+	}
+	databaseType := strings.ToLower(strings.TrimSpace(value(configuration, "database", "DB_TYPE")))
+	if databaseType == "" {
+		databaseType = "sqlite3"
+	}
+	return DatabaseConnection{
+		Type: databaseType, Host: strings.TrimSpace(value(configuration, "database", "HOST")),
+		Name: strings.TrimSpace(value(configuration, "database", "NAME")), User: strings.TrimSpace(value(configuration, "database", "USER")),
+		Password: value(configuration, "database", "PASSWD"), TLSMode: strings.TrimSpace(value(configuration, "database", "SSL_MODE")),
+	}, nil
+}
+
+func readConfiguration(configPath string) (string, ini, error) {
+	path, err := filepath.Abs(configPath)
+	if err != nil {
+		return "", nil, err
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return "", nil, err
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return "", nil, err
+	}
+	if !info.Mode().IsRegular() {
+		return "", nil, fmt.Errorf("%w: config must be a regular file", ErrInvalidConfig)
+	}
+	if info.Size() > maxConfigBytes {
+		return "", nil, ErrConfigTooLarge
+	}
+	configuration, err := parseINI(io.LimitReader(file, maxConfigBytes+1))
+	if err != nil {
+		return "", nil, err
+	}
+	return path, configuration, nil
 }
 
 func DiscoverConfigPaths() []string {

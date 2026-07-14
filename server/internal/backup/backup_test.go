@@ -136,6 +136,24 @@ func TestValidateManifestRejectsUnsafeAndDuplicatePaths(t *testing.T) {
 	}
 }
 
+func TestValidateManifestAcceptsBoundFreezeEvidence(t *testing.T) {
+	manifest := Manifest{
+		Version: 1, CreatedAt: time.Now(),
+		Source: Source{
+			AssessmentID: "assessment-0123456789abcdef", ConfigDigest: "sha256:" + strings.Repeat("d", 64),
+			FreezeID: "freeze-0123456789abcdef",
+		},
+		Entries: []Entry{{Path: "config/app.ini", Kind: "config", SHA256: strings.Repeat("e", 64)}},
+	}
+	if err := validateManifest(manifest); err != nil {
+		t.Fatal(err)
+	}
+	manifest.Source.FreezeID = "freeze-invalid"
+	if err := validateManifest(manifest); !errors.Is(err, ErrInvalidBackup) {
+		t.Fatalf("invalid freeze evidence error = %v", err)
+	}
+}
+
 func assertCorruptBackup(t *testing.T, directory string, original []byte, name string, mutate func([]byte) []byte) {
 	t.Helper()
 	content := append([]byte(nil), original...)

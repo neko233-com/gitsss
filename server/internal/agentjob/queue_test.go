@@ -130,3 +130,11 @@ func TestQueueAcceptsShadowAudit(t *testing.T) {
 		t.Fatalf("shadow audit job = %#v, %v", job, err)
 	}
 }
+
+func TestQueueAcceptsFreezeCheck(t *testing.T) {
+	queue := NewQueue(nil)
+	job, err := queue.Create("admin", "request", KindFreezeCheck, json.RawMessage(`{"config_path":"/etc/gitea/app.ini"}`), time.Now())
+	if err != nil || job.Kind != KindFreezeCheck || job.Status != StatusQueued {
+		t.Fatalf("freeze check job = %#v, %v", job, err)
+	}
+}

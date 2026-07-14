@@ -3,6 +3,7 @@
 package takeover
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -92,5 +93,28 @@ func TestParseINIHonorsQuotedCommentCharacters(t *testing.T) {
 	}
 	if value(configuration, "database", "PASSWD") != "p;a#s" || value(configuration, "database", "HOST") != "localhost:5432" {
 		t.Fatalf("configuration = %#v", configuration)
+	}
+}
+
+func TestReadDatabaseConnectionKeepsSecretsOutOfReport(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "app.ini")
+	configuration := "[database]\nDB_TYPE = postgres\nHOST = [fd00::1]:5433\nNAME = gitea\nUSER = gitsss\nPASSWD = `p;a#s`\nSSL_MODE = verify-full\n"
+	if err := os.WriteFile(configPath, []byte(configuration), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	connection, err := ReadDatabaseConnection(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if connection.Type != "postgres" || connection.Host != "[fd00::1]:5433" || connection.Name != "gitea" || connection.User != "gitsss" || connection.Password != "p;a#s" || connection.TLSMode != "verify-full" {
+		t.Fatalf("database connection = %#v", connection)
+	}
+	report, err := Assess(Options{AgentID: "agent", ConfigPath: configPath})
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded := fmt.Sprintf("%#v", report)
+	if strings.Contains(encoded, connection.Password) || strings.Contains(report.ConfigDigest, connection.Password) {
+		t.Fatalf("assessment leaked database password: %s", encoded)
 	}
 }

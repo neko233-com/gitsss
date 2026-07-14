@@ -29,6 +29,7 @@ type Source struct {
 	AssessmentID string `json:"assessment_id"`
 	ConfigDigest string `json:"config_digest"`
 	GiteaVersion string `json:"gitea_version,omitempty"`
+	FreezeID     string `json:"freeze_id,omitempty"`
 }
 
 type Entry struct {
@@ -70,6 +71,7 @@ func BuildPlan(report takeover.Report, now time.Time) (Plan, error) {
 			AssessmentID: report.ID,
 			ConfigDigest: report.ConfigDigest,
 			GiteaVersion: report.GiteaVersion,
+			FreezeID:     report.FreezeID,
 		},
 	}}
 	seen := map[string]struct{}{}
