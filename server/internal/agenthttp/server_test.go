@@ -16,6 +16,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/audit"
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/backup"
+	"github.com/neko233-com/gitsss/server/internal/state"
 	"github.com/neko233-com/gitsss/server/internal/takeover"
 )
 
@@ -132,6 +133,34 @@ func TestHandlerVerifiesBackupUsingEnvironmentPassphrase(t *testing.T) {
 	var verification backup.Verification
 	if err := json.NewDecoder(response.Body).Decode(&verification); err != nil || verification.Files != 1 {
 		t.Fatalf("verification = %#v, %v", verification, err)
+	}
+}
+
+func TestHandlerFailsClosedWhenAuditStateIsUnavailable(t *testing.T) {
+	now := time.Date(2026, time.July, 14, 0, 0, 0, 0, time.UTC)
+	root := t.TempDir()
+	store, err := state.Open(filepath.Join(root, "agent-http.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	vault, err := state.OpenVault(filepath.Join(root, "agent-http.key"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	log, err := audit.NewPersistentLog(store, vault)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(auth.NewVerifier(auth.NewRecord(
+		"ai-agent", "ai-agent-secret-token-2026", now.Add(time.Hour), "agent:read",
+	)), log)
+	server.now = func() time.Time { return now }
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	response := assertHTTPStatus(t, server.Handler(), http.MethodGet, "/api/v1/capabilities", "Bearer ai-agent-secret-token-2026", nil, http.StatusInternalServerError)
+	if !strings.Contains(response.Body.String(), "audit state") {
+		t.Fatalf("audit failure response = %s", response.Body.String())
 	}
 }
 

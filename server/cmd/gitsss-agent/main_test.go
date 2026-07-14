@@ -10,11 +10,47 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/neko233-com/gitsss/server/internal/agentjob"
+	"github.com/neko233-com/gitsss/server/internal/audit"
 	"github.com/neko233-com/gitsss/server/internal/backup"
 	"github.com/neko233-com/gitsss/server/internal/takeover"
 )
+
+func TestOpenAgentHTTPAuditPersistsAcrossRestart(t *testing.T) {
+	root := t.TempDir()
+	statePath := filepath.Join(root, "agent-http.db")
+	keyPath := statePath + ".key"
+	log, store, err := openAgentHTTPAudit(statePath, keyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := audit.Entry{Actor: "agent", Action: "agent.capabilities", Target: "local-agent", At: time.Now().UTC()}
+	if err := log.Append(entry); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, reopenedStore, err := openAgentHTTPAudit(statePath, keyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopenedStore.Close()
+	entries := reopened.Entries()
+	if len(entries) != 1 || entries[0].Action != entry.Action {
+		t.Fatalf("reopened audit entries = %#v", entries)
+	}
+}
+
+func TestDefaultAgentHTTPStatePathUsesExplicitEnvironment(t *testing.T) {
+	expected := filepath.Join(t.TempDir(), "custom-agent.db")
+	t.Setenv("GITSSS_AGENT_HTTP_STATE_PATH", expected)
+	if actual := defaultAgentHTTPStatePath(); actual != expected {
+		t.Fatalf("default state path = %q, want %q", actual, expected)
+	}
+}
 
 func TestExecuteAgentJobExportsConfirmedEncryptedBackup(t *testing.T) {
 	directory := t.TempDir()

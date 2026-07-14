@@ -6,7 +6,9 @@
 
 启动 Token 从 `--token-env` 指定的环境变量读取，至少 24 个字符；内存中只保存 SHA-256，校验使用常量时间比较。Token 必须有最长 30 天的有效期，重启时可轮换；默认 24 小时。请求只接受严格的 `Authorization: Bearer TOKEN`，URL 中任何名称包含 `token` 的查询参数都会在路由前被拒绝并审计。
 
-每个请求生成 96 位随机 request ID，并通过 `X-Request-ID` 返回。受保护操作记录非敏感 Token ID、动作、目标、结果、时间和 request ID；原始 Token、备份口令和配置秘密不进入审计。内存审计按 30 天保留策略清理，查询最多返回最近 500 条。发布前还需替换为加密、追加式持久存储。
+每个请求生成 96 位随机 request ID，并通过 `X-Request-ID` 返回。受保护操作记录非敏感 Token ID、动作、目标、结果、时间和 request ID；原始 Token、备份口令和配置秘密不进入审计。审计使用 Agent 自己的受保护 SQLite 与 32 字节主密钥进行 AES-256-GCM 加密，默认位于操作系统用户配置目录的 `gitsss/agent-http.db` 与 `agent-http.db.key`；可通过 `--state`、`--master-key` 或 `GITSSS_AGENT_HTTP_STATE_PATH` 调整。密文身份绑定 namespace 与随机记录 ID，错误密钥或篡改会阻止启动。
+
+审计按 30 天保留策略清理，删除事务提交后才更新内存视图；查询最多返回最近 500 条。任何保留期清理或审计追加失败都会让对应请求以 500 失败，不能形成无留痕成功。`/healthz` 只用于本机存活探测，不执行敏感动作，因此不写审计。
 
 ## AI 工具接口
 

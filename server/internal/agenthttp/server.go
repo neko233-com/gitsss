@@ -61,7 +61,9 @@ func (server *Server) guard(next http.Handler) http.Handler {
 		response.Header().Set("X-Request-ID", id)
 		for key := range request.URL.Query() {
 			if strings.Contains(strings.ToLower(key), "token") {
-				server.record("anonymous", "http.reject_query_token", request.URL.Path, id, "rejected")
+				if !server.recordOrError(response, "anonymous", "http.reject_query_token", request.URL.Path, id, "rejected") {
+					return
+				}
 				writeJSON(response, http.StatusBadRequest, map[string]string{"error": "tokens are not accepted in URL query parameters"})
 				return
 			}
@@ -80,7 +82,9 @@ func (server *Server) capabilities(response http.ResponseWriter, request *http.R
 	if !ok {
 		return
 	}
-	server.record(principal.TokenID, "agent.capabilities", "local-agent", requestID(request), "success")
+	if !server.recordOrError(response, principal.TokenID, "agent.capabilities", "local-agent", requestID(request), "success") {
+		return
+	}
 	writeJSON(response, http.StatusOK, map[string]any{
 		"version":      1,
 		"capabilities": []string{"takeover.assess.read-only", "backup.verify.read-only", "audit.read"},
@@ -94,17 +98,23 @@ func (server *Server) assess(response http.ResponseWriter, request *http.Request
 	}
 	var options takeover.Options
 	if err := decodeJSON(response, request, 32<<10, &options); err != nil {
-		server.record(principal.TokenID, "takeover.assess", "configuration", requestID(request), "invalid")
+		if !server.recordOrError(response, principal.TokenID, "takeover.assess", "configuration", requestID(request), "invalid") {
+			return
+		}
 		writeJSON(response, http.StatusBadRequest, map[string]string{"error": "invalid assessment request"})
 		return
 	}
 	report, err := takeover.Assess(options)
 	if err != nil {
-		server.record(principal.TokenID, "takeover.assess", "configuration", requestID(request), "failed")
+		if !server.recordOrError(response, principal.TokenID, "takeover.assess", "configuration", requestID(request), "failed") {
+			return
+		}
 		writeJSON(response, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	server.record(principal.TokenID, "takeover.assess", report.ID, requestID(request), "success")
+	if !server.recordOrError(response, principal.TokenID, "takeover.assess", report.ID, requestID(request), "success") {
+		return
+	}
 	writeJSON(response, http.StatusOK, report)
 }
 
@@ -118,23 +128,31 @@ func (server *Server) verifyBackup(response http.ResponseWriter, request *http.R
 		PassphraseEnv string `json:"passphrase_env"`
 	}
 	if err := decodeJSON(response, request, 8<<10, &input); err != nil || !validEnvironmentName(input.PassphraseEnv) || strings.TrimSpace(input.InputPath) == "" {
-		server.record(principal.TokenID, "backup.verify", "backup", requestID(request), "invalid")
+		if !server.recordOrError(response, principal.TokenID, "backup.verify", "backup", requestID(request), "invalid") {
+			return
+		}
 		writeJSON(response, http.StatusBadRequest, map[string]string{"error": "input_path and a valid passphrase_env are required"})
 		return
 	}
 	passphrase := os.Getenv(input.PassphraseEnv)
 	if passphrase == "" {
-		server.record(principal.TokenID, "backup.verify", "backup", requestID(request), "failed")
+		if !server.recordOrError(response, principal.TokenID, "backup.verify", "backup", requestID(request), "failed") {
+			return
+		}
 		writeJSON(response, http.StatusBadRequest, map[string]string{"error": "backup passphrase environment variable is empty"})
 		return
 	}
 	verification, err := backup.Verify(input.InputPath, passphrase)
 	if err != nil {
-		server.record(principal.TokenID, "backup.verify", "backup", requestID(request), "failed")
+		if !server.recordOrError(response, principal.TokenID, "backup.verify", "backup", requestID(request), "failed") {
+			return
+		}
 		writeJSON(response, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	server.record(principal.TokenID, "backup.verify", verification.Manifest.Source.AssessmentID, requestID(request), "success")
+	if !server.recordOrError(response, principal.TokenID, "backup.verify", verification.Manifest.Source.AssessmentID, requestID(request), "success") {
+		return
+	}
 	writeJSON(response, http.StatusOK, verification)
 }
 
@@ -143,7 +161,9 @@ func (server *Server) auditEntries(response http.ResponseWriter, request *http.R
 	if !ok {
 		return
 	}
-	server.record(principal.TokenID, "audit.read", "local-agent", requestID(request), "success")
+	if !server.recordOrError(response, principal.TokenID, "audit.read", "local-agent", requestID(request), "success") {
+		return
+	}
 	entries := server.audit.Entries()
 	if len(entries) > 500 {
 		entries = entries[:500]
@@ -154,7 +174,9 @@ func (server *Server) auditEntries(response http.ResponseWriter, request *http.R
 func (server *Server) authorize(response http.ResponseWriter, request *http.Request, scope, action string) (auth.Principal, bool) {
 	parts := strings.Fields(request.Header.Get("Authorization"))
 	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		server.record("anonymous", action, request.URL.Path, requestID(request), "unauthorized")
+		if !server.recordOrError(response, "anonymous", action, request.URL.Path, requestID(request), "unauthorized") {
+			return auth.Principal{}, false
+		}
 		writeJSON(response, http.StatusUnauthorized, map[string]string{"error": auth.ErrInvalidToken.Error()})
 		return auth.Principal{}, false
 	}
@@ -166,15 +188,27 @@ func (server *Server) authorize(response http.ResponseWriter, request *http.Requ
 	if errors.Is(err, auth.ErrMissingScope) {
 		status = http.StatusForbidden
 	}
-	server.record("anonymous", action, request.URL.Path, requestID(request), "unauthorized")
+	if !server.recordOrError(response, "anonymous", action, request.URL.Path, requestID(request), "unauthorized") {
+		return auth.Principal{}, false
+	}
 	writeJSON(response, status, map[string]string{"error": err.Error()})
 	return auth.Principal{}, false
 }
 
-func (server *Server) record(actor, action, target, requestID, result string) {
+func (server *Server) record(actor, action, target, requestID, result string) error {
 	now := server.now().UTC()
-	_, _ = server.audit.Cleanup(now.Add(-auditRetention))
-	_ = server.audit.Append(audit.Entry{Actor: actor, Action: action, Target: target, RequestID: requestID, Result: result, At: now})
+	if _, err := server.audit.Cleanup(now.Add(-auditRetention)); err != nil {
+		return err
+	}
+	return server.audit.Append(audit.Entry{Actor: actor, Action: action, Target: target, RequestID: requestID, Result: result, At: now})
+}
+
+func (server *Server) recordOrError(response http.ResponseWriter, actor, action, target, requestID, result string) bool {
+	if err := server.record(actor, action, target, requestID, result); err != nil {
+		writeJSON(response, http.StatusInternalServerError, map[string]string{"error": "Agent audit state could not be updated"})
+		return false
+	}
+	return true
 }
 
 func decodeJSON(response http.ResponseWriter, request *http.Request, limit int64, value any) error {

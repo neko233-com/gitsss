@@ -14,6 +14,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/backup"
 	"github.com/neko233-com/gitsss/server/internal/runner"
+	"github.com/neko233-com/gitsss/server/internal/state"
 	"github.com/neko233-com/gitsss/server/internal/takeover"
 )
 
@@ -391,6 +393,8 @@ func completeAgentJobContext(ctx context.Context, client *http.Client, serverURL
 func serve(args []string) {
 	flags := flag.NewFlagSet("serve", flag.ExitOnError)
 	listenAddress := flags.String("listen", "127.0.0.1:8790", "loopback listen address")
+	statePath := flags.String("state", defaultAgentHTTPStatePath(), "embedded SQLite path for encrypted Agent HTTP audit records")
+	masterKeyPath := flags.String("master-key", "", "32-byte audit master key path; defaults to <state>.key")
 	tokenEnv := flags.String("token-env", "GITSSS_AGENT_HTTP_TOKEN", "environment variable containing the HTTP token")
 	tokenID := flags.String("token-id", "local-agent-http", "non-secret token identifier for audit records")
 	tokenTTL := flags.Duration("token-ttl", 24*time.Hour, "token lifetime; rotate by restarting with a new token")
@@ -419,9 +423,18 @@ func serve(args []string) {
 		fmt.Fprintln(os.Stderr, "--scopes must contain at least one scope")
 		os.Exit(2)
 	}
+	if strings.TrimSpace(*masterKeyPath) == "" {
+		*masterKeyPath = *statePath + ".key"
+	}
+	auditLog, stateStore, err := openAgentHTTPAudit(*statePath, *masterKeyPath)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	defer stateStore.Close()
 	expiresAt := time.Now().UTC().Add(*tokenTTL)
 	verifier := auth.NewVerifier(auth.NewRecord(*tokenID, token, expiresAt, allowedScopes...))
-	handler := agenthttp.NewServer(verifier, &audit.Log{}).Handler()
+	handler := agenthttp.NewServer(verifier, auditLog).Handler()
 	server := &http.Server{
 		Addr: *listenAddress, Handler: handler,
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second,
@@ -432,6 +445,35 @@ func serve(args []string) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func defaultAgentHTTPStatePath() string {
+	if configured := strings.TrimSpace(os.Getenv("GITSSS_AGENT_HTTP_STATE_PATH")); configured != "" {
+		return configured
+	}
+	directory, err := os.UserConfigDir()
+	if err != nil {
+		return filepath.Join("data", "gitsss-agent-http.db")
+	}
+	return filepath.Join(directory, "gitsss", "agent-http.db")
+}
+
+func openAgentHTTPAudit(statePath, masterKeyPath string) (*audit.Log, *state.Store, error) {
+	stateStore, err := state.Open(statePath)
+	if err != nil {
+		return nil, nil, err
+	}
+	vault, err := state.OpenVault(masterKeyPath)
+	if err != nil {
+		stateStore.Close()
+		return nil, nil, err
+	}
+	auditLog, err := audit.NewPersistentLog(stateStore, vault)
+	if err != nil {
+		stateStore.Close()
+		return nil, nil, err
+	}
+	return auditLog, stateStore, nil
 }
 
 type stringList []string
