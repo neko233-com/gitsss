@@ -9,6 +9,9 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -132,6 +135,34 @@ func TestAgentLoopUsesBoundedBackoff(t *testing.T) {
 				t.Fatal("control-plane errors were not reported")
 			}
 		})
+	}
+}
+
+func TestResolveAgentWorkTokenFromProtectedFile(t *testing.T) {
+	directory := t.TempDir()
+	tokenPath := filepath.Join(directory, "agent.token")
+	if err := os.WriteFile(tokenPath, []byte("file-work-token\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	token, err := resolveAgentWorkToken("", "GITSSS_AGENT_WORK_TOKEN", tokenPath)
+	if err != nil || token != "file-work-token" {
+		t.Fatalf("token = %q, %v", token, err)
+	}
+	if _, err := resolveAgentWorkToken("", "GITSSS_AGENT_WORK_TOKEN", "relative.token"); err == nil {
+		t.Fatal("relative token file was accepted")
+	}
+	largePath := filepath.Join(directory, "large.token")
+	if err := os.WriteFile(largePath, []byte(strings.Repeat("x", 4097)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resolveAgentWorkToken("", "GITSSS_AGENT_WORK_TOKEN", largePath); err == nil {
+		t.Fatal("oversized token file was accepted")
+	}
+	linkPath := filepath.Join(directory, "link.token")
+	if err := os.Symlink(tokenPath, linkPath); err == nil {
+		if _, err := resolveAgentWorkToken("", "GITSSS_AGENT_WORK_TOKEN", linkPath); err == nil {
+			t.Fatal("symlink token file was accepted")
+		}
 	}
 }
 

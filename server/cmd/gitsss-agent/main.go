@@ -50,6 +50,8 @@ func main() {
 		backupAuditRestore(os.Args[2:])
 	case "serve":
 		serve(os.Args[2:])
+	case "service-plan":
+		servicePlan(os.Args[2:])
 	case "work-once":
 		workOnce(os.Args[2:])
 	case "work":
@@ -61,7 +63,7 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Fprintln(os.Stderr, "usage: gitsss-agent <serve|work|work-once|probe|runner-report|assess|backup-export|backup-verify|backup-import-plan|backup-restore-isolated|backup-audit-restore> [options]")
+	fmt.Fprintln(os.Stderr, "usage: gitsss-agent <serve|service-plan|work|work-once|probe|runner-report|assess|backup-export|backup-verify|backup-import-plan|backup-restore-isolated|backup-audit-restore> [options]")
 }
 
 func workOnce(args []string) {

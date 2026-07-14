@@ -44,6 +44,14 @@ go run ./cmd/gitsss-agent work --server http://gitsss.internal:8787 --id old-git
 
 The persistent worker drains available jobs immediately, backs empty queues off from one to thirty seconds, and backs control-plane failures off to two minutes. If execution finishes but its completion response is lost, the running process retains the result and retries completion without executing the task again. `work-once` remains available for diagnostics; its `--token-env` form avoids exposing the token in process arguments.
 
+Generate a reviewable boot-service plan without changing the host:
+
+```powershell
+gitsss-agent service-plan --server https://gitsss.internal --id old-gitea
+```
+
+Windows Task Scheduler, macOS launchd and Linux systemd plans reference a protected `--token-file`; the token value is never embedded in the service definition or plan JSON. See [`docs/operations/agent-autostart.md`](../docs/operations/agent-autostart.md).
+
 The queue currently accepts only `takeover.assess`, `backup.export`, `backup.restore-isolated`, `backup.audit-restore` and `backup.verify`; it cannot execute shell commands. An export re-runs assessment and requires its resulting ID to match the administrator's explicit confirmation before creating a no-replace encrypted container. An isolated restore binds both authenticated reads to the confirmed container SHA-256 before publishing a new directory. The post-restore audit is read-only and reports file, strict Git and LFS evidence separately from its shadow-mode readiness decision. Passphrases remain in a named environment variable on the old server. A claim has a five-minute lease, is bound to one Agent ID, and terminal completion is idempotent. See [`docs/architecture/agent-jobs-v1.md`](../docs/architecture/agent-jobs-v1.md).
 
 Notification control-plane routes use the `notifications:read`, `notifications:write` and `notifications:dispatch` scopes. Configure a channel, send a test, and inspect the outbox through `/api/v1/notifications/channels`, `/api/v1/notifications/channels/{channel}/test` and `/api/v1/notifications/outbox`. Failed deliveries retry with exponential backoff and move to `dead` after four attempts.

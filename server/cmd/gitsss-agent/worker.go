@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -92,9 +94,10 @@ func runWorkOnce(args []string) {
 	serverURL := flags.String("server", "", "gitsss API base URL")
 	token := flags.String("token", "", "Agent work token; prefer --token-env")
 	tokenEnv := flags.String("token-env", "GITSSS_AGENT_WORK_TOKEN", "environment variable containing the Agent work token")
+	tokenFile := flags.String("token-file", "", "absolute path to a protected Agent work token file")
 	agentID := flags.String("id", "", "stable Agent device ID")
 	flags.Parse(args)
-	tokenValue, err := resolveAgentWorkToken(*token, *tokenEnv)
+	tokenValue, err := resolveAgentWorkToken(*token, *tokenEnv, *tokenFile)
 	if strings.TrimSpace(*serverURL) == "" || strings.TrimSpace(*agentID) == "" || err != nil {
 		fmt.Fprintln(os.Stderr, "--server, --id and an Agent work token are required")
 		os.Exit(2)
@@ -120,14 +123,15 @@ func work(args []string) {
 	flags := flag.NewFlagSet("work", flag.ExitOnError)
 	serverURL := flags.String("server", "", "gitsss API base URL")
 	tokenEnv := flags.String("token-env", "GITSSS_AGENT_WORK_TOKEN", "environment variable containing the Agent work token")
+	tokenFile := flags.String("token-file", "", "absolute path to a protected Agent work token file")
 	agentID := flags.String("id", "", "stable Agent device ID")
 	idleMin := flags.Duration("idle-min", time.Second, "minimum delay when the queue is empty")
 	idleMax := flags.Duration("idle-max", 30*time.Second, "maximum delay when the queue stays empty")
 	errorMax := flags.Duration("error-max", 2*time.Minute, "maximum delay after control-plane errors")
 	flags.Parse(args)
-	tokenValue, tokenErr := resolveAgentWorkToken("", *tokenEnv)
+	tokenValue, tokenErr := resolveAgentWorkToken("", *tokenEnv, *tokenFile)
 	if strings.TrimSpace(*serverURL) == "" || strings.TrimSpace(*agentID) == "" || tokenErr != nil {
-		fmt.Fprintln(os.Stderr, "--server, --id and a valid --token-env are required")
+		fmt.Fprintln(os.Stderr, "--server, --id and a valid --token-env or --token-file are required")
 		os.Exit(2)
 	}
 	if *idleMin <= 0 || *idleMax < *idleMin || *idleMax > 5*time.Minute || *errorMax < *idleMin || *errorMax > 15*time.Minute {
@@ -144,9 +148,12 @@ func work(args []string) {
 	}
 }
 
-func resolveAgentWorkToken(explicit, environmentName string) (string, error) {
+func resolveAgentWorkToken(explicit, environmentName, filePath string) (string, error) {
 	if token := strings.TrimSpace(explicit); token != "" {
 		return token, nil
+	}
+	if strings.TrimSpace(filePath) != "" {
+		return readAgentWorkTokenFile(filePath)
 	}
 	if !validAgentEnvironmentName(environmentName) {
 		return "", fmt.Errorf("invalid Agent work token environment")
@@ -154,6 +161,44 @@ func resolveAgentWorkToken(explicit, environmentName string) (string, error) {
 	token := strings.TrimSpace(os.Getenv(environmentName))
 	if token == "" {
 		return "", fmt.Errorf("%s is empty", environmentName)
+	}
+	return token, nil
+}
+
+func readAgentWorkTokenFile(filePath string) (string, error) {
+	if !filepath.IsAbs(filePath) {
+		return "", fmt.Errorf("Agent work token file must use an absolute path")
+	}
+	info, err := os.Lstat(filePath)
+	if err != nil {
+		return "", err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > 4096 {
+		return "", fmt.Errorf("Agent work token file must be a regular file up to 4096 bytes")
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
+		return "", fmt.Errorf("Agent work token file must not be accessible by group or others")
+	}
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	openedInfo, err := file.Stat()
+	if err != nil {
+		return "", err
+	}
+	currentInfo, err := os.Lstat(filePath)
+	if err != nil || currentInfo.Mode()&os.ModeSymlink != 0 || !os.SameFile(openedInfo, currentInfo) {
+		return "", fmt.Errorf("Agent work token file changed while opening")
+	}
+	content, err := io.ReadAll(io.LimitReader(file, 4097))
+	if err != nil {
+		return "", err
+	}
+	token := strings.TrimSpace(string(content))
+	if token == "" || len(content) > 4096 {
+		return "", fmt.Errorf("Agent work token file is empty or too large")
 	}
 	return token, nil
 }
