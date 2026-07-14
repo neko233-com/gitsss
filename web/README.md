@@ -12,4 +12,4 @@ pnpm test
 pnpm build
 ```
 
-The initial dashboard includes the bounded recent-event preview and the `Ctrl/Cmd+K` command surface. It is intentionally independent from the legacy Vue frontend so it can become the sole web client before `web_src/` is removed.
+The dashboard includes the bounded recent-event preview and the `Ctrl/Cmd+K` command surface. This is the sole gitsss web client. Production bundles are served by the Go binary from its adjacent `web/` directory; source runs use `web/dist`.

@@ -26,6 +26,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/state"
 	"github.com/neko233-com/gitsss/server/internal/storage"
 	"github.com/neko233-com/gitsss/server/internal/takeover"
+	"github.com/neko233-com/gitsss/server/internal/webui"
 )
 
 func main() {
@@ -133,13 +134,22 @@ func main() {
 	go notificationService.RunDispatcher(ctx, notification.DispatcherOptions{}, func(err error) {
 		log.Printf("notification dispatcher: %v", err)
 	})
+	apiHandler := api.NewServer(verifier, api.Dependencies{
+		Dashboard: dashboardService, Notifications: notificationService, Pipelines: pipelineService,
+		Repositories: repositoryService, Runners: runnerService, Storage: storageService,
+		Takeovers: takeoverRegistry, Jobs: agentJobs, Audit: logStore, LFS: lfsHandler,
+	}).Handler()
+	webRoot, err := webui.DiscoverRoot(os.Getenv("GITSSS_WEB_ROOT"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	applicationHandler, err := webui.New(apiHandler, webRoot)
+	if err != nil {
+		log.Fatal(err)
+	}
 	httpServer := &http.Server{
-		Addr: address,
-		Handler: api.NewServer(verifier, api.Dependencies{
-			Dashboard: dashboardService, Notifications: notificationService, Pipelines: pipelineService,
-			Repositories: repositoryService, Runners: runnerService, Storage: storageService,
-			Takeovers: takeoverRegistry, Jobs: agentJobs, Audit: logStore, LFS: lfsHandler,
-		}).Handler(),
+		Addr:              address,
+		Handler:           applicationHandler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	go func() {
@@ -150,7 +160,7 @@ func main() {
 			log.Printf("HTTP shutdown: %v", err)
 		}
 	}()
-	log.Printf("gitsss API listening on %s", address)
+	log.Printf("gitsss listening on %s with web bundle %s", address, webRoot)
 	if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}

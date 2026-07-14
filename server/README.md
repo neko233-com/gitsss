@@ -1,6 +1,6 @@
 # gitsss server foundation
 
-This Go 1.26 module establishes the first server boundaries for gitsss:
+This Go 1.26 module runs the gitsss API and serves the sole React client from the same origin:
 
 - scoped custom-token verification using constant-time hash comparison;
 - dashboard and bounded event-preview HTTP endpoints;
@@ -27,6 +27,8 @@ go run ./cmd/gitsss
 go run ./cmd/gitsss-agent probe --server http://127.0.0.1:8787 --token $env:GITSSS_API_TOKEN
 go run ./cmd/gitsss-agent runner-report --server http://127.0.0.1:8787 --token $env:GITSSS_API_TOKEN --id local-agent --platform windows/amd64
 ```
+
+Run `pnpm build` in `web/` before starting from source. A packaged `gitsss` binary discovers the adjacent `web/` bundle automatically; source runs discover `web/dist`. `GITSSS_WEB_ROOT` can select another absolute or relative bundle directory containing a plain `index.html`. Requests below `/api/` always stay on the API handler, while React routes receive the SPA shell and hashed assets use immutable caching.
 
 The server creates one permission-restricted embedded SQLite file at `GITSSS_DATA_PATH` (default `data/gitsss.db`) with WAL, full synchronous writes, a busy timeout and a versioned schema. Custom-token hashes and lifecycle metadata, Agent jobs, takeover assessments, notification configurations, the notification outbox, per-principal Dashboard event previews and the main-service audit log survive process restarts. Notification secrets, message content, Dashboard previews and audit entries are AES-256-GCM encrypted with identity-bound associated data and a generated 32-byte key at `GITSSS_MASTER_KEY_PATH` (default `<data-path>.key`). Dashboard previews use bounded event-ID LRU independently for each Token ID; clearing one principal never clears another, and compliance audit records are outside that LRU. Retention cleanup deletes expired audit documents in one transaction before changing the in-memory view. Unix uses `0600`; Windows applies a protected DACL for the service user, SYSTEM and Administrators without calling `icacls`. Losing the key intentionally makes startup fail instead of silently discarding encrypted state. See [`docs/architecture/dashboard-preview-v1.md`](../docs/architecture/dashboard-preview-v1.md).
 
