@@ -31,7 +31,17 @@ gitsss-agent update-stage `
 
 `update-stage` 只接受当前 Agent 的 OS/architecture 和不存在的绝对目标目录。它在同一打开文件句柄上重验签名清单对应的大小与 SHA-256，再限制解压条目数、单文件/总大小，并拒绝路径穿越、绝对路径、符号/硬链接、设备文件、重复/大小写冲突路径和 Windows 保留名。ready 元数据最后写入；任一步失败会删除本次新建的 staging 目录。
 
-`update-verify` 和 `update-stage` 都不下载、不替换正在运行的服务，也不执行服务切换。自动更新事务仍需在 staging 之后完成磁盘预留、原版本快照、服务切换、健康探测和失败回滚。
+`update-verify` 和 `update-stage` 都不下载、不替换正在运行的服务，也不执行服务切换。确认 staging 输出后，在独立的管理员终端激活：
+
+```powershell
+gitsss-agent update-activate `
+  --target C:\ProgramData\gitsss\updates\0.1.0 `
+  --state-dir C:\ProgramData\gitsss\launcher-state
+```
+
+`update-activate` 只接受当前主机平台，严格核对 ready 元数据、包内 `BUILDINFO.json`、旧/新 Agent 常规文件及平台。它以不可覆盖的独占锁串行化更新，发布下一 launcher generation 后重启 Task Scheduler、launchd 或 systemd 服务；只有观察到该 generation 的 launcher 启动回执，并由 staging 中的新 Agent 使用受保护 work Token 通过 `/api/v1/agent/health` 认证探测，才算成功。探测不领取或修改作业。
+
+重启、回执或健康探测失败时，事务发布更高 generation 指回旧目录，再重启并验证旧版本；不会改写或删除已有 generation。并发更新会直接失败。进程异常退出遗留的 `.gitsss-update-activation.lock` 不会自动过期：管理员必须先核对最新 active state 与服务进程，再只删除该锁。当前事务不下载更新，也不自动回收旧版本目录；磁盘预留和经审批的历史版本清理仍属于后续安装器策略。
 
 `v0.1.0-alpha.1` 是切换到本机发布流程的 SHA-256 基线包，尚未包含此验证命令或 Ed25519 manifest。签名发布从完成离线私钥托管和公钥预置的后续预发布开始，不能追认旧包为已签名。
 

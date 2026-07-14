@@ -60,4 +60,8 @@ func TestRunLauncherExecutesLatestState(t *testing.T) {
 	if !bytes.Contains(stdout.Bytes(), []byte("helper-ready")) || !bytes.Contains(stdout.Bytes(), []byte("generation 1")) {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
+	started, err := launcher.StartedAfter(stateDirectory, 1, time.Now().Add(-time.Minute))
+	if err != nil || !started {
+		t.Fatalf("start receipt = %v, err = %v", started, err)
+	}
 }

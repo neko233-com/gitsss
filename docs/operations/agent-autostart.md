@@ -49,3 +49,5 @@ go run ./cmd/gitsss-agent service-plan --platform linux --executable /usr/local/
 计划会验证 HTTP(S) 控制面地址、Agent ID 和所有目标路径，拒绝 URL 用户信息、查询 Token、换行和相对路径。Windows 参数按 CommandLineToArgvW 规则引用；launchd 使用独立 `ProgramArguments`；systemd 对引号、反斜杠和 `%` 做转义。
 
 `service-plan` 本身不代表服务已安装；只有 `service-install` 成功返回才表示服务已注册并启动。
+
+后续签名更新由 `update-stage` 写入全新版本目录，再由独立管理员终端运行 `update-activate --target <版本目录> --state-dir <state 目录>`。激活会等待 launcher 对新 generation 的不可变启动回执，并使用同一受保护 Token 做不领取作业的控制面健康探测；失败时自动发布更高 generation 回滚。详见 [`signed-updates.md`](signed-updates.md)。

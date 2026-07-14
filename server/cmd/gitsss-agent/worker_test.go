@@ -166,6 +166,25 @@ func TestResolveAgentWorkTokenFromProtectedFile(t *testing.T) {
 	}
 }
 
+func TestCheckAgentHealthUsesWorkTokenWithoutMutatingQueue(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		requests.Add(1)
+		if request.Method != http.MethodGet || request.URL.Path != "/api/v1/agent/health" || request.Header.Get("Authorization") != "Bearer work-token" {
+			http.Error(response, "invalid request", http.StatusBadRequest)
+			return
+		}
+		writeWorkerJSON(t, response, map[string]string{"status": "ok"})
+	}))
+	defer server.Close()
+	if err := checkAgentHealth(context.Background(), server.Client(), server.URL, "work-token"); err != nil {
+		t.Fatal(err)
+	}
+	if requests.Load() != 1 {
+		t.Fatalf("requests = %d, want 1", requests.Load())
+	}
+}
+
 func writeWorkerJSON(t *testing.T, response http.ResponseWriter, value any) {
 	t.Helper()
 	response.Header().Set("Content-Type", "application/json")

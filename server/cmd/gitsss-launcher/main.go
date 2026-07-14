@@ -56,6 +56,11 @@ func runLauncher(ctx context.Context, stateDirectory string, shutdownGrace time.
 	if err := command.Start(); err != nil {
 		return err
 	}
+	if _, err := launcher.PublishStarted(stateDirectory, state.Generation, command.Process.Pid, time.Now()); err != nil {
+		_ = command.Process.Kill()
+		_ = command.Wait()
+		return fmt.Errorf("publish launcher start receipt: %w", err)
+	}
 	waited := make(chan error, 1)
 	go func() { waited <- command.Wait() }()
 	select {

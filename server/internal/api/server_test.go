@@ -201,3 +201,32 @@ func TestServerDispatchesAgentJobWithScopedClaimAndCompletion(t *testing.T) {
 		t.Fatalf("audit entries = %#v", log.Entries())
 	}
 }
+
+func TestServerAgentHealthAuthenticatesWithoutClaimingJob(t *testing.T) {
+	log := &audit.Log{}
+	queue := agentjob.NewQueue(log)
+	if _, err := queue.Create("admin", "request-1", agentjob.KindAssessment, json.RawMessage(`{"agent_id":"old-server"}`), time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(
+		auth.NewVerifier(auth.NewRecord("worker", "worker-token", time.Time{}, "agents:work")),
+		Dependencies{Jobs: queue},
+	)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/agent/health", nil)
+	request.Header.Set("Authorization", "Bearer worker-token")
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"token_id":"worker"`) {
+		t.Fatalf("health = %d %s", response.Code, response.Body.String())
+	}
+	jobs := queue.Jobs()
+	if len(jobs) != 1 || jobs[0].Status != agentjob.StatusQueued {
+		t.Fatalf("jobs = %#v, want one queued job", jobs)
+	}
+
+	unauthorized := httptest.NewRecorder()
+	server.Handler().ServeHTTP(unauthorized, httptest.NewRequest(http.MethodGet, "/api/v1/agent/health", nil))
+	if unauthorized.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthorized health = %d, want %d", unauthorized.Code, http.StatusUnauthorized)
+	}
+}

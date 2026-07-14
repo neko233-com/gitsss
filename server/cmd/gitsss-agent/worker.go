@@ -44,6 +44,51 @@ type agentWorker struct {
 	pending   *pendingAgentCompletion
 }
 
+func health(args []string) {
+	flags := flag.NewFlagSet("health", flag.ExitOnError)
+	serverURL := flags.String("server", "", "gitsss API base URL")
+	tokenEnv := flags.String("token-env", "GITSSS_AGENT_WORK_TOKEN", "environment variable containing the Agent work token")
+	tokenFile := flags.String("token-file", "", "absolute path to a protected Agent work token file")
+	flags.Parse(args)
+	token, err := resolveAgentWorkToken("", *tokenEnv, *tokenFile)
+	if strings.TrimSpace(*serverURL) == "" || err != nil {
+		fmt.Fprintln(os.Stderr, "--server and a valid --token-env or --token-file are required")
+		os.Exit(2)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := checkAgentHealth(ctx, &http.Client{Timeout: 15 * time.Second}, *serverURL, token); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	fmt.Println("gitsss Agent control plane is healthy")
+}
+
+func checkAgentHealth(ctx context.Context, client *http.Client, serverURL, token string) error {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(serverURL, "/")+"/api/v1/agent/health", nil)
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(response.Body, 4<<10))
+		return fmt.Errorf("Agent health: %s: %s", response.Status, strings.TrimSpace(string(body)))
+	}
+	var result struct {
+		Status string `json:"status"`
+	}
+	decoder := json.NewDecoder(io.LimitReader(response.Body, 4<<10))
+	if err := decoder.Decode(&result); err != nil || result.Status != "ok" {
+		return fmt.Errorf("Agent health returned an invalid response")
+	}
+	return nil
+}
+
 func newAgentWorker(serverURL, token, agentID string, client *http.Client, execute agentJobExecutor) *agentWorker {
 	if client == nil {
 		client = &http.Client{Timeout: 30 * time.Second}

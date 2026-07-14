@@ -109,6 +109,9 @@ func LoadLatest(directory string) (State, string, error) {
 	if !cleanAbsolute(directory) {
 		return State{}, "", fmt.Errorf("%w: state directory must be a clean absolute path", ErrInvalidState)
 	}
+	if err := validateStateDirectory(directory); err != nil {
+		return State{}, "", err
+	}
 	entries, err := os.ReadDir(directory)
 	if err != nil {
 		return State{}, "", err
@@ -152,9 +155,8 @@ func Publish(directory string, state State) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	info, err := os.Stat(directory)
-	if err != nil || !info.IsDir() {
-		return "", fmt.Errorf("%w: state directory does not exist", ErrInvalidState)
+	if err := validateStateDirectory(directory); err != nil {
+		return "", err
 	}
 	filePath := filepath.Join(directory, StateFilename(state.Generation))
 	if err := atomicStateFile(filePath, content); err != nil {
@@ -254,6 +256,14 @@ func atomicStateFile(filePath string, content []byte) error {
 
 func cleanAbsolute(value string) bool {
 	return value != "" && filepath.IsAbs(value) && filepath.Clean(value) == value && !strings.ContainsAny(value, "\x00\r\n")
+}
+
+func validateStateDirectory(directory string) error {
+	info, err := os.Lstat(directory)
+	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return fmt.Errorf("%w: state directory must be a regular directory", ErrInvalidState)
+	}
+	return nil
 }
 
 func cleanTargetAbsolute(platform, value string) bool {

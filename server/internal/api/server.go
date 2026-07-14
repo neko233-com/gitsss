@@ -70,6 +70,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/takeover/assessments", s.takeoverAssessments)
 	mux.HandleFunc("POST /api/v1/takeover/assessments", s.takeoverAssessmentSubmit)
 	mux.HandleFunc("GET /api/v1/agent/jobs", s.agentJobs)
+	mux.HandleFunc("GET /api/v1/agent/health", s.agentHealth)
 	mux.HandleFunc("POST /api/v1/agent/jobs", s.agentJobCreate)
 	mux.HandleFunc("POST /api/v1/agent/jobs/claim", s.agentJobClaim)
 	mux.HandleFunc("POST /api/v1/agent/jobs/{job}/complete", s.agentJobComplete)
@@ -83,6 +84,14 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/repositories/{repository}/files", s.repositoryFile)
 	mux.HandleFunc("GET /api/v1/repositories/{repository}/search", s.repositorySearch)
 	return mux
+}
+
+func (s *Server) agentHealth(w http.ResponseWriter, r *http.Request) {
+	principal, ok := s.authenticate(w, r, "agents:work")
+	if !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "token_id": principal.TokenID})
 }
 
 func (s *Server) agentJobs(w http.ResponseWriter, r *http.Request) {
