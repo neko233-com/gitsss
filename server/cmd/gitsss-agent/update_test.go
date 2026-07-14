@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	gitsssupdate "github.com/neko233-com/gitsss/server/internal/update"
 )
@@ -51,6 +52,16 @@ func TestVerifyUpdateFilesUsesTrustedKeyAndExactPackage(t *testing.T) {
 	}
 	if _, err := verifyUpdateFiles(manifestPath, signaturePath, publicKeyPath, packagePath, runtime.GOOS, "unsupported"); err == nil {
 		t.Fatal("wrong target architecture was accepted")
+	}
+}
+
+func TestStageUpdateFilesRejectsCrossPlatformBeforeReading(t *testing.T) {
+	targetOS := "linux"
+	if runtime.GOOS == targetOS {
+		targetOS = "windows"
+	}
+	if _, err := stageUpdateFiles("missing", "missing", "missing", "missing", "missing", targetOS, runtime.GOARCH, time.Now()); err == nil {
+		t.Fatal("cross-platform staging was accepted")
 	}
 }
 

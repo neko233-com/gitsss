@@ -18,7 +18,20 @@ gitsss-agent update-verify `
 
 验证会按顺序拒绝：未知/非 canonical JSON、未知字段、错误 key ID、无效 Ed25519 签名、当前平台无对应 artifact、文件名或大小不符、符号链接/非常规文件、打开期间被替换，以及 SHA-256 不符。成功输出已验证的 version、commit、发布时间、key ID 和 artifact 元数据。
 
-`update-verify` 只验证已经下载的归档，不下载、不解压、不替换正在运行的服务，也不执行回滚。自动更新事务必须在此验证之后另行完成解压边界检查、磁盘预留、原版本快照、服务切换、健康探测和失败回滚。
+验证后可把本机平台包解压到一个全新的隔离目录：
+
+```powershell
+gitsss-agent update-stage `
+  --manifest C:\gitsss-update\update-manifest.json `
+  --signature C:\gitsss-update\update-manifest.sig `
+  --public-key C:\ProgramData\gitsss\release.pub `
+  --package C:\gitsss-update\gitsss-0.1.0-windows-amd64.zip `
+  --target C:\ProgramData\gitsss\updates\0.1.0
+```
+
+`update-stage` 只接受当前 Agent 的 OS/architecture 和不存在的绝对目标目录。它在同一打开文件句柄上重验签名清单对应的大小与 SHA-256，再限制解压条目数、单文件/总大小，并拒绝路径穿越、绝对路径、符号/硬链接、设备文件、重复/大小写冲突路径和 Windows 保留名。ready 元数据最后写入；任一步失败会删除本次新建的 staging 目录。
+
+`update-verify` 和 `update-stage` 都不下载、不替换正在运行的服务，也不执行服务切换。自动更新事务仍需在 staging 之后完成磁盘预留、原版本快照、服务切换、健康探测和失败回滚。
 
 `v0.1.0-alpha.1` 是切换到本机发布流程的 SHA-256 基线包，尚未包含此验证命令或 Ed25519 manifest。签名发布从完成离线私钥托管和公钥预置的后续预发布开始，不能追认旧包为已签名。
 

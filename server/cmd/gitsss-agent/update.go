@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	gitsssupdate "github.com/neko233-com/gitsss/server/internal/update"
 )
@@ -45,6 +46,53 @@ func updateVerify(args []string) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func updateStage(args []string) {
+	flags := flag.NewFlagSet("update-stage", flag.ExitOnError)
+	manifestPath := flags.String("manifest", "", "absolute path to canonical update-manifest.json")
+	signaturePath := flags.String("signature", "", "absolute path to update-manifest.sig")
+	publicKeyPath := flags.String("public-key", "", "absolute path to the trusted Ed25519 public key")
+	packagePath := flags.String("package", "", "absolute path to the downloaded update package")
+	targetPath := flags.String("target", "", "new absolute staging directory")
+	targetOS := flags.String("os", runtime.GOOS, "expected target operating system")
+	targetArch := flags.String("arch", runtime.GOARCH, "expected target architecture")
+	flags.Parse(args)
+	result, err := stageUpdateFiles(*manifestPath, *signaturePath, *publicKeyPath, *packagePath, *targetPath, *targetOS, *targetArch, time.Now())
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(result); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func stageUpdateFiles(manifestPath, signaturePath, publicKeyPath, packagePath, targetPath, targetOS, targetArch string, now time.Time) (gitsssupdate.StageResult, error) {
+	if targetOS != runtime.GOOS || targetArch != runtime.GOARCH {
+		return gitsssupdate.StageResult{}, fmt.Errorf("update target %s/%s does not match this Agent %s/%s", targetOS, targetArch, runtime.GOOS, runtime.GOARCH)
+	}
+	for _, filePath := range []string{manifestPath, signaturePath, publicKeyPath, packagePath, targetPath} {
+		if strings.TrimSpace(filePath) == "" || !filepath.IsAbs(filePath) {
+			return gitsssupdate.StageResult{}, errors.New("manifest, signature, public key, package and target must use absolute paths")
+		}
+	}
+	manifestContent, err := readBoundedUpdateFile(manifestPath, 1<<20)
+	if err != nil {
+		return gitsssupdate.StageResult{}, err
+	}
+	signatureContent, err := readBoundedUpdateFile(signaturePath, 4<<10)
+	if err != nil {
+		return gitsssupdate.StageResult{}, err
+	}
+	publicKeyContent, err := readBoundedUpdateFile(publicKeyPath, 1<<10)
+	if err != nil {
+		return gitsssupdate.StageResult{}, err
+	}
+	return gitsssupdate.VerifyAndStage(manifestContent, signatureContent, publicKeyContent, packagePath, targetOS, targetArch, targetPath, now)
 }
 
 func verifyUpdateFiles(manifestPath, signaturePath, publicKeyPath, packagePath, targetOS, targetArch string) (updateVerificationResult, error) {

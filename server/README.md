@@ -67,7 +67,7 @@ Notification control-plane routes use the `notifications:read`, `notifications:w
 
 GitHub-hosted CI is disabled while the repository has no Actions quota. The trusted Windows release path runs the complete local checks, cross-builds six Linux/macOS/Windows packages, verifies binary architecture, writes SHA-256 checksums and can upload a commit-bound prerelease. See [`docs/operations/local-release.md`](../docs/operations/local-release.md).
 
-`gitsss-agent update-verify` verifies a canonical update manifest, its Ed25519 signature and the exact OS/architecture package against an out-of-band trusted public key. It does not download or install the package. See [`docs/operations/signed-updates.md`](../docs/operations/signed-updates.md).
+`gitsss-agent update-verify` verifies a canonical update manifest, its Ed25519 signature and the exact OS/architecture package against an out-of-band trusted public key. `update-stage` re-verifies the same package handle and extracts it into a new bounded, link-free staging directory with ready metadata. Neither command downloads or activates the package. See [`docs/operations/signed-updates.md`](../docs/operations/signed-updates.md).
 
 Set `GITSSS_REPOSITORY_PATH` to a working tree, subdirectory, or bare repository. The server resolves working-tree subdirectories to the repository root and exposes only configured repository IDs; API callers cannot supply arbitrary filesystem paths. Text previews are capped at 1 MiB, binary game assets return metadata only, and search results are bounded.
 
