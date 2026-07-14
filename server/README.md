@@ -52,6 +52,15 @@ gitsss-agent service-plan --server https://gitsss.internal --id old-gitea
 
 Windows Task Scheduler, macOS launchd and Linux systemd plans reference a protected `--token-file`; the token value is never embedded in the service definition or plan JSON. See [`docs/operations/agent-autostart.md`](../docs/operations/agent-autostart.md).
 
+Install the native package as administrator/root with the scoped token supplied through `GITSSS_AGENT_WORK_TOKEN`:
+
+```powershell
+gitsss-agent service-install --server https://gitsss.internal --id old-gitea
+gitsss-agent service-uninstall
+```
+
+Installation is no-replace and transactional: it atomically publishes the protected token and service definition before registration, then rolls both back if service activation fails. Uninstall retains credentials when the platform service cannot be removed.
+
 The queue currently accepts only `takeover.assess`, `backup.export`, `backup.restore-isolated`, `backup.audit-restore` and `backup.verify`; it cannot execute shell commands. An export re-runs assessment and requires its resulting ID to match the administrator's explicit confirmation before creating a no-replace encrypted container. An isolated restore binds both authenticated reads to the confirmed container SHA-256 before publishing a new directory. The post-restore audit is read-only and reports file, strict Git and LFS evidence separately from its shadow-mode readiness decision. Passphrases remain in a named environment variable on the old server. A claim has a five-minute lease, is bound to one Agent ID, and terminal completion is idempotent. See [`docs/architecture/agent-jobs-v1.md`](../docs/architecture/agent-jobs-v1.md).
 
 Notification control-plane routes use the `notifications:read`, `notifications:write` and `notifications:dispatch` scopes. Configure a channel, send a test, and inspect the outbox through `/api/v1/notifications/channels`, `/api/v1/notifications/channels/{channel}/test` and `/api/v1/notifications/outbox`. Failed deliveries retry with exponential backoff and move to `dead` after four attempts.

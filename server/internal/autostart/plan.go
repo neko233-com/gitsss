@@ -41,6 +41,7 @@ type Plan struct {
 	Platform       Platform  `json:"platform"`
 	DefinitionPath string    `json:"definition_path"`
 	TokenFile      string    `json:"token_file"`
+	Directories    []string  `json:"directories"`
 	Definition     string    `json:"definition"`
 	Install        []Command `json:"install"`
 	Uninstall      []Command `json:"uninstall"`
@@ -123,7 +124,8 @@ func windowsPlan(options Options) Plan {
 </Task>
 `
 	return Plan{
-		Platform: options.Platform, DefinitionPath: definitionPath, TokenFile: options.TokenFile, Definition: definition,
+		Platform: options.Platform, DefinitionPath: definitionPath, TokenFile: options.TokenFile,
+		Directories: serviceDirectories(options), Definition: definition,
 		Install: []Command{
 			{Executable: "schtasks.exe", Arguments: []string{"/Create", "/TN", "gitsss-agent", "/XML", definitionPath, "/F"}},
 			{Executable: "schtasks.exe", Arguments: []string{"/Run", "/TN", "gitsss-agent"}},
@@ -162,7 +164,8 @@ func darwinPlan(options Options) Plan {
 </plist>
 `
 	return Plan{
-		Platform: options.Platform, DefinitionPath: definitionPath, TokenFile: options.TokenFile, Definition: definition,
+		Platform: options.Platform, DefinitionPath: definitionPath, TokenFile: options.TokenFile,
+		Directories: serviceDirectories(options), Definition: definition,
 		Install: []Command{
 			{Executable: "/bin/launchctl", Arguments: []string{"bootstrap", "system", definitionPath}},
 			{Executable: "/bin/launchctl", Arguments: []string{"enable", "system/com.gitsss.agent"}},
@@ -200,7 +203,8 @@ ReadWritePaths=` + quoteSystemdArgument(options.WorkingDirectory) + `
 WantedBy=multi-user.target
 `
 	return Plan{
-		Platform: options.Platform, DefinitionPath: definitionPath, TokenFile: options.TokenFile, Definition: definition,
+		Platform: options.Platform, DefinitionPath: definitionPath, TokenFile: options.TokenFile,
+		Directories: serviceDirectories(options), Definition: definition,
 		Install: []Command{
 			{Executable: "systemctl", Arguments: []string{"daemon-reload"}},
 			{Executable: "systemctl", Arguments: []string{"enable", "--now", "gitsss-agent.service"}},
@@ -210,6 +214,37 @@ WantedBy=multi-user.target
 			{Executable: "systemctl", Arguments: []string{"daemon-reload"}},
 		},
 	}
+}
+
+func serviceDirectories(options Options) []string {
+	candidates := []string{options.WorkingDirectory, targetDirectory(options.Platform, options.TokenFile)}
+	if options.LogDirectory != "" {
+		candidates = append(candidates, options.LogDirectory)
+	}
+	directories := make([]string, 0, len(candidates))
+	seen := make(map[string]struct{}, len(candidates))
+	for _, candidate := range candidates {
+		if _, exists := seen[candidate]; candidate == "" || exists {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		directories = append(directories, candidate)
+	}
+	return directories
+}
+
+func targetDirectory(platform Platform, filePath string) string {
+	if platform != PlatformWindows {
+		return path.Dir(filePath)
+	}
+	index := strings.LastIndexAny(filePath, `\\/`)
+	if index < 0 {
+		return ""
+	}
+	if index == 2 && len(filePath) >= 3 && filePath[1] == ':' {
+		return filePath[:3]
+	}
+	return filePath[:index]
 }
 
 func validAgentID(value string) bool {

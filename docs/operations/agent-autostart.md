@@ -1,6 +1,6 @@
 # gitsss Agent 开机启动计划
 
-`gitsss-agent service-plan` 为目标系统生成确定性的服务定义、Token 文件位置以及安装/卸载命令。该命令只输出 JSON，不写系统目录、不执行提权命令，适合先审阅、纳入安装包，再由后续安装事务应用。
+`gitsss-agent service-plan` 为目标系统生成确定性的服务定义、Token 文件位置以及安装/卸载命令。该命令只输出 JSON，不写系统目录、不执行提权命令，适合安装前审阅。
 
 | 平台 | 启动机制 | 定义位置 | 默认 Token 文件 |
 | --- | --- | --- | --- |
@@ -9,6 +9,26 @@
 | Linux Server | systemd，network-online 后启动并自动恢复 | `/etc/systemd/system/gitsss-agent.service` | `/etc/gitsss/agent.token` |
 
 服务定义只包含 `--token-file` 路径，不包含 Token 值。Agent 拒绝相对路径、符号链接、非常规文件、空文件和超过 4096 字节的文件；在 Unix 上还要求文件不能被 group/other 访问。Windows 安装事务需要为 Token 文件设置只允许 SYSTEM 和 Administrators 读取的 ACL。
+
+## 安装与卸载
+
+先以管理员/root 身份打开终端，将 scoped work Token 放入环境变量，再执行本机安装。Token 不会进入命令行、服务定义或计划 JSON：
+
+```powershell
+$env:GITSSS_AGENT_WORK_TOKEN = "replace-with-a-scoped-work-token"
+gitsss-agent service-install --server https://gitsss.internal --id studio-agent
+Remove-Item Env:GITSSS_AGENT_WORK_TOKEN
+```
+
+`service-install` 只接受本机平台，并且默认不覆盖已有 Token 或服务定义。它先创建目录，把 Token 以无覆盖原子方式发布为 Unix `0600` 文件或 Windows SYSTEM/Administrators 只读 ACL 文件，再发布服务定义并启动服务。任一安装命令失败都会尝试卸载服务并回滚本次创建的文件。
+
+卸载不需要再次提供 Token、服务器地址或 Agent ID：
+
+```powershell
+gitsss-agent service-uninstall
+```
+
+只有平台服务卸载命令全部成功后，卸载事务才删除 Token 和服务定义；非空的工作/日志目录会保留，避免误删运行日志或后续产生的数据。自定义过 `--token-file`、`--working-directory` 或 `--log-directory` 时，卸载必须传入相同路径。
 
 运行已经安装到最终位置的二进制时，可以省略 `--platform` 和 `--executable`：
 
@@ -28,4 +48,4 @@ go run ./cmd/gitsss-agent service-plan --platform linux --executable /usr/local/
 
 计划会验证 HTTP(S) 控制面地址、Agent ID 和所有目标路径，拒绝 URL 用户信息、查询 Token、换行和相对路径。Windows 参数按 CommandLineToArgvW 规则引用；launchd 使用独立 `ProgramArguments`；systemd 对引号、反斜杠和 `%` 做转义。
 
-下一步的安装事务必须先原子写入 Token 和服务定义、设置平台权限，再运行计划中的安装命令；任一步失败都要卸载服务并删除尚未激活的定义。`service-plan` 本身不代表服务已安装。
+`service-plan` 本身不代表服务已安装；只有 `service-install` 成功返回才表示服务已注册并启动。

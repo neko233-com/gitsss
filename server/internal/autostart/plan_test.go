@@ -49,6 +49,9 @@ func TestBuildPlanRendersCrossPlatformDefinitions(t *testing.T) {
 			if plan.Platform != test.options.Platform || plan.DefinitionPath != test.definition || len(plan.Install) < 2 || plan.Install[0].Executable != test.command {
 				t.Fatalf("unexpected plan: %#v", plan)
 			}
+			if len(plan.Directories) == 0 || !containsString(plan.Directories, targetDirectory(plan.Platform, plan.TokenFile)) {
+				t.Fatalf("plan does not prepare token directory: %#v", plan.Directories)
+			}
 			for _, expected := range []string{test.options.Executable, test.options.ServerURL, test.options.AgentID, plan.TokenFile} {
 				if !strings.Contains(plan.Definition, expected) {
 					t.Fatalf("definition does not contain %q:\n%s", expected, plan.Definition)
@@ -65,6 +68,15 @@ func TestBuildPlanRendersCrossPlatformDefinitions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func containsString(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func TestBuildPlanRejectsUnsafeInputs(t *testing.T) {
