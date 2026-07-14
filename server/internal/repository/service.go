@@ -257,6 +257,14 @@ func (s *Service) Resolve(id string) (Repository, error) {
 	return s.repository(id)
 }
 
+func (s *Service) Commit(ctx context.Context, repositoryID, ref string) (string, error) {
+	repository, err := s.repository(repositoryID)
+	if err != nil {
+		return "", err
+	}
+	return s.resolveCommit(ctx, repository, ref)
+}
+
 func (s *Service) normalizeRepository(repository Repository) (Repository, error) {
 	if !validRepositoryID(repository.ID) || strings.TrimSpace(repository.Name) == "" || len(repository.Name) > 120 || strings.TrimSpace(repository.Path) == "" {
 		return Repository{}, fmt.Errorf("%w: repository id, name and path are required", ErrInvalidPath)

@@ -17,6 +17,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/dashboard"
 	"github.com/neko233-com/gitsss/server/internal/notification"
+	"github.com/neko233-com/gitsss/server/internal/pipeline"
 	"github.com/neko233-com/gitsss/server/internal/repository"
 	"github.com/neko233-com/gitsss/server/internal/runner"
 	"github.com/neko233-com/gitsss/server/internal/state"
@@ -228,6 +229,73 @@ func TestServerReconcilesBundledRunner(t *testing.T) {
 	server.Handler().ServeHTTP(response, reconcile)
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"action":"install"`) {
 		t.Fatalf("reconcile response = %d %s, want install action", response.Code, response.Body.String())
+	}
+}
+
+func TestServerRunsPipelineThroughBoundRunnerIdentity(t *testing.T) {
+	root := t.TempDir()
+	store, err := state.Open(filepath.Join(root, "gitsss.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	log := &audit.Log{}
+	pipelines, err := pipeline.NewPersistentService(log, store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repositories, err := repository.NewService([]repository.Repository{{ID: "gitsss", Name: "gitsss", Path: filepath.Join("..", "..", "..")}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifier := auth.NewVerifier(
+		auth.NewRecord("maintainer", "maintainer-token", time.Time{}, "pipelines:read", "pipelines:write"),
+		auth.NewRecord("runner-1", "runner-token", time.Time{}, "pipelines:work"),
+	)
+	server := NewServer(verifier, Dependencies{Audit: log, Pipelines: pipelines, Repositories: repositories})
+	server.now = func() time.Time { return time.Date(2026, 7, 14, 12, 0, 0, 0, time.UTC) }
+
+	create := httptest.NewRequest(http.MethodPost, "/api/v1/pipelines/runs", strings.NewReader(`{"repository_id":"gitsss","ref":"HEAD","template_id":"gitsss-verify"}`))
+	create.Header.Set("Authorization", "Bearer maintainer-token")
+	createResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(createResponse, create)
+	if createResponse.Code != http.StatusCreated {
+		t.Fatalf("pipeline create = %d %s", createResponse.Code, createResponse.Body.String())
+	}
+	var created pipeline.Run
+	if err := json.Unmarshal(createResponse.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+
+	wrongClaim := httptest.NewRequest(http.MethodPost, "/api/v1/pipelines/runs/claim", strings.NewReader(`{"runner_id":"other"}`))
+	wrongClaim.Header.Set("Authorization", "Bearer runner-token")
+	wrongClaimResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(wrongClaimResponse, wrongClaim)
+	if wrongClaimResponse.Code != http.StatusForbidden {
+		t.Fatalf("wrong claim status = %d", wrongClaimResponse.Code)
+	}
+	claim := httptest.NewRequest(http.MethodPost, "/api/v1/pipelines/runs/claim", strings.NewReader(`{"runner_id":"runner-1"}`))
+	claim.Header.Set("Authorization", "Bearer runner-token")
+	claimResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(claimResponse, claim)
+	if claimResponse.Code != http.StatusOK || !strings.Contains(claimResponse.Body.String(), `"template":{"id":"gitsss-verify"`) {
+		t.Fatalf("pipeline claim = %d %s", claimResponse.Code, claimResponse.Body.String())
+	}
+
+	heartbeat := httptest.NewRequest(http.MethodPost, "/api/v1/pipelines/runs/"+created.ID+"/heartbeat", strings.NewReader(`{"runner_id":"runner-1","log":"tests passed\n"}`))
+	heartbeat.Header.Set("Authorization", "Bearer runner-token")
+	heartbeatResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(heartbeatResponse, heartbeat)
+	if heartbeatResponse.Code != http.StatusOK {
+		t.Fatalf("pipeline heartbeat = %d %s", heartbeatResponse.Code, heartbeatResponse.Body.String())
+	}
+
+	complete := httptest.NewRequest(http.MethodPost, "/api/v1/pipelines/runs/"+created.ID+"/complete", strings.NewReader(`{"runner_id":"runner-1","succeeded":true}`))
+	complete.Header.Set("Authorization", "Bearer runner-token")
+	completeResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(completeResponse, complete)
+	if completeResponse.Code != http.StatusOK || !strings.Contains(completeResponse.Body.String(), `"status":"succeeded"`) {
+		t.Fatalf("pipeline complete = %d %s", completeResponse.Code, completeResponse.Body.String())
 	}
 }
 

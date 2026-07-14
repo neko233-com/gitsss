@@ -72,6 +72,10 @@ func main() {
 		workOnce(os.Args[2:])
 	case "work":
 		work(os.Args[2:])
+	case "pipeline-work-once":
+		pipelineWorkOnce(os.Args[2:])
+	case "pipeline-work":
+		pipelineWork(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -79,7 +83,7 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Fprintln(os.Stderr, "usage: gitsss-agent <serve|service-plan|service-install|service-uninstall|update-verify|update-stage|update-activate|health|work|work-once|probe|runner-report|assess|freeze-check|backup-export|backup-verify|backup-import-plan|backup-restore-isolated|backup-audit-restore> [options]")
+	fmt.Fprintln(os.Stderr, "usage: gitsss-agent <serve|service-plan|service-install|service-uninstall|update-verify|update-stage|update-activate|health|work|work-once|pipeline-work|pipeline-work-once|probe|runner-report|assess|freeze-check|backup-export|backup-verify|backup-import-plan|backup-restore-isolated|backup-audit-restore> [options]")
 }
 
 func workOnce(args []string) {

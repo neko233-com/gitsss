@@ -18,6 +18,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/dashboard"
 	"github.com/neko233-com/gitsss/server/internal/gittransport"
 	"github.com/neko233-com/gitsss/server/internal/notification"
+	"github.com/neko233-com/gitsss/server/internal/pipeline"
 	"github.com/neko233-com/gitsss/server/internal/repository"
 	"github.com/neko233-com/gitsss/server/internal/runner"
 	"github.com/neko233-com/gitsss/server/internal/storage"
@@ -28,6 +29,7 @@ type Server struct {
 	verifier      auth.Verifier
 	dashboard     *dashboard.Service
 	notifications *notification.Service
+	pipelines     *pipeline.Service
 	repositories  *repository.Service
 	runners       *runner.Service
 	storage       *storage.Service
@@ -41,6 +43,7 @@ type Server struct {
 type Dependencies struct {
 	Dashboard     *dashboard.Service
 	Notifications *notification.Service
+	Pipelines     *pipeline.Service
 	Repositories  *repository.Service
 	Runners       *runner.Service
 	Storage       *storage.Service
@@ -54,6 +57,7 @@ func NewServer(verifier auth.Verifier, dependencies Dependencies) *Server {
 		verifier:      verifier,
 		dashboard:     dependencies.Dashboard,
 		notifications: dependencies.Notifications,
+		pipelines:     dependencies.Pipelines,
 		repositories:  dependencies.Repositories,
 		runners:       dependencies.Runners,
 		storage:       dependencies.Storage,
@@ -94,6 +98,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/storage/admission", s.storageAdmission)
 	mux.HandleFunc("GET /api/v1/runners", s.runnerList)
 	mux.HandleFunc("POST /api/v1/runners/reconcile", s.runnerReconcile)
+	mux.HandleFunc("GET /api/v1/pipelines/templates", s.pipelineTemplates)
+	mux.HandleFunc("GET /api/v1/pipelines/runs", s.pipelineRuns)
+	mux.HandleFunc("POST /api/v1/pipelines/runs", s.pipelineCreate)
+	mux.HandleFunc("POST /api/v1/pipelines/runs/claim", s.pipelineClaim)
+	mux.HandleFunc("POST /api/v1/pipelines/runs/{run}/heartbeat", s.pipelineHeartbeat)
+	mux.HandleFunc("POST /api/v1/pipelines/runs/{run}/complete", s.pipelineComplete)
 	mux.HandleFunc("GET /api/v1/repositories", s.repositoryList)
 	mux.HandleFunc("POST /api/v1/repositories", s.repositoryCreate)
 	mux.HandleFunc("GET /api/v1/repositories/{repository}/tree", s.repositoryTree)
@@ -518,6 +528,141 @@ func (s *Server) runnerReconcile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, reconciliation)
+}
+
+func (s *Server) pipelineTemplates(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "pipelines:read"); !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, pipeline.Templates())
+}
+
+func (s *Server) pipelineRuns(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "pipelines:read"); !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, s.pipelines.Runs())
+}
+
+func (s *Server) pipelineCreate(w http.ResponseWriter, r *http.Request) {
+	principal, ok := s.authenticate(w, r, "pipelines:write")
+	if !ok {
+		return
+	}
+	var request struct {
+		RepositoryID string `json:"repository_id"`
+		Ref          string `json:"ref"`
+		TemplateID   string `json:"template_id"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<10)).Decode(&request); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid pipeline request"})
+		return
+	}
+	commit, err := s.repositories.Commit(r.Context(), request.RepositoryID, request.Ref)
+	if err != nil {
+		s.writeRepositoryError(w, err)
+		return
+	}
+	run, err := s.pipelines.Create(principal.TokenID, requestID(), request.RepositoryID, commit, request.TemplateID, s.now().UTC())
+	if err != nil {
+		s.writePipelineError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, run)
+}
+
+func (s *Server) pipelineClaim(w http.ResponseWriter, r *http.Request) {
+	principal, ok := s.authenticate(w, r, "pipelines:work")
+	if !ok {
+		return
+	}
+	var request struct {
+		RunnerID string `json:"runner_id"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&request); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid pipeline runner"})
+		return
+	}
+	if request.RunnerID != principal.TokenID {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "runner identity does not match its Token"})
+		return
+	}
+	claim, found, err := s.pipelines.Claim(principal.TokenID, requestID(), request.RunnerID, s.now().UTC())
+	if err != nil {
+		s.writePipelineError(w, err)
+		return
+	}
+	if !found {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	writeJSON(w, http.StatusOK, claim)
+}
+
+func (s *Server) pipelineHeartbeat(w http.ResponseWriter, r *http.Request) {
+	principal, ok := s.authenticate(w, r, "pipelines:work")
+	if !ok {
+		return
+	}
+	var request struct {
+		RunnerID string `json:"runner_id"`
+		Log      string `json:"log"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 40<<10)).Decode(&request); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid pipeline heartbeat"})
+		return
+	}
+	if request.RunnerID != principal.TokenID {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "runner identity does not match its Token"})
+		return
+	}
+	run, err := s.pipelines.Heartbeat(r.PathValue("run"), request.RunnerID, request.Log, s.now().UTC())
+	if err != nil {
+		s.writePipelineError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, run)
+}
+
+func (s *Server) pipelineComplete(w http.ResponseWriter, r *http.Request) {
+	principal, ok := s.authenticate(w, r, "pipelines:work")
+	if !ok {
+		return
+	}
+	var request struct {
+		RunnerID  string `json:"runner_id"`
+		Succeeded bool   `json:"succeeded"`
+		Error     string `json:"error"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<10)).Decode(&request); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid pipeline completion"})
+		return
+	}
+	if request.RunnerID != principal.TokenID {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "runner identity does not match its Token"})
+		return
+	}
+	run, err := s.pipelines.Complete(principal.TokenID, requestID(), r.PathValue("run"), request.RunnerID, request.Succeeded, request.Error, s.now().UTC())
+	if err != nil {
+		s.writePipelineError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, run)
+}
+
+func (s *Server) writePipelineError(w http.ResponseWriter, err error) {
+	status := http.StatusBadRequest
+	message := err.Error()
+	switch {
+	case errors.Is(err, pipeline.ErrNotFound):
+		status = http.StatusNotFound
+	case errors.Is(err, pipeline.ErrConflict):
+		status = http.StatusConflict
+	case errors.Is(err, pipeline.ErrState), errors.Is(err, audit.ErrState):
+		status = http.StatusInternalServerError
+		message = "pipeline state could not be updated"
+	}
+	writeJSON(w, status, map[string]string{"error": message})
 }
 
 func (s *Server) repositoryList(w http.ResponseWriter, r *http.Request) {

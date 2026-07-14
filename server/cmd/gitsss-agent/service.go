@@ -33,6 +33,11 @@ func servicePlan(args []string) {
 
 func serviceInstall(args []string) {
 	tokenEnvironment := "GITSSS_AGENT_WORK_TOKEN"
+	for _, argument := range args {
+		if argument == "--runner" || argument == "--runner=true" {
+			tokenEnvironment = "GITSSS_RUNNER_TOKEN"
+		}
+	}
 	plan, err := parseServicePlan("service-install", args, "", "", func(flags *flag.FlagSet) {
 		flags.StringVar(&tokenEnvironment, "token-env", tokenEnvironment, "environment variable containing the Agent work token")
 	})
@@ -51,7 +56,11 @@ func serviceInstall(args []string) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Printf("installed gitsss Agent service for %s\n", plan.Platform)
+	service := "Agent"
+	if plan.RunnerMode {
+		service = "Runner"
+	}
+	fmt.Printf("installed gitsss %s service for %s\n", service, plan.Platform)
 }
 
 func serviceUninstall(args []string) {
@@ -66,7 +75,11 @@ func serviceUninstall(args []string) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Printf("uninstalled gitsss Agent service for %s\n", plan.Platform)
+	service := "Agent"
+	if plan.RunnerMode {
+		service = "Runner"
+	}
+	fmt.Printf("uninstalled gitsss %s service for %s\n", service, plan.Platform)
 }
 
 func parseServicePlan(name string, args []string, defaultServer, defaultAgentID string, extend func(*flag.FlagSet)) (autostart.Plan, error) {
@@ -83,6 +96,7 @@ func parseServicePlan(name string, args []string, defaultServer, defaultAgentID 
 	version := flags.String("version", "", "installed package version; auto-detected from BUILDINFO.json")
 	commit := flags.String("commit", "", "installed package commit; auto-detected from BUILDINFO.json")
 	architecture := flags.String("arch", "", "target architecture: amd64 or arm64")
+	runnerMode := flags.Bool("runner", false, "install the bundled pipeline Runner instead of a takeover Agent")
 	if extend != nil {
 		extend(flags)
 	}
@@ -127,6 +141,7 @@ func parseServicePlan(name string, args []string, defaultServer, defaultAgentID 
 		WorkingDirectory: *workingDirectory, LogDirectory: *logDirectory,
 		LauncherExecutable: *launcherExecutable, StateDirectory: *stateDirectory,
 		Version: *version, Commit: *commit, Architecture: *architecture,
+		RunnerMode: *runnerMode,
 	})
 }
 

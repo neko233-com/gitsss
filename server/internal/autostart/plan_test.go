@@ -102,6 +102,21 @@ func TestBuildPlanRejectsUnsafeInputs(t *testing.T) {
 	}
 }
 
+func TestBuildPlanCreatesSeparateBundledRunnerService(t *testing.T) {
+	plan, err := BuildPlan(Options{
+		Platform: PlatformLinux, Executable: "/usr/local/bin/gitsss-agent", ServerURL: "https://gitsss.internal",
+		AgentID: "runner-1", RunnerMode: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.DefinitionPath != "/etc/systemd/system/gitsss-runner.service" || plan.TokenFile != "/etc/gitsss/runner.token" ||
+		!strings.Contains(plan.Definition, "pipeline-work") || !strings.Contains(plan.Definition, "--workspace") ||
+		plan.Install[1].Arguments[2] != "gitsss-runner.service" {
+		t.Fatalf("runner service plan = %#v\n%s", plan, plan.Definition)
+	}
+}
+
 func TestWindowsAndSystemdArgumentQuoting(t *testing.T) {
 	if quoted := quoteWindowsArgument(`C:\Program Files\gitsss\`); quoted != `"C:\Program Files\gitsss\\"` {
 		t.Fatalf("Windows argument = %q", quoted)

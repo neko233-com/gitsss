@@ -37,6 +37,7 @@ type Options struct {
 	Version            string   `json:"version,omitempty"`
 	Commit             string   `json:"commit,omitempty"`
 	Architecture       string   `json:"architecture,omitempty"`
+	RunnerMode         bool     `json:"runner_mode"`
 }
 
 type Command struct {
@@ -46,6 +47,7 @@ type Command struct {
 
 type Plan struct {
 	Platform        Platform  `json:"platform"`
+	RunnerMode      bool      `json:"runner_mode"`
 	DefinitionPath  string    `json:"definition_path"`
 	TokenFile       string    `json:"token_file"`
 	Directories     []string  `json:"directories"`
@@ -97,7 +99,7 @@ func applyDefaults(options *Options) {
 	switch options.Platform {
 	case PlatformWindows:
 		if options.TokenFile == "" {
-			options.TokenFile = `C:\ProgramData\gitsss\agent.token`
+			options.TokenFile = `C:\ProgramData\gitsss\` + serviceName(*options) + `.token`
 		}
 		if options.WorkingDirectory == "" {
 			options.WorkingDirectory = `C:\ProgramData\gitsss`
@@ -107,7 +109,7 @@ func applyDefaults(options *Options) {
 		}
 	case PlatformDarwin:
 		if options.TokenFile == "" {
-			options.TokenFile = "/Library/Application Support/gitsss/agent.token"
+			options.TokenFile = "/Library/Application Support/gitsss/" + serviceName(*options) + ".token"
 		}
 		if options.WorkingDirectory == "" {
 			options.WorkingDirectory = "/Library/Application Support/gitsss"
@@ -120,7 +122,7 @@ func applyDefaults(options *Options) {
 		}
 	case PlatformLinux:
 		if options.TokenFile == "" {
-			options.TokenFile = "/etc/gitsss/agent.token"
+			options.TokenFile = "/etc/gitsss/" + serviceName(*options) + ".token"
 		}
 		if options.WorkingDirectory == "" {
 			options.WorkingDirectory = "/var/lib/gitsss"
@@ -132,7 +134,24 @@ func applyDefaults(options *Options) {
 }
 
 func workerArguments(options Options) []string {
+	if options.RunnerMode {
+		return []string{"pipeline-work", "--server", options.ServerURL, "--id", options.AgentID, "--token-file", options.TokenFile, "--workspace", path.Join(filepathSlash(options.Platform, options.WorkingDirectory), "runner-work")}
+	}
 	return []string{"work", "--server", options.ServerURL, "--id", options.AgentID, "--token-file", options.TokenFile}
+}
+
+func serviceName(options Options) string {
+	if options.RunnerMode {
+		return "runner"
+	}
+	return "agent"
+}
+
+func filepathSlash(platform Platform, value string) string {
+	if platform == PlatformWindows {
+		return strings.ReplaceAll(value, `\`, "/")
+	}
+	return value
 }
 
 func serviceExecutable(options Options) string {
@@ -150,7 +169,8 @@ func serviceArguments(options Options) []string {
 }
 
 func windowsPlan(options Options) Plan {
-	definitionPath := `C:\ProgramData\gitsss\gitsss-agent-task.xml`
+	name := "gitsss-" + serviceName(options)
+	definitionPath := `C:\ProgramData\gitsss\` + name + `-task.xml`
 	arguments := windowsCommandLine(serviceArguments(options))
 	definition := `<?xml version="1.0" encoding="UTF-8"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
@@ -162,22 +182,24 @@ func windowsPlan(options Options) Plan {
 </Task>
 `
 	return Plan{
-		Platform: options.Platform, DefinitionPath: definitionPath, TokenFile: options.TokenFile,
+		Platform: options.Platform, RunnerMode: options.RunnerMode, DefinitionPath: definitionPath, TokenFile: options.TokenFile,
 		Directories: serviceDirectories(options), Definition: definition,
 		StatePath: launcherStatePath(options), StateDefinition: launcherStateDefinition(options),
 		Install: []Command{
-			{Executable: "schtasks.exe", Arguments: []string{"/Create", "/TN", "gitsss-agent", "/XML", definitionPath, "/F"}},
-			{Executable: "schtasks.exe", Arguments: []string{"/Run", "/TN", "gitsss-agent"}},
+			{Executable: "schtasks.exe", Arguments: []string{"/Create", "/TN", name, "/XML", definitionPath, "/F"}},
+			{Executable: "schtasks.exe", Arguments: []string{"/Run", "/TN", name}},
 		},
 		Uninstall: []Command{
-			{Executable: "schtasks.exe", Arguments: []string{"/End", "/TN", "gitsss-agent"}},
-			{Executable: "schtasks.exe", Arguments: []string{"/Delete", "/TN", "gitsss-agent", "/F"}},
+			{Executable: "schtasks.exe", Arguments: []string{"/End", "/TN", name}},
+			{Executable: "schtasks.exe", Arguments: []string{"/Delete", "/TN", name, "/F"}},
 		},
 	}
 }
 
 func darwinPlan(options Options) Plan {
-	definitionPath := "/Library/LaunchDaemons/com.gitsss.agent.plist"
+	name := serviceName(options)
+	label := "com.gitsss." + name
+	definitionPath := "/Library/LaunchDaemons/" + label + ".plist"
 	arguments := append([]string{serviceExecutable(options)}, serviceArguments(options)...)
 	var argumentXML strings.Builder
 	for _, argument := range arguments {
@@ -189,7 +211,7 @@ func darwinPlan(options Options) Plan {
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>com.gitsss.agent</string>
+  <key>Label</key><string>` + label + `</string>
   <key>ProgramArguments</key>
   <array>
 ` + argumentXML.String() + `  </array>
@@ -203,20 +225,21 @@ func darwinPlan(options Options) Plan {
 </plist>
 `
 	return Plan{
-		Platform: options.Platform, DefinitionPath: definitionPath, TokenFile: options.TokenFile,
+		Platform: options.Platform, RunnerMode: options.RunnerMode, DefinitionPath: definitionPath, TokenFile: options.TokenFile,
 		Directories: serviceDirectories(options), Definition: definition,
 		StatePath: launcherStatePath(options), StateDefinition: launcherStateDefinition(options),
 		Install: []Command{
 			{Executable: "/bin/launchctl", Arguments: []string{"bootstrap", "system", definitionPath}},
-			{Executable: "/bin/launchctl", Arguments: []string{"enable", "system/com.gitsss.agent"}},
-			{Executable: "/bin/launchctl", Arguments: []string{"kickstart", "-k", "system/com.gitsss.agent"}},
+			{Executable: "/bin/launchctl", Arguments: []string{"enable", "system/" + label}},
+			{Executable: "/bin/launchctl", Arguments: []string{"kickstart", "-k", "system/" + label}},
 		},
-		Uninstall: []Command{{Executable: "/bin/launchctl", Arguments: []string{"bootout", "system/com.gitsss.agent"}}},
+		Uninstall: []Command{{Executable: "/bin/launchctl", Arguments: []string{"bootout", "system/" + label}}},
 	}
 }
 
 func linuxPlan(options Options) Plan {
-	definitionPath := "/etc/systemd/system/gitsss-agent.service"
+	name := "gitsss-" + serviceName(options)
+	definitionPath := "/etc/systemd/system/" + name + ".service"
 	arguments := append([]string{serviceExecutable(options)}, serviceArguments(options)...)
 	quoted := make([]string, len(arguments))
 	for index, argument := range arguments {
@@ -243,15 +266,15 @@ ReadWritePaths=` + quoteSystemdArgument(options.WorkingDirectory) + `
 WantedBy=multi-user.target
 `
 	return Plan{
-		Platform: options.Platform, DefinitionPath: definitionPath, TokenFile: options.TokenFile,
+		Platform: options.Platform, RunnerMode: options.RunnerMode, DefinitionPath: definitionPath, TokenFile: options.TokenFile,
 		Directories: serviceDirectories(options), Definition: definition,
 		StatePath: launcherStatePath(options), StateDefinition: launcherStateDefinition(options),
 		Install: []Command{
 			{Executable: "systemctl", Arguments: []string{"daemon-reload"}},
-			{Executable: "systemctl", Arguments: []string{"enable", "--now", "gitsss-agent.service"}},
+			{Executable: "systemctl", Arguments: []string{"enable", "--now", name + ".service"}},
 		},
 		Uninstall: []Command{
-			{Executable: "systemctl", Arguments: []string{"disable", "--now", "gitsss-agent.service"}},
+			{Executable: "systemctl", Arguments: []string{"disable", "--now", name + ".service"}},
 			{Executable: "systemctl", Arguments: []string{"daemon-reload"}},
 		},
 	}

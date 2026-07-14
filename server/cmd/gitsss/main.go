@@ -15,6 +15,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/dashboard"
 	"github.com/neko233-com/gitsss/server/internal/notification"
+	"github.com/neko233-com/gitsss/server/internal/pipeline"
 	"github.com/neko233-com/gitsss/server/internal/repository"
 	"github.com/neko233-com/gitsss/server/internal/runner"
 	"github.com/neko233-com/gitsss/server/internal/state"
@@ -50,7 +51,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	bootstrapScopes := []string{"auth:read", "auth:write", "dashboard:read", "events:write", "storage:read", "storage:write", "runners:read", "runners:write", "repositories:read", "repositories:write", "repositories:search", "repositories:clone", "repositories:push", "notifications:read", "notifications:write", "notifications:dispatch", "takeover:read", "takeover:write", "agents:read", "agents:dispatch", "agents:work"}
+	bootstrapScopes := []string{"auth:read", "auth:write", "dashboard:read", "events:write", "storage:read", "storage:write", "runners:read", "runners:write", "repositories:read", "repositories:write", "repositories:search", "repositories:clone", "repositories:push", "pipelines:read", "pipelines:write", "pipelines:work", "notifications:read", "notifications:write", "notifications:dispatch", "takeover:read", "takeover:write", "agents:read", "agents:dispatch", "agents:work"}
 	now := time.Now().UTC()
 	seeded, err := verifier.EnsureBootstrap(token, now, now.Add(24*time.Hour), bootstrapScopes...)
 	if err != nil {
@@ -91,6 +92,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	pipelineService, err := pipeline.NewPersistentService(logStore, stateStore)
+	if err != nil {
+		log.Fatal(err)
+	}
 	notificationService, err := notification.NewPersistentService(notification.NewFactory(), logStore, stateStore, vault)
 	if err != nil {
 		log.Fatal(err)
@@ -108,5 +113,5 @@ func main() {
 		address = "127.0.0.1:8787"
 	}
 	log.Printf("gitsss API listening on %s", address)
-	log.Fatal(http.ListenAndServe(address, api.NewServer(verifier, api.Dependencies{Dashboard: dashboardService, Notifications: notificationService, Repositories: repositoryService, Runners: runnerService, Storage: storageService, Takeovers: takeoverRegistry, Jobs: agentJobs, Audit: logStore}).Handler()))
+	log.Fatal(http.ListenAndServe(address, api.NewServer(verifier, api.Dependencies{Dashboard: dashboardService, Notifications: notificationService, Pipelines: pipelineService, Repositories: repositoryService, Runners: runnerService, Storage: storageService, Takeovers: takeoverRegistry, Jobs: agentJobs, Audit: logStore}).Handler()))
 }
