@@ -620,7 +620,7 @@ export function TakeoverCenter({
   }
 
   const dispatchAudit = async () => {
-    if (!selected || !backupResult || !restoreResult || !inventoryResult) return
+    if (!selected || !backupResult || !restoreResult) return
     setLoading(true)
     setError("")
     try {
@@ -633,8 +633,6 @@ export function TakeoverCenter({
           target_path: restoreResult.target,
           expected_assessment_id: backupResult.assessment_id,
           expected_container_sha256: backupResult.container_sha256,
-          expected_inventory_sha256: inventoryResult.digest,
-          expected_freeze_id: backupResult.freeze_id,
         },
       })
       setJobs((current) => [job, ...current])
