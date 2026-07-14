@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button"
 import { CheckIcon, TakeoverIcon } from "@/components/ui/icons"
 import { Input } from "@/components/ui/input"
 import { apiMutation, apiRequest } from "@/lib/api"
-import { readSessionToken, writeSessionToken } from "@/lib/session"
 
 interface Asset {
   kind: string
@@ -269,8 +268,13 @@ function isFreezeEvidence(
   return Boolean(result && "offline" in result && "network" in result)
 }
 
-export function TakeoverCenter() {
-  const [token, setToken] = useState(readSessionToken)
+export function TakeoverCenter({
+  onConnect,
+  token,
+}: {
+  onConnect: () => void
+  token: string
+}) {
   const [agentID, setAgentID] = useState("old-gitea")
   const [configPath, setConfigPath] = useState("/etc/gitea/app.ini")
   const [workPath, setWorkPath] = useState("")
@@ -376,7 +380,6 @@ export function TakeoverCenter() {
   const refresh = async () => {
     setLoading(true)
     setError("")
-    writeSessionToken(token)
     try {
       const [nextReports, nextJobs] = await Promise.all([
         apiRequest<Assessment[]>("/api/v1/takeover/assessments", token),
@@ -401,7 +404,6 @@ export function TakeoverCenter() {
   const dispatchAssessment = async () => {
     setLoading(true)
     setError("")
-    writeSessionToken(token)
     try {
       const job = await apiMutation<AgentJob>("/api/v1/agent/jobs", token, {
         kind: "takeover.assess",
@@ -647,20 +649,17 @@ export function TakeoverCenter() {
                 value={workPath}
               />
             </label>
-            <label
-              className="grid gap-2 text-sm font-medium"
-              htmlFor="takeover-token"
-            >
-              管理员 API Token
-              <Input
-                autoComplete="off"
-                id="takeover-token"
-                onChange={(event) => setToken(event.target.value)}
-                placeholder="仅保存在当前标签页"
-                type="password"
-                value={token}
-              />
-            </label>
+            <div className="flex items-center justify-between gap-4 border-y border-zinc-200 py-3 text-sm">
+              <span>
+                服务器连接
+                <span className="ml-2 text-xs text-zinc-400">
+                  {token ? "已就绪" : "未连接"}
+                </span>
+              </span>
+              <Button onClick={onConnect} size="sm" variant="outline">
+                {token ? "更换" : "连接"}
+              </Button>
+            </div>
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
             <Button

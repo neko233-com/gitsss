@@ -27,6 +27,7 @@ gitsss 是面向团队所有成员（不仅是开发者）的自托管代码协�
 - Gitsss Pipelines 已以嵌入式 SQLite 运行队列、不可变 commit、固定本地模板、两分钟 lease、三次故障接管、日志限额/Token 脱敏和审计闭环落地；同一个签名 Agent 包提供 `pipeline-work`，`service-install --runner` 会生成独立的 Windows Task Scheduler、macOS launchd 或 Linux systemd 自启动服务，不依赖 GitHub Actions 或另行下载的 Runner。仓库代码只在专用 Runner 服务账户下执行，命令/工作目录/超时不能由 API 调用者注入。
 - 原生 Git LFS Basic 已与 Smart HTTP、仓库 Token、审计和真实卷写入保护打通：按 SHA-256 OID 跨仓库去重、同卷 no-replace 发布、GET/HEAD/Range、顺序 `Content-Range` 续传和 PSD 真实客户端逐字节 push/clone 测试均已落地；新建托管仓库默认启用 protocol v2 部分克隆 filter、reachable wants、commit-graph 与 bitmap 配置，自动化测试以 `--filter=blob:none` 验证 promisor，而不是只在文档宣称高性能。
 - 飞书、企业微信和邮件通知已从“可手动 dispatch”补齐为服务启动即运行的持久化后台投递：配置审计失败会补偿回滚，外部网络调用前必须先写授权审计，1/2/4 分钟退避、四次死信和 15 分钟崩溃恢复保留；流水线结果自动按幂等键进入全部已配置通道。Webhook 限定官方 HTTPS 端点，SMTP 465 使用隐式 TLS、其他端口强制 TLS 1.2+ STARTTLS，拒绝明文邮件传输。
+- React 工作台已移除首页仓库、流水线、容量和事件的前端假数据，按角色并发读取实时 API 并明确区分连接失效与部分权限隐藏；同一 Session Token 贯通大盘、仓库、通知、接管、CI 与授权，`Ctrl/Cmd+K` 可检索真实仓库并准确打开所选对象。工作区提供“仓库 → 固定模板 → 不可变提交”的本地 CI 三步流和 Runner 健康门禁；授权区提供“职责 → 范围预览 → 有效期 → 单次 Token”的最小权限签发流，当前连接不可从界面误撤销；通知区展示真实配置状态和持久化投递队列。
 - 原 Gitea 模块名仍为 `gitea.dev`，并含 Vue 3 前端与大量 Gitea 品牌资产、文档和工作流；这些内容尚未接入新远端，也尚未达到可安全删除的替代覆盖率。
 - 本机可用 Go 1.26.4、Node 24.14.0、pnpm 11.7.0；新 `web/` 已固定 Vite 8.1.4、TypeScript 7.0.2、React 19.2.7，未跟踪的上游兼容快照仍包含 Vue 3 与旧 TypeScript 依赖。
 - Windows 环境没有 `make` 别名，但可使用 `mingw32-make`；后续应补一个兼容入口或在开发文档中明确该映射。

@@ -129,10 +129,20 @@ func (s *Server) gitProtocol(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) authTokens(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.authenticate(w, r, "auth:read"); !ok {
+	principal, ok := s.authenticate(w, r, "auth:read")
+	if !ok {
 		return
 	}
-	writeJSON(w, http.StatusOK, s.verifier.Tokens())
+	tokens := s.verifier.Tokens()
+	type tokenView struct {
+		auth.TokenInfo
+		Current bool `json:"current"`
+	}
+	views := make([]tokenView, 0, len(tokens))
+	for _, token := range tokens {
+		views = append(views, tokenView{TokenInfo: token, Current: token.ID == principal.TokenID})
+	}
+	writeJSON(w, http.StatusOK, views)
 }
 
 func (s *Server) authRoles(w http.ResponseWriter, r *http.Request) {

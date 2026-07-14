@@ -84,7 +84,7 @@ func TestServerManagesPersistentTokensWithoutReturningSecretsAgain(t *testing.T)
 	list.Header.Set("Authorization", "Bearer "+issued.Token)
 	listResponse := httptest.NewRecorder()
 	handler.ServeHTTP(listResponse, list)
-	if listResponse.Code != http.StatusOK || strings.Contains(listResponse.Body.String(), issued.Token) || strings.Contains(listResponse.Body.String(), `"hash"`) {
+	if listResponse.Code != http.StatusOK || strings.Contains(listResponse.Body.String(), issued.Token) || strings.Contains(listResponse.Body.String(), `"hash"`) || !strings.Contains(listResponse.Body.String(), `"current":true`) {
 		t.Fatalf("list = %d %s", listResponse.Code, listResponse.Body.String())
 	}
 

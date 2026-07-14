@@ -58,7 +58,9 @@ import {
   type PipelineRun,
   type StorageSnapshot,
 } from "@/features/dashboard/dashboard-data"
+import { AccessCenter } from "@/features/access/AccessCenter"
 import { NotificationCenter } from "@/features/notifications/NotificationCenter"
+import { PipelineCenter } from "@/features/pipelines/PipelineCenter"
 import { RepositoryBrowser } from "@/features/repository-browser/RepositoryBrowser"
 import { TakeoverCenter } from "@/features/takeover/TakeoverCenter"
 import { apiDelete } from "@/lib/api"
@@ -70,6 +72,13 @@ import {
 } from "@/lib/session"
 
 type WorkspaceTab = "dashboard" | "events" | "storage" | "download"
+type Area =
+  | "workspace"
+  | "pipelines"
+  | "repository"
+  | "notifications"
+  | "takeover"
+  | "access"
 
 const pipelineStatus = {
   failed: { label: "失败", tone: "text-red-600" },
@@ -113,12 +122,23 @@ function pipelineGroups(runs: PipelineRun[] = []) {
 }
 
 const commands = [
+  { id: "pipelines", label: "开始本地 CI", shortcut: "P" },
   { id: "repositories", label: "打开仓库", shortcut: "R" },
   { id: "storage", label: "检查存储容量", shortcut: "S" },
   { id: "takeover", label: "继续接管流程", shortcut: "A" },
   { id: "failed", label: "查看失败流水线", shortcut: "F" },
   { id: "connect", label: "连接服务器", shortcut: "," },
+  { id: "access", label: "管理团队授权", shortcut: "U" },
 ]
+
+const areaTitles: Record<Area, string> = {
+  access: "授权",
+  notifications: "通知",
+  pipelines: "工作",
+  repository: "仓库",
+  takeover: "接管",
+  workspace: "今天",
+}
 
 function EventGlyph({ kind }: Pick<RecentEvent, "kind">) {
   const className = "size-4 shrink-0 text-zinc-700"
@@ -346,9 +366,7 @@ function GitClientDownloadTab({
 }
 
 export function App() {
-  const [area, setArea] = useState<
-    "workspace" | "repository" | "notifications" | "takeover"
-  >("workspace")
+  const [area, setArea] = useState<Area>("workspace")
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("dashboard")
   const [commandOpen, setCommandOpen] = useState(false)
   const [connectionOpen, setConnectionOpen] = useState(false)
@@ -438,8 +456,10 @@ export function App() {
 
   const selectCommand = (command: string) => {
     if (command === "connect") setConnectionOpen(true)
+    if (command === "pipelines") setArea("pipelines")
     if (command === "repositories") setArea("repository")
     if (command === "takeover") setArea("takeover")
+    if (command === "access") setArea("access")
     if (command === "storage") {
       setArea("workspace")
       setWorkspaceTab("storage")
@@ -494,6 +514,11 @@ export function App() {
     }
   }
 
+  const openConnection = () => {
+    setTokenDraft(token)
+    setConnectionOpen(true)
+  }
+
   return (
     <div className="min-h-svh bg-white text-zinc-950 selection:bg-blue-100">
       <div className="grid min-h-svh lg:grid-cols-[13.5rem_minmax(0,1fr)]">
@@ -516,8 +541,8 @@ export function App() {
               概览
             </button>
             <button
-              className="flex h-11 items-center gap-3 rounded-xl px-3 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950"
-              onClick={() => openWorkspace("next")}
+              className={`flex h-11 items-center gap-3 rounded-xl px-3 text-sm transition-colors ${area === "pipelines" ? "bg-blue-50 font-medium text-blue-700" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950"}`}
+              onClick={() => setArea("pipelines")}
               type="button"
             >
               <WorkIcon className="size-5" />
@@ -548,8 +573,8 @@ export function App() {
               接管
             </button>
             <button
-              className="flex h-11 items-center gap-3 rounded-xl px-3 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950"
-              onClick={() => setNotice("设置中心将在授权工作流完成后开放")}
+              className={`flex h-11 items-center gap-3 rounded-xl px-3 text-sm transition-colors ${area === "access" ? "bg-blue-50 font-medium text-blue-700" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950"}`}
+              onClick={() => setArea("access")}
               type="button"
             >
               <SettingsIcon className="size-5" />
@@ -571,13 +596,7 @@ export function App() {
                 <span className="font-semibold tracking-[-0.03em]">gitsss</span>
               </div>
               <h1 className="mt-2 text-[28px] font-semibold tracking-[-0.045em] sm:text-[32px] lg:mt-0">
-                {area === "workspace"
-                  ? "今天"
-                  : area === "repository"
-                    ? "仓库"
-                    : area === "notifications"
-                      ? "通知"
-                      : "接管"}
+                {areaTitles[area]}
               </h1>
             </div>
             <div className="flex items-center gap-3">
@@ -602,10 +621,7 @@ export function App() {
               </Button>
               <button
                 aria-label={token ? "管理服务器连接" : "连接服务器"}
-                onClick={() => {
-                  setTokenDraft(token)
-                  setConnectionOpen(true)
-                }}
+                onClick={openConnection}
                 type="button"
               >
                 <Avatar className="size-9 border border-zinc-200">
@@ -625,7 +641,7 @@ export function App() {
 
           <nav
             aria-label="移动端导航"
-            className="grid grid-cols-4 border-b border-zinc-200 lg:hidden"
+            className="grid grid-cols-5 border-b border-zinc-200 lg:hidden"
           >
             <button
               className={`flex h-11 items-center justify-center gap-2 text-sm ${area === "workspace" ? "border-b-2 border-zinc-950 font-medium text-zinc-950" : "text-zinc-500"}`}
@@ -634,6 +650,14 @@ export function App() {
             >
               <OverviewIcon className="size-4" />
               概览
+            </button>
+            <button
+              className={`flex h-11 items-center justify-center gap-1.5 text-sm ${area === "pipelines" ? "border-b-2 border-zinc-950 font-medium text-zinc-950" : "text-zinc-500"}`}
+              onClick={() => setArea("pipelines")}
+              type="button"
+            >
+              <WorkIcon className="size-4" />
+              工作
             </button>
             <button
               className={`flex h-11 items-center justify-center gap-2 text-sm ${area === "repository" ? "border-b-2 border-zinc-950 font-medium text-zinc-950" : "text-zinc-500"}`}
@@ -673,11 +697,7 @@ export function App() {
                 Token 已过期或被撤销。重新连接后，大盘会自动刷新。
               </AlertDescription>
               <AlertAction>
-                <Button
-                  onClick={() => setConnectionOpen(true)}
-                  size="sm"
-                  variant="outline"
-                >
+                <Button onClick={openConnection} size="sm" variant="outline">
                   重新连接
                 </Button>
               </AlertAction>
@@ -692,17 +712,25 @@ export function App() {
             </Alert>
           ) : null}
 
-          {area === "repository" ? (
+          {area === "pipelines" ? (
+            <MotionSurface key="pipelines">
+              <PipelineCenter onConnect={openConnection} token={token} />
+            </MotionSurface>
+          ) : area === "repository" ? (
             <MotionSurface key="repository">
-              <RepositoryBrowser />
+              <RepositoryBrowser onConnect={openConnection} token={token} />
             </MotionSurface>
           ) : area === "notifications" ? (
             <MotionSurface key="notifications">
-              <NotificationCenter />
+              <NotificationCenter onConnect={openConnection} token={token} />
             </MotionSurface>
           ) : area === "takeover" ? (
             <MotionSurface key="takeover">
-              <TakeoverCenter />
+              <TakeoverCenter onConnect={openConnection} token={token} />
+            </MotionSurface>
+          ) : area === "access" ? (
+            <MotionSurface key="access">
+              <AccessCenter onConnect={openConnection} token={token} />
             </MotionSurface>
           ) : (
             <Tabs

@@ -24,12 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { apiRequest } from "@/lib/api"
-import {
-  readSelectedRepository,
-  readSessionToken,
-  writeSelectedRepository,
-  writeSessionToken,
-} from "@/lib/session"
+import { readSelectedRepository, writeSelectedRepository } from "@/lib/session"
 
 import {
   buildRepositoryTree,
@@ -134,9 +129,13 @@ function TreeNodes({
   )
 }
 
-export function RepositoryBrowser() {
-  const [tokenDraft, setTokenDraft] = useState("")
-  const [token, setToken] = useState(readSessionToken)
+export function RepositoryBrowser({
+  onConnect,
+  token,
+}: {
+  onConnect: () => void
+  token: string
+}) {
   const [repositories, setRepositories] = useState<RepositorySummary[]>([])
   const [repositoryID, setRepositoryID] = useState("")
   const [treeResponse, setTreeResponse] =
@@ -273,28 +272,6 @@ export function RepositoryBrowser() {
     }
   }
 
-  const connect = (event: FormEvent) => {
-    event.preventDefault()
-    const nextToken = tokenDraft.trim()
-    if (!nextToken) return
-    writeSessionToken(nextToken)
-    setToken(nextToken)
-  }
-
-  const disconnect = () => {
-    writeSessionToken("")
-    setToken("")
-    setTokenDraft("")
-    setRepositories([])
-    writeSelectedRepository("")
-    setRepositoryID("")
-    setTreeResponse(null)
-    setFile(null)
-    setMatches(null)
-    setExpandedPaths(new Set())
-    setError("")
-  }
-
   const search = async (event: FormEvent) => {
     event.preventDefault()
     const normalizedQuery = query.trim()
@@ -335,20 +312,9 @@ export function RepositoryBrowser() {
         <p className="mt-2 text-sm leading-6 text-zinc-500">
           输入管理员为你签发的访问 Token。Token 仅保存在当前浏览器标签中。
         </p>
-        <form className="mt-7 flex gap-3" onSubmit={connect}>
-          <Input
-            aria-label="访问 Token"
-            autoComplete="off"
-            className="h-10"
-            onChange={(event) => setTokenDraft(event.target.value)}
-            placeholder="粘贴访问 Token"
-            type="password"
-            value={tokenDraft}
-          />
-          <Button className="h-10" type="submit">
-            连接
-          </Button>
-        </form>
+        <Button className="mt-7" onClick={onConnect}>
+          连接
+        </Button>
       </section>
     )
   }
@@ -405,7 +371,7 @@ export function RepositoryBrowser() {
               搜索
             </button>
           </form>
-          <Button onClick={disconnect} size="sm" variant="outline">
+          <Button onClick={onConnect} size="sm" variant="outline">
             更换连接
           </Button>
         </div>
