@@ -109,6 +109,37 @@ func TestServerManagesPersistentTokensWithoutReturningSecretsAgain(t *testing.T)
 	}
 }
 
+func TestServerPreviewsRoleAndIssuesRoleToken(t *testing.T) {
+	now := time.Date(2026, 7, 14, 8, 0, 0, 0, time.UTC)
+	verifier := auth.NewVerifier(auth.NewRecord("admin", "token", time.Time{}, "auth:read", "auth:write"))
+	server := NewServer(verifier, Dependencies{})
+	server.now = func() time.Time { return now }
+
+	preview := httptest.NewRequest(http.MethodGet, "/api/v1/auth/roles/contributor/preview", nil)
+	preview.Header.Set("Authorization", "Bearer token")
+	previewResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(previewResponse, preview)
+	if previewResponse.Code != http.StatusOK || !strings.Contains(previewResponse.Body.String(), `"maximum_hours":2160`) || !strings.Contains(previewResponse.Body.String(), `"repositories:push"`) {
+		t.Fatalf("role preview = %d %s", previewResponse.Code, previewResponse.Body.String())
+	}
+
+	issue := httptest.NewRequest(http.MethodPost, "/api/v1/auth/tokens", strings.NewReader(`{"id":"artist","role":"contributor"}`))
+	issue.Header.Set("Authorization", "Bearer token")
+	issueResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(issueResponse, issue)
+	if issueResponse.Code != http.StatusCreated || !strings.Contains(issueResponse.Body.String(), `"role":"contributor"`) || !strings.Contains(issueResponse.Body.String(), `"token":"gitsss_`) {
+		t.Fatalf("role issue = %d %s", issueResponse.Code, issueResponse.Body.String())
+	}
+
+	overlong := httptest.NewRequest(http.MethodPost, "/api/v1/auth/tokens", strings.NewReader(`{"id":"overlong","role":"contributor","expires_in_hours":2161}`))
+	overlong.Header.Set("Authorization", "Bearer token")
+	overlongResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(overlongResponse, overlong)
+	if overlongResponse.Code != http.StatusBadRequest {
+		t.Fatalf("overlong role issue status = %d", overlongResponse.Code)
+	}
+}
+
 func TestServerAuthorizesDashboardAndAuditsPreviewClear(t *testing.T) {
 	log := &audit.Log{}
 	service := dashboard.NewService(3, []dashboard.Event{{ID: "event"}}, log)

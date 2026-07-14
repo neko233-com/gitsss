@@ -30,7 +30,7 @@ The server creates one permission-restricted embedded SQLite file at `GITSSS_DAT
 
 Storage responses are measured from the live data volume and protect a 10 GiB operator reserve by default. Optional LFS, artifact, backup and attachment roots provide bounded category and game-asset attribution; measurement failures reject projected writes. Configure the reserve and roots with the `GITSSS_STORAGE_*` environment variables described in [`docs/architecture/storage-awareness-v1.md`](../docs/architecture/storage-awareness-v1.md).
 
-On the first startup only, `GITSSS_API_TOKEN` seeds a full-scope `bootstrap` token that expires after 24 hours. Issue a named replacement through `POST /api/v1/auth/tokens` before it expires; the generated secret is returned once, while later lists expose metadata only. Existing token state is never overwritten from the environment. Listing requires `auth:read`; issuing and revoking require `auth:write`. See [`docs/architecture/auth-token-v1.md`](../docs/architecture/auth-token-v1.md).
+On the first startup only, `GITSSS_API_TOKEN` seeds a full-scope `bootstrap` token that expires after 24 hours. Preview one of six least-privilege human/Agent role templates through `/api/v1/auth/roles`, then issue a named replacement through `POST /api/v1/auth/tokens`; the generated secret is returned once, while later lists expose metadata only. Role duration is bounded by risk, and advanced callers may still provide explicit scopes. Existing token state is never overwritten from the environment. Listing requires `auth:read`; issuing and revoking require `auth:write`. See [`docs/architecture/auth-token-v1.md`](../docs/architecture/auth-token-v1.md).
 
 Start the local Agent HTTP control plane with an expiring token read from the environment:
 

@@ -112,3 +112,61 @@ func TestVerifierRejectsExpiredAndUnscopedTokens(t *testing.T) {
 		t.Fatalf("Verify error = %v, want ErrMissingScope", err)
 	}
 }
+
+func TestVerifierIssuesBoundedRoleTokenAndPersistsRole(t *testing.T) {
+	now := time.Date(2026, 7, 14, 0, 0, 0, 0, time.UTC)
+	store, err := state.Open(filepath.Join(t.TempDir(), "gitsss.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	verifier, err := NewPersistentVerifier(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	issued, err := verifier.IssueForRole("artist", "contributor", now, 30*24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if issued.Role != "contributor" || len(issued.Scopes) == 0 {
+		t.Fatalf("issued role token = %#v", issued)
+	}
+	if _, err := verifier.Verify(issued.Token, "repositories:push", now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := verifier.Verify(issued.Token, "auth:write", now); !errors.Is(err, ErrMissingScope) {
+		t.Fatalf("role escalation error = %v", err)
+	}
+	if _, err := verifier.IssueForRole("too-long", "contributor", now, 91*24*time.Hour); !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("excessive role duration error = %v", err)
+	}
+	reopened, err := NewPersistentVerifier(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokens := reopened.Tokens()
+	if len(tokens) != 1 || tokens[0].Role != "contributor" {
+		t.Fatalf("persisted role tokens = %#v", tokens)
+	}
+}
+
+func TestRolesReturnIndependentLeastPrivilegeTemplates(t *testing.T) {
+	roles := Roles()
+	if len(roles) != 6 || roles[0].ID != "administrator" {
+		t.Fatalf("roles = %#v", roles)
+	}
+	viewer, err := Role("viewer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	viewer.Scopes[0] = "auth:write"
+	unchanged, err := Role("viewer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, scope := range unchanged.Scopes {
+		if scope == "auth:write" || scope == "repositories:push" {
+			t.Fatalf("viewer scopes were mutable or excessive: %#v", unchanged.Scopes)
+		}
+	}
+}

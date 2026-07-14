@@ -37,6 +37,7 @@ var (
 
 type Record struct {
 	ID        string
+	Role      string
 	Hash      [sha256.Size]byte
 	ExpiresAt time.Time
 	Scopes    map[string]struct{}
@@ -46,6 +47,7 @@ type Record struct {
 
 type TokenInfo struct {
 	ID        string    `json:"id"`
+	Role      string    `json:"role,omitempty"`
 	Scopes    []string  `json:"scopes"`
 	CreatedAt time.Time `json:"created_at"`
 	ExpiresAt time.Time `json:"expires_at"`
@@ -59,6 +61,7 @@ type IssuedToken struct {
 
 type persistedRecord struct {
 	ID        string    `json:"id"`
+	Role      string    `json:"role,omitempty"`
 	Hash      string    `json:"hash"`
 	Scopes    []string  `json:"scopes"`
 	CreatedAt time.Time `json:"created_at"`
@@ -141,6 +144,18 @@ func (v Verifier) EnsureBootstrap(token string, now, expiresAt time.Time, scopes
 }
 
 func (v Verifier) Issue(id string, scopes []string, now, expiresAt time.Time) (IssuedToken, error) {
+	return v.issue(id, "", scopes, now, expiresAt)
+}
+
+func (v Verifier) IssueForRole(id, role string, now time.Time, expiresIn time.Duration) (IssuedToken, error) {
+	template, err := Role(role)
+	if err != nil || expiresIn <= 0 || expiresIn > template.MaximumDuration {
+		return IssuedToken{}, ErrInvalidToken
+	}
+	return v.issue(id, template.ID, template.Scopes, now, now.Add(expiresIn))
+}
+
+func (v Verifier) issue(id, role string, scopes []string, now, expiresAt time.Time) (IssuedToken, error) {
 	if v.state == nil || !validID(id) || !expiresAt.After(now) || expiresAt.After(now.Add(365*24*time.Hour)) {
 		return IssuedToken{}, ErrInvalidToken
 	}
@@ -155,7 +170,7 @@ func (v Verifier) Issue(id string, scopes []string, now, expiresAt time.Time) (I
 	token := "gitsss_" + base64.RawURLEncoding.EncodeToString(secret)
 	clear(secret)
 	record := Record{
-		ID: id, Hash: sha256.Sum256([]byte(token)), ExpiresAt: expiresAt.UTC(), Scopes: allowedScopes,
+		ID: id, Role: role, Hash: sha256.Sum256([]byte(token)), ExpiresAt: expiresAt.UTC(), Scopes: allowedScopes,
 		CreatedAt: now.UTC(),
 	}
 	v.state.mu.Lock()
@@ -247,7 +262,7 @@ func (state *verifierState) persist(record Record) error {
 		return nil
 	}
 	persisted := persistedRecord{
-		ID: record.ID, Hash: hex.EncodeToString(record.Hash[:]), Scopes: scopeList(record.Scopes),
+		ID: record.ID, Role: record.Role, Hash: hex.EncodeToString(record.Hash[:]), Scopes: scopeList(record.Scopes),
 		CreatedAt: record.CreatedAt, ExpiresAt: record.ExpiresAt, RevokedAt: record.RevokedAt,
 	}
 	payload, err := json.Marshal(persisted)
@@ -270,7 +285,7 @@ func decodeRecord(persisted persistedRecord) (Record, error) {
 		return Record{}, err
 	}
 	record := Record{
-		ID: persisted.ID, ExpiresAt: persisted.ExpiresAt, Scopes: scopes,
+		ID: persisted.ID, Role: persisted.Role, ExpiresAt: persisted.ExpiresAt, Scopes: scopes,
 		CreatedAt: persisted.CreatedAt, RevokedAt: persisted.RevokedAt,
 	}
 	copy(record.Hash[:], hash)
@@ -281,7 +296,7 @@ func decodeRecord(persisted persistedRecord) (Record, error) {
 }
 
 func validRecord(record Record, requireCreatedAt bool) bool {
-	if !validID(record.ID) || len(record.Scopes) == 0 || len(record.Scopes) > maximumScopes {
+	if !validID(record.ID) || !validRoleID(record.Role) || len(record.Scopes) == 0 || len(record.Scopes) > maximumScopes {
 		return false
 	}
 	if requireCreatedAt && record.CreatedAt.IsZero() {
@@ -328,7 +343,7 @@ func validScopePart(part string) bool {
 
 func tokenInfo(record Record) TokenInfo {
 	return TokenInfo{
-		ID: record.ID, Scopes: scopeList(record.Scopes), CreatedAt: record.CreatedAt,
+		ID: record.ID, Role: record.Role, Scopes: scopeList(record.Scopes), CreatedAt: record.CreatedAt,
 		ExpiresAt: record.ExpiresAt, RevokedAt: record.RevokedAt,
 	}
 }

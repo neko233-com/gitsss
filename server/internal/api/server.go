@@ -74,6 +74,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/auth/tokens", s.authTokens)
 	mux.HandleFunc("POST /api/v1/auth/tokens", s.authTokenIssue)
 	mux.HandleFunc("DELETE /api/v1/auth/tokens/{token}", s.authTokenRevoke)
+	mux.HandleFunc("GET /api/v1/auth/roles", s.authRoles)
+	mux.HandleFunc("GET /api/v1/auth/roles/{role}/preview", s.authRolePreview)
 	mux.HandleFunc("GET /api/v1/dashboard", s.dashboardSnapshot)
 	mux.HandleFunc("GET /api/v1/notifications/channels", s.notificationChannels)
 	mux.HandleFunc("POST /api/v1/notifications/channels/{channel}", s.notificationConfigure)
@@ -110,6 +112,35 @@ func (s *Server) authTokens(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.verifier.Tokens())
 }
 
+func (s *Server) authRoles(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "auth:read"); !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, auth.Roles())
+}
+
+func (s *Server) authRolePreview(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "auth:read"); !ok {
+		return
+	}
+	template, err := auth.Role(r.PathValue("role"))
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+		return
+	}
+	hours := template.DefaultHours
+	if configured := r.URL.Query().Get("hours"); configured != "" {
+		hours, err = strconv.Atoi(configured)
+		if err != nil || hours < 1 || hours > template.MaximumHours {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "role duration exceeds the allowed window"})
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"role": template, "expires_at": s.now().UTC().Add(time.Duration(hours) * time.Hour),
+	})
+}
+
 func (s *Server) authTokenIssue(w http.ResponseWriter, r *http.Request) {
 	principal, ok := s.authenticate(w, r, "auth:write")
 	if !ok {
@@ -117,15 +148,34 @@ func (s *Server) authTokenIssue(w http.ResponseWriter, r *http.Request) {
 	}
 	var request struct {
 		ID             string   `json:"id"`
+		Role           string   `json:"role"`
 		Scopes         []string `json:"scopes"`
 		ExpiresInHours int      `json:"expires_in_hours"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&request); err != nil || request.ExpiresInHours < 1 || request.ExpiresInHours > 365*24 {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&request); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid token request"})
 		return
 	}
 	now := s.now().UTC()
-	issued, err := s.verifier.Issue(request.ID, request.Scopes, now, now.Add(time.Duration(request.ExpiresInHours)*time.Hour))
+	var issued auth.IssuedToken
+	var err error
+	if request.Role != "" {
+		template, roleErr := auth.Role(request.Role)
+		if roleErr != nil || len(request.Scopes) != 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "select one role or provide advanced scopes"})
+			return
+		}
+		if request.ExpiresInHours == 0 {
+			request.ExpiresInHours = template.DefaultHours
+		}
+		issued, err = s.verifier.IssueForRole(request.ID, request.Role, now, time.Duration(request.ExpiresInHours)*time.Hour)
+	} else {
+		if request.ExpiresInHours < 1 || request.ExpiresInHours > 365*24 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid token request"})
+			return
+		}
+		issued, err = s.verifier.Issue(request.ID, request.Scopes, now, now.Add(time.Duration(request.ExpiresInHours)*time.Hour))
+	}
 	if err != nil {
 		s.writeAuthError(w, err)
 		return
