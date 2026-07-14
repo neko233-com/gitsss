@@ -14,35 +14,39 @@ import (
 
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/dashboard"
+	"github.com/neko233-com/gitsss/server/internal/notification"
 	"github.com/neko233-com/gitsss/server/internal/repository"
 	"github.com/neko233-com/gitsss/server/internal/runner"
 	"github.com/neko233-com/gitsss/server/internal/storage"
 )
 
 type Server struct {
-	verifier     auth.Verifier
-	dashboard    *dashboard.Service
-	repositories *repository.Service
-	runners      *runner.Service
-	storage      *storage.Service
-	now          func() time.Time
+	verifier      auth.Verifier
+	dashboard     *dashboard.Service
+	notifications *notification.Service
+	repositories  *repository.Service
+	runners       *runner.Service
+	storage       *storage.Service
+	now           func() time.Time
 }
 
 type Dependencies struct {
-	Dashboard    *dashboard.Service
-	Repositories *repository.Service
-	Runners      *runner.Service
-	Storage      *storage.Service
+	Dashboard     *dashboard.Service
+	Notifications *notification.Service
+	Repositories  *repository.Service
+	Runners       *runner.Service
+	Storage       *storage.Service
 }
 
 func NewServer(verifier auth.Verifier, dependencies Dependencies) *Server {
 	return &Server{
-		verifier:     verifier,
-		dashboard:    dependencies.Dashboard,
-		repositories: dependencies.Repositories,
-		runners:      dependencies.Runners,
-		storage:      dependencies.Storage,
-		now:          time.Now,
+		verifier:      verifier,
+		dashboard:     dependencies.Dashboard,
+		notifications: dependencies.Notifications,
+		repositories:  dependencies.Repositories,
+		runners:       dependencies.Runners,
+		storage:       dependencies.Storage,
+		now:           time.Now,
 	}
 }
 
@@ -50,6 +54,11 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.health)
 	mux.HandleFunc("GET /api/v1/dashboard", s.dashboardSnapshot)
+	mux.HandleFunc("GET /api/v1/notifications/channels", s.notificationChannels)
+	mux.HandleFunc("POST /api/v1/notifications/channels/{channel}", s.notificationConfigure)
+	mux.HandleFunc("POST /api/v1/notifications/channels/{channel}/test", s.notificationTest)
+	mux.HandleFunc("GET /api/v1/notifications/outbox", s.notificationOutbox)
+	mux.HandleFunc("POST /api/v1/notifications/dispatch", s.notificationDispatch)
 	mux.HandleFunc("DELETE /api/v1/events/preview", s.clearPreview)
 	mux.HandleFunc("GET /api/v1/storage", s.storageSnapshot)
 	mux.HandleFunc("POST /api/v1/storage/admission", s.storageAdmission)
@@ -60,6 +69,79 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/repositories/{repository}/files", s.repositoryFile)
 	mux.HandleFunc("GET /api/v1/repositories/{repository}/search", s.repositorySearch)
 	return mux
+}
+
+func (s *Server) notificationChannels(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "notifications:read"); !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, s.notifications.Channels())
+}
+
+func (s *Server) notificationConfigure(w http.ResponseWriter, r *http.Request) {
+	principal, ok := s.authenticate(w, r, "notifications:write")
+	if !ok {
+		return
+	}
+	var configuration notification.Configuration
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 32<<10)).Decode(&configuration); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid notification configuration"})
+		return
+	}
+	configuration.Channel = notification.Channel(r.PathValue("channel"))
+	state, err := s.notifications.Configure(principal.TokenID, requestID(), configuration)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, state)
+}
+
+func (s *Server) notificationTest(w http.ResponseWriter, r *http.Request) {
+	principal, ok := s.authenticate(w, r, "notifications:write")
+	if !ok {
+		return
+	}
+	var request struct {
+		Subject string `json:"subject"`
+		Body    string `json:"body"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<10)).Decode(&request); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid test notification"})
+		return
+	}
+	if strings.TrimSpace(request.Subject) == "" {
+		request.Subject = "gitsss 通知测试"
+	}
+	if strings.TrimSpace(request.Body) == "" {
+		request.Body = "连接成功。之后的重要事件会通过此通道发送。"
+	}
+	id := requestID()
+	if _, err := s.notifications.Enqueue(notification.Channel(r.PathValue("channel")), id, request.Subject, request.Body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	processed := s.notifications.DispatchDue(r.Context(), principal.TokenID, id, 1)
+	if len(processed) == 0 {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "notification is waiting for retry"})
+		return
+	}
+	writeJSON(w, http.StatusOK, processed[0])
+}
+
+func (s *Server) notificationOutbox(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "notifications:read"); !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, s.notifications.Messages())
+}
+
+func (s *Server) notificationDispatch(w http.ResponseWriter, r *http.Request) {
+	principal, ok := s.authenticate(w, r, "notifications:dispatch")
+	if !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, s.notifications.DispatchDue(r.Context(), principal.TokenID, requestID(), 20))
 }
 
 func (s *Server) health(w http.ResponseWriter, _ *http.Request) {

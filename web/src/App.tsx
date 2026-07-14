@@ -18,6 +18,7 @@ import {
   BrandMark,
   ClockIcon,
   DownloadIcon,
+  NotificationIcon,
   OverviewIcon,
   RepositoryIcon,
   SearchIcon,
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/icons"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RepositoryBrowser } from "@/features/repository-browser/RepositoryBrowser"
+import { NotificationCenter } from "@/features/notifications/NotificationCenter"
 import { RecentEventsPreview, type RecentEvent } from "@/lib/recent-events"
 
 const initialEvents: RecentEvent[] = [
@@ -329,7 +331,9 @@ function GitClientDownloadTab({
 }
 
 export function App() {
-  const [area, setArea] = useState<"workspace" | "repository">("workspace")
+  const [area, setArea] = useState<
+    "workspace" | "repository" | "notifications"
+  >("workspace")
   const [commandOpen, setCommandOpen] = useState(false)
   const [notice, setNotice] = useState("今天有 3 项需要你处理")
   const [eventPreview, setEventPreview] = useState(() =>
@@ -414,6 +418,14 @@ export function App() {
               仓库
             </button>
             <button
+              className={`flex h-11 items-center gap-3 rounded-xl px-3 text-left text-sm transition-colors ${area === "notifications" ? "bg-blue-50 font-medium text-blue-700" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950"}`}
+              onClick={() => setArea("notifications")}
+              type="button"
+            >
+              <NotificationIcon className="size-5" />
+              通知
+            </button>
+            <button
               className="flex h-11 items-center gap-3 rounded-xl px-3 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950"
               onClick={() => setNotice("设置中心将在授权工作流完成后开放")}
               type="button"
@@ -437,7 +449,11 @@ export function App() {
                 <span className="font-semibold tracking-[-0.03em]">gitsss</span>
               </div>
               <h1 className="mt-2 text-[28px] font-semibold tracking-[-0.045em] sm:text-[32px] lg:mt-0">
-                {area === "workspace" ? "今天" : "仓库"}
+                {area === "workspace"
+                  ? "今天"
+                  : area === "repository"
+                    ? "仓库"
+                    : "通知"}
               </h1>
             </div>
             <div className="flex items-center gap-3">
@@ -470,7 +486,7 @@ export function App() {
 
           <nav
             aria-label="移动端导航"
-            className="grid grid-cols-2 border-b border-zinc-200 lg:hidden"
+            className="grid grid-cols-3 border-b border-zinc-200 lg:hidden"
           >
             <button
               className={`flex h-11 items-center justify-center gap-2 text-sm ${area === "workspace" ? "border-b-2 border-zinc-950 font-medium text-zinc-950" : "text-zinc-500"}`}
@@ -488,6 +504,14 @@ export function App() {
               <RepositoryIcon className="size-4" />
               仓库
             </button>
+            <button
+              className={`flex h-11 items-center justify-center gap-2 text-sm ${area === "notifications" ? "border-b-2 border-zinc-950 font-medium text-zinc-950" : "text-zinc-500"}`}
+              onClick={() => setArea("notifications")}
+              type="button"
+            >
+              <NotificationIcon className="size-4" />
+              通知
+            </button>
           </nav>
 
           <p aria-live="polite" className="sr-only">
@@ -496,6 +520,8 @@ export function App() {
 
           {area === "repository" ? (
             <RepositoryBrowser />
+          ) : area === "notifications" ? (
+            <NotificationCenter />
           ) : (
             <Tabs className="pt-6" defaultValue="dashboard">
               <TabsList className="max-w-full overflow-x-auto" variant="line">

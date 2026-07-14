@@ -70,6 +70,15 @@ export function SettingsIcon(props: IconProps) {
   )
 }
 
+export function NotificationIcon(props: IconProps) {
+  return (
+    <IconFrame {...props}>
+      <path d="M6.25 9.75a5.75 5.75 0 0 1 11.5 0v3.5l1.5 2.5H4.75l1.5-2.5z" />
+      <path d="M9.75 18.25a2.5 2.5 0 0 0 4.5 0" />
+    </IconFrame>
+  )
+}
+
 export function SearchIcon(props: IconProps) {
   return (
     <IconFrame {...props}>

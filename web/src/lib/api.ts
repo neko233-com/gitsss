@@ -27,3 +27,30 @@ export async function apiRequest<T>(
   }
   return (await response.json()) as T
 }
+
+export async function apiMutation<T>(
+  path: string,
+  token: string,
+  body: unknown,
+  signal?: AbortSignal
+): Promise<T> {
+  const response = await fetch(path, {
+    body: JSON.stringify(body),
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+    signal,
+  })
+  if (!response.ok) {
+    const responseBody = (await response.json().catch(() => null)) as {
+      error?: string
+    } | null
+    throw new APIError(
+      responseBody?.error ?? `请求失败（${response.status}）`,
+      response.status
+    )
+  }
+  return (await response.json()) as T
+}

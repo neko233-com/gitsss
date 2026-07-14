@@ -3,6 +3,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -13,10 +14,23 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/audit"
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/dashboard"
+	"github.com/neko233-com/gitsss/server/internal/notification"
 	"github.com/neko233-com/gitsss/server/internal/repository"
 	"github.com/neko233-com/gitsss/server/internal/runner"
 	"github.com/neko233-com/gitsss/server/internal/storage"
 )
+
+type notificationFactory struct{}
+
+func (notificationFactory) Build(notification.Configuration) (notification.Adapter, error) {
+	return notificationAdapter{}, nil
+}
+
+type notificationAdapter struct{}
+
+func (notificationAdapter) Deliver(context.Context, notification.Message) error {
+	return nil
+}
 
 func TestServerAuthorizesDashboardAndAuditsPreviewClear(t *testing.T) {
 	log := &audit.Log{}
@@ -90,5 +104,27 @@ func TestServerReadsAllowlistedRepositoryTree(t *testing.T) {
 	server.Handler().ServeHTTP(response, request)
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"path":"server/go.mod"`) {
 		t.Fatalf("tree response = %d %s, want tracked server/go.mod", response.Code, response.Body.String())
+	}
+}
+
+func TestServerConfiguresAndTestsNotificationWithoutReturningSecrets(t *testing.T) {
+	log := &audit.Log{}
+	notifications := notification.NewService(notificationFactory{}, log)
+	server := NewServer(auth.NewVerifier(auth.NewRecord("admin", "token", time.Time{}, "notifications:read", "notifications:write")), Dependencies{Notifications: notifications})
+
+	configure := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/channels/feishu", strings.NewReader(`{"webhook_url":"https://open.feishu.cn/open-apis/bot/v2/hook/private","secret":"private-secret"}`))
+	configure.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, configure)
+	if response.Code != http.StatusOK || strings.Contains(response.Body.String(), "private") {
+		t.Fatalf("configure response = %d %s, want masked response", response.Code, response.Body.String())
+	}
+
+	testRequest := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/channels/feishu/test", strings.NewReader(`{"subject":"测试","body":"连接成功"}`))
+	testRequest.Header.Set("Authorization", "Bearer token")
+	testResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(testResponse, testRequest)
+	if testResponse.Code != http.StatusOK || !strings.Contains(testResponse.Body.String(), `"status":"delivered"`) {
+		t.Fatalf("test response = %d %s, want delivered", testResponse.Code, testResponse.Body.String())
 	}
 }
