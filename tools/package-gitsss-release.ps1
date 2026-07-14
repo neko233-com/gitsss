@@ -12,6 +12,10 @@ Set-StrictMode -Version Latest
 
 $repository = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $utf8WithoutBom = New-Object Text.UTF8Encoding($false)
+$trustedPublicKey = Join-Path $repository "keys/release-ed25519.pub"
+if (-not (Test-Path -LiteralPath $trustedPublicKey)) {
+    throw "Trusted release public key is missing: $trustedPublicKey"
+}
 
 function Invoke-Checked {
     param(
@@ -118,6 +122,7 @@ try {
         Copy-Item -Recurse -Force (Join-Path $repository "web/dist/*") $webDirectory
         Copy-Item -Force (Join-Path $repository "server/README.md") (Join-Path $packageDirectory "README.md")
         Copy-Item -Force (Join-Path $repository "docs/operations/agent-autostart.md") (Join-Path $docsDirectory "agent-autostart.md")
+        Copy-Item -Force $trustedPublicKey (Join-Path $packageDirectory "release.pub")
         $buildInfo = [ordered]@{
             version = $Version
             commit = $commit
@@ -157,6 +162,11 @@ if (-not [string]::IsNullOrWhiteSpace($SigningKeyEnvironment)) {
         "--published-at", $publishedAt,
         "--private-key-env", $SigningKeyEnvironment
     ) (Join-Path $repository "server")
+    $expectedPublicKey = (Get-Content -Raw -LiteralPath $trustedPublicKey).Trim()
+    $actualPublicKey = (Get-Content -Raw -LiteralPath (Join-Path $releaseDirectory "release.pub")).Trim()
+    if ($actualPublicKey -ne $expectedPublicKey) {
+        throw "Signing key does not match keys/release-ed25519.pub"
+    }
 }
 
 $manifestPath = Join-Path $releaseDirectory "SHA256SUMS"

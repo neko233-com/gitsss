@@ -4,6 +4,8 @@ gitsss 更新验证采用 Ed25519 签名的 canonical `gitsss-update-v1` manifes
 
 Agent 只持有通过安装包、配置管理或管理员指纹核对预置的发布公钥。不能把与更新包一同下载、但从未被信任的公钥当作信任根；HTTPS、GitHub asset digest 和 `SHA256SUMS` 是额外的传输完整性证据，不替代发布者签名。
 
+当前信任根位于 `keys/release-ed25519.pub`，Key ID 为 `11d4f94bdcb5c016`。发布脚本会把它嵌入安装包，并拒绝使用派生公钥不一致的私钥签名。密钥轮换必须由旧密钥签署过渡声明并经管理员显式更新信任，不能只替换仓库文件。
+
 下载到隔离 staging 目录后，使用绝对路径验证：
 
 ```powershell

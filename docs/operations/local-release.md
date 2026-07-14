@@ -33,7 +33,7 @@ GitHub Actions 额度不可用期间，gitsss 不注册远端 CI 或发布工作
   -SigningKeyEnvironment GITSSS_RELEASE_SIGNING_KEY
 ```
 
-seed 只从命名环境变量读取，不得放入参数、脚本、仓库或 release asset。`release.pub` 用于分发和指纹核对，但不能自动成为信任根；安装器/Agent 必须预置管理员已经核对的同一公钥。
+seed 只从命名环境变量读取，不得放入参数、脚本、仓库或 release asset。脚本强制签名派生公钥与仓库的 `keys/release-ed25519.pub`（Key ID `11d4f94bdcb5c016`）一致，并把该公钥嵌入每个平台包。`release.pub` 用于分发和指纹核对，但不能仅因与更新包一同下载就自动成为信任根；安装器/Agent 必须预置管理员已经核对的同一公钥。
 
 ## 构建并上传预发布
 
