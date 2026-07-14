@@ -18,6 +18,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/audit"
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/dashboard"
+	"github.com/neko233-com/gitsss/server/internal/importcatalog"
 	"github.com/neko233-com/gitsss/server/internal/lfs"
 	"github.com/neko233-com/gitsss/server/internal/notification"
 	"github.com/neko233-com/gitsss/server/internal/pipeline"
@@ -40,6 +41,10 @@ func main() {
 		log.Fatal(err)
 	}
 	defer stateStore.Close()
+	importCatalog, err := importcatalog.New(stateStore)
+	if err != nil {
+		log.Fatal(err)
+	}
 	masterKeyPath := os.Getenv("GITSSS_MASTER_KEY_PATH")
 	if masterKeyPath == "" {
 		masterKeyPath = dataPath + ".key"
@@ -137,7 +142,7 @@ func main() {
 	apiHandler := api.NewServer(verifier, api.Dependencies{
 		Dashboard: dashboardService, Notifications: notificationService, Pipelines: pipelineService,
 		Repositories: repositoryService, Runners: runnerService, Storage: storageService,
-		Takeovers: takeoverRegistry, Jobs: agentJobs, Audit: logStore, LFS: lfsHandler,
+		Takeovers: takeoverRegistry, Jobs: agentJobs, Audit: logStore, LFS: lfsHandler, Imports: importCatalog,
 	}).Handler()
 	webRoot, err := webui.DiscoverRoot(os.Getenv("GITSSS_WEB_ROOT"))
 	if err != nil {

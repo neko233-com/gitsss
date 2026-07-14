@@ -34,6 +34,7 @@ import {
 
 interface RepositorySummary {
   id: string
+  source_id?: string
   name: string
   default_branch: string
 }
@@ -59,6 +60,25 @@ interface SearchMatch {
   path: string
   line: number
   content: string
+}
+
+interface ImportedWorkItem {
+  source_id: string
+  repository_id: string
+  index: number
+  title: string
+  body?: string
+  body_truncated: boolean
+  author_id?: string
+  pull_request: boolean
+  closed: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+interface ImportedPage<T> {
+  items: T[]
+  next_cursor?: string
 }
 
 function formatBytes(bytes: number) {
@@ -144,6 +164,11 @@ export function RepositoryBrowser({
   const [selectedPath, setSelectedPath] = useState("")
   const [query, setQuery] = useState("")
   const [matches, setMatches] = useState<SearchMatch[] | null>(null)
+  const [workItems, setWorkItems] = useState<ImportedWorkItem[]>([])
+  const [workItemCursor, setWorkItemCursor] = useState("")
+  const [contentView, setContentView] = useState<"files" | "work-items">(
+    "files"
+  )
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(
     () => new Set()
   )
@@ -164,6 +189,7 @@ export function RepositoryBrowser({
       if (!activeToken || !activeRepository) return
       setLoading(true)
       setError("")
+      setContentView("files")
       try {
         const result = await apiRequest<RepositoryFile>(
           `/api/v1/repositories/${encodeURIComponent(activeRepository)}/files?ref=HEAD&path=${encodeURIComponent(path)}`,
@@ -187,7 +213,8 @@ export function RepositoryBrowser({
     async (
       activeRepository: string,
       activeToken: string,
-      signal?: AbortSignal
+      signal?: AbortSignal,
+      sourceID?: string
     ) => {
       writeSelectedRepository(activeRepository)
       setRepositoryID(activeRepository)
@@ -195,12 +222,26 @@ export function RepositoryBrowser({
       setSelectedPath("")
       setFile(null)
       setMatches(null)
-      const response = await apiRequest<RepositoryTreeResponse>(
-        `/api/v1/repositories/${encodeURIComponent(activeRepository)}/tree?ref=HEAD`,
-        activeToken,
-        signal
-      )
+      setWorkItems([])
+      setWorkItemCursor("")
+      setContentView("files")
+      const [response, imported] = await Promise.all([
+        apiRequest<RepositoryTreeResponse>(
+          `/api/v1/repositories/${encodeURIComponent(activeRepository)}/tree?ref=HEAD`,
+          activeToken,
+          signal
+        ),
+        sourceID
+          ? apiRequest<ImportedPage<ImportedWorkItem>>(
+              `/api/v1/imports/work-items?repository_id=${encodeURIComponent(sourceID)}&limit=200`,
+              activeToken,
+              signal
+            )
+          : Promise.resolve<ImportedPage<ImportedWorkItem>>({ items: [] }),
+      ])
       setTreeResponse(response)
+      setWorkItems(imported.items)
+      setWorkItemCursor(imported.next_cursor ?? "")
       setExpandedPaths(
         new Set(
           response.entries.flatMap((entry) => {
@@ -243,7 +284,12 @@ export function RepositoryBrowser({
           availableRepositories[0]
         if (!repository) throw new Error("当前账号没有可访问的仓库")
         setRepositories(availableRepositories)
-        await loadRepositoryContent(repository.id, token, controller.signal)
+        await loadRepositoryContent(
+          repository.id,
+          token,
+          controller.signal,
+          repository.source_id
+        )
       } catch (requestError) {
         if (controller.signal.aborted) return
         setError(
@@ -262,7 +308,13 @@ export function RepositoryBrowser({
     setLoading(true)
     setError("")
     try {
-      await loadRepositoryContent(nextRepositoryID, token)
+      await loadRepositoryContent(
+        nextRepositoryID,
+        token,
+        undefined,
+        repositories.find((repository) => repository.id === nextRepositoryID)
+          ?.source_id
+      )
     } catch (requestError) {
       setError(
         requestError instanceof Error ? requestError.message : "仓库加载失败"
@@ -284,9 +336,33 @@ export function RepositoryBrowser({
         token
       )
       setMatches(result)
+      setContentView("files")
     } catch (requestError) {
       setError(
         requestError instanceof Error ? requestError.message : "搜索失败"
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadMoreWorkItems = async () => {
+    const sourceID = repositories.find(
+      (repository) => repository.id === repositoryID
+    )?.source_id
+    if (!sourceID || !workItemCursor) return
+    setLoading(true)
+    setError("")
+    try {
+      const page = await apiRequest<ImportedPage<ImportedWorkItem>>(
+        `/api/v1/imports/work-items?repository_id=${encodeURIComponent(sourceID)}&after=${encodeURIComponent(workItemCursor)}&limit=200`,
+        token
+      )
+      setWorkItems((current) => [...current, ...page.items])
+      setWorkItemCursor(page.next_cursor ?? "")
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error ? requestError.message : "工作项加载失败"
       )
     } finally {
       setLoading(false)
@@ -392,6 +468,18 @@ export function RepositoryBrowser({
             <span>文件</span>
             <span>{treeResponse?.entries.length ?? 0}</span>
           </div>
+          <button
+            className={`mb-3 flex h-9 w-full items-center justify-between rounded-lg px-3 text-xs font-medium ${
+              contentView === "work-items"
+                ? "bg-zinc-950 text-white"
+                : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+            }`}
+            onClick={() => setContentView("work-items")}
+            type="button"
+          >
+            <span>Issue 与 PR</span>
+            <span>{workItems.length}</span>
+          </button>
           <TreeNodes
             expandedPaths={expandedPaths}
             nodes={tree}
@@ -402,7 +490,70 @@ export function RepositoryBrowser({
         </aside>
 
         <div className="min-w-0 py-5 md:pl-7">
-          {loading && !file ? (
+          {contentView === "work-items" ? (
+            <div>
+              <div className="flex items-center justify-between gap-4 border-b border-zinc-200 pb-3">
+                <div>
+                  <h3 className="text-sm font-semibold">已接管工作项</h3>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    保留源编号、状态和正文，不包含密码或认证字段。
+                  </p>
+                </div>
+                <span className="text-xs text-zinc-400">
+                  {workItems.length} 项
+                </span>
+              </div>
+              <div className="divide-y divide-zinc-200">
+                {workItems.length ? (
+                  workItems.map((item) => (
+                    <article className="py-4" key={item.source_id}>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-zinc-900">
+                            {item.pull_request ? "PR" : "Issue"} #{item.index} ·{" "}
+                            {item.title || "未命名工作项"}
+                          </p>
+                          <p className="mt-1 text-xs text-zinc-500">
+                            {item.closed ? "已关闭" : "进行中"}
+                            {item.author_id ? ` · 成员 ${item.author_id}` : ""}
+                          </p>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-medium ${
+                            item.closed
+                              ? "bg-zinc-100 text-zinc-600"
+                              : "bg-emerald-50 text-emerald-700"
+                          }`}
+                        >
+                          {item.closed ? "Closed" : "Open"}
+                        </span>
+                      </div>
+                      {item.body ? (
+                        <p className="mt-3 line-clamp-3 text-xs leading-5 whitespace-pre-wrap text-zinc-600">
+                          {item.body}
+                          {item.body_truncated ? "…" : ""}
+                        </p>
+                      ) : null}
+                    </article>
+                  ))
+                ) : (
+                  <p className="py-10 text-sm text-zinc-500">
+                    此仓库没有从旧服务器接管的 Issue 或 PR。
+                  </p>
+                )}
+              </div>
+              {workItemCursor ? (
+                <Button
+                  className="mt-4"
+                  disabled={loading}
+                  onClick={() => void loadMoreWorkItems()}
+                  variant="outline"
+                >
+                  加载更多工作项
+                </Button>
+              ) : null}
+            </div>
+          ) : loading && !file ? (
             <p className="text-sm text-zinc-500">正在读取仓库…</p>
           ) : matches ? (
             <div>

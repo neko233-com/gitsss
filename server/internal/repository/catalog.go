@@ -27,6 +27,7 @@ type catalogConfiguration struct {
 
 type catalogRecord struct {
 	ID            string    `json:"id"`
+	SourceID      string    `json:"source_id,omitempty"`
 	Name          string    `json:"name"`
 	DefaultBranch string    `json:"default_branch"`
 	Path          string    `json:"path"`
@@ -186,7 +187,7 @@ func configureHostedRepository(parent context.Context, target string) error {
 
 func (s *Service) persist(repository Repository) error {
 	record := catalogRecord{
-		ID: repository.ID, Name: repository.Name, DefaultBranch: repository.DefaultBranch,
+		ID: repository.ID, SourceID: repository.SourceID, Name: repository.Name, DefaultBranch: repository.DefaultBranch,
 		Path: repository.Path, Hosted: repository.Hosted, CreatedAt: repository.CreatedAt,
 	}
 	payload, err := json.Marshal(record)
@@ -201,7 +202,7 @@ func (s *Service) persist(repository Repository) error {
 
 func (record catalogRecord) repository() Repository {
 	return Repository{
-		ID: record.ID, Name: record.Name, DefaultBranch: record.DefaultBranch, Path: record.Path,
+		ID: record.ID, SourceID: record.SourceID, Name: record.Name, DefaultBranch: record.DefaultBranch, Path: record.Path,
 		Hosted: record.Hosted, CreatedAt: record.CreatedAt,
 	}
 }

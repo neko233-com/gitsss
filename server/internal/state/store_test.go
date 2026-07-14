@@ -113,4 +113,22 @@ func TestStorePutsDocumentBatchAtomically(t *testing.T) {
 	if len(documents) != 2 || documents[0].ID != "row-1" || documents[1].ID != "row-2" {
 		t.Fatalf("documents = %#v", documents)
 	}
+	page, err := store.ListPage("source-import", "row-1", 1)
+	if err != nil || len(page) != 1 || page[0].ID != "row-2" {
+		t.Fatalf("page = %#v, %v", page, err)
+	}
+	if _, err := store.ListPage("source-import", "", 501); !errors.Is(err, ErrInvalidDocument) {
+		t.Fatalf("invalid page error = %v", err)
+	}
+	if err := store.PutMany("import-index", []Document{
+		{ID: "0001-0001", Payload: json.RawMessage(`{"value":1}`)},
+		{ID: "0001-0002", Payload: json.RawMessage(`{"value":2}`)},
+		{ID: "0002-0001", Payload: json.RawMessage(`{"value":3}`)},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	prefixPage, err := store.ListPrefix("import-index", "0001-", "0001-0001", 10)
+	if err != nil || len(prefixPage) != 1 || prefixPage[0].ID != "0001-0002" {
+		t.Fatalf("prefix page = %#v, %v", prefixPage, err)
+	}
 }

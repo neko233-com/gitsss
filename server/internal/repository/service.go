@@ -37,6 +37,7 @@ const (
 
 type Repository struct {
 	ID            string    `json:"id"`
+	SourceID      string    `json:"source_id,omitempty"`
 	Name          string    `json:"name"`
 	DefaultBranch string    `json:"default_branch"`
 	Hosted        bool      `json:"hosted"`
@@ -266,7 +267,7 @@ func (s *Service) Commit(ctx context.Context, repositoryID, ref string) (string,
 }
 
 func (s *Service) normalizeRepository(repository Repository) (Repository, error) {
-	if !validRepositoryID(repository.ID) || strings.TrimSpace(repository.Name) == "" || len(repository.Name) > 120 || strings.TrimSpace(repository.Path) == "" {
+	if !validRepositoryID(repository.ID) || !validSourceID(repository.SourceID) || strings.TrimSpace(repository.Name) == "" || len(repository.Name) > 120 || strings.TrimSpace(repository.Path) == "" {
 		return Repository{}, fmt.Errorf("%w: repository id, name and path are required", ErrInvalidPath)
 	}
 	absolutePath, err := filepath.Abs(repository.Path)
@@ -290,6 +291,21 @@ func (s *Service) normalizeRepository(repository Repository) (Repository, error)
 		return Repository{}, fmt.Errorf("%w: %s is not a Git repository", ErrInvalidPath, repository.Path)
 	}
 	return repository, nil
+}
+
+func validSourceID(id string) bool {
+	if id == "" {
+		return true
+	}
+	if len(id) > 20 || id[0] == '0' {
+		return false
+	}
+	for _, character := range id {
+		if character < '0' || character > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func validRepositoryID(id string) bool {

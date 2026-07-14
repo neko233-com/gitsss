@@ -4,6 +4,7 @@ package migration
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
@@ -73,6 +74,7 @@ type importedRow struct {
 
 type repositoryCatalogRecord struct {
 	ID            string    `json:"id"`
+	SourceID      string    `json:"source_id,omitempty"`
 	Name          string    `json:"name"`
 	DefaultBranch string    `json:"default_branch"`
 	Path          string    `json:"path"`
@@ -325,7 +327,25 @@ func importBusinessRows(store *state.Store, snapshot, overflowRoot string) (map[
 		namespace := "source-import-" + table
 		batches[namespace] = append(batches[namespace], state.Document{ID: fmt.Sprintf("%020d", ordinal), Payload: payload})
 		if len(batches[namespace]) >= importBatchSize {
-			return flush(namespace)
+			if err := flush(namespace); err != nil {
+				return err
+			}
+		}
+		if table == "issue" {
+			repositoryID, err := sortableSourceID(importedString(values["repo_id"]))
+			if err != nil {
+				return err
+			}
+			indexPayload, err := indexedWorkItemPayload(ordinal, values)
+			if err != nil {
+				return err
+			}
+			const indexNamespace = "import-work-items"
+			indexID := repositoryID + "-" + fmt.Sprintf("%020d", ordinal)
+			batches[indexNamespace] = append(batches[indexNamespace], state.Document{ID: indexID, Payload: indexPayload})
+			if len(batches[indexNamespace]) >= importBatchSize {
+				return flush(indexNamespace)
+			}
 		}
 		return nil
 	})
@@ -340,6 +360,27 @@ func importBusinessRows(store *state.Store, snapshot, overflowRoot string) (map[
 		}
 	}
 	return counts, nil
+}
+
+func sortableSourceID(value string) (string, error) {
+	parsed, err := strconv.ParseUint(value, 10, 64)
+	if err != nil || parsed == 0 {
+		return "", fmt.Errorf("%w: imported repository ID is invalid", ErrInvalidMaterialization)
+	}
+	return fmt.Sprintf("%020d", parsed), nil
+}
+
+func indexedWorkItemPayload(ordinal int64, values map[string]any) ([]byte, error) {
+	indexed := make(map[string]any, len(values))
+	for key, value := range values {
+		if (key == "content" || key == "body") && len(importedString(value)) > 64<<10 {
+			indexed[key] = importedString(value)[:64<<10]
+			indexed["_body_truncated"] = true
+			continue
+		}
+		indexed[key] = value
+	}
+	return json.Marshal(importedRow{SourceTable: "issue", Ordinal: ordinal, Values: indexed})
 }
 
 func visitSnapshotRows(snapshot string, visit func(string, map[string]any) error) error {
@@ -539,6 +580,10 @@ func materializeRepositories(source, content, active string, now time.Time) (int
 		return 0, err
 	}
 	defer store.Close()
+	sourceIDs, err := sourceRepositoryIDs(store)
+	if err != nil {
+		return 0, err
+	}
 	seen := map[string]struct{}{}
 	count := 0
 	for _, relative := range repositories {
@@ -549,13 +594,17 @@ func materializeRepositories(source, content, active string, now time.Time) (int
 			continue
 		}
 		id := repositoryID(relative, seen)
+		sourceID := sourceIDs[strings.ToLower(strings.TrimSuffix(filepath.ToSlash(relative), ".git"))]
+		if sourceID == "" {
+			return 0, fmt.Errorf("%w: repository %s has no matching database record", ErrInvalidMaterialization, relative)
+		}
 		seen[id] = struct{}{}
 		destination := filepath.Join(content, "repositories", id+".git")
 		if err := copyTree(filepath.Join(sourceRoot, filepath.FromSlash(relative)), destination); err != nil {
 			return 0, err
 		}
 		record := repositoryCatalogRecord{
-			ID: id, Name: strings.TrimSuffix(relative, ".git"), DefaultBranch: repositoryDefaultBranch(destination),
+			ID: id, SourceID: sourceID, Name: strings.TrimSuffix(relative, ".git"), DefaultBranch: repositoryDefaultBranch(destination),
 			Path: filepath.Join(active, "repositories", id+".git"), Hosted: true, CreatedAt: now.UTC(),
 		}
 		payload, err := json.Marshal(record)
@@ -568,6 +617,83 @@ func materializeRepositories(source, content, active string, now time.Time) (int
 		count++
 	}
 	return count, nil
+}
+
+func sourceRepositoryIDs(store *state.Store) (map[string]string, error) {
+	users := map[string]string{}
+	if err := visitImportedDocuments(store, "user", func(_ string, values map[string]any) error {
+		id := importedString(values["id"])
+		name := strings.ToLower(strings.TrimSpace(firstImportedString(values, "lower_name", "name")))
+		if id != "" && name != "" {
+			users[id] = name
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	repositories := map[string]string{}
+	if err := visitImportedDocuments(store, "repository", func(_ string, values map[string]any) error {
+		id := importedString(values["id"])
+		owner := users[importedString(values["owner_id"])]
+		name := strings.ToLower(strings.TrimSpace(firstImportedString(values, "lower_name", "name")))
+		if id != "" && owner != "" && name != "" {
+			repositories[owner+"/"+name] = id
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return repositories, nil
+}
+
+func visitImportedDocuments(store *state.Store, table string, visit func(string, map[string]any) error) error {
+	after := ""
+	for {
+		documents, err := store.ListPage("source-import-"+table, after, 500)
+		if err != nil {
+			return err
+		}
+		for _, document := range documents {
+			decoder := json.NewDecoder(bytes.NewReader(document.Payload))
+			decoder.UseNumber()
+			var row importedRow
+			if err := decoder.Decode(&row); err != nil || row.SourceTable != table || row.Ordinal < 1 || row.Values == nil || row.External != "" {
+				return fmt.Errorf("%w: corrupt imported %s row", ErrInvalidMaterialization, table)
+			}
+			if err := visit(document.ID, row.Values); err != nil {
+				return err
+			}
+		}
+		if len(documents) < 500 {
+			return nil
+		}
+		after = documents[len(documents)-1].ID
+	}
+}
+
+func firstImportedString(values map[string]any, names ...string) string {
+	for _, name := range names {
+		if value := importedString(values[name]); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func importedString(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return typed
+	case json.Number:
+		return typed.String()
+	case int64:
+		return strconv.FormatInt(typed, 10)
+	case uint64:
+		return strconv.FormatUint(typed, 10)
+	case float64:
+		return strconv.FormatFloat(typed, 'g', -1, 64)
+	}
+	return ""
 }
 
 func repositoryID(relative string, seen map[string]struct{}) string {

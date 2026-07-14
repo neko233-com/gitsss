@@ -18,6 +18,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/dashboard"
 	"github.com/neko233-com/gitsss/server/internal/gittransport"
+	"github.com/neko233-com/gitsss/server/internal/importcatalog"
 	"github.com/neko233-com/gitsss/server/internal/lfs"
 	"github.com/neko233-com/gitsss/server/internal/notification"
 	"github.com/neko233-com/gitsss/server/internal/pipeline"
@@ -40,6 +41,7 @@ type Server struct {
 	audit         *audit.Log
 	git           *gittransport.Handler
 	lfs           *lfs.Handler
+	imports       *importcatalog.Catalog
 	now           func() time.Time
 }
 
@@ -54,6 +56,7 @@ type Dependencies struct {
 	Jobs          *agentjob.Queue
 	Audit         *audit.Log
 	LFS           *lfs.Handler
+	Imports       *importcatalog.Catalog
 }
 
 func NewServer(verifier auth.Verifier, dependencies Dependencies) *Server {
@@ -69,6 +72,7 @@ func NewServer(verifier auth.Verifier, dependencies Dependencies) *Server {
 		jobs:          dependencies.Jobs,
 		audit:         dependencies.Audit,
 		lfs:           dependencies.LFS,
+		imports:       dependencies.Imports,
 		now:           time.Now,
 	}
 	if dependencies.Repositories != nil && dependencies.Audit != nil {
@@ -81,6 +85,9 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.health)
 	mux.HandleFunc("GET /api/v1/git-clients", s.gitClientCatalog)
+	mux.HandleFunc("GET /api/v1/imports/directory", s.importDirectory)
+	mux.HandleFunc("GET /api/v1/imports/work-items", s.importWorkItems)
+	mux.HandleFunc("GET /api/v1/imports/access", s.importAccess)
 	mux.HandleFunc("GET /api/v1/auth/tokens", s.authTokens)
 	mux.HandleFunc("POST /api/v1/auth/tokens", s.authTokenIssue)
 	mux.HandleFunc("DELETE /api/v1/auth/tokens/{token}", s.authTokenRevoke)
@@ -130,6 +137,100 @@ type gitClientSource struct {
 	SHA256       string `json:"sha256,omitempty"`
 	Bytes        int64  `json:"bytes,omitempty"`
 	Command      string `json:"command,omitempty"`
+}
+
+func (s *Server) importDirectory(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "auth:read"); !ok {
+		return
+	}
+	after, limit, ok := importPage(w, r)
+	if !ok {
+		return
+	}
+	if s.imports == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "import catalog is unavailable"})
+		return
+	}
+	page, err := s.imports.Directory(after, limit)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "imported directory could not be read"})
+		return
+	}
+	writeJSON(w, http.StatusOK, page)
+}
+
+func (s *Server) importWorkItems(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "repositories:read"); !ok {
+		return
+	}
+	after, limit, ok := importPage(w, r)
+	if !ok {
+		return
+	}
+	if s.imports == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "import catalog is unavailable"})
+		return
+	}
+	repositoryID := r.URL.Query().Get("repository_id")
+	if repositoryID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "source repository ID is required"})
+		return
+	}
+	page, err := s.imports.WorkItems(repositoryID, after, limit)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "imported work items could not be read"})
+		return
+	}
+	writeJSON(w, http.StatusOK, page)
+}
+
+func (s *Server) importAccess(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "auth:read"); !ok {
+		return
+	}
+	after, limit, ok := importPage(w, r)
+	if !ok {
+		return
+	}
+	if s.imports == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "import catalog is unavailable"})
+		return
+	}
+	page, err := s.imports.Access(after, limit)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "imported access could not be read"})
+		return
+	}
+	writeJSON(w, http.StatusOK, page)
+}
+
+func importPage(w http.ResponseWriter, r *http.Request) (string, int, bool) {
+	after := r.URL.Query().Get("after")
+	if after != "" {
+		if len(after) != 20 && len(after) != 41 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid import cursor"})
+			return "", 0, false
+		}
+		for index, character := range after {
+			if len(after) == 41 && index == 20 && character == '-' {
+				continue
+			}
+			if character < '0' || character > '9' {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid import cursor"})
+				return "", 0, false
+			}
+		}
+	}
+	limit := 100
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 || parsed > 200 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "import limit must be between 1 and 200"})
+			return "", 0, false
+		}
+		limit = parsed
+	}
+	return after, limit, true
 }
 
 type gitClientPlatform struct {

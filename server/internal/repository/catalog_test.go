@@ -40,12 +40,16 @@ func TestPersistentServiceCreatesAndReloadsHostedRepository(t *testing.T) {
 	if output, err := runGit(context.Background(), created.Path, 256, "config", "--bool", "uploadpack.allowFilter"); err != nil || string(output) != "true\n" {
 		t.Fatalf("partial clone config = %q, error = %v", output, err)
 	}
+	created.SourceID = "42"
+	if err := service.persist(created); err != nil {
+		t.Fatal(err)
+	}
 	reopened, err := NewPersistentService(log, store, repositoryRoot, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	resolved, err := reopened.Resolve("art-team")
-	if err != nil || resolved.Path != created.Path || !resolved.Hosted {
+	if err != nil || resolved.Path != created.Path || resolved.SourceID != "42" || !resolved.Hosted {
 		t.Fatalf("reloaded repository = %#v, error = %v", resolved, err)
 	}
 	entries := log.Entries()

@@ -7,3 +7,5 @@ SQLite、PostgreSQL 和 MySQL 快照中的用户、组织、仓库、Issue、PR�
 材料化前会保守估算“恢复副本全部文件 + 一份数据库快照”的写入量，并使用输出卷实时容量保留 10 GiB 安全空间。目录树拒绝符号链接、特殊文件、超过一千万项的输入以及数据库仓库数与 bare 仓库数不一致的情况。
 
 `gitsss-materialization.json` 绑定源数据库 SHA-256、业务清单 SHA-256、最终活跃路径、导入计数和内容树 SHA-256。最终 `takeover.cutover` 会重新运行源/恢复影子审计，再重新计算材料化内容摘要；只有两个摘要、目标活跃路径和人工确认同时匹配，才会把材料化数据代原子切入。原始恢复副本不能再直接切换。
+
+材料化还会把源仓库 ID 与新仓库 ID 固定关联，并建立分页工作项索引；运行中的服务只通过脱敏目录读取成员、权限摘要和仓库 Issue/PR。详见 [`imported-business-catalog-v1.md`](imported-business-catalog-v1.md)。

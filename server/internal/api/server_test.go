@@ -16,6 +16,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/audit"
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/dashboard"
+	"github.com/neko233-com/gitsss/server/internal/importcatalog"
 	"github.com/neko233-com/gitsss/server/internal/notification"
 	"github.com/neko233-com/gitsss/server/internal/pipeline"
 	"github.com/neko233-com/gitsss/server/internal/repository"
@@ -118,6 +119,53 @@ func TestServerPublishesAuditedGitClientCatalogWithoutAuthentication(t *testing.
 	)
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"version":"2.55.0.windows.2"`) || !strings.Contains(response.Body.String(), `"kind":"mirror"`) || !strings.Contains(response.Body.String(), `"sha256":"74300da8`) {
 		t.Fatalf("catalog = %d %s", response.Code, response.Body.String())
+	}
+}
+
+func TestServerPublishesSanitizedImportedBusinessRecordsByScope(t *testing.T) {
+	store, err := state.Open(filepath.Join(t.TempDir(), "gitsss.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if err := store.Put("source-import-user", "00000000000000000001", json.RawMessage(`{"source_table":"user","ordinal":1,"values":{"id":1,"name":"artist","passwd":"secret-hash"}}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Put("source-import-issue", "00000000000000000001", json.RawMessage(`{"source_table":"issue","ordinal":1,"values":{"id":2,"repo_id":3,"index":4,"name":"Review"}}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Put("import-work-items", "00000000000000000003-00000000000000000001", json.RawMessage(`{"source_table":"issue","ordinal":1,"values":{"id":2,"repo_id":3,"index":4,"name":"Review"}}`)); err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := importcatalog.New(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifier := auth.NewVerifier(
+		auth.NewRecord("admin", "admin-token", time.Time{}, "auth:read"),
+		auth.NewRecord("reader", "reader-token", time.Time{}, "repositories:read"),
+	)
+	handler := NewServer(verifier, Dependencies{Imports: catalog}).Handler()
+	directory := httptest.NewRequest(http.MethodGet, "/api/v1/imports/directory?limit=1", nil)
+	directory.Header.Set("Authorization", "Bearer admin-token")
+	directoryResponse := httptest.NewRecorder()
+	handler.ServeHTTP(directoryResponse, directory)
+	if directoryResponse.Code != http.StatusOK || !strings.Contains(directoryResponse.Body.String(), `"name":"artist"`) || strings.Contains(directoryResponse.Body.String(), "secret-hash") {
+		t.Fatalf("directory = %d %s", directoryResponse.Code, directoryResponse.Body.String())
+	}
+	items := httptest.NewRequest(http.MethodGet, "/api/v1/imports/work-items?repository_id=3", nil)
+	items.Header.Set("Authorization", "Bearer reader-token")
+	itemsResponse := httptest.NewRecorder()
+	handler.ServeHTTP(itemsResponse, items)
+	if itemsResponse.Code != http.StatusOK || !strings.Contains(itemsResponse.Body.String(), `"title":"Review"`) {
+		t.Fatalf("work items = %d %s", itemsResponse.Code, itemsResponse.Body.String())
+	}
+	deniedRequest := httptest.NewRequest(http.MethodGet, "/api/v1/imports/directory", nil)
+	deniedRequest.Header.Set("Authorization", "Bearer reader-token")
+	denied := httptest.NewRecorder()
+	handler.ServeHTTP(denied, deniedRequest)
+	if denied.Code != http.StatusForbidden {
+		t.Fatalf("directory reader status = %d", denied.Code)
 	}
 }
 

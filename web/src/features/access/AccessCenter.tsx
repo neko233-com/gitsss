@@ -38,6 +38,26 @@ interface IssuedToken extends TokenInfo {
   token: string
 }
 
+interface ImportedDirectoryEntry {
+  source_id: string
+  name: string
+  display_name: string
+  organization: boolean
+  active: boolean
+}
+
+interface ImportedAccessEntry {
+  source_id: string
+  repository_id: string
+  user_id: string
+  mode: number
+}
+
+interface ImportedPage<T> {
+  items: T[]
+  next_cursor?: string
+}
+
 const scopeNames: Record<string, string> = {
   agents: "Agent",
   auth: "授权",
@@ -67,6 +87,14 @@ export function AccessCenter({
 }) {
   const [roles, setRoles] = useState<RoleTemplate[]>([])
   const [tokens, setTokens] = useState<TokenInfo[]>([])
+  const [importedDirectory, setImportedDirectory] = useState<
+    ImportedDirectoryEntry[]
+  >([])
+  const [directoryCursor, setDirectoryCursor] = useState("")
+  const [importedAccess, setImportedAccess] = useState<ImportedAccessEntry[]>(
+    []
+  )
+  const [accessHasMore, setAccessHasMore] = useState(false)
   const [roleID, setRoleID] = useState("")
   const [tokenID, setTokenID] = useState("")
   const [hours, setHours] = useState(1)
@@ -80,12 +108,25 @@ export function AccessCenter({
     setLoading(true)
     setError("")
     try {
-      const [nextRoles, nextTokens] = await Promise.all([
-        apiRequest<RoleTemplate[]>("/api/v1/auth/roles", token),
-        apiRequest<TokenInfo[]>("/api/v1/auth/tokens", token),
-      ])
+      const [nextRoles, nextTokens, nextDirectory, nextAccess] =
+        await Promise.all([
+          apiRequest<RoleTemplate[]>("/api/v1/auth/roles", token),
+          apiRequest<TokenInfo[]>("/api/v1/auth/tokens", token),
+          apiRequest<ImportedPage<ImportedDirectoryEntry>>(
+            "/api/v1/imports/directory?limit=200",
+            token
+          ),
+          apiRequest<ImportedPage<ImportedAccessEntry>>(
+            "/api/v1/imports/access?limit=200",
+            token
+          ),
+        ])
       setRoles(nextRoles)
       setTokens(nextTokens)
+      setImportedDirectory(nextDirectory.items)
+      setDirectoryCursor(nextDirectory.next_cursor ?? "")
+      setImportedAccess(nextAccess.items)
+      setAccessHasMore(Boolean(nextAccess.next_cursor))
       const first = nextRoles[0]
       if (first) {
         setRoleID((current) => current || first.id)
@@ -159,6 +200,24 @@ export function AccessCenter({
       setCopied(true)
     } catch {
       setError("浏览器拒绝复制，请手动选中仅此一次显示的 Token")
+    }
+  }
+
+  const loadMoreDirectory = async () => {
+    if (!directoryCursor) return
+    setLoading(true)
+    setError("")
+    try {
+      const page = await apiRequest<ImportedPage<ImportedDirectoryEntry>>(
+        `/api/v1/imports/directory?after=${encodeURIComponent(directoryCursor)}&limit=200`,
+        token
+      )
+      setImportedDirectory((current) => [...current, ...page.items])
+      setDirectoryCursor(page.next_cursor ?? "")
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "成员目录读取失败")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -328,6 +387,70 @@ export function AccessCenter({
               </div>
             ))}
           </div>
+          {importedDirectory.length ? (
+            <div className="mt-8">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-semibold">已接管成员目录</h3>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    旧密码不会显示或直接复用；按职责重新签发 Token。
+                  </p>
+                </div>
+                <span className="text-xs text-zinc-400">
+                  {importedDirectory.length}
+                  {directoryCursor ? "+" : ""} 项 · {importedAccess.length}
+                  {accessHasMore ? "+" : ""} 条权限映射
+                </span>
+              </div>
+              <div className="mt-4 divide-y divide-zinc-200 border-y border-zinc-200">
+                {importedDirectory.map((entry) => (
+                  <div
+                    className="flex items-center justify-between gap-4 py-3"
+                    key={entry.source_id}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-zinc-800">
+                        {entry.display_name || entry.name}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-400">
+                        {entry.organization ? "组织" : "成员"} · {entry.name}
+                      </p>
+                    </div>
+                    {!entry.organization && entry.active ? (
+                      <Button
+                        onClick={() => {
+                          setTokenID(entry.name)
+                          setIssued(undefined)
+                        }}
+                        size="sm"
+                        variant="outline"
+                      >
+                        按此成员授权
+                      </Button>
+                    ) : (
+                      <span
+                        className={`shrink-0 text-xs ${
+                          entry.active ? "text-emerald-700" : "text-zinc-400"
+                        }`}
+                      >
+                        {entry.active ? "已保留" : "原账号停用"}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {directoryCursor ? (
+                <Button
+                  className="mt-4"
+                  disabled={loading}
+                  onClick={() => void loadMoreDirectory()}
+                  variant="outline"
+                >
+                  加载更多成员
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
     </section>

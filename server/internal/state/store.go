@@ -159,6 +159,61 @@ func (store *Store) List(namespace string) ([]Document, error) {
 	return documents, rows.Err()
 }
 
+func (store *Store) ListPage(namespace, after string, limit int) ([]Document, error) {
+	if !validKey(namespace, 64) || after != "" && !validKey(after, 256) || limit < 1 || limit > 500 {
+		return nil, ErrInvalidDocument
+	}
+	rows, err := store.database.Query(`
+		SELECT id, payload FROM state_documents
+		WHERE namespace = ? AND id > ? ORDER BY id LIMIT ?
+	`, namespace, after, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	documents := make([]Document, 0, limit)
+	for rows.Next() {
+		var document Document
+		if err := rows.Scan(&document.ID, &document.Payload); err != nil {
+			return nil, err
+		}
+		if len(document.Payload) == 0 || len(document.Payload) > maxDocumentBytes || !json.Valid(document.Payload) {
+			return nil, fmt.Errorf("%w: corrupt payload for %s", ErrInvalidDocument, document.ID)
+		}
+		document.Payload = append(json.RawMessage(nil), document.Payload...)
+		documents = append(documents, document)
+	}
+	return documents, rows.Err()
+}
+
+func (store *Store) ListPrefix(namespace, prefix, after string, limit int) ([]Document, error) {
+	if !validKey(namespace, 64) || !validKey(prefix, 256) || after != "" && !validKey(after, 256) || limit < 1 || limit > 500 {
+		return nil, ErrInvalidDocument
+	}
+	upper := prefix + string(rune(0x10ffff))
+	rows, err := store.database.Query(`
+		SELECT id, payload FROM state_documents
+		WHERE namespace = ? AND id >= ? AND id < ? AND id > ? ORDER BY id LIMIT ?
+	`, namespace, prefix, upper, after, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	documents := make([]Document, 0, limit)
+	for rows.Next() {
+		var document Document
+		if err := rows.Scan(&document.ID, &document.Payload); err != nil {
+			return nil, err
+		}
+		if len(document.Payload) == 0 || len(document.Payload) > maxDocumentBytes || !json.Valid(document.Payload) {
+			return nil, fmt.Errorf("%w: corrupt payload for %s", ErrInvalidDocument, document.ID)
+		}
+		document.Payload = append(json.RawMessage(nil), document.Payload...)
+		documents = append(documents, document)
+	}
+	return documents, rows.Err()
+}
+
 func (store *Store) DeleteMany(namespace string, ids []string) error {
 	if !validKey(namespace, 64) {
 		return ErrInvalidDocument

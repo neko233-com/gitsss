@@ -93,8 +93,12 @@ func TestMaterializeBuildsStandaloneGenerationAndDetectsDrift(t *testing.T) {
 		t.Fatalf("repositories = %#v, %v", repositories, err)
 	}
 	var catalog repositoryCatalogRecord
-	if err := json.Unmarshal(repositories[0].Payload, &catalog); err != nil || catalog.DefaultBranch != "trunk" || catalog.Path != filepath.Join(active, "repositories", "studio-game.git") {
+	if err := json.Unmarshal(repositories[0].Payload, &catalog); err != nil || catalog.SourceID != "3" || catalog.DefaultBranch != "trunk" || catalog.Path != filepath.Join(active, "repositories", "studio-game.git") {
 		t.Fatalf("catalog = %#v, %v", catalog, err)
+	}
+	workItems, err := store.ListPrefix("import-work-items", "00000000000000000003-", "", 10)
+	if err != nil || len(workItems) != 2 {
+		t.Fatalf("work item index = %#v, %v", workItems, err)
 	}
 	if content, err := os.ReadFile(filepath.Join(target, "content", "lfs", "objects", "aa", "asset")); err != nil || string(content) != "asset" {
 		t.Fatalf("LFS content = %q, %v", content, err)
