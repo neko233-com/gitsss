@@ -9,8 +9,11 @@ gitsss 是面向团队所有成员（不仅是开发者）的自托管代码协�
 - 以 **gitsss** 作为唯一产品、CLI、页面、文档与交付品牌；不保留面向用户的 Gitea 名称、Logo、图标、链接或文案。
 - 运行于 Go 1.26.x，采用 React 19、Vite 8、TypeScript 7 与 shadcn/ui 构建新的前端应用。
 - 首页为可操作的数据大盘，而不是传统仓库列表。
+- 首页同时提供近期事件流预览，并以有界的 LRU 策略维护每位用户的短期预览数据，避免无限增长。
 - 可安全接管既有内网 Gitea 实例：先评估、备份、验证，再切换；不以直接覆盖生产数据库为迁移方式。
 - 提供可审计的通知与 CI/发布能力，并让管理员能以向导完成配置。
+- 提供跨平台 gitsss Agent、原生 CLI 与受自定义 Token 保护的 HTTP API，用于内网接管、备份和受控运维。
+- 支持可验证的批量备份/导入、macOS 与 Windows 开机自启，以及签名校验的客户端和服务器更新。
 
 > 品牌重构不移除开源许可证、第三方版权和上游来源等法律要求的保留内容；这些内容将集中于 `NOTICE`、许可证及依赖声明中，不出现在产品体验或对外品牌中。
 
@@ -26,6 +29,7 @@ gitsss 是面向团队所有成员（不仅是开发者）的自托管代码协�
 - 不在首版重新实现 Git 协议、LFS、Actions 运行器或全部 Gitea 边缘功能。
 - 不在未备份、未校验版本和未获得管理员凭据的内网实例上执行写操作。
 - 不以全仓库机械替换完成改造；模块路径、协议、配置、数据库和界面会分层迁移并有回滚点。
+- 不保留与 gitsss 目标无关、无人使用或已被新能力替代的上游集成、页面、脚本、运行器假设和 Legacy 兼容层；删除前必须具备依赖清单、迁移替代和测试证明。
 
 ## 目标架构
 
@@ -36,7 +40,9 @@ Go 1.26 gitsss API ── command/search/notification services
               │
 Compatibility gateway ── Gitea config + DB + Git repos + object storage
               │
-existing Gitea intranet server (read-only assessment → staged takeover)
+gitsss Agent (CLI + authenticated local HTTP) ── existing Gitea intranet server
+              │                                 (read-only assessment → staged takeover)
+              └── macOS / Windows startup and signed self-update
 ```
 
 ### 前端与设计系统
@@ -57,18 +63,22 @@ existing Gitea intranet server (read-only assessment → staged takeover)
 ### 平台能力
 
 - **数据大盘**：待审 PR、失败构建、发布风险、仓库活跃度、交付周期、通知失败与安全待办；所有指标可追溯到原始对象并按权限裁剪。
+- **事件流**：首页显示最近活动、需要关注的变化和可继续的操作；预览索引按用户和作用域设置容量与 LRU 淘汰，持久化业务数据及合规审计记录不受此淘汰影响。
 - **搜索**：统一索引接口、权限过滤、快捷键、最近访问、命令与对象的统一排序；索引不可用时降级到数据库查询。
 - **通知**：事务 outbox、模板、规则、偏好、抑制、重试/死信和投递审计；首批适配器为邮件、飞书和企业微信，预留 Slack、Webhook 与自定义渠道。
 - **CI 与发布**：将现有 Actions 能力包装为 Gitsss Pipelines，提供模板化流水线、运行日志、制品、环境审批、发布记录、回滚入口和 GitHub Actions 发布工作流。
-- **安全与运维**：审计日志、密钥加密、最小化服务账户、健康检查、指标、备份验证、结构化日志和升级前检查。
+- **备份与导入**：提供带版本清单、校验和、加密元数据与演练恢复的批量导出/导入；数据包涵盖数据库、Git 仓库、LFS、附件、配置映射和扩展数据，并支持断点续传与差异报告。
+- **Agent、CLI 与 HTTP**：提供原生 `gitsss-agent` 与 `gitsss` CLI；Agent 本地 HTTP API 以签发/轮换/撤销的自定义 Token、作用域、过期时间、设备身份和重放防护保护，默认仅监听 loopback 或受控私网地址。
+- **安全与运维**：敏感动作写入追加式审计日志，记录发起人、Agent/设备、目标、授权、请求摘要、结果与关联 ID；事件预览可 LRU 清理，审计日志则按审批的保留策略分层归档和删除，不能被 LRU 清除。密钥加密、最小化服务账户、健康检查、指标、备份验证、结构化日志和升级前检查为必备能力。
+- **跨平台交付**：macOS 采用 `launchd`，Windows 采用 Windows Service 或 Task Scheduler（由安装向导选择），服务器采用 systemd/容器；所有更新包、Agent 和服务端二进制必须签名、可分批发布、可健康检查并可回滚。
 
 ### Gitea 内网接管策略
 
-1. 只读发现：读取指定 `app.ini` 和环境覆盖，识别 Gitea 版本、数据库、仓库根目录、LFS、对象存储、OAuth、SMTP、Actions、LDAP 与外部 URL。
+1. Agent 注册与只读发现：管理员在内网主机安装 Agent，通过一次性注册令牌建立设备身份；Agent 在本地读取指定 `app.ini` 和环境覆盖，识别 Gitea 版本、数据库、仓库根目录、LFS、对象存储、OAuth、SMTP、Actions、LDAP 与外部 URL。
 2. 预检与备份：验证连接、权限、容量、版本兼容性，生成配置映射和数据库/Git/LFS/附件备份清单；所有敏感字段只显示掩码。
 3. 影子模式：gitsss 以只读方式连接生产副本，比较用户、组织、仓库、权限、Issue/PR、Actions 和附件计数，输出差异报告。
 4. 试运行迁移：对克隆实例执行可重复导入，验证 Git SHA、LFS OID、权限、链接和通知；通过后才允许产生切换计划。
-5. 受控切换：维护窗口内冻结写入、最终增量同步、健康检查、DNS/反向代理切换，并保留原实例与明确的回退步骤。
+5. 受控切换：由 Agent 在维护窗口内执行已签名的计划，冻结写入、最终增量同步、健康检查、DNS/反向代理切换，并保留原实例与明确的回退步骤。
 6. 兼容期：保留 Gitea 配置映射、旧 URL 重定向与管理命令别名，直到每个实例完成验收后再删除。
 
 ## 交付阶段
@@ -79,12 +89,14 @@ existing Gitea intranet server (read-only assessment → staged takeover)
 - 建立 `docs/architecture/`、`docs/migration/`、`NOTICE`、品牌资产目录和 ADR 模板。
 - 建立可重复的 Windows/Linux 开发入口，确认 `mingw32-make` 与 CI 中的 `make` 目标一致。
 - 记录现有构建、测试、迁移和许可证基线；随后将旧上游工作流替换为 gitsss 所有者与发布策略。
+- 创建功能/依赖清单，将源码划分为“核心保留”“接管兼容期”“可选插件”“待删除 Legacy”四类；先禁止新增对待删除层的依赖，再按小批次移除代码、资产、文档、CI、第三方集成和配置项。
 
 ### 1. 品牌与可运行外壳
 
 - 将二进制、模块路径、环境变量、配置路径、默认 URL、产品元数据和文档改为 gitsss；按包/接口逐步迁移 import path，并在每步执行 `go mod tidy`。
 - 替换登录、安装、错误页、邮件、CLI 帮助、API 信息和静态资源中的可见品牌。
 - 新建 gitsss 设计 token、标志和图标目录，完成 App Shell、响应式导航、通知中心与命令面板。
+- 逐步移除旧 Vue 页面、无人使用的功能开关、废弃配置、上游专用机器人/发布脚本、重复前端依赖和项目无关集成；每次删除均以引用扫描、构建和兼容测试为准。
 - 退出标准：不扫描到任何面向用户的 Gitea 文案或资产引用；许可证和 `NOTICE` 中的合规保留项除外。
 
 ### 2. React 数据大盘与核心工作流
@@ -100,15 +112,23 @@ existing Gitea intranet server (read-only assessment → staged takeover)
 - 实现通知策略、邮件、飞书和企业微信适配器，支持连接测试、签名校验、重试、失败告警与投递审计。
 - 退出标准：每次权限和通知策略变更均可预览、追责和撤销；通知失败不会静默丢失。
 
+### 3A. Agent、备份与跨平台运维
+
+- 实现 `gitsss-agent`、`gitsss` CLI 和本地 HTTP API：注册、能力发现、任务领取、进度流、离线重试、诊断包与安全注销。
+- 实现自定义 Token 生命周期：服务端只存哈希、最小作用域、短有效期、轮换、撤销、设备绑定、IP/网络策略和审计关联；不得以 URL 查询参数传递 Token。
+- 实现批量导出、加密导入、清单校验、断点续传和恢复演练；导入前必做冲突预览，导入后输出对象、Git SHA 与 LFS OID 差异报告。
+- 打包 macOS universal、Windows x64/ARM64 与 Linux Server 发行物；实现用户选择的开机自启、静默更新策略、签名验证、健康探测和回滚。
+- 退出标准：隔离网络中的 Agent 可在不暴露数据库凭据给控制台的前提下完成只读发现、加密备份、试运行导入与受控接管。
+
 ### 4. CI、制品与发布
 
 - 提供 Gitsss Pipelines 概览、模板、环境、审批、制品、发布及回滚页，并兼容现有 Actions 工作流的运行与日志。
-- 新建 GitHub Actions：格式化/静态检查、单元测试、构建、容器镜像、SBOM、签名与版本发布；不继承上游专用 runner、S3、机器人或镜像命名。
+- 新建 GitHub Actions：格式化/静态检查、单元测试、构建、容器镜像、SBOM、跨平台签名包、更新清单与版本发布；不继承上游专用 runner、S3、机器人或镜像命名。
 - 退出标准：从提交到可审计发布具备可复现流水线、制品来源和回滚记录。
 
 ### 5. 内网接管、性能与正式发布
 
-- 实现只读发现器、配置映射、预检、影子模式、差异报告、迁移演练、切换和回滚命令。
+- 实现由 Agent 驱动的只读发现器、配置映射、预检、影子模式、差异报告、备份导入演练、切换和回滚命令。
 - 为支持的 Gitea 版本、SQLite/MySQL/PostgreSQL、文件/对象存储、LDAP/OIDC 和 Actions 建立矩阵测试。
 - 完成安全评审、备份恢复演练、压测、无障碍审计与生产运行手册。
 - 退出标准：在隔离克隆中完成端到端接管演练，并由实例管理员确认数据、权限、Git/LFS 和运行路径。
@@ -119,6 +139,8 @@ existing Gitea intranet server (read-only assessment → staged takeover)
 - 单元测试优先；单个 Go 测试使用 `go test -run '^TestName$' ./modulepath/`，单个前端测试使用 `pnpm exec vitest <path-filter>`，单个 E2E 使用 `GITEA_TEST_E2E_FLAGS='<filepath>' make test-e2e`（完成品牌迁移后同步改名该变量和目标）。
 - 每个新 UI 功能必须含键盘操作、焦点状态、屏幕阅读器语义、深浅色和移动端验证；所有命令面板操作必须有权限校验与确认语义。
 - 每个迁移写操作必须先通过只读预检、备份验证和可重复演练；迁移报告不得输出密钥或令牌。
+- Token、Agent 注册、备份导入、权限变更、服务器更新和切换操作必须进行威胁建模、端到端鉴权测试、篡改检测和审计测试。
+- LRU 只可用于可再生的事件预览、缓存或最近访问数据；敏感审计日志必须遵循已批准的保留、归档和安全删除策略。
 - 每个新 `.go` 文件带 2026 年版权头；所有提交遵循 Conventional Commits，并含 `Assisted-by: AGENT_NAME:MODEL_VERSION` trailer。
 
 ## 决策记录与待确认输入
@@ -126,3 +148,4 @@ existing Gitea intranet server (read-only assessment → staged takeover)
 - 默认远程仓库设为私有，避免在重构前公开包含上游源码快照的内容；需要公开时再显式调整可见性。
 - 首版优先“兼容接管”而非数据库全量重写，以减小现网中断风险；新能力只写入 gitsss 自己的扩展表/命名空间，并保持可导出。
 - 接管实施前需要目标实例的版本、数据库类型与备份方式、`app.ini`（脱敏）、Git/LFS/对象存储路径、身份源、反向代理和允许的维护窗口。
+- Agent 实施前需要目标主机的操作系统、CPU 架构、网络边界、代理/证书策略、可用服务账户、允许的监听地址与更新策略。
