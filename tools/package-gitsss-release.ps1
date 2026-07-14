@@ -150,12 +150,38 @@ $manifest = Get-ChildItem -LiteralPath $releaseDirectory -File |
     }
 [IO.File]::WriteAllLines($manifestPath, $manifest, $utf8WithoutBom)
 
+$resolvedStage = [IO.Path]::GetFullPath($stageDirectory)
+$resolvedOutput = [IO.Path]::GetFullPath($OutputDirectory).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+if (-not $resolvedStage.StartsWith($resolvedOutput, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Unsafe staging cleanup path: $resolvedStage"
+}
+Remove-Item -LiteralPath $resolvedStage -Recurse -Force
+
 if (-not [string]::IsNullOrWhiteSpace($UploadTag)) {
     if ($UploadTag -notmatch '^v[0-9A-Za-z][0-9A-Za-z._-]*$') {
         throw "UploadTag must start with v and contain only release-safe characters"
     }
     $assets = Get-ChildItem -LiteralPath $releaseDirectory -File | Sort-Object Name | ForEach-Object FullName
-    Invoke-Checked gh (@("release", "create", $UploadTag) + $assets + @("--repo", "neko233-com/gitsss", "--target", $commit, "--title", "gitsss $UploadTag", "--generate-notes", "--prerelease")) $repository
+    Invoke-Checked gh @("release", "create", $UploadTag, "--repo", "neko233-com/gitsss", "--target", $commit, "--title", "gitsss $UploadTag", "--generate-notes", "--prerelease", "--draft") $repository
+    foreach ($asset in $assets) {
+        Invoke-Checked gh @("release", "upload", $UploadTag, $asset, "--repo", "neko233-com/gitsss") $repository
+    }
+
+    $remote = (& gh release view $UploadTag --repo neko233-com/gitsss --json assets,isDraft,targetCommitish | ConvertFrom-Json)
+    if ($LASTEXITCODE -ne 0 -or -not $remote.isDraft -or $remote.targetCommitish -ne $commit -or $remote.assets.Count -ne $assets.Count) {
+        throw "Draft release metadata does not match the local release"
+    }
+    foreach ($asset in $remote.assets) {
+        $localPath = Join-Path $releaseDirectory $asset.name
+        if (-not (Test-Path -LiteralPath $localPath)) {
+            throw "Remote release contains unexpected asset: $($asset.name)"
+        }
+        $localDigest = (Get-FileHash -Algorithm SHA256 -LiteralPath $localPath).Hash.ToLowerInvariant()
+        if ($asset.digest -ne "sha256:$localDigest") {
+            throw "Remote digest does not match: $($asset.name)"
+        }
+    }
+    Invoke-Checked gh @("release", "edit", $UploadTag, "--repo", "neko233-com/gitsss", "--draft=false", "--prerelease") $repository
 }
 
 Write-Host "Release artifacts: $releaseDirectory"

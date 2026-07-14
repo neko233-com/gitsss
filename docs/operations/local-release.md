@@ -33,4 +33,4 @@ GitHub Actions 额度不可用期间，gitsss 不注册远端 CI 或发布工作
   -UploadTag v0.1.0-alpha.1
 ```
 
-`-UploadTag` 显式创建 GitHub prerelease，并把 tag 绑定到本次构建的 commit，而不是可移动的分支头。若 tag/release 已存在，命令失败且不会覆盖已有资产。`-SkipTests` 只用于本地脚本 smoke test，不能用于正式发布。
+`-UploadTag` 先创建 draft release，并把 tag 绑定到本次构建的 commit，而不是可移动的分支头；随后逐个上传资产，将 GitHub 返回的每个 SHA-256 digest 与本地文件复核，全部一致后才发布 prerelease。上传失败会保留本地归档和远端 draft 供诊断，不会冒充完整版本。若 tag/release 已存在，命令失败且不会覆盖已有资产。仅用于归档的 staging 目录会在生成校验清单后安全删除；`-SkipTests` 只用于本地脚本 smoke test，不能用于正式发布。
