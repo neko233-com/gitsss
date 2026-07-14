@@ -29,6 +29,8 @@ export interface StorageSnapshot {
   used_bytes: number
   available_bytes: number
   reserved_bytes: number
+  warning_free_bytes: number
+  protected_free_bytes: number
   usage_ratio: number
   warning: boolean
   write_protected: boolean
@@ -37,6 +39,32 @@ export interface StorageSnapshot {
   inventory_truncated: boolean
   measured_at: string
   usage: StorageUsage[]
+}
+
+export interface StorageCleanupAction {
+  kind:
+    | "restore_measurement"
+    | "complete_inventory"
+    | "monitor"
+    | "review_expired_artifacts"
+    | "review_redundant_backups"
+    | "review_attachments"
+    | "inspect_unclassified"
+    | "move_lfs"
+    | "compact_git"
+    | "increase_capacity"
+  priority: number
+  category?: string
+  review_bytes?: number
+}
+
+export interface StorageCleanupPlan {
+  status: "healthy" | "warning" | "protected" | "unavailable"
+  measured_at: string
+  target_free_bytes: number
+  bytes_to_target: number
+  automatic_delete: false
+  actions: StorageCleanupAction[]
 }
 
 export interface RepositorySummary {

@@ -56,6 +56,8 @@ import {
   relativeTime,
   type OperationalData,
   type PipelineRun,
+  type StorageCleanupAction,
+  type StorageCleanupPlan,
   type StorageSnapshot,
 } from "@/features/dashboard/dashboard-data"
 import { AccessCenter } from "@/features/access/AccessCenter"
@@ -217,11 +219,63 @@ const storageLabels: Record<string, string> = {
   other_volume_usage: "卷内其他数据",
 }
 
+const cleanupLabels: Record<
+  StorageCleanupAction["kind"],
+  { title: string; detail: string }
+> = {
+  compact_git: {
+    title: "压缩 Git 对象",
+    detail: "先运行仓库维护和可达性检查，不直接删除仍被引用的对象。",
+  },
+  complete_inventory: {
+    title: "补全存储盘点",
+    detail: "当前分类扫描失败或达到上限；先修复盘点，避免误判可清理范围。",
+  },
+  increase_capacity: {
+    title: "扩容或迁移数据卷",
+    detail: "当前没有可安全复核的分类数据，需要增加可用空间。",
+  },
+  inspect_unclassified: {
+    title: "检查未归类占用",
+    detail: "核对数据卷上未被 gitsss 分类的目录，再由管理员决定保留策略。",
+  },
+  monitor: {
+    title: "保持容量监控",
+    detail: "当前高于预警线，无需清理；gitsss 不会自动删除用户数据。",
+  },
+  move_lfs: {
+    title: "迁移冷 LFS 资产",
+    detail: "优先迁移长期未访问的大文件，保留 OID 和完整性校验。",
+  },
+  restore_measurement: {
+    title: "恢复数据卷测量",
+    detail: "容量不可测时写保护保持开启；先恢复挂载或读取权限。",
+  },
+  review_attachments: {
+    title: "复核历史附件",
+    detail: "按仓库和保留规则确认附件归属，不执行自动删除。",
+  },
+  review_expired_artifacts: {
+    title: "复核过期流水线制品",
+    detail: "从已过保留期且可重新生成的制品开始，由管理员确认后处理。",
+  },
+  review_redundant_backups: {
+    title: "复核冗余备份",
+    detail: "只处理已验证且超出保留策略的备份，至少保留一个可恢复版本。",
+  },
+}
+
 function StorageAwarenessTab({
+  cleanupError,
+  cleanupLoading,
+  cleanupPlan,
   loading,
   onReview,
   storage,
 }: {
+  cleanupError: string
+  cleanupLoading: boolean
+  cleanupPlan?: StorageCleanupPlan
   loading: boolean
   onReview: () => void
   storage?: StorageSnapshot
@@ -290,9 +344,69 @@ function StorageAwarenessTab({
           <p className="py-6 text-sm text-zinc-500">尚未发现已归类的数据。</p>
         ) : null}
       </div>
-      <Button className="mt-6" onClick={onReview} variant="outline">
-        查看清理方案
+      <Button
+        className="mt-6"
+        disabled={cleanupLoading}
+        onClick={onReview}
+        variant="outline"
+      >
+        {cleanupLoading ? "正在计算…" : "查看清理方案"}
       </Button>
+      {cleanupError ? (
+        <p className="mt-4 text-sm text-red-600">{cleanupError}</p>
+      ) : null}
+      {cleanupPlan ? (
+        <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-zinc-900">
+                {cleanupPlan.status === "healthy"
+                  ? "容量健康"
+                  : cleanupPlan.status === "warning"
+                    ? "需要释放空间"
+                    : cleanupPlan.status === "protected"
+                      ? "写保护已开启"
+                      : "容量暂不可测"}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                {cleanupPlan.bytes_to_target > 0
+                  ? `距安全目标还需释放 ${formatBytes(cleanupPlan.bytes_to_target)}；目标可用空间 ${formatBytes(cleanupPlan.target_free_bytes)}。`
+                  : `安全目标可用空间 ${formatBytes(cleanupPlan.target_free_bytes)}。`}
+              </p>
+            </div>
+            <span className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs text-zinc-600">
+              仅生成预案，不自动删除
+            </span>
+          </div>
+          <div className="mt-4 divide-y divide-zinc-200">
+            {cleanupPlan.actions.map((action) => {
+              const label = cleanupLabels[action.kind]
+              return (
+                <div className="flex items-start gap-4 py-4" key={action.kind}>
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white text-xs font-semibold ring-1 ring-zinc-200">
+                    {action.priority}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <p className="text-sm font-medium text-zinc-900">
+                        {label.title}
+                      </p>
+                      {action.review_bytes ? (
+                        <span className="text-xs text-zinc-500">
+                          复核范围 {formatBytes(action.review_bytes)}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-zinc-500">
+                      {label.detail}
+                    </p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -415,6 +529,9 @@ export function App() {
   const [notice, setNotice] = useState("工作台已准备就绪")
   const [operational, setOperational] = useState<OperationalData>()
   const [dashboardLoading, setDashboardLoading] = useState(false)
+  const [cleanupPlan, setCleanupPlan] = useState<StorageCleanupPlan>()
+  const [cleanupError, setCleanupError] = useState("")
+  const [cleanupLoading, setCleanupLoading] = useState(false)
   const [clientCatalog, setClientCatalog] = useState<GitClientCatalog>()
   const [clientCatalogError, setClientCatalogError] = useState("")
   const [clientCatalogLoading, setClientCatalogLoading] = useState(false)
@@ -528,9 +645,7 @@ export function App() {
       setWorkspaceTab("storage")
     }
     if (command === "failed") {
-      setArea("workspace")
-      setWorkspaceTab("dashboard")
-      setNotice("已定位最近失败的流水线")
+      setArea("pipelines")
     }
     setCommandOpen(false)
   }
@@ -553,6 +668,29 @@ export function App() {
       setNotice("近期事件预览已清除；审计记录不受影响")
     } catch (caught) {
       setNotice(caught instanceof Error ? caught.message : "事件预览清理失败")
+    }
+  }
+
+  const reviewStorageCleanup = async () => {
+    if (!token) {
+      setConnectionOpen(true)
+      return
+    }
+    setCleanupLoading(true)
+    setCleanupError("")
+    try {
+      const plan = await apiRequest<StorageCleanupPlan>(
+        "/api/v1/storage/cleanup-plan",
+        token
+      )
+      setCleanupPlan(plan)
+    } catch (caught) {
+      setCleanupPlan(undefined)
+      setCleanupError(
+        caught instanceof Error ? caught.message : "无法生成清理预案"
+      )
+    } finally {
+      setCleanupLoading(false)
     }
   }
 
@@ -866,11 +1004,7 @@ export function App() {
                           </span>
                           <Button
                             className="rounded-lg px-4"
-                            onClick={() =>
-                              setNotice(
-                                `${run.repository_id}：${pipelineStatus[run.status].label}`
-                              )
-                            }
+                            onClick={() => setArea("pipelines")}
                             size="sm"
                           >
                             查看
@@ -1021,8 +1155,11 @@ export function App() {
               <TabsContent value="storage">
                 <MotionSurface>
                   <StorageAwarenessTab
+                    cleanupError={cleanupError}
+                    cleanupLoading={cleanupLoading}
+                    cleanupPlan={cleanupPlan}
                     loading={dashboardLoading}
-                    onReview={() => setNotice("已打开存储清理预览")}
+                    onReview={() => void reviewStorageCleanup()}
                     storage={operational?.storage}
                   />
                 </MotionSurface>

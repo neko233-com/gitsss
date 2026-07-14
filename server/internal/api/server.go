@@ -109,6 +109,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/agent/jobs/{job}/complete", s.agentJobComplete)
 	mux.HandleFunc("DELETE /api/v1/events/preview", s.clearPreview)
 	mux.HandleFunc("GET /api/v1/storage", s.storageSnapshot)
+	mux.HandleFunc("GET /api/v1/storage/cleanup-plan", s.storageCleanupPlan)
 	mux.HandleFunc("POST /api/v1/storage/admission", s.storageAdmission)
 	mux.HandleFunc("GET /api/v1/runners", s.runnerList)
 	mux.HandleFunc("POST /api/v1/runners/reconcile", s.runnerReconcile)
@@ -722,6 +723,13 @@ func (s *Server) storageSnapshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, s.storage.Snapshot())
+}
+
+func (s *Server) storageCleanupPlan(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "storage:read"); !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, s.storage.CleanupPlan())
 }
 
 func (s *Server) storageAdmission(w http.ResponseWriter, r *http.Request) {

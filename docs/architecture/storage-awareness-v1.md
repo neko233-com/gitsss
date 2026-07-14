@@ -1,6 +1,6 @@
 # Storage awareness v1
 
-gitsss measures the filesystem that contains its state instead of reporting a configured demo capacity. `GET /api/v1/storage` returns the volume capacity, free space, reserve thresholds, measurement time, bounded inventory, and large game-asset attribution. `POST /api/v1/storage/admission` uses the same live snapshot before accepting a projected write.
+gitsss measures the filesystem that contains its state instead of reporting a configured demo capacity. `GET /api/v1/storage` returns the volume capacity, free space, reserve thresholds, measurement time, bounded inventory, and large game-asset attribution. `GET /api/v1/storage/cleanup-plan` derives an ordered, read-only remediation plan from the same snapshot. `POST /api/v1/storage/admission` checks the live snapshot before accepting a projected write.
 
 ## Protection model
 
@@ -10,6 +10,8 @@ gitsss measures the filesystem that contains its state instead of reporting a co
 - A capacity measurement failure closes admission instead of allowing an unmeasured write.
 - Inventory failures raise a warning but do not replace the filesystem's authoritative capacity values.
 - gitsss never deletes user data automatically in response to low capacity.
+
+The cleanup plan reports the exact bytes needed to return above the warning threshold. It prioritizes reviewable pipeline artifacts and redundant verified backups, then attachments and unclassified usage. LFS migration and Git compaction remain integrity-preserving operator actions. The API only returns candidates for review; it does not claim that all bytes in a category are reclaimable.
 
 Set `GITSSS_STORAGE_VOLUME_PATH` when the protected data volume differs from the directory containing `GITSSS_DATA_PATH`. Capacity snapshots are cached for 30 seconds by default. `GITSSS_STORAGE_CACHE_TTL` accepts a Go duration up to 10 minutes.
 

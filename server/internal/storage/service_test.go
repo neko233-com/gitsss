@@ -23,6 +23,39 @@ func TestServiceReportsUsageAndProtectsWrites(t *testing.T) {
 	if admission := service.Admit(14); admission.Allowed || admission.Reason != "insufficient capacity" {
 		t.Fatalf("admission = %#v, want capacity rejection", admission)
 	}
+	plan := service.CleanupPlan()
+	if plan.Status != "warning" || plan.BytesToTarget != 2 || plan.AutomaticDelete || len(plan.Actions) != 2 || plan.Actions[0].Kind != "move_lfs" {
+		t.Fatalf("cleanup plan = %#v", plan)
+	}
+}
+
+func TestCleanupPlanFailsClosedAndPrioritizesReviewableData(t *testing.T) {
+	service := NewService(100, []Usage{
+		{Category: CategoryBackups, Bytes: 20},
+		{Category: CategoryArtifacts, Bytes: 30},
+		{Category: CategoryDatabase, Bytes: 46},
+	})
+	plan := service.CleanupPlan()
+	if plan.Status != "protected" || plan.BytesToTarget != 11 || len(plan.Actions) != 2 {
+		t.Fatalf("cleanup plan = %#v", plan)
+	}
+	if plan.Actions[0].Kind != "review_expired_artifacts" || plan.Actions[0].ReviewBytes != 30 || plan.Actions[1].Kind != "review_redundant_backups" {
+		t.Fatalf("cleanup actions = %#v", plan.Actions)
+	}
+
+	root := t.TempDir()
+	live, err := newLiveService(LiveOptions{VolumePath: root, CacheTTL: time.Second}, func(string) (VolumeStats, error) {
+		return VolumeStats{CapacityBytes: 100, AvailableBytes: 50}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	live.cacheExpiry = time.Time{}
+	live.live.provider = func(string) (VolumeStats, error) { return VolumeStats{}, errors.New("volume offline") }
+	unavailable := live.CleanupPlan()
+	if unavailable.Status != "unavailable" || unavailable.BytesToTarget != 0 || len(unavailable.Actions) != 1 || unavailable.Actions[0].Kind != "restore_measurement" {
+		t.Fatalf("unavailable plan = %#v", unavailable)
+	}
 }
 
 func TestLiveServiceMeasuresVolumeAndAttributesGameAssets(t *testing.T) {

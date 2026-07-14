@@ -72,6 +72,22 @@ type Admission struct {
 	Reason         string `json:"reason,omitempty"`
 }
 
+type CleanupAction struct {
+	Kind        string   `json:"kind"`
+	Priority    int      `json:"priority"`
+	Category    Category `json:"category,omitempty"`
+	ReviewBytes int64    `json:"review_bytes,omitempty"`
+}
+
+type CleanupPlan struct {
+	Status          string          `json:"status"`
+	MeasuredAt      time.Time       `json:"measured_at"`
+	TargetFreeBytes int64           `json:"target_free_bytes"`
+	BytesToTarget   int64           `json:"bytes_to_target"`
+	AutomaticDelete bool            `json:"automatic_delete"`
+	Actions         []CleanupAction `json:"actions"`
+}
+
 type InventoryRoot struct {
 	Category Category
 	Path     string
@@ -203,6 +219,63 @@ func (s *Service) Admit(writeBytes int64) Admission {
 		return Admission{WriteProtected: true, Reason: "projected free space reaches the protected reserve"}
 	}
 	return Admission{Allowed: true}
+}
+
+func (s *Service) CleanupPlan() CleanupPlan {
+	snapshot := s.Snapshot()
+	plan := CleanupPlan{
+		Status: "healthy", MeasuredAt: snapshot.MeasuredAt,
+		TargetFreeBytes: snapshot.WarningFreeBytes, AutomaticDelete: false,
+		Actions: []CleanupAction{},
+	}
+	if snapshot.MeasurementError != "" {
+		plan.Status = "unavailable"
+		plan.Actions = append(plan.Actions, CleanupAction{Kind: "restore_measurement", Priority: 1})
+		return plan
+	}
+	plan.BytesToTarget = max(int64(0), snapshot.WarningFreeBytes-snapshot.AvailableBytes)
+	if snapshot.WriteProtected {
+		plan.Status = "protected"
+	} else if snapshot.Warning {
+		plan.Status = "warning"
+	}
+	if snapshot.InventoryError != "" || snapshot.InventoryTruncated {
+		plan.Actions = append(plan.Actions, CleanupAction{Kind: "complete_inventory", Priority: 1})
+	}
+	if plan.Status == "healthy" {
+		plan.Actions = append(plan.Actions, CleanupAction{Kind: "monitor", Priority: 1})
+		return plan
+	}
+	priorities := map[Category]struct {
+		kind     string
+		priority int
+	}{
+		CategoryArtifacts:   {kind: "review_expired_artifacts", priority: 2},
+		CategoryBackups:     {kind: "review_redundant_backups", priority: 3},
+		CategoryAttachments: {kind: "review_attachments", priority: 4},
+		CategoryOther:       {kind: "inspect_unclassified", priority: 5},
+		CategoryLFSAssets:   {kind: "move_lfs", priority: 6},
+		CategoryGitObjects:  {kind: "compact_git", priority: 7},
+	}
+	candidateActions := 0
+	for _, usage := range snapshot.Usage {
+		candidate, ok := priorities[usage.Category]
+		if !ok || usage.Bytes == 0 {
+			continue
+		}
+		plan.Actions = append(plan.Actions, CleanupAction{
+			Kind: candidate.kind, Priority: candidate.priority,
+			Category: usage.Category, ReviewBytes: usage.Bytes,
+		})
+		candidateActions++
+	}
+	if candidateActions == 0 {
+		plan.Actions = append(plan.Actions, CleanupAction{Kind: "increase_capacity", Priority: 2})
+	}
+	sort.SliceStable(plan.Actions, func(left, right int) bool {
+		return plan.Actions[left].Priority < plan.Actions[right].Priority
+	})
+	return plan
 }
 
 func (s *Service) staticSnapshotLocked() Snapshot {

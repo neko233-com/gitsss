@@ -267,6 +267,13 @@ func TestServerReportsStorageAndProtectsProjectedWrites(t *testing.T) {
 	if getResponse.Code != http.StatusOK {
 		t.Fatalf("storage status = %d, want %d", getResponse.Code, http.StatusOK)
 	}
+	plan := httptest.NewRequest(http.MethodGet, "/api/v1/storage/cleanup-plan", nil)
+	plan.Header.Set("Authorization", "Bearer token")
+	planResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(planResponse, plan)
+	if planResponse.Code != http.StatusOK || !strings.Contains(planResponse.Body.String(), `"status":"warning"`) || !strings.Contains(planResponse.Body.String(), `"bytes_to_target":2`) || !strings.Contains(planResponse.Body.String(), `"automatic_delete":false`) {
+		t.Fatalf("cleanup plan response = %d %s", planResponse.Code, planResponse.Body.String())
+	}
 
 	admission := httptest.NewRequest(http.MethodPost, "/api/v1/storage/admission", strings.NewReader(`{"bytes":8}`))
 	admission.Header.Set("Authorization", "Bearer token")
