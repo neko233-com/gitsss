@@ -15,7 +15,21 @@ import {
   SearchIcon,
 } from "@/components/ui/icons"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { apiRequest } from "@/lib/api"
+import {
+  readSelectedRepository,
+  readSessionToken,
+  writeSelectedRepository,
+  writeSessionToken,
+} from "@/lib/session"
 
 import {
   buildRepositoryTree,
@@ -122,9 +136,7 @@ function TreeNodes({
 
 export function RepositoryBrowser() {
   const [tokenDraft, setTokenDraft] = useState("")
-  const [token, setToken] = useState(
-    () => window.sessionStorage.getItem("gitsss.api-token") ?? ""
-  )
+  const [token, setToken] = useState(readSessionToken)
   const [repositories, setRepositories] = useState<RepositorySummary[]>([])
   const [repositoryID, setRepositoryID] = useState("")
   const [treeResponse, setTreeResponse] =
@@ -172,6 +184,47 @@ export function RepositoryBrowser() {
     [repositoryID, token]
   )
 
+  const loadRepositoryContent = useCallback(
+    async (
+      activeRepository: string,
+      activeToken: string,
+      signal?: AbortSignal
+    ) => {
+      writeSelectedRepository(activeRepository)
+      setRepositoryID(activeRepository)
+      setTreeResponse(null)
+      setSelectedPath("")
+      setFile(null)
+      setMatches(null)
+      const response = await apiRequest<RepositoryTreeResponse>(
+        `/api/v1/repositories/${encodeURIComponent(activeRepository)}/tree?ref=HEAD`,
+        activeToken,
+        signal
+      )
+      setTreeResponse(response)
+      setExpandedPaths(
+        new Set(
+          response.entries.flatMap((entry) => {
+            const separator = entry.path.indexOf("/")
+            return separator > 0 ? [entry.path.slice(0, separator)] : []
+          })
+        )
+      )
+      const firstPath =
+        response.entries.find((entry) => entry.path === "README.md")?.path ??
+        response.entries.find((entry) => !entry.binary_asset)?.path
+      if (!firstPath) return
+      const firstFile = await apiRequest<RepositoryFile>(
+        `/api/v1/repositories/${encodeURIComponent(activeRepository)}/files?ref=HEAD&path=${encodeURIComponent(firstPath)}`,
+        activeToken,
+        signal
+      )
+      setSelectedPath(firstPath)
+      setFile(firstFile)
+    },
+    []
+  )
+
   useEffect(() => {
     if (!token) return
     const controller = new AbortController()
@@ -185,36 +238,13 @@ export function RepositoryBrowser() {
           token,
           controller.signal
         )
-        const repository = availableRepositories[0]
+        const preferredID = readSelectedRepository()
+        const repository =
+          availableRepositories.find((item) => item.id === preferredID) ??
+          availableRepositories[0]
         if (!repository) throw new Error("当前账号没有可访问的仓库")
         setRepositories(availableRepositories)
-        setRepositoryID(repository.id)
-        const response = await apiRequest<RepositoryTreeResponse>(
-          `/api/v1/repositories/${encodeURIComponent(repository.id)}/tree?ref=HEAD`,
-          token,
-          controller.signal
-        )
-        setTreeResponse(response)
-        setExpandedPaths(
-          new Set(
-            response.entries.flatMap((entry) => {
-              const separator = entry.path.indexOf("/")
-              return separator > 0 ? [entry.path.slice(0, separator)] : []
-            })
-          )
-        )
-        const firstPath =
-          response.entries.find((entry) => entry.path === "README.md")?.path ??
-          response.entries.find((entry) => !entry.binary_asset)?.path
-        if (firstPath) {
-          const firstFile = await apiRequest<RepositoryFile>(
-            `/api/v1/repositories/${encodeURIComponent(repository.id)}/files?ref=HEAD&path=${encodeURIComponent(firstPath)}`,
-            token,
-            controller.signal
-          )
-          setSelectedPath(firstPath)
-          setFile(firstFile)
-        }
+        await loadRepositoryContent(repository.id, token, controller.signal)
       } catch (requestError) {
         if (controller.signal.aborted) return
         setError(
@@ -227,21 +257,36 @@ export function RepositoryBrowser() {
 
     void loadRepository()
     return () => controller.abort()
-  }, [token])
+  }, [loadRepositoryContent, token])
+
+  const changeRepository = async (nextRepositoryID: string) => {
+    setLoading(true)
+    setError("")
+    try {
+      await loadRepositoryContent(nextRepositoryID, token)
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error ? requestError.message : "仓库加载失败"
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const connect = (event: FormEvent) => {
     event.preventDefault()
     const nextToken = tokenDraft.trim()
     if (!nextToken) return
-    window.sessionStorage.setItem("gitsss.api-token", nextToken)
+    writeSessionToken(nextToken)
     setToken(nextToken)
   }
 
   const disconnect = () => {
-    window.sessionStorage.removeItem("gitsss.api-token")
+    writeSessionToken("")
     setToken("")
     setTokenDraft("")
     setRepositories([])
+    writeSelectedRepository("")
     setRepositoryID("")
     setTreeResponse(null)
     setFile(null)
@@ -326,6 +371,24 @@ export function RepositoryBrowser() {
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
+          <Select
+            disabled={loading}
+            onValueChange={(value) => void changeRepository(value)}
+            value={repositoryID}
+          >
+            <SelectTrigger aria-label="切换仓库" className="h-9 sm:max-w-48">
+              <SelectValue placeholder="选择仓库" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {repositories.map((repository) => (
+                  <SelectItem key={repository.id} value={repository.id}>
+                    {repository.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
           <form className="relative min-w-0 sm:w-80" onSubmit={search}>
             <SearchIcon className="pointer-events-none absolute top-2.5 left-3 size-4 text-zinc-400" />
             <Input

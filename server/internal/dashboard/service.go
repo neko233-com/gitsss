@@ -117,7 +117,7 @@ func (s *Service) SnapshotFor(viewer string) Snapshot {
 	cloned := make([]Event, len(events))
 	copy(cloned, events)
 	return Snapshot{
-		Metrics: []Metric{{Label: "待处理", Value: 12}, {Label: "构建失败", Value: 3}, {Label: "待发布", Value: 2}},
+		Metrics: []Metric{},
 		Events:  cloned,
 	}
 }

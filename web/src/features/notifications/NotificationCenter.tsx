@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { CheckIcon, NotificationIcon } from "@/components/ui/icons"
 import { Input } from "@/components/ui/input"
 import { apiMutation } from "@/lib/api"
+import { readSessionToken, writeSessionToken } from "@/lib/session"
 
 import {
   buildConfiguration,
@@ -74,9 +75,7 @@ function Field({
 export function NotificationCenter() {
   const [channel, setChannel] = useState<NotificationChannel | null>(null)
   const [form, setForm] = useState<NotificationForm>(emptyForm)
-  const [token, setToken] = useState(
-    () => window.sessionStorage.getItem("gitsss-api-token") ?? ""
-  )
+  const [token, setToken] = useState(readSessionToken)
   const [status, setStatus] = useState<"idle" | "submitting" | "done">("idle")
   const [delivery, setDelivery] = useState<DeliveryResult | null>(null)
   const [error, setError] = useState("")
@@ -98,7 +97,7 @@ export function NotificationCenter() {
     if (!channel) return
     setStatus("submitting")
     setError("")
-    window.sessionStorage.setItem("gitsss-api-token", token)
+    writeSessionToken(token)
     try {
       await apiMutation(
         `/api/v1/notifications/channels/${channel}`,

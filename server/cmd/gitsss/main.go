@@ -65,11 +65,7 @@ func main() {
 	if seeded {
 		log.Print("created a 24-hour bootstrap token; issue a named replacement before it expires")
 	}
-	dashboardService, err := dashboard.NewPersistentService(6, []dashboard.Event{
-		{ID: "merge", Action: "feature/export 合并到 main", Actor: "张晨", At: "10:24", Kind: "change"},
-		{ID: "build", Action: "构建 #1942 失败（支付服务）", Actor: "CI", At: "10:18", Kind: "build"},
-		{ID: "review", Action: "新建 PR #482：修复导出报表错误", Actor: "李明", At: "09:52", Kind: "review"},
-	}, logStore, stateStore, vault)
+	dashboardService, err := dashboard.NewPersistentService(6, nil, logStore, stateStore, vault)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -249,14 +249,15 @@ func TestServerRunsPipelineThroughBoundRunnerIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 	verifier := auth.NewVerifier(
-		auth.NewRecord("maintainer", "maintainer-token", time.Time{}, "pipelines:read", "pipelines:write"),
+		auth.NewRecord("maintainer", "maintainer-token", time.Time{}, "dashboard:read", "pipelines:read", "pipelines:write"),
 		auth.NewRecord("runner-1", "runner-token", time.Time{}, "pipelines:work"),
 	)
 	notifications := notification.NewService(notificationFactory{}, log)
 	if _, err := notifications.Configure("maintainer", "configure", notification.Configuration{Channel: notification.ChannelFeishu}); err != nil {
 		t.Fatal(err)
 	}
-	server := NewServer(verifier, Dependencies{Audit: log, Notifications: notifications, Pipelines: pipelines, Repositories: repositories})
+	dashboardService := dashboard.NewService(6, nil, log)
+	server := NewServer(verifier, Dependencies{Audit: log, Dashboard: dashboardService, Notifications: notifications, Pipelines: pipelines, Repositories: repositories})
 	server.now = func() time.Time { return time.Date(2026, 7, 14, 12, 0, 0, 0, time.UTC) }
 
 	create := httptest.NewRequest(http.MethodPost, "/api/v1/pipelines/runs", strings.NewReader(`{"repository_id":"gitsss","ref":"HEAD","template_id":"gitsss-verify"}`))
@@ -269,6 +270,13 @@ func TestServerRunsPipelineThroughBoundRunnerIdentity(t *testing.T) {
 	var created pipeline.Run
 	if err := json.Unmarshal(createResponse.Body.Bytes(), &created); err != nil {
 		t.Fatal(err)
+	}
+	dashboardRequest := httptest.NewRequest(http.MethodGet, "/api/v1/dashboard", nil)
+	dashboardRequest.Header.Set("Authorization", "Bearer maintainer-token")
+	dashboardResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(dashboardResponse, dashboardRequest)
+	if dashboardResponse.Code != http.StatusOK || !strings.Contains(dashboardResponse.Body.String(), `"label":"运行中","value":1`) || !strings.Contains(dashboardResponse.Body.String(), `"id":"pipeline:`+created.ID) {
+		t.Fatalf("live dashboard = %d %s", dashboardResponse.Code, dashboardResponse.Body.String())
 	}
 
 	wrongClaim := httptest.NewRequest(http.MethodPost, "/api/v1/pipelines/runs/claim", strings.NewReader(`{"runner_id":"other"}`))

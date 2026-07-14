@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { CheckIcon, TakeoverIcon } from "@/components/ui/icons"
 import { Input } from "@/components/ui/input"
 import { apiMutation, apiRequest } from "@/lib/api"
+import { readSessionToken, writeSessionToken } from "@/lib/session"
 
 interface Asset {
   kind: string
@@ -269,9 +270,7 @@ function isFreezeEvidence(
 }
 
 export function TakeoverCenter() {
-  const [token, setToken] = useState(
-    () => window.sessionStorage.getItem("gitsss-api-token") ?? ""
-  )
+  const [token, setToken] = useState(readSessionToken)
   const [agentID, setAgentID] = useState("old-gitea")
   const [configPath, setConfigPath] = useState("/etc/gitea/app.ini")
   const [workPath, setWorkPath] = useState("")
@@ -318,7 +317,8 @@ export function TakeoverCenter() {
       ? selectedAssessmentJob.input.work_path
       : workPath
   const requiresFreeze =
-    selected?.database.type === "postgres" || selected?.database.type === "mysql"
+    selected?.database.type === "postgres" ||
+    selected?.database.type === "mysql"
   const freezeJob = jobs.find(
     (job) =>
       job.kind === "takeover.freeze-check" &&
@@ -376,7 +376,7 @@ export function TakeoverCenter() {
   const refresh = async () => {
     setLoading(true)
     setError("")
-    window.sessionStorage.setItem("gitsss-api-token", token)
+    writeSessionToken(token)
     try {
       const [nextReports, nextJobs] = await Promise.all([
         apiRequest<Assessment[]>("/api/v1/takeover/assessments", token),
@@ -401,7 +401,7 @@ export function TakeoverCenter() {
   const dispatchAssessment = async () => {
     setLoading(true)
     setError("")
-    window.sessionStorage.setItem("gitsss-api-token", token)
+    writeSessionToken(token)
     try {
       const job = await apiMutation<AgentJob>("/api/v1/agent/jobs", token, {
         kind: "takeover.assess",
@@ -560,17 +560,17 @@ export function TakeoverCenter() {
     ? 7
     : auditResult?.ready_for_shadow_mode
       ? 6
-    : restoreResult
-      ? 5
-      : backupResult
-        ? 4
-        : selected && freezeSatisfied
-          ? 3
-        : selected
-          ? 2
-          : assessmentJob?.status === "running"
-            ? 1
-            : 0
+      : restoreResult
+        ? 5
+        : backupResult
+          ? 4
+          : selected && freezeSatisfied
+            ? 3
+            : selected
+              ? 2
+              : assessmentJob?.status === "running"
+                ? 1
+                : 0
 
   return (
     <section className="mx-auto max-w-5xl pt-8">
@@ -787,7 +787,8 @@ export function TakeoverCenter() {
                     先停止旧 Gitea，再验证冻结窗口
                   </p>
                   <p className="mt-1">
-                    PostgreSQL/MySQL 由 Agent 内嵌驱动导出，不需要安装数据库工具；为了让数据库、Git
+                    PostgreSQL/MySQL 由 Agent
+                    内嵌驱动导出，不需要安装数据库工具；为了让数据库、Git
                     和附件处在同一最终状态，旧实例必须停止写入。
                   </p>
                   <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -820,7 +821,8 @@ export function TakeoverCenter() {
                 </div>
               ) : (
                 <p className="mt-4 border-l-2 border-emerald-500 pl-4 text-xs leading-5 text-zinc-600">
-                  SQLite 使用 gitsss 内嵌 online-backup 引擎吸收 WAL，不需要任何外部数据库或命令行工具。
+                  SQLite 使用 gitsss 内嵌 online-backup 引擎吸收
+                  WAL，不需要任何外部数据库或命令行工具。
                 </p>
               )}
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -882,9 +884,9 @@ export function TakeoverCenter() {
                     ? "先处理阻断项"
                     : !freezeSatisfied
                       ? "先验证旧实例已停止"
-                    : backupJob
-                      ? "重新下发加密备份"
-                      : "下发加密备份"}
+                      : backupJob
+                        ? "重新下发加密备份"
+                        : "下发加密备份"}
                 </Button>
                 <output
                   className={`text-xs ${backupJob?.status === "failed" ? "text-red-600" : "text-zinc-500"}`}
@@ -1055,7 +1057,8 @@ export function TakeoverCenter() {
                 <p className="text-sm font-medium">下一步：影子模式预检</p>
                 <p className="mt-2 text-xs leading-5 text-zinc-500">
                   再次读取源配置和资产清单，并逐仓库比较 live refs
-                  指纹与隔离副本。SQLite 与远程源库都会由内嵌驱动重新生成确定性快照；冻结证据失效或数据变化会明确阻断。
+                  指纹与隔离副本。SQLite
+                  与远程源库都会由内嵌驱动重新生成确定性快照；冻结证据失效或数据变化会明确阻断。
                 </p>
                 <div className="mt-5 flex flex-wrap items-center gap-3">
                   <Button

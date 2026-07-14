@@ -1,8 +1,28 @@
-import { useEffect, useState } from "react"
+import {
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { MotionSurface } from "@/components/MotionSurface"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   Command,
   CommandDialog,
@@ -29,120 +49,75 @@ import {
   WorkIcon,
 } from "@/components/ui/icons"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Input } from "@/components/ui/input"
+import {
+  formatBytes,
+  loadOperationalData,
+  relativeTime,
+  type OperationalData,
+  type PipelineRun,
+  type StorageSnapshot,
+} from "@/features/dashboard/dashboard-data"
 import { NotificationCenter } from "@/features/notifications/NotificationCenter"
 import { RepositoryBrowser } from "@/features/repository-browser/RepositoryBrowser"
 import { TakeoverCenter } from "@/features/takeover/TakeoverCenter"
-import { RecentEventsPreview, type RecentEvent } from "@/lib/recent-events"
+import { apiDelete } from "@/lib/api"
+import type { RecentEvent } from "@/lib/recent-events"
+import {
+  readSessionToken,
+  writeSelectedRepository,
+  writeSessionToken,
+} from "@/lib/session"
 
-const initialEvents: RecentEvent[] = [
-  {
-    id: "merge",
-    action: "feature/export 合并到 main",
-    actor: "张晨",
-    time: "10:24",
-    kind: "change",
-  },
-  {
-    id: "build",
-    action: "构建 #1942 失败（支付服务）",
-    actor: "CI",
-    time: "10:18",
-    kind: "build",
-  },
-  {
-    id: "review",
-    action: "新建 PR #482：修复导出报表错误",
-    actor: "李明",
-    time: "09:52",
-    kind: "review",
-  },
-  {
-    id: "release",
-    action: "部署到 staging 环境成功",
-    actor: "CD",
-    time: "09:15",
-    kind: "release",
-  },
-  {
-    id: "member",
-    action: "新成员加入：赵磊",
-    actor: "系统",
-    time: "08:47",
-    kind: "member",
-  },
-]
+type WorkspaceTab = "dashboard" | "events" | "storage" | "download"
 
-const nextSteps = [
-  {
-    id: "review",
-    initials: "明",
-    action: "审查合并 PR #482：修复用户导出报表错误",
-    time: "15 分钟前",
-    label: "查看",
-    priority: true,
-  },
-  {
-    id: "build",
-    initials: "晨",
-    action: "修复支付服务构建失败",
-    time: "1 小时前",
-    label: "处理",
-    priority: false,
-  },
-  {
-    id: "release",
-    initials: "薇",
-    action: "发布 v2.4.1 到生产环境",
-    time: "3 小时前",
-    label: "发布",
-    priority: false,
-  },
-]
+const pipelineStatus = {
+  failed: { label: "失败", tone: "text-red-600" },
+  queued: { label: "等待", tone: "text-amber-700" },
+  running: { label: "运行中", tone: "text-blue-600" },
+  succeeded: { label: "成功", tone: "text-emerald-600" },
+} satisfies Record<PipelineRun["status"], { label: string; tone: string }>
 
-const repositories = [
-  {
-    name: "payment-service",
-    branch: "main",
-    status: "失败",
-    detail: "修复订单金额计算错误",
-    owner: "张晨",
-    updated: "10 分钟前",
-    tone: "text-red-600",
-  },
-  {
-    name: "user-service",
-    branch: "main",
-    status: "成功",
-    detail: "优化用户缓存策略",
-    owner: "李明",
-    updated: "28 分钟前",
-    tone: "text-emerald-600",
-  },
-  {
-    name: "frontend-app",
-    branch: "main",
-    status: "运行中",
-    detail: "feat: 新增数据看板组件",
-    owner: "王芳",
-    updated: "5 分钟前",
-    tone: "text-blue-600",
-  },
-  {
-    name: "admin-service",
-    branch: "develop",
-    status: "成功",
-    detail: "修复权限校验问题",
-    owner: "张晨",
-    updated: "1 小时前",
-    tone: "text-emerald-600",
-  },
-]
+function recentEvents(data?: OperationalData): RecentEvent[] {
+  return (data?.dashboard?.events ?? []).map((event) => ({
+    id: event.id,
+    action: event.action,
+    actor: event.actor,
+    time: event.at.includes("T") ? relativeTime(event.at) : event.at,
+    kind:
+      event.kind === "build" ||
+      event.kind === "release" ||
+      event.kind === "review" ||
+      event.kind === "member"
+        ? event.kind
+        : "change",
+  }))
+}
+
+function latestRunByRepository(runs: PipelineRun[] = []) {
+  const latest = new Map<string, PipelineRun>()
+  for (const run of runs) {
+    if (!latest.has(run.repository_id)) latest.set(run.repository_id, run)
+  }
+  return latest
+}
+
+function pipelineGroups(runs: PipelineRun[] = []) {
+  const groups = new Map<string, PipelineRun[]>()
+  for (const run of runs) {
+    const group = groups.get(run.repository_id) ?? []
+    if (group.length < 5) group.push(run)
+    groups.set(run.repository_id, group)
+  }
+  return [...groups.entries()].slice(0, 3)
+}
 
 const commands = [
-  { label: "创建仓库", shortcut: "R", message: "已打开创建仓库向导" },
-  { label: "开始一次备份", shortcut: "B", message: "已准备备份范围预览" },
-  { label: "连接内网 Agent", shortcut: "A", message: "已打开 Agent 连接向导" },
-  { label: "查看失败构建", shortcut: "F", message: "已筛选 3 个失败构建" },
+  { id: "repositories", label: "打开仓库", shortcut: "R" },
+  { id: "storage", label: "检查存储容量", shortcut: "S" },
+  { id: "takeover", label: "继续接管流程", shortcut: "A" },
+  { id: "failed", label: "查看失败流水线", shortcut: "F" },
+  { id: "connect", label: "连接服务器", shortcut: "," },
 ]
 
 function EventGlyph({ kind }: Pick<RecentEvent, "kind">) {
@@ -208,7 +183,28 @@ function EventStreamTab({
   )
 }
 
-function StorageAwarenessTab({ onReview }: { onReview: () => void }) {
+const storageLabels: Record<string, string> = {
+  artifacts: "构建制品",
+  attachments: "附件",
+  backups: "备份",
+  database: "数据库",
+  git_objects: "Git 对象与索引",
+  lfs_assets: "LFS 与游戏资产",
+  other_volume_usage: "卷内其他数据",
+}
+
+function StorageAwarenessTab({
+  loading,
+  onReview,
+  storage,
+}: {
+  loading: boolean
+  onReview: () => void
+  storage?: StorageSnapshot
+}) {
+  const usagePercent = storage
+    ? Math.min(100, Math.max(0, storage.usage_ratio * 100))
+    : 0
   return (
     <section className="mx-auto max-w-3xl pt-8">
       <div className="flex items-start justify-between gap-4">
@@ -226,33 +222,49 @@ function StorageAwarenessTab({ onReview }: { onReview: () => void }) {
         <div className="flex items-baseline justify-between">
           <span className="text-sm font-medium">可用容量</span>
           <span className="text-2xl font-semibold tracking-[-0.04em]">
-            3.12 / 4 TB
+            {storage
+              ? `${formatBytes(storage.available_bytes)} / ${formatBytes(storage.capacity_bytes)}`
+              : loading
+                ? "读取中"
+                : "无权读取"}
           </span>
         </div>
         <div
-          aria-label="存储已使用 78%"
+          aria-label={`存储已使用 ${usagePercent.toFixed(0)}%`}
           className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-100"
         >
-          <div className="h-full w-[78%] rounded-full bg-zinc-900" />
+          <div
+            className={`h-full rounded-full ${storage?.write_protected ? "bg-red-600" : storage?.warning ? "bg-amber-600" : "bg-zinc-900"}`}
+            style={{ width: `${usagePercent}%` }}
+          />
         </div>
-        <p className="mt-3 text-sm leading-6 text-amber-700">
-          按当前增长率，预计 18
-          天后达到预警线。建议先清理已过期制品，而非删除仓库对象。
-        </p>
+        {storage ? (
+          <p
+            className={`mt-3 text-sm leading-6 ${storage.warning ? "text-amber-700" : "text-zinc-500"}`}
+          >
+            {storage.measurement_error
+              ? `容量测量失败：${storage.measurement_error}`
+              : storage.write_protected
+                ? "可用空间已触及保护线，新的大文件写入会被拒绝。"
+                : storage.warning
+                  ? `可用空间接近预警线；已预留 ${formatBytes(storage.reserved_bytes)}，建议先清理过期制品。`
+                  : `容量正常，已为服务运行预留 ${formatBytes(storage.reserved_bytes)}。`}
+          </p>
+        ) : null}
       </div>
       <div className="divide-y divide-zinc-200">
-        <div className="flex justify-between py-4 text-sm">
-          <span>Git 对象与索引</span>
-          <span className="font-medium">410 GB</span>
-        </div>
-        <div className="flex justify-between py-4 text-sm">
-          <span>LFS 与游戏资产</span>
-          <span className="font-medium">2.31 TB</span>
-        </div>
-        <div className="flex justify-between py-4 text-sm">
-          <span>构建制品与备份</span>
-          <span className="font-medium">400 GB</span>
-        </div>
+        {(storage?.usage ?? []).map((item) => (
+          <div
+            className="flex justify-between py-4 text-sm"
+            key={item.category}
+          >
+            <span>{storageLabels[item.category] ?? item.category}</span>
+            <span className="font-medium">{formatBytes(item.bytes)}</span>
+          </div>
+        ))}
+        {storage && storage.usage.length === 0 ? (
+          <p className="py-6 text-sm text-zinc-500">尚未发现已归类的数据。</p>
+        ) : null}
       </div>
       <Button className="mt-6" onClick={onReview} variant="outline">
         查看清理方案
@@ -337,14 +349,48 @@ export function App() {
   const [area, setArea] = useState<
     "workspace" | "repository" | "notifications" | "takeover"
   >("workspace")
+  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("dashboard")
   const [commandOpen, setCommandOpen] = useState(false)
-  const [notice, setNotice] = useState("今天有 3 项需要你处理")
-  const [eventPreview, setEventPreview] = useState(() =>
-    RecentEventsPreview.from(6, initialEvents)
-  )
+  const [connectionOpen, setConnectionOpen] = useState(false)
+  const [token, setToken] = useState(readSessionToken)
+  const [tokenDraft, setTokenDraft] = useState(token)
+  const [notice, setNotice] = useState("工作台已准备就绪")
+  const [operational, setOperational] = useState<OperationalData>()
+  const [dashboardLoading, setDashboardLoading] = useState(false)
   const [clientPlatform, setClientPlatform] = useState<"windows" | "macos">(
     "windows"
   )
+
+  const refreshDashboard = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!token) {
+        setOperational(undefined)
+        return
+      }
+      setDashboardLoading(true)
+      try {
+        const data = await loadOperationalData(token, signal)
+        if (!signal?.aborted) setOperational(data)
+      } finally {
+        if (!signal?.aborted) setDashboardLoading(false)
+      }
+    },
+    [token]
+  )
+
+  useEffect(() => {
+    if (area !== "workspace") return
+    const controller = new AbortController()
+    void refreshDashboard(controller.signal)
+    const interval = window.setInterval(
+      () => void refreshDashboard(controller.signal),
+      30_000
+    )
+    return () => {
+      controller.abort()
+      window.clearInterval(interval)
+    }
+  }, [area, refreshDashboard])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -358,22 +404,87 @@ export function App() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [])
 
-  const selectCommand = (message: string) => {
-    setNotice(message)
+  const events = useMemo(() => recentEvents(operational), [operational])
+  const latestRuns = useMemo(
+    () => latestRunByRepository(operational?.runs),
+    [operational?.runs]
+  )
+  const actionableRuns = useMemo(
+    () =>
+      (operational?.runs ?? [])
+        .filter((run) => run.status !== "succeeded")
+        .slice(0, 3),
+    [operational?.runs]
+  )
+  const headlineMetrics = useMemo(() => {
+    if (operational?.repositories && operational.runs) {
+      return [
+        { label: "仓库", value: operational.repositories.length },
+        {
+          label: "运行中",
+          value: operational.runs.filter(
+            (run) => run.status === "queued" || run.status === "running"
+          ).length,
+        },
+        {
+          label: "构建失败",
+          value: operational.runs.filter((run) => run.status === "failed")
+            .length,
+        },
+      ]
+    }
+    return operational?.dashboard?.metrics.slice(0, 3) ?? []
+  }, [operational])
+
+  const selectCommand = (command: string) => {
+    if (command === "connect") setConnectionOpen(true)
+    if (command === "repositories") setArea("repository")
+    if (command === "takeover") setArea("takeover")
+    if (command === "storage") {
+      setArea("workspace")
+      setWorkspaceTab("storage")
+    }
+    if (command === "failed") {
+      setArea("workspace")
+      setWorkspaceTab("dashboard")
+      setNotice("已定位最近失败的流水线")
+    }
     setCommandOpen(false)
   }
 
-  const clearPreview = () => {
-    setEventPreview((preview) => {
-      const nextPreview = preview.clone()
-      nextPreview.clear()
-      return nextPreview
-    })
-    setNotice("近期事件预览已清除；审计记录不受影响")
+  const clearPreview = async () => {
+    if (!token) {
+      setConnectionOpen(true)
+      return
+    }
+    try {
+      await apiDelete("/api/v1/events/preview", token)
+      setOperational((current) =>
+        current?.dashboard
+          ? {
+              ...current,
+              dashboard: { ...current.dashboard, events: [] },
+            }
+          : current
+      )
+      setNotice("近期事件预览已清除；审计记录不受影响")
+    } catch (caught) {
+      setNotice(caught instanceof Error ? caught.message : "事件预览清理失败")
+    }
+  }
+
+  const saveConnection = (event: FormEvent) => {
+    event.preventDefault()
+    const nextToken = tokenDraft.trim()
+    writeSessionToken(nextToken)
+    setToken(nextToken)
+    setConnectionOpen(false)
+    setNotice(nextToken ? "服务器连接已更新" : "服务器连接已断开")
   }
 
   const openWorkspace = (sectionID?: string) => {
     setArea("workspace")
+    setWorkspaceTab("dashboard")
     if (sectionID) {
       window.requestAnimationFrame(() =>
         document
@@ -489,11 +600,26 @@ export function App() {
               >
                 <SearchIcon />
               </Button>
-              <Avatar className="size-9 border border-zinc-200">
-                <AvatarFallback className="bg-zinc-100 text-xs font-medium text-zinc-700">
-                  林
-                </AvatarFallback>
-              </Avatar>
+              <button
+                aria-label={token ? "管理服务器连接" : "连接服务器"}
+                onClick={() => {
+                  setTokenDraft(token)
+                  setConnectionOpen(true)
+                }}
+                type="button"
+              >
+                <Avatar className="size-9 border border-zinc-200">
+                  <AvatarFallback
+                    className={
+                      token
+                        ? "bg-zinc-100 text-xs font-medium text-zinc-700"
+                        : "bg-amber-50 text-xs font-medium text-amber-700"
+                    }
+                  >
+                    {token ? "连" : "未"}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
             </div>
           </header>
 
@@ -539,6 +665,33 @@ export function App() {
             {notice}
           </p>
 
+          {operational?.authenticationFailed ? (
+            <Alert className="mt-6" variant="destructive">
+              <AlertIcon />
+              <AlertTitle>服务器连接已失效</AlertTitle>
+              <AlertDescription>
+                Token 已过期或被撤销。重新连接后，大盘会自动刷新。
+              </AlertDescription>
+              <AlertAction>
+                <Button
+                  onClick={() => setConnectionOpen(true)}
+                  size="sm"
+                  variant="outline"
+                >
+                  重新连接
+                </Button>
+              </AlertAction>
+            </Alert>
+          ) : operational && operational.unavailable.length > 0 ? (
+            <Alert className="mt-6">
+              <AlertIcon />
+              <AlertTitle>部分数据已按角色权限隐藏</AlertTitle>
+              <AlertDescription>
+                当前角色可继续使用已显示的功能；需要更多权限时请让管理员调整角色。
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
           {area === "repository" ? (
             <MotionSurface key="repository">
               <RepositoryBrowser />
@@ -552,7 +705,11 @@ export function App() {
               <TakeoverCenter />
             </MotionSurface>
           ) : (
-            <Tabs className="pt-6" defaultValue="dashboard">
+            <Tabs
+              className="pt-6"
+              onValueChange={(value) => setWorkspaceTab(value as WorkspaceTab)}
+              value={workspaceTab}
+            >
               <TabsList className="max-w-full overflow-x-auto" variant="line">
                 <TabsTrigger value="dashboard">数据大盘</TabsTrigger>
                 <TabsTrigger value="events">近期事件流</TabsTrigger>
@@ -565,30 +722,24 @@ export function App() {
                     aria-label="团队概览"
                     className="grid grid-cols-3 divide-x divide-zinc-200"
                   >
-                    <div className="pr-4">
-                      <p className="text-xs font-medium text-zinc-500">
-                        待处理
-                      </p>
-                      <p className="mt-1 text-3xl font-medium tracking-[-0.05em]">
-                        12
-                      </p>
-                    </div>
-                    <div className="px-4">
-                      <p className="text-xs font-medium text-zinc-500">
-                        构建失败
-                      </p>
-                      <p className="mt-1 text-3xl font-medium tracking-[-0.05em]">
-                        3
-                      </p>
-                    </div>
-                    <div className="pl-4">
-                      <p className="text-xs font-medium text-zinc-500">
-                        待发布
-                      </p>
-                      <p className="mt-1 text-3xl font-medium tracking-[-0.05em]">
-                        2
-                      </p>
-                    </div>
+                    {[0, 1, 2].map((index) => {
+                      const metric = headlineMetrics[index]
+                      return (
+                        <div
+                          className={
+                            index === 0 ? "pr-4" : index === 2 ? "pl-4" : "px-4"
+                          }
+                          key={metric?.label ?? index}
+                        >
+                          <p className="text-xs font-medium text-zinc-500">
+                            {metric?.label ?? (token ? "读取中" : "未连接")}
+                          </p>
+                          <p className="mt-1 text-3xl font-medium tracking-[-0.05em]">
+                            {metric?.value ?? "—"}
+                          </p>
+                        </div>
+                      )
+                    })}
                   </section>
 
                   <section className="mt-10" id="next">
@@ -596,40 +747,54 @@ export function App() {
                       下一步
                     </h2>
                     <div className="mt-4 divide-y divide-zinc-200 border-y border-zinc-200">
-                      {nextSteps.map((step) => (
+                      {actionableRuns.map((run) => (
                         <div
                           className="flex items-center gap-3 py-4 sm:gap-4"
-                          key={step.id}
+                          key={run.id}
                         >
                           <span
                             aria-hidden="true"
                             className={
-                              step.priority
+                              run.status === "failed"
                                 ? "size-2 shrink-0 rounded-full bg-blue-600"
                                 : "size-2 shrink-0"
                             }
                           />
                           <Avatar className="size-9 shrink-0">
                             <AvatarFallback className="bg-zinc-100 text-xs font-medium">
-                              {step.initials}
+                              {run.repository_id.slice(0, 1).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
                           <p className="min-w-0 flex-1 text-sm leading-5 font-medium text-zinc-800">
-                            {step.action}
+                            {run.status === "failed" ? "处理" : "跟进"}{" "}
+                            {run.repository_id}的 {run.template_id}
                           </p>
                           <span className="hidden items-center gap-1 text-xs text-zinc-500 md:flex">
                             <ClockIcon className="size-4" />
-                            {step.time}
+                            {relativeTime(run.completed_at ?? run.created_at)}
                           </span>
                           <Button
                             className="rounded-lg px-4"
-                            onClick={() => setNotice(`已选择：${step.action}`)}
+                            onClick={() =>
+                              setNotice(
+                                `${run.repository_id}：${pipelineStatus[run.status].label}`
+                              )
+                            }
                             size="sm"
                           >
-                            {step.label}
+                            查看
                           </Button>
                         </div>
                       ))}
+                      {actionableRuns.length === 0 ? (
+                        <p className="py-6 text-sm text-zinc-500">
+                          {dashboardLoading
+                            ? "正在检查工作队列…"
+                            : token
+                              ? "当前没有需要人工处理的流水线。"
+                              : "连接服务器后显示需要处理的工作。"}
+                        </p>
+                      ) : null}
                     </div>
                   </section>
 
@@ -642,40 +807,35 @@ export function App() {
                         流水线健康度
                       </h2>
                       <div className="mt-5 flex flex-col gap-5">
-                        {[
-                          {
-                            name: "支付服务",
-                            states: ["done", "done", "done", "failed", "idle"],
-                          },
-                          {
-                            name: "用户服务",
-                            states: ["done", "done", "done", "done", "idle"],
-                          },
-                          {
-                            name: "前端应用",
-                            states: ["done", "done", "done", "running", "idle"],
-                          },
-                        ].map((pipeline) => (
-                          <div
-                            className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-3"
-                            key={pipeline.name}
-                          >
-                            <span className="text-sm text-zinc-700">
-                              {pipeline.name}
-                            </span>
+                        {pipelineGroups(operational?.runs).map(
+                          ([repositoryID, runs]) => (
                             <div
-                              aria-label={`${pipeline.name} 流水线状态`}
-                              className="flex items-center gap-2"
+                              className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-3"
+                              key={repositoryID}
                             >
-                              {pipeline.states.map((state, index) => (
-                                <span
-                                  className={`size-3 rounded-full border ${state === "done" ? "border-emerald-600 bg-emerald-500" : state === "failed" ? "border-red-600 bg-red-500" : state === "running" ? "border-blue-600 bg-white ring-2 ring-blue-100" : "border-zinc-300 bg-white"}`}
-                                  key={`${pipeline.name}-${index}`}
-                                />
-                              ))}
+                              <span className="truncate text-sm text-zinc-700">
+                                {repositoryID}
+                              </span>
+                              <div
+                                aria-label={`${repositoryID} 流水线状态`}
+                                className="flex items-center gap-2"
+                              >
+                                {runs.toReversed().map((run) => (
+                                  <span
+                                    className={`size-3 rounded-full border ${run.status === "succeeded" ? "border-emerald-600 bg-emerald-500" : run.status === "failed" ? "border-red-600 bg-red-500" : run.status === "running" ? "border-blue-600 bg-white ring-2 ring-blue-100" : "border-amber-600 bg-amber-50"}`}
+                                    key={run.id}
+                                    title={pipelineStatus[run.status].label}
+                                  />
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          )
+                        )}
+                        {pipelineGroups(operational?.runs).length === 0 ? (
+                          <p className="text-sm text-zinc-500">
+                            尚无流水线执行记录。
+                          </p>
+                        ) : null}
                       </div>
                     </div>
 
@@ -689,49 +849,72 @@ export function App() {
                             <tr>
                               <th className="py-2 font-medium">仓库</th>
                               <th className="py-2 font-medium">分支</th>
-                              <th className="py-2 font-medium">状态</th>
-                              <th className="py-2 font-medium">最近提交</th>
+                              <th className="py-2 font-medium">托管</th>
+                              <th className="py-2 font-medium">最近流水线</th>
                               <th className="py-2 text-right font-medium">
-                                更新
+                                创建
                               </th>
                             </tr>
                           </thead>
                           <tbody>
-                            {repositories.map((repository) => (
-                              <tr
-                                className="border-b border-zinc-100 last:border-0"
-                                key={repository.name}
-                              >
-                                <td className="py-3 font-medium text-zinc-800">
-                                  <button
-                                    className="hover:text-blue-700"
-                                    onClick={() => setArea("repository")}
-                                    type="button"
+                            {(operational?.repositories ?? []).map(
+                              (repository) => {
+                                const run = latestRuns.get(repository.id)
+                                return (
+                                  <tr
+                                    className="border-b border-zinc-100 last:border-0"
+                                    key={repository.id}
                                   >
-                                    {repository.name}
-                                  </button>
-                                </td>
-                                <td className="py-3 text-zinc-600">
-                                  {repository.branch}
-                                </td>
-                                <td
-                                  className={`py-3 font-medium ${repository.tone}`}
-                                >
-                                  {repository.status}
-                                </td>
-                                <td className="py-3">
-                                  <span className="block text-zinc-700">
-                                    {repository.detail}
-                                  </span>
-                                  <span className="text-zinc-400">
-                                    {repository.owner}
-                                  </span>
-                                </td>
-                                <td className="py-3 text-right text-zinc-500">
-                                  {repository.updated}
+                                    <td className="py-3 font-medium text-zinc-800">
+                                      <button
+                                        className="hover:text-blue-700"
+                                        onClick={() => setArea("repository")}
+                                        type="button"
+                                      >
+                                        {repository.name}
+                                      </button>
+                                    </td>
+                                    <td className="py-3 text-zinc-600">
+                                      {repository.default_branch}
+                                    </td>
+                                    <td className="py-3 font-medium text-zinc-600">
+                                      {repository.hosted ? "本机" : "接管"}
+                                    </td>
+                                    <td className="py-3">
+                                      {run ? (
+                                        <>
+                                          <span
+                                            className={`block font-medium ${pipelineStatus[run.status].tone}`}
+                                          >
+                                            {pipelineStatus[run.status].label}
+                                          </span>
+                                          <span className="text-zinc-400">
+                                            {run.template_id} ·{" "}
+                                            {run.commit.slice(0, 8)}
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <span className="text-zinc-400">
+                                          尚未运行
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="py-3 text-right text-zinc-500">
+                                      {repository.created_at
+                                        ? relativeTime(repository.created_at)
+                                        : "—"}
+                                    </td>
+                                  </tr>
+                                )
+                              }
+                            )}
+                            {operational?.repositories?.length === 0 ? (
+                              <tr>
+                                <td className="py-6 text-zinc-500" colSpan={5}>
+                                  还没有仓库。通过 Ctrl+K 开始创建或接管。
                                 </td>
                               </tr>
-                            ))}
+                            ) : null}
                           </tbody>
                         </table>
                       </div>
@@ -741,16 +924,15 @@ export function App() {
               </TabsContent>
               <TabsContent value="events">
                 <MotionSurface>
-                  <EventStreamTab
-                    events={eventPreview.items()}
-                    onClear={clearPreview}
-                  />
+                  <EventStreamTab events={events} onClear={clearPreview} />
                 </MotionSurface>
               </TabsContent>
               <TabsContent value="storage">
                 <MotionSurface>
                   <StorageAwarenessTab
+                    loading={dashboardLoading}
                     onReview={() => setNotice("已打开存储清理预览")}
+                    storage={operational?.storage}
                   />
                 </MotionSurface>
               </TabsContent>
@@ -782,16 +964,71 @@ export function App() {
               {commands.map((command) => (
                 <CommandItem
                   key={command.label}
-                  onSelect={() => selectCommand(command.message)}
+                  onSelect={() => selectCommand(command.id)}
                 >
                   {command.label}
                   <CommandShortcut>⌘ {command.shortcut}</CommandShortcut>
                 </CommandItem>
               ))}
             </CommandGroup>
+            {(operational?.repositories?.length ?? 0) > 0 ? (
+              <CommandGroup heading="仓库">
+                {operational!.repositories!.map((repository) => (
+                  <CommandItem
+                    key={repository.id}
+                    onSelect={() => {
+                      writeSelectedRepository(repository.id)
+                      setArea("repository")
+                      setCommandOpen(false)
+                      setNotice(`已打开仓库：${repository.name}`)
+                    }}
+                    value={`${repository.name} ${repository.id}`}
+                  >
+                    <RepositoryIcon />
+                    {repository.name}
+                    <CommandShortcut>
+                      {repository.default_branch}
+                    </CommandShortcut>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : null}
           </CommandList>
         </Command>
       </CommandDialog>
+
+      <Dialog onOpenChange={setConnectionOpen} open={connectionOpen}>
+        <DialogContent>
+          <form onSubmit={saveConnection}>
+            <DialogHeader>
+              <DialogTitle>连接 gitsss</DialogTitle>
+              <DialogDescription>
+                粘贴管理员授予的角色 Token。它只保存在当前标签页的 Session
+                Storage 中。
+              </DialogDescription>
+            </DialogHeader>
+            <label
+              className="mt-5 flex flex-col gap-2 text-sm font-medium"
+              htmlFor="gitsss-session-token"
+            >
+              访问 Token
+              <Input
+                autoComplete="off"
+                id="gitsss-session-token"
+                onChange={(event) => setTokenDraft(event.target.value)}
+                placeholder="粘贴 Token"
+                type="password"
+                value={tokenDraft}
+              />
+            </label>
+            <DialogFooter className="mt-5">
+              <Button type="submit">
+                {tokenDraft.trim() ? "连接" : "断开"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

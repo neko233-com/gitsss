@@ -285,6 +285,7 @@ func (s *Server) agentJobCreate(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
+	s.touchDashboard("agent-job:"+job.ID, "已下发 Agent 任务 "+string(job.Kind), principal.TokenID, "change")
 	writeJSON(w, http.StatusCreated, job)
 }
 
@@ -374,6 +375,7 @@ func (s *Server) takeoverAssessmentSubmit(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
+	s.touchDashboard("takeover:"+stored.ID, "已接收接管评估 "+stored.ID, principal.TokenID, "change")
 	writeJSON(w, http.StatusCreated, stored)
 }
 
@@ -404,6 +406,7 @@ func (s *Server) notificationConfigure(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
+	s.touchDashboard("notification:"+string(state.Channel), "已更新通知通道 "+string(state.Channel), principal.TokenID, "change")
 	writeJSON(w, http.StatusOK, state)
 }
 
@@ -476,7 +479,35 @@ func (s *Server) dashboardSnapshot(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	writeJSON(w, http.StatusOK, s.dashboard.SnapshotFor(principal.TokenID))
+	snapshot := s.dashboard.SnapshotFor(principal.TokenID)
+	if s.repositories != nil && s.pipelines != nil {
+		runs := s.pipelines.Runs()
+		active, failed := 0, 0
+		for _, run := range runs {
+			switch run.Status {
+			case pipeline.StatusQueued, pipeline.StatusRunning:
+				active++
+			case pipeline.StatusFailed:
+				failed++
+			}
+		}
+		snapshot.Metrics = []dashboard.Metric{
+			{Label: "仓库", Value: len(s.repositories.Repositories())},
+			{Label: "运行中", Value: active},
+			{Label: "构建失败", Value: failed},
+		}
+	}
+	writeJSON(w, http.StatusOK, snapshot)
+}
+
+func (s *Server) touchDashboard(id, action, actor, kind string) {
+	if s.dashboard == nil {
+		return
+	}
+	s.dashboard.Touch(dashboard.Event{
+		ID: id, Action: action, Actor: actor,
+		At: s.now().UTC().Format(time.RFC3339), Kind: kind,
+	})
 }
 
 func (s *Server) clearPreview(w http.ResponseWriter, r *http.Request) {
@@ -581,6 +612,7 @@ func (s *Server) pipelineCreate(w http.ResponseWriter, r *http.Request) {
 		s.writePipelineError(w, err)
 		return
 	}
+	s.touchDashboard("pipeline:"+run.ID, "已开始 "+run.RepositoryID+" 的 "+run.TemplateID, principal.TokenID, "build")
 	writeJSON(w, http.StatusCreated, run)
 }
 
@@ -664,6 +696,7 @@ func (s *Server) pipelineComplete(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "pipeline notification could not be queued"})
 		return
 	}
+	s.touchDashboard("pipeline:"+run.ID, "流水线 "+run.RepositoryID+"："+string(run.Status), principal.TokenID, "build")
 	writeJSON(w, http.StatusOK, run)
 }
 
@@ -731,6 +764,7 @@ func (s *Server) repositoryCreate(w http.ResponseWriter, r *http.Request) {
 		s.writeRepositoryError(w, err)
 		return
 	}
+	s.touchDashboard("repository:"+created.ID, "已创建仓库 "+created.Name, principal.TokenID, "change")
 	writeJSON(w, http.StatusCreated, created)
 }
 

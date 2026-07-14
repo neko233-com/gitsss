@@ -7,15 +7,7 @@ export class APIError extends Error {
   }
 }
 
-export async function apiRequest<T>(
-  path: string,
-  token: string,
-  signal?: AbortSignal
-): Promise<T> {
-  const response = await fetch(path, {
-    headers: { Authorization: `Bearer ${token}` },
-    signal,
-  })
+async function readResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as {
       error?: string
@@ -25,7 +17,20 @@ export async function apiRequest<T>(
       response.status
     )
   }
+  if (response.status === 204) return undefined as T
   return (await response.json()) as T
+}
+
+export async function apiRequest<T>(
+  path: string,
+  token: string,
+  signal?: AbortSignal
+): Promise<T> {
+  const response = await fetch(path, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal,
+  })
+  return readResponse<T>(response)
 }
 
 export async function apiMutation<T>(
@@ -43,14 +48,18 @@ export async function apiMutation<T>(
     method: "POST",
     signal,
   })
-  if (!response.ok) {
-    const responseBody = (await response.json().catch(() => null)) as {
-      error?: string
-    } | null
-    throw new APIError(
-      responseBody?.error ?? `请求失败（${response.status}）`,
-      response.status
-    )
-  }
-  return (await response.json()) as T
+  return readResponse<T>(response)
+}
+
+export async function apiDelete(
+  path: string,
+  token: string,
+  signal?: AbortSignal
+): Promise<void> {
+  const response = await fetch(path, {
+    headers: { Authorization: `Bearer ${token}` },
+    method: "DELETE",
+    signal,
+  })
+  await readResponse<void>(response)
 }
