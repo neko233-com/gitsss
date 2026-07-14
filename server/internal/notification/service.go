@@ -28,12 +28,22 @@ const (
 )
 
 type Channel string
+type Event string
 
 const (
 	ChannelEmail  Channel = "email"
 	ChannelFeishu Channel = "feishu"
 	ChannelWeCom  Channel = "wecom"
 )
+
+const (
+	EventPipelineSucceeded Event = "pipeline.succeeded"
+	EventPipelineFailed    Event = "pipeline.failed"
+	EventTakeoverSucceeded Event = "takeover.succeeded"
+	EventTakeoverFailed    Event = "takeover.failed"
+)
+
+var defaultEvents = []Event{EventPipelineFailed, EventTakeoverFailed, EventPipelineSucceeded, EventTakeoverSucceeded}
 
 type Status string
 
@@ -48,6 +58,7 @@ const (
 var (
 	ErrInvalidChannel = errors.New("unsupported notification channel")
 	ErrNotConfigured  = errors.New("notification channel is not configured")
+	ErrConflict       = errors.New("notification state conflicts with the requested operation")
 	ErrState          = errors.New("notification state unavailable")
 )
 
@@ -61,12 +72,14 @@ type Configuration struct {
 	Password   string   `json:"password,omitempty"`
 	From       string   `json:"from,omitempty"`
 	Recipients []string `json:"recipients,omitempty"`
+	Events     []Event  `json:"events"`
 }
 
 type ChannelState struct {
 	Channel     Channel `json:"channel"`
 	Configured  bool    `json:"configured"`
 	Destination string  `json:"destination,omitempty"`
+	Events      []Event `json:"events"`
 }
 
 type Message struct {
@@ -138,6 +151,11 @@ func (s *Service) Configure(actor, requestID string, configuration Configuration
 	if !validChannel(configuration.Channel) {
 		return ChannelState{}, ErrInvalidChannel
 	}
+	events, err := normalizeEvents(configuration.Events)
+	if err != nil {
+		return ChannelState{}, err
+	}
+	configuration.Events = events
 	if _, err := s.factory.Build(configuration); err != nil {
 		return ChannelState{}, err
 	}
@@ -161,6 +179,32 @@ func (s *Service) Configure(actor, requestID string, configuration Configuration
 	return stateFor(configuration), nil
 }
 
+func (s *Service) UpdateEvents(actor, requestID string, channel Channel, events []Event) (ChannelState, error) {
+	normalized, err := normalizeEvents(events)
+	if err != nil {
+		return ChannelState{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	previous, exists := s.configurations[channel]
+	if !exists {
+		return ChannelState{}, ErrNotConfigured
+	}
+	candidate := previous
+	candidate.Events = normalized
+	if err := s.persistConfiguration(candidate); err != nil {
+		return ChannelState{}, err
+	}
+	if s.audit != nil {
+		if err := s.audit.Append(audit.Entry{Actor: actor, Action: "notifications.events.update", Target: "notification:" + string(channel), RequestID: requestID, At: s.now().UTC()}); err != nil {
+			rollbackErr := s.persistConfiguration(previous)
+			return ChannelState{}, errors.Join(fmt.Errorf("%w: %v", ErrState, err), rollbackErr)
+		}
+	}
+	s.configurations[channel] = candidate
+	return stateFor(candidate), nil
+}
+
 func (s *Service) Channels() []ChannelState {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -175,6 +219,21 @@ func (s *Service) Channels() []ChannelState {
 		states = append(states, stateFor(configuration))
 	}
 	return states
+}
+
+func (s *Service) Wants(channel Channel, event Event) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	configuration, configured := s.configurations[channel]
+	if !configured {
+		return false
+	}
+	for _, enabled := range configuration.Events {
+		if enabled == event {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) Enqueue(channel Channel, idempotencyKey, subject, body string) (Message, error) {
@@ -292,6 +351,38 @@ func (s *Service) Messages() []Message {
 	return messages
 }
 
+func (s *Service) Retry(actor, requestID, messageID string) (Message, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for index, message := range s.messages {
+		if message.ID != messageID {
+			continue
+		}
+		if message.Status != StatusDead {
+			return Message{}, ErrConflict
+		}
+		candidate := message
+		candidate.Status = StatusPending
+		candidate.Attempts = 0
+		candidate.NextAttemptAt = s.now().UTC()
+		candidate.DeliveryStartedAt = time.Time{}
+		candidate.DeliveredAt = time.Time{}
+		candidate.LastError = ""
+		if err := s.persistMessage(candidate); err != nil {
+			return Message{}, err
+		}
+		if s.audit != nil {
+			if err := s.audit.Append(audit.Entry{Actor: actor, Action: "notifications.retry", Target: "notification:" + message.ID, RequestID: requestID, At: s.now().UTC()}); err != nil {
+				rollbackErr := s.persistMessage(message)
+				return Message{}, errors.Join(fmt.Errorf("%w: %v", ErrState, err), rollbackErr)
+			}
+		}
+		s.messages[index] = candidate
+		return candidate, nil
+	}
+	return Message{}, ErrConflict
+}
+
 func (s *Service) claimDue() (int, Message, Configuration, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -375,6 +466,11 @@ func (s *Service) load() error {
 		if err := json.Unmarshal(plaintext, &configuration); err != nil || document.ID != string(configuration.Channel) || !validChannel(configuration.Channel) {
 			return fmt.Errorf("invalid persisted notification configuration %q", document.ID)
 		}
+		events, err := normalizeEvents(configuration.Events)
+		if err != nil {
+			return fmt.Errorf("invalid persisted notification configuration %q: %w", document.ID, err)
+		}
+		configuration.Events = events
 		if _, err := s.factory.Build(configuration); err != nil {
 			return fmt.Errorf("invalid persisted notification configuration %q: %w", document.ID, err)
 		}
@@ -529,6 +625,27 @@ func validChannel(channel Channel) bool {
 	return channel == ChannelEmail || channel == ChannelFeishu || channel == ChannelWeCom
 }
 
+func normalizeEvents(events []Event) ([]Event, error) {
+	if events == nil {
+		return append([]Event(nil), defaultEvents...), nil
+	}
+	normalized := make([]Event, 0, len(events))
+	seen := map[Event]struct{}{}
+	for _, event := range events {
+		switch event {
+		case EventPipelineSucceeded, EventPipelineFailed, EventTakeoverSucceeded, EventTakeoverFailed:
+		default:
+			return nil, errors.New("unsupported notification event")
+		}
+		if _, exists := seen[event]; exists {
+			continue
+		}
+		seen[event] = struct{}{}
+		normalized = append(normalized, event)
+	}
+	return normalized, nil
+}
+
 func stateFor(configuration Configuration) ChannelState {
 	destination := configuration.WebhookURL
 	if configuration.Channel == ChannelEmail {
@@ -537,9 +654,9 @@ func stateFor(configuration Configuration) ChannelState {
 			masked = append(masked, maskDestination(recipient))
 		}
 		destination = strings.Join(masked, ", ")
-		return ChannelState{Channel: configuration.Channel, Configured: true, Destination: destination}
+		return ChannelState{Channel: configuration.Channel, Configured: true, Destination: destination, Events: append([]Event(nil), configuration.Events...)}
 	}
-	return ChannelState{Channel: configuration.Channel, Configured: true, Destination: maskDestination(destination)}
+	return ChannelState{Channel: configuration.Channel, Configured: true, Destination: maskDestination(destination), Events: append([]Event(nil), configuration.Events...)}
 }
 
 func maskDestination(destination string) string {

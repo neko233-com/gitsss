@@ -9,6 +9,7 @@ import { apiMutation, apiRequest } from "@/lib/api"
 import {
   buildConfiguration,
   type NotificationChannel,
+  type NotificationEvent,
   type NotificationForm,
 } from "./notification-config"
 
@@ -20,6 +21,21 @@ const channels: Array<{
   { id: "email", name: "邮件", description: "SMTP / STARTTLS" },
   { id: "feishu", name: "飞书", description: "群自定义机器人" },
   { id: "wecom", name: "企业微信", description: "群机器人 Webhook" },
+]
+
+const eventOptions: Array<{
+  id: NotificationEvent
+  label: string
+}> = [
+  { id: "pipeline.failed", label: "流水线失败" },
+  { id: "takeover.failed", label: "接管需要处理" },
+  { id: "pipeline.succeeded", label: "流水线成功" },
+  { id: "takeover.succeeded", label: "接管完成" },
+]
+
+const recommendedEvents: NotificationEvent[] = [
+  "pipeline.failed",
+  "takeover.failed",
 ]
 
 const emptyForm: NotificationForm = {
@@ -43,6 +59,7 @@ interface ChannelState {
   channel: NotificationChannel
   configured: boolean
   destination?: string
+  events: NotificationEvent[]
 }
 
 interface OutboxMessage {
@@ -98,8 +115,10 @@ export function NotificationCenter({
   const [channel, setChannel] = useState<NotificationChannel | null>(null)
   const [form, setForm] = useState<NotificationForm>(emptyForm)
   const [channelStates, setChannelStates] = useState<ChannelState[]>([])
+  const [events, setEvents] = useState<NotificationEvent[]>(recommendedEvents)
   const [outbox, setOutbox] = useState<OutboxMessage[]>([])
   const [status, setStatus] = useState<"idle" | "submitting" | "done">("idle")
+  const [routingSaving, setRoutingSaving] = useState(false)
   const [delivery, setDelivery] = useState<DeliveryResult | null>(null)
   const [error, setError] = useState("")
 
@@ -128,6 +147,10 @@ export function NotificationCenter({
 
   const selectChannel = (nextChannel: NotificationChannel) => {
     setChannel(nextChannel)
+    setEvents(
+      channelStates.find((state) => state.channel === nextChannel)?.events ??
+        recommendedEvents
+    )
     setStatus("idle")
     setDelivery(null)
     setError("")
@@ -142,7 +165,7 @@ export function NotificationCenter({
       await apiMutation(
         `/api/v1/notifications/channels/${channel}`,
         token,
-        buildConfiguration(channel, form)
+        buildConfiguration(channel, form, events)
       )
       const result = await apiMutation<DeliveryResult>(
         `/api/v1/notifications/channels/${channel}/test`,
@@ -156,6 +179,46 @@ export function NotificationCenter({
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "连接测试失败")
       setStatus("idle")
+    }
+  }
+
+  const toggleEvent = (event: NotificationEvent) => {
+    setEvents((current) =>
+      current.includes(event)
+        ? current.filter((candidate) => candidate !== event)
+        : [...current, event]
+    )
+  }
+
+  const saveRouting = async () => {
+    if (!channel) return
+    setRoutingSaving(true)
+    setError("")
+    try {
+      await apiMutation(
+        `/api/v1/notifications/channels/${channel}/events`,
+        token,
+        { events }
+      )
+      await refresh()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "通知范围保存失败")
+    } finally {
+      setRoutingSaving(false)
+    }
+  }
+
+  const retryMessage = async (messageID: string) => {
+    setError("")
+    try {
+      await apiMutation(
+        `/api/v1/notifications/outbox/${encodeURIComponent(messageID)}/retry`,
+        token,
+        {}
+      )
+      await refresh()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "通知重试失败")
     }
   }
 
@@ -219,6 +282,46 @@ export function NotificationCenter({
         })}
       </ol>
 
+      {selected ? (
+        <section className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-semibold">发送范围</h3>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                推荐只发送失败与需要人工处理的事件，成功消息可按团队需要开启。
+              </p>
+            </div>
+            {channelStates.find((state) => state.channel === channel)
+              ?.configured ? (
+              <Button
+                disabled={routingSaving}
+                onClick={() => void saveRouting()}
+                size="sm"
+                variant="outline"
+              >
+                {routingSaving ? "正在保存…" : "保存范围"}
+              </Button>
+            ) : null}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            {eventOptions.map((option) => (
+              <label
+                className="flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-700"
+                key={option.id}
+              >
+                <input
+                  checked={events.includes(option.id)}
+                  className="size-3.5 accent-zinc-950"
+                  onChange={() => toggleEvent(option.id)}
+                  type="checkbox"
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <div className="mt-8 grid gap-8 lg:grid-cols-[15rem_minmax(0,1fr)]">
         <div className="divide-y divide-zinc-200 border-y border-zinc-200">
           {channels.map((item) => (
@@ -248,14 +351,26 @@ export function NotificationCenter({
         {selected ? (
           status === "done" && delivery ? (
             <div className="flex min-h-72 flex-col items-start justify-center border-y border-zinc-200 py-10">
-              <span className="flex size-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
-                <CheckIcon className="size-5" />
+              <span
+                className={`flex size-10 items-center justify-center rounded-full ${delivery.status === "delivered" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}
+              >
+                {delivery.status === "delivered" ? (
+                  <CheckIcon className="size-5" />
+                ) : (
+                  <AlertIcon className="size-5" />
+                )}
               </span>
               <h3 className="mt-5 text-lg font-semibold tracking-[-0.03em]">
-                {selected.name}连接成功
+                {delivery.status === "delivered"
+                  ? `${selected.name}连接成功`
+                  : delivery.status === "retrying"
+                    ? `${selected.name}等待自动重试`
+                    : `${selected.name}测试进入死信`}
               </h3>
               <p className="mt-2 text-sm text-zinc-500">
-                测试消息已投递，共尝试 {delivery.attempts} 次。
+                {delivery.status === "delivered"
+                  ? `测试消息已投递，共尝试 ${delivery.attempts} 次。`
+                  : `测试消息未确认送达，已尝试 ${delivery.attempts} 次；请检查配置和下方投递记录。`}
               </p>
               <Button
                 className="mt-6"
@@ -389,12 +504,28 @@ export function NotificationCenter({
                 <p className="mt-1 text-xs text-zinc-400">
                   {message.channel} · 尝试 {message.attempts} 次
                 </p>
+                {message.last_error ? (
+                  <p className="mt-1 line-clamp-2 text-xs text-red-600">
+                    {message.last_error}
+                  </p>
+                ) : null}
               </div>
-              <span
-                className={`text-xs font-medium ${message.status === "delivered" ? "text-emerald-700" : message.status === "dead" ? "text-red-600" : "text-amber-700"}`}
-              >
-                {message.status}
-              </span>
+              <div className="flex shrink-0 items-center gap-3">
+                <span
+                  className={`text-xs font-medium ${message.status === "delivered" ? "text-emerald-700" : message.status === "dead" ? "text-red-600" : "text-amber-700"}`}
+                >
+                  {message.status}
+                </span>
+                {message.status === "dead" ? (
+                  <Button
+                    onClick={() => void retryMessage(message.id)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    重试
+                  </Button>
+                ) : null}
+              </div>
             </div>
           ))}
           {outbox.length === 0 ? (

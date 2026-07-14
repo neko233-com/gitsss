@@ -151,6 +151,30 @@ func TestServiceRetriesThenMovesMessageToDeadLetter(t *testing.T) {
 	if message.Status != StatusDead || message.LastError != "secret network detail" {
 		t.Fatalf("dead letter = %#v", message)
 	}
+	retried, err := service.Retry("admin", "retry", message.ID)
+	if err != nil || retried.Status != StatusPending || retried.Attempts != 0 || retried.LastError != "" || retried.NextAttemptAt.IsZero() {
+		t.Fatalf("retried message = %#v, %v", retried, err)
+	}
+	if _, err := service.Retry("admin", "duplicate-retry", message.ID); !errors.Is(err, ErrConflict) {
+		t.Fatalf("duplicate retry error = %v", err)
+	}
+}
+
+func TestServiceRoutesConfiguredEvents(t *testing.T) {
+	service := NewService(testFactory{adapter: &testAdapter{}}, &audit.Log{})
+	state, err := service.Configure("admin", "configure", Configuration{
+		Channel: ChannelFeishu, Events: []Event{EventPipelineFailed, EventPipelineFailed},
+	})
+	if err != nil || len(state.Events) != 1 || !service.Wants(ChannelFeishu, EventPipelineFailed) || service.Wants(ChannelFeishu, EventPipelineSucceeded) {
+		t.Fatalf("configured events = %#v, %v", state, err)
+	}
+	state, err = service.UpdateEvents("admin", "events", ChannelFeishu, []Event{EventTakeoverFailed})
+	if err != nil || len(state.Events) != 1 || !service.Wants(ChannelFeishu, EventTakeoverFailed) || service.Wants(ChannelFeishu, EventPipelineFailed) {
+		t.Fatalf("updated events = %#v, %v", state, err)
+	}
+	if _, err := service.UpdateEvents("admin", "invalid", ChannelFeishu, []Event{"unknown"}); err == nil {
+		t.Fatal("invalid event was accepted")
+	}
 }
 
 func TestPersistentServiceEncryptsAndRecoversInterruptedDelivery(t *testing.T) {

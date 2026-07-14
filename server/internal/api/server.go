@@ -97,8 +97,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/dashboard", s.dashboardSnapshot)
 	mux.HandleFunc("GET /api/v1/notifications/channels", s.notificationChannels)
 	mux.HandleFunc("POST /api/v1/notifications/channels/{channel}", s.notificationConfigure)
+	mux.HandleFunc("POST /api/v1/notifications/channels/{channel}/events", s.notificationEvents)
 	mux.HandleFunc("POST /api/v1/notifications/channels/{channel}/test", s.notificationTest)
 	mux.HandleFunc("GET /api/v1/notifications/outbox", s.notificationOutbox)
+	mux.HandleFunc("POST /api/v1/notifications/outbox/{message}/retry", s.notificationRetry)
 	mux.HandleFunc("POST /api/v1/notifications/dispatch", s.notificationDispatch)
 	mux.HandleFunc("GET /api/v1/takeover/assessments", s.takeoverAssessments)
 	mux.HandleFunc("POST /api/v1/takeover/assessments", s.takeoverAssessmentSubmit)
@@ -568,6 +570,10 @@ func (s *Server) agentJobComplete(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, status, map[string]string{"error": message})
 		return
 	}
+	if err := s.enqueueTakeoverNotification(job); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "takeover notification could not be queued"})
+		return
+	}
 	writeJSON(w, http.StatusOK, job)
 }
 
@@ -632,6 +638,30 @@ func (s *Server) notificationConfigure(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, state)
 }
 
+func (s *Server) notificationEvents(w http.ResponseWriter, r *http.Request) {
+	principal, ok := s.authenticate(w, r, "notifications:write")
+	if !ok {
+		return
+	}
+	var request struct {
+		Events []notification.Event `json:"events"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&request); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid notification events"})
+		return
+	}
+	state, err := s.notifications.UpdateEvents(principal.TokenID, requestID(), notification.Channel(r.PathValue("channel")), request.Events)
+	if err != nil {
+		if errors.Is(err, notification.ErrState) {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "notification state could not be updated"})
+			return
+		}
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, state)
+}
+
 func (s *Server) notificationTest(w http.ResponseWriter, r *http.Request) {
 	principal, ok := s.authenticate(w, r, "notifications:write")
 	if !ok {
@@ -677,6 +707,23 @@ func (s *Server) notificationOutbox(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, s.notifications.Messages())
+}
+
+func (s *Server) notificationRetry(w http.ResponseWriter, r *http.Request) {
+	principal, ok := s.authenticate(w, r, "notifications:write")
+	if !ok {
+		return
+	}
+	message, err := s.notifications.Retry(principal.TokenID, requestID(), r.PathValue("message"))
+	if err != nil {
+		if errors.Is(err, notification.ErrState) {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "notification state could not be updated"})
+			return
+		}
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "only dead notifications can be retried"})
+		return
+	}
+	writeJSON(w, http.StatusOK, message)
 }
 
 func (s *Server) notificationDispatch(w http.ResponseWriter, r *http.Request) {
@@ -937,6 +984,10 @@ func (s *Server) enqueuePipelineNotifications(run pipeline.Run) error {
 	if run.Status == pipeline.StatusFailed {
 		subject = "流水线执行失败"
 	}
+	event := notification.EventPipelineSucceeded
+	if run.Status == pipeline.StatusFailed {
+		event = notification.EventPipelineFailed
+	}
 	commit := run.Commit
 	if len(commit) > 12 {
 		commit = commit[:12]
@@ -946,10 +997,35 @@ func (s *Server) enqueuePipelineNotifications(run pipeline.Run) error {
 		body += "\n原因：" + run.Error
 	}
 	for _, channel := range s.notifications.Channels() {
-		if !channel.Configured {
+		if !channel.Configured || !s.notifications.Wants(channel.Channel, event) {
 			continue
 		}
 		if _, err := s.notifications.Enqueue(channel.Channel, "pipeline:"+run.ID+":"+string(run.Status), subject, body); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Server) enqueueTakeoverNotification(job agentjob.Job) error {
+	if s.notifications == nil || job.Status != agentjob.StatusFailed && job.Kind != agentjob.KindCutover {
+		return nil
+	}
+	event := notification.EventTakeoverSucceeded
+	subject := "旧服务器接管完成"
+	if job.Status == agentjob.StatusFailed {
+		event = notification.EventTakeoverFailed
+		subject = "旧服务器接管需要处理"
+	}
+	body := fmt.Sprintf("阶段：%s\n作业：%s\n状态：%s", job.Kind, job.ID, job.Status)
+	if job.Error != "" {
+		body += "\n原因：" + job.Error
+	}
+	for _, channel := range s.notifications.Channels() {
+		if !channel.Configured || !s.notifications.Wants(channel.Channel, event) {
+			continue
+		}
+		if _, err := s.notifications.Enqueue(channel.Channel, "takeover:"+job.ID+":"+string(job.Status), subject, body); err != nil {
 			return err
 		}
 	}

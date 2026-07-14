@@ -1,4 +1,9 @@
 export type NotificationChannel = "email" | "feishu" | "wecom"
+export type NotificationEvent =
+  | "pipeline.succeeded"
+  | "pipeline.failed"
+  | "takeover.succeeded"
+  | "takeover.failed"
 
 export interface NotificationForm {
   webhookURL: string
@@ -13,11 +18,13 @@ export interface NotificationForm {
 
 export function buildConfiguration(
   channel: NotificationChannel,
-  form: NotificationForm
+  form: NotificationForm,
+  events: NotificationEvent[]
 ) {
   if (channel === "email") {
     return {
       from: form.from.trim(),
+      events,
       password: form.password,
       recipients: form.recipients
         .split(",")
@@ -29,6 +36,7 @@ export function buildConfiguration(
     }
   }
   return {
+    events,
     secret: channel === "feishu" ? form.secret : undefined,
     webhook_url: form.webhookURL.trim(),
   }

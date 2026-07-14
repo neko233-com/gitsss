@@ -451,6 +451,13 @@ func TestServerConfiguresAndTestsNotificationWithoutReturningSecrets(t *testing.
 	if response.Code != http.StatusOK || strings.Contains(response.Body.String(), "private") {
 		t.Fatalf("configure response = %d %s, want masked response", response.Code, response.Body.String())
 	}
+	events := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/channels/feishu/events", strings.NewReader(`{"events":["pipeline.failed","takeover.failed"]}`))
+	events.Header.Set("Authorization", "Bearer token")
+	eventsResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(eventsResponse, events)
+	if eventsResponse.Code != http.StatusOK || !strings.Contains(eventsResponse.Body.String(), `"pipeline.failed"`) || strings.Contains(eventsResponse.Body.String(), `"pipeline.succeeded"`) {
+		t.Fatalf("events response = %d %s", eventsResponse.Code, eventsResponse.Body.String())
+	}
 
 	testRequest := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/channels/feishu/test", strings.NewReader(`{"subject":"测试","body":"连接成功"}`))
 	testRequest.Header.Set("Authorization", "Bearer token")
@@ -458,6 +465,25 @@ func TestServerConfiguresAndTestsNotificationWithoutReturningSecrets(t *testing.
 	server.Handler().ServeHTTP(testResponse, testRequest)
 	if testResponse.Code != http.StatusOK || !strings.Contains(testResponse.Body.String(), `"status":"delivered"`) {
 		t.Fatalf("test response = %d %s, want delivered", testResponse.Code, testResponse.Body.String())
+	}
+}
+
+func TestServerRoutesTakeoverNotificationsByConfiguredEvent(t *testing.T) {
+	notifications := notification.NewService(notificationFactory{}, &audit.Log{})
+	if _, err := notifications.Configure("admin", "configure", notification.Configuration{
+		Channel: notification.ChannelFeishu, Events: []notification.Event{notification.EventTakeoverFailed},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(auth.NewVerifier(), Dependencies{Notifications: notifications})
+	if err := server.enqueueTakeoverNotification(agentjob.Job{ID: "job-failed", Kind: agentjob.KindInventory, Status: agentjob.StatusFailed, Error: "inventory drift"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := server.enqueueTakeoverNotification(agentjob.Job{ID: "job-cutover", Kind: agentjob.KindCutover, Status: agentjob.StatusSucceeded}); err != nil {
+		t.Fatal(err)
+	}
+	if messages := notifications.Messages(); len(messages) != 1 || !strings.Contains(messages[0].Body, "inventory drift") {
+		t.Fatalf("takeover messages = %#v", messages)
 	}
 }
 
