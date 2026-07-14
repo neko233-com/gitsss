@@ -3,6 +3,7 @@ param(
     [string]$Version = "",
     [string]$OutputDirectory = "",
     [switch]$SkipTests,
+    [string]$SigningKeyEnvironment = "",
     [string]$UploadTag = ""
 )
 
@@ -138,6 +139,24 @@ finally {
     $env:GOOS = $previousGoOS
     $env:GOARCH = $previousGoArch
     $env:CGO_ENABLED = $previousCgo
+}
+
+if (-not [string]::IsNullOrWhiteSpace($SigningKeyEnvironment)) {
+    if ($SigningKeyEnvironment -notmatch '^[A-Z_][A-Z0-9_]{0,127}$') {
+        throw "SigningKeyEnvironment must be a safe environment variable name"
+    }
+    if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($SigningKeyEnvironment))) {
+        throw "$SigningKeyEnvironment is empty"
+    }
+    $publishedAt = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+    Invoke-Checked go @(
+        "run", "./cmd/gitsss-release", "manifest",
+        "--release-dir", $releaseDirectory,
+        "--version", $Version,
+        "--commit", $commit,
+        "--published-at", $publishedAt,
+        "--private-key-env", $SigningKeyEnvironment
+    ) (Join-Path $repository "server")
 }
 
 $manifestPath = Join-Path $releaseDirectory "SHA256SUMS"

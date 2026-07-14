@@ -25,12 +25,23 @@ GitHub Actions 额度不可用期间，gitsss 不注册远端 CI 或发布工作
 
 每个包包含 `gitsss`、`gitsss-agent`、React web bundle、Agent 开机启动文档和绑定版本/commit/平台的 `BUILDINFO.json`。脚本通过 `go version -m` 复核每个二进制的 GOOS/GOARCH，并为六个归档生成无 BOM UTF-8 `SHA256SUMS`。
 
+提供已托管的 Ed25519 seed 环境变量时，脚本还会生成 canonical `update-manifest.json`、`update-manifest.sig` 和 `release.pub`，并把这些文件纳入 `SHA256SUMS`：
+
+```powershell
+.\tools\package-gitsss-release.ps1 `
+  -Version 0.1.0-alpha.2 `
+  -SigningKeyEnvironment GITSSS_RELEASE_SIGNING_KEY
+```
+
+seed 只从命名环境变量读取，不得放入参数、脚本、仓库或 release asset。`release.pub` 用于分发和指纹核对，但不能自动成为信任根；安装器/Agent 必须预置管理员已经核对的同一公钥。
+
 ## 构建并上传预发布
 
 ```powershell
 .\tools\package-gitsss-release.ps1 `
-  -Version 0.1.0-alpha.1 `
-  -UploadTag v0.1.0-alpha.1
+  -Version 0.1.0-alpha.2 `
+  -SigningKeyEnvironment GITSSS_RELEASE_SIGNING_KEY `
+  -UploadTag v0.1.0-alpha.2
 ```
 
 `-UploadTag` 先创建 draft release，并把 tag 绑定到本次构建的 commit，而不是可移动的分支头；随后逐个上传资产，将 GitHub 返回的每个 SHA-256 digest 与本地文件复核，全部一致后才发布 prerelease。上传失败会保留本地归档和远端 draft 供诊断，不会冒充完整版本。若 tag/release 已存在，命令失败且不会覆盖已有资产。仅用于归档的 staging 目录会在生成校验清单后安全删除；`-SkipTests` 只用于本地脚本 smoke test，不能用于正式发布。

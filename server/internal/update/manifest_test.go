@@ -106,6 +106,23 @@ func TestCanonicalRejectsDuplicateTargetsAndUnsafeNames(t *testing.T) {
 	}
 }
 
+func TestPrivateSeedEncodingRoundTrips(t *testing.T) {
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := DecodePrivateSeed(EncodePrivateSeed(privateKey))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !decoded.Public().(ed25519.PublicKey).Equal(publicKey) {
+		t.Fatal("decoded seed produced a different public key")
+	}
+	if _, err := DecodePrivateSeed("not-a-seed"); !errors.Is(err, ErrInvalidSignature) {
+		t.Fatalf("invalid seed error = %v", err)
+	}
+}
+
 func validTestManifest() Manifest {
 	return Manifest{
 		Format: Format, Version: "1.2.3", Commit: "0123456789abcdef0123456789abcdef01234567",

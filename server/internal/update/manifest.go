@@ -194,6 +194,21 @@ func EncodePublicKey(publicKey ed25519.PublicKey) []byte {
 	return []byte(base64.RawStdEncoding.EncodeToString(publicKey) + "\n")
 }
 
+func EncodePrivateSeed(privateKey ed25519.PrivateKey) string {
+	if len(privateKey) != ed25519.PrivateKeySize {
+		return ""
+	}
+	return base64.RawStdEncoding.EncodeToString(privateKey.Seed())
+}
+
+func DecodePrivateSeed(value string) (ed25519.PrivateKey, error) {
+	seed, err := base64.RawStdEncoding.DecodeString(strings.TrimSpace(value))
+	if err != nil || len(seed) != ed25519.SeedSize {
+		return nil, fmt.Errorf("%w: private seed is malformed", ErrInvalidSignature)
+	}
+	return ed25519.NewKeyFromSeed(seed), nil
+}
+
 func DecodePublicKey(content []byte) (ed25519.PublicKey, error) {
 	decoded, err := base64.RawStdEncoding.DecodeString(strings.TrimSpace(string(content)))
 	if err != nil || len(decoded) != ed25519.PublicKeySize {
