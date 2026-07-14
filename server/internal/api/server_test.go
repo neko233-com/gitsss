@@ -134,6 +134,38 @@ func TestServerAuthorizesDashboardAndAuditsPreviewClear(t *testing.T) {
 	}
 }
 
+func TestServerKeepsDashboardPreviewClearScopedToToken(t *testing.T) {
+	log := &audit.Log{}
+	service := dashboard.NewService(2, []dashboard.Event{{ID: "event-1"}}, log)
+	server := NewServer(auth.NewVerifier(
+		auth.NewRecord("user-a", "token-a", time.Time{}, "dashboard:read", "events:write"),
+		auth.NewRecord("user-b", "token-b", time.Time{}, "dashboard:read", "events:write"),
+	), Dependencies{Dashboard: service})
+
+	clear := httptest.NewRequest(http.MethodDelete, "/api/v1/events/preview", nil)
+	clear.Header.Set("Authorization", "Bearer token-a")
+	clearResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(clearResponse, clear)
+	if clearResponse.Code != http.StatusNoContent {
+		t.Fatalf("clear = %d %s", clearResponse.Code, clearResponse.Body.String())
+	}
+	for _, check := range []struct {
+		token      string
+		wantEvents string
+	}{
+		{token: "token-a", wantEvents: `"events":[]`},
+		{token: "token-b", wantEvents: `"id":"event-1"`},
+	} {
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/dashboard", nil)
+		request.Header.Set("Authorization", "Bearer "+check.token)
+		response := httptest.NewRecorder()
+		server.Handler().ServeHTTP(response, request)
+		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), check.wantEvents) {
+			t.Fatalf("dashboard for %s = %d %s", check.token, response.Code, response.Body.String())
+		}
+	}
+}
+
 func TestServerReportsStorageAndProtectsProjectedWrites(t *testing.T) {
 	server := NewServer(auth.NewVerifier(auth.NewRecord("agent-1", "token", time.Time{}, "storage:read", "storage:write")), Dependencies{Dashboard: dashboard.NewService(1, nil, &audit.Log{}), Runners: runner.NewService("1.0.0"), Storage: storage.NewService(100, []storage.Usage{{Category: storage.CategoryLFSAssets, Bytes: 87}})})
 

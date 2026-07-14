@@ -389,10 +389,11 @@ func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) dashboardSnapshot(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.authenticate(w, r, "dashboard:read"); !ok {
+	principal, ok := s.authenticate(w, r, "dashboard:read")
+	if !ok {
 		return
 	}
-	writeJSON(w, http.StatusOK, s.dashboard.Snapshot())
+	writeJSON(w, http.StatusOK, s.dashboard.SnapshotFor(principal.TokenID))
 }
 
 func (s *Server) clearPreview(w http.ResponseWriter, r *http.Request) {
@@ -401,7 +402,7 @@ func (s *Server) clearPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.dashboard.ClearPreview(principal.TokenID, requestID(), s.now().UTC()); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "audit state could not be updated"})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "dashboard preview could not be updated"})
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
