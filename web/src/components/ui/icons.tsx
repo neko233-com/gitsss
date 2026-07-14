@@ -79,6 +79,16 @@ export function NotificationIcon(props: IconProps) {
   )
 }
 
+export function TakeoverIcon(props: IconProps) {
+  return (
+    <IconFrame {...props}>
+      <path d="M4.5 8.25h10.75a4.25 4.25 0 0 1 0 8.5H12" />
+      <path d="m7.75 4.75-3.5 3.5 3.5 3.5" />
+      <path d="m15.75 13.25-3.5 3.5 3.5 3.5" />
+    </IconFrame>
+  )
+}
+
 export function SearchIcon(props: IconProps) {
   return (
     <IconFrame {...props}>

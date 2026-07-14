@@ -24,11 +24,13 @@ import {
   SearchIcon,
   SettingsIcon,
   StorageIcon,
+  TakeoverIcon,
   WorkIcon,
 } from "@/components/ui/icons"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { RepositoryBrowser } from "@/features/repository-browser/RepositoryBrowser"
 import { NotificationCenter } from "@/features/notifications/NotificationCenter"
+import { RepositoryBrowser } from "@/features/repository-browser/RepositoryBrowser"
+import { TakeoverCenter } from "@/features/takeover/TakeoverCenter"
 import { RecentEventsPreview, type RecentEvent } from "@/lib/recent-events"
 
 const initialEvents: RecentEvent[] = [
@@ -332,7 +334,7 @@ function GitClientDownloadTab({
 
 export function App() {
   const [area, setArea] = useState<
-    "workspace" | "repository" | "notifications"
+    "workspace" | "repository" | "notifications" | "takeover"
   >("workspace")
   const [commandOpen, setCommandOpen] = useState(false)
   const [notice, setNotice] = useState("今天有 3 项需要你处理")
@@ -426,6 +428,14 @@ export function App() {
               通知
             </button>
             <button
+              className={`flex h-11 items-center gap-3 rounded-xl px-3 text-left text-sm transition-colors ${area === "takeover" ? "bg-blue-50 font-medium text-blue-700" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950"}`}
+              onClick={() => setArea("takeover")}
+              type="button"
+            >
+              <TakeoverIcon className="size-5" />
+              接管
+            </button>
+            <button
               className="flex h-11 items-center gap-3 rounded-xl px-3 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950"
               onClick={() => setNotice("设置中心将在授权工作流完成后开放")}
               type="button"
@@ -453,7 +463,9 @@ export function App() {
                   ? "今天"
                   : area === "repository"
                     ? "仓库"
-                    : "通知"}
+                    : area === "notifications"
+                      ? "通知"
+                      : "接管"}
               </h1>
             </div>
             <div className="flex items-center gap-3">
@@ -486,7 +498,7 @@ export function App() {
 
           <nav
             aria-label="移动端导航"
-            className="grid grid-cols-3 border-b border-zinc-200 lg:hidden"
+            className="grid grid-cols-4 border-b border-zinc-200 lg:hidden"
           >
             <button
               className={`flex h-11 items-center justify-center gap-2 text-sm ${area === "workspace" ? "border-b-2 border-zinc-950 font-medium text-zinc-950" : "text-zinc-500"}`}
@@ -512,6 +524,14 @@ export function App() {
               <NotificationIcon className="size-4" />
               通知
             </button>
+            <button
+              className={`flex h-11 items-center justify-center gap-1.5 text-sm ${area === "takeover" ? "border-b-2 border-zinc-950 font-medium text-zinc-950" : "text-zinc-500"}`}
+              onClick={() => setArea("takeover")}
+              type="button"
+            >
+              <TakeoverIcon className="size-4" />
+              接管
+            </button>
           </nav>
 
           <p aria-live="polite" className="sr-only">
@@ -522,6 +542,8 @@ export function App() {
             <RepositoryBrowser />
           ) : area === "notifications" ? (
             <NotificationCenter />
+          ) : area === "takeover" ? (
+            <TakeoverCenter />
           ) : (
             <Tabs className="pt-6" defaultValue="dashboard">
               <TabsList className="max-w-full overflow-x-auto" variant="line">

@@ -18,6 +18,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/repository"
 	"github.com/neko233-com/gitsss/server/internal/runner"
 	"github.com/neko233-com/gitsss/server/internal/storage"
+	"github.com/neko233-com/gitsss/server/internal/takeover"
 )
 
 type Server struct {
@@ -27,6 +28,7 @@ type Server struct {
 	repositories  *repository.Service
 	runners       *runner.Service
 	storage       *storage.Service
+	takeovers     *takeover.Registry
 	now           func() time.Time
 }
 
@@ -36,6 +38,7 @@ type Dependencies struct {
 	Repositories  *repository.Service
 	Runners       *runner.Service
 	Storage       *storage.Service
+	Takeovers     *takeover.Registry
 }
 
 func NewServer(verifier auth.Verifier, dependencies Dependencies) *Server {
@@ -46,6 +49,7 @@ func NewServer(verifier auth.Verifier, dependencies Dependencies) *Server {
 		repositories:  dependencies.Repositories,
 		runners:       dependencies.Runners,
 		storage:       dependencies.Storage,
+		takeovers:     dependencies.Takeovers,
 		now:           time.Now,
 	}
 }
@@ -59,6 +63,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/notifications/channels/{channel}/test", s.notificationTest)
 	mux.HandleFunc("GET /api/v1/notifications/outbox", s.notificationOutbox)
 	mux.HandleFunc("POST /api/v1/notifications/dispatch", s.notificationDispatch)
+	mux.HandleFunc("GET /api/v1/takeover/assessments", s.takeoverAssessments)
+	mux.HandleFunc("POST /api/v1/takeover/assessments", s.takeoverAssessmentSubmit)
 	mux.HandleFunc("DELETE /api/v1/events/preview", s.clearPreview)
 	mux.HandleFunc("GET /api/v1/storage", s.storageSnapshot)
 	mux.HandleFunc("POST /api/v1/storage/admission", s.storageAdmission)
@@ -69,6 +75,31 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/repositories/{repository}/files", s.repositoryFile)
 	mux.HandleFunc("GET /api/v1/repositories/{repository}/search", s.repositorySearch)
 	return mux
+}
+
+func (s *Server) takeoverAssessments(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "takeover:read"); !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, s.takeovers.Reports())
+}
+
+func (s *Server) takeoverAssessmentSubmit(w http.ResponseWriter, r *http.Request) {
+	principal, ok := s.authenticate(w, r, "takeover:write")
+	if !ok {
+		return
+	}
+	var report takeover.Report
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 256<<10)).Decode(&report); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid takeover assessment"})
+		return
+	}
+	stored, err := s.takeovers.Submit(principal.TokenID, requestID(), report, s.now().UTC())
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusCreated, stored)
 }
 
 func (s *Server) notificationChannels(w http.ResponseWriter, r *http.Request) {

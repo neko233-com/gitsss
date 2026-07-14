@@ -18,6 +18,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/repository"
 	"github.com/neko233-com/gitsss/server/internal/runner"
 	"github.com/neko233-com/gitsss/server/internal/storage"
+	"github.com/neko233-com/gitsss/server/internal/takeover"
 )
 
 type notificationFactory struct{}
@@ -126,5 +127,29 @@ func TestServerConfiguresAndTestsNotificationWithoutReturningSecrets(t *testing.
 	server.Handler().ServeHTTP(testResponse, testRequest)
 	if testResponse.Code != http.StatusOK || !strings.Contains(testResponse.Body.String(), `"status":"delivered"`) {
 		t.Fatalf("test response = %d %s, want delivered", testResponse.Code, testResponse.Body.String())
+	}
+}
+
+func TestServerAcceptsAuditedTakeoverAssessment(t *testing.T) {
+	log := &audit.Log{}
+	server := NewServer(
+		auth.NewVerifier(auth.NewRecord("agent-token", "token", time.Time{}, "takeover:read", "takeover:write")),
+		Dependencies{Takeovers: takeover.NewRegistry(log)},
+	)
+	payload := `{"id":"assessment-0011223344556677","agent_id":"agent-1","config_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","database":{"type":"sqlite3","location":"local-file"},"assessed_at":"2026-07-14T12:00:00Z"}`
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/takeover/assessments", strings.NewReader(payload))
+	request.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusCreated || len(log.Entries()) != 1 {
+		t.Fatalf("submit response/audit = %d %s / %d", response.Code, response.Body.String(), len(log.Entries()))
+	}
+
+	list := httptest.NewRequest(http.MethodGet, "/api/v1/takeover/assessments", nil)
+	list.Header.Set("Authorization", "Bearer token")
+	listResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(listResponse, list)
+	if listResponse.Code != http.StatusOK || !strings.Contains(listResponse.Body.String(), "assessment-0011223344556677") {
+		t.Fatalf("list response = %d %s", listResponse.Code, listResponse.Body.String())
 	}
 }

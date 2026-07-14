@@ -16,6 +16,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/repository"
 	"github.com/neko233-com/gitsss/server/internal/runner"
 	"github.com/neko233-com/gitsss/server/internal/storage"
+	"github.com/neko233-com/gitsss/server/internal/takeover"
 )
 
 func main() {
@@ -38,6 +39,7 @@ func main() {
 	})
 	runnerService := runner.NewService("0.1.0")
 	notificationService := notification.NewService(notification.NewFactory(), logStore)
+	takeoverRegistry := takeover.NewRegistry(logStore)
 	repositoryPath := os.Getenv("GITSSS_REPOSITORY_PATH")
 	if repositoryPath == "" {
 		repositoryPath = "."
@@ -46,12 +48,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	verifier := auth.NewVerifier(auth.NewRecord("bootstrap", token, time.Time{}, "dashboard:read", "events:write", "storage:read", "storage:write", "runners:read", "runners:write", "repositories:read", "repositories:search", "notifications:read", "notifications:write", "notifications:dispatch"))
+	verifier := auth.NewVerifier(auth.NewRecord("bootstrap", token, time.Time{}, "dashboard:read", "events:write", "storage:read", "storage:write", "runners:read", "runners:write", "repositories:read", "repositories:search", "notifications:read", "notifications:write", "notifications:dispatch", "takeover:read", "takeover:write"))
 
 	address := os.Getenv("GITSSS_HTTP_ADDR")
 	if address == "" {
 		address = "127.0.0.1:8787"
 	}
 	log.Printf("gitsss API listening on %s", address)
-	log.Fatal(http.ListenAndServe(address, api.NewServer(verifier, api.Dependencies{Dashboard: dashboardService, Notifications: notificationService, Repositories: repositoryService, Runners: runnerService, Storage: storageService}).Handler()))
+	log.Fatal(http.ListenAndServe(address, api.NewServer(verifier, api.Dependencies{Dashboard: dashboardService, Notifications: notificationService, Repositories: repositoryService, Runners: runnerService, Storage: storageService, Takeovers: takeoverRegistry}).Handler()))
 }

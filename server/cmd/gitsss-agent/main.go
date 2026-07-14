@@ -14,11 +14,12 @@ import (
 	"time"
 
 	"github.com/neko233-com/gitsss/server/internal/runner"
+	"github.com/neko233-com/gitsss/server/internal/takeover"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: gitsss-agent <probe|runner-report> [options]")
+		fmt.Fprintln(os.Stderr, "usage: gitsss-agent <probe|runner-report|assess> [options]")
 		os.Exit(2)
 	}
 	if os.Args[1] == "probe" {
@@ -29,8 +30,104 @@ func main() {
 		runnerReport(os.Args[2:])
 		return
 	}
-	fmt.Fprintln(os.Stderr, "usage: gitsss-agent <probe|runner-report> [options]")
+	if os.Args[1] == "assess" {
+		assess(os.Args[2:])
+		return
+	}
+	fmt.Fprintln(os.Stderr, "usage: gitsss-agent <probe|runner-report|assess> [options]")
 	os.Exit(2)
+}
+
+type stringList []string
+
+func (values *stringList) String() string {
+	return strings.Join(*values, ",")
+}
+
+func (values *stringList) Set(value string) error {
+	*values = append(*values, value)
+	return nil
+}
+
+func assess(args []string) {
+	flags := flag.NewFlagSet("assess", flag.ExitOnError)
+	var configPaths stringList
+	flags.Var(&configPaths, "config", "Gitea app.ini path; may be repeated")
+	workPath := flags.String("work-path", "", "Gitea application work path for relative settings")
+	serverURL := flags.String("server", "", "gitsss API base URL; omit for local JSON output")
+	token := flags.String("token", "", "agent token; required with --server")
+	agentID := flags.String("agent-id", "", "stable agent device ID")
+	version := flags.String("gitea-version", "", "detected Gitea version when known")
+	maxEntries := flags.Int("max-entries", 10_000, "maximum files scanned per asset category")
+	flags.Parse(args)
+	if strings.TrimSpace(*agentID) == "" {
+		fmt.Fprintln(os.Stderr, "--agent-id is required")
+		os.Exit(2)
+	}
+	if (strings.TrimSpace(*serverURL) == "") != (strings.TrimSpace(*token) == "") {
+		fmt.Fprintln(os.Stderr, "--server and --token must be provided together")
+		os.Exit(2)
+	}
+	if len(configPaths) == 0 {
+		configPaths = takeover.DiscoverConfigPaths()
+		if len(configPaths) == 0 {
+			fmt.Fprintln(os.Stderr, "no Gitea app.ini found; pass --config explicitly")
+			os.Exit(1)
+		}
+	}
+
+	reports := make([]takeover.Report, 0, len(configPaths))
+	for _, configPath := range configPaths {
+		report, err := takeover.Assess(takeover.Options{
+			AgentID: *agentID, ConfigPath: configPath, WorkPath: *workPath,
+			GiteaVersion: *version, MaxEntries: *maxEntries,
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "assess %s: %v\n", configPath, err)
+			os.Exit(1)
+		}
+		reports = append(reports, report)
+	}
+
+	if strings.TrimSpace(*serverURL) == "" {
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(reports); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+	for _, report := range reports {
+		if err := uploadAssessment(*serverURL, *token, report); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Printf("assessment uploaded: %s (%d findings, %d asset categories)\n", report.ID, len(report.Findings), len(report.Assets))
+	}
+}
+
+func uploadAssessment(serverURL, token string, report takeover.Report) error {
+	payload, err := json.Marshal(report)
+	if err != nil {
+		return err
+	}
+	request, err := http.NewRequest(http.MethodPost, strings.TrimRight(serverURL, "/")+"/api/v1/takeover/assessments", bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+	response, err := (&http.Client{Timeout: 30 * time.Second}).Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(io.LimitReader(response.Body, 4<<10))
+		return fmt.Errorf("assessment upload failed: %s: %s", response.Status, strings.TrimSpace(string(body)))
+	}
+	return nil
 }
 
 func probe(args []string) {
