@@ -13,16 +13,20 @@ import (
 
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/dashboard"
+	"github.com/neko233-com/gitsss/server/internal/runner"
+	"github.com/neko233-com/gitsss/server/internal/storage"
 )
 
 type Server struct {
 	verifier  auth.Verifier
 	dashboard *dashboard.Service
+	runners   *runner.Service
+	storage   *storage.Service
 	now       func() time.Time
 }
 
-func NewServer(verifier auth.Verifier, dashboardService *dashboard.Service) *Server {
-	return &Server{verifier: verifier, dashboard: dashboardService, now: time.Now}
+func NewServer(verifier auth.Verifier, dashboardService *dashboard.Service, storageService *storage.Service, runnerService *runner.Service) *Server {
+	return &Server{verifier: verifier, dashboard: dashboardService, storage: storageService, runners: runnerService, now: time.Now}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -30,6 +34,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /healthz", s.health)
 	mux.HandleFunc("GET /api/v1/dashboard", s.dashboardSnapshot)
 	mux.HandleFunc("DELETE /api/v1/events/preview", s.clearPreview)
+	mux.HandleFunc("GET /api/v1/storage", s.storageSnapshot)
+	mux.HandleFunc("POST /api/v1/storage/admission", s.storageAdmission)
+	mux.HandleFunc("GET /api/v1/runners", s.runnerList)
+	mux.HandleFunc("POST /api/v1/runners/reconcile", s.runnerReconcile)
 	return mux
 }
 
@@ -51,6 +59,53 @@ func (s *Server) clearPreview(w http.ResponseWriter, r *http.Request) {
 	}
 	s.dashboard.ClearPreview(principal.TokenID, requestID(), s.now().UTC())
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) storageSnapshot(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "storage:read"); !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, s.storage.Snapshot())
+}
+
+func (s *Server) storageAdmission(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "storage:write"); !ok {
+		return
+	}
+
+	var request struct {
+		Bytes int64 `json:"bytes"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&request); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid admission request"})
+		return
+	}
+	writeJSON(w, http.StatusOK, s.storage.Admit(request.Bytes))
+}
+
+func (s *Server) runnerList(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "runners:read"); !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, s.runners.Runners())
+}
+
+func (s *Server) runnerReconcile(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "runners:write"); !ok {
+		return
+	}
+
+	var report runner.Report
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&report); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid runner report"})
+		return
+	}
+	reconciliation, err := s.runners.Reconcile(report, s.now().UTC())
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, reconciliation)
 }
 
 func (s *Server) authenticate(w http.ResponseWriter, r *http.Request, scope string) (auth.Principal, bool) {
