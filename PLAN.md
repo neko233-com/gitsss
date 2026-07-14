@@ -22,7 +22,7 @@ gitsss 是面向团队所有成员（不仅是开发者）的自托管代码协�
 ## 当前基线（2026-07-14）
 
 - 已建立 `neko233-com/gitsss` 私有仓库与 `main` 分支；新的 `PLAN.md`、Go 服务和 React 客户端已提交，原 Gitea 源码快照仍作为未跟踪的兼容输入保留在工作区。
-- `server/` 已提供自定义 Token、审计、事件预览、存储保护、Runner 调和、白名单仓库树/文件/搜索 API、通知 Outbox、Gitea `app.ini` 只读接管评估与审计上报，以及带逐文件 SHA-256 清单、分块 AES-GCM、原子提交、只读完整性验证、导入冲突预览和显式确认隔离恢复的加密备份 v1；`web/` 已提供首页四 Tab、命令面板、仓库浏览、通知连接和接管报告向导；GitHub Actions 已覆盖双栈 CI 与六种 Linux/macOS/Windows 架构发布包。
+- `server/` 已提供自定义 Token、审计、事件预览、存储保护、Runner 调和、白名单仓库树/文件/搜索 API、通知 Outbox、Gitea `app.ini` 只读接管评估与审计上报，以及带逐文件 SHA-256 清单、分块 AES-GCM、原子提交、只读完整性验证、导入冲突预览、显式确认隔离恢复和 Git/LFS 恢复审计的加密备份 v1；`web/` 已提供首页四 Tab、命令面板、仓库浏览、通知连接和接管报告向导；GitHub Actions 已覆盖双栈 CI 与六种 Linux/macOS/Windows 架构发布包。
 - 原 Gitea 模块名仍为 `gitea.dev`，并含 Vue 3 前端与大量 Gitea 品牌资产、文档和工作流；这些内容尚未接入新远端，也尚未达到可安全删除的替代覆盖率。
 - 本机可用 Go 1.26.4、Node 24.14.0、pnpm 11.7.0；新 `web/` 已固定 Vite 8.1.4、TypeScript 7.0.2、React 19.2.7，未跟踪的上游兼容快照仍包含 Vue 3 与旧 TypeScript 依赖。
 - Windows 环境没有 `make` 别名，但可使用 `mingw32-make`；后续应补一个兼容入口或在开发文档中明确该映射。
