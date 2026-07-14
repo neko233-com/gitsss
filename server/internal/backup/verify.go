@@ -27,6 +27,12 @@ type Verification struct {
 }
 
 func Verify(inputPath, passphrase string) (Verification, error) {
+	return processContainer(inputPath, passphrase, nil)
+}
+
+type entryConsumer func(Entry, io.Reader) error
+
+func processContainer(inputPath, passphrase string, consume entryConsumer) (Verification, error) {
 	if passphrase == "" {
 		return Verification{}, fmt.Errorf("%w: passphrase is required", ErrInvalidBackup)
 	}
@@ -66,12 +72,18 @@ func Verify(inputPath, passphrase string) (Verification, error) {
 			return Verification{}, integrityError(err)
 		}
 		hasher := sha256.New()
-		written, err := io.Copy(hasher, archive)
-		if err != nil || written != expected.Size || hex.EncodeToString(hasher.Sum(nil)) != expected.SHA256 {
+		var counter byteCounter
+		content := io.TeeReader(archive, io.MultiWriter(hasher, &counter))
+		if consume != nil {
+			if err := consume(expected, content); err != nil {
+				return Verification{}, err
+			}
+		}
+		if _, err := io.Copy(io.Discard, content); err != nil || int64(counter) != expected.Size || hex.EncodeToString(hasher.Sum(nil)) != expected.SHA256 {
 			return Verification{}, integrityError(err)
 		}
 		verification.Files++
-		verification.Bytes += written
+		verification.Bytes += int64(counter)
 	}
 	if _, err := archive.Next(); !errors.Is(err, io.EOF) {
 		return Verification{}, integrityError(err)
@@ -86,6 +98,13 @@ func Verify(inputPath, passphrase string) (Verification, error) {
 		return Verification{}, integrityError(err)
 	}
 	return verification, nil
+}
+
+type byteCounter int64
+
+func (counter *byteCounter) Write(content []byte) (int, error) {
+	*counter += byteCounter(len(content))
+	return len(content), nil
 }
 
 func validateManifest(manifest Manifest) error {

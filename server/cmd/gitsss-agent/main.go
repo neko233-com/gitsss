@@ -36,6 +36,8 @@ func main() {
 		backupVerify(os.Args[2:])
 	case "backup-import-plan":
 		backupImportPlan(os.Args[2:])
+	case "backup-restore-isolated":
+		backupRestoreIsolated(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -43,7 +45,7 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Fprintln(os.Stderr, "usage: gitsss-agent <probe|runner-report|assess|backup-export|backup-verify|backup-import-plan> [options]")
+	fmt.Fprintln(os.Stderr, "usage: gitsss-agent <probe|runner-report|assess|backup-export|backup-verify|backup-import-plan|backup-restore-isolated> [options]")
 }
 
 type stringList []string
@@ -240,6 +242,35 @@ func backupImportPlan(args []string) {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(plan); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func backupRestoreIsolated(args []string) {
+	flags := flag.NewFlagSet("backup-restore-isolated", flag.ExitOnError)
+	inputPath := flags.String("input", "", "existing .gitsss-backup path")
+	targetPath := flags.String("target", "", "new isolated restore directory")
+	confirmation := flags.String("confirm", "", "exact assessment ID shown by backup-verify")
+	passphraseEnv := flags.String("passphrase-env", "GITSSS_BACKUP_PASSPHRASE", "environment variable containing the backup passphrase")
+	flags.Parse(args)
+	if strings.TrimSpace(*inputPath) == "" || strings.TrimSpace(*targetPath) == "" || strings.TrimSpace(*confirmation) == "" || strings.TrimSpace(*passphraseEnv) == "" {
+		fmt.Fprintln(os.Stderr, "--input, --target, --confirm and --passphrase-env are required")
+		os.Exit(2)
+	}
+	passphrase := os.Getenv(*passphraseEnv)
+	if passphrase == "" {
+		fmt.Fprintf(os.Stderr, "%s is empty\n", *passphraseEnv)
+		os.Exit(1)
+	}
+	result, err := backup.RestoreIsolated(*inputPath, passphrase, *targetPath, *confirmation)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(result); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
