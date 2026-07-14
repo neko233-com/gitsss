@@ -22,3 +22,4 @@
 - Do not use GitHub CI status as a release gate. Run formatting, linting, tests, race checks, asset verification, packaging, and release verification on the local machine
 - Before publishing a release, cross-compile and package the supported Linux, macOS, and Windows targets locally, verify checksums and any configured signatures locally, then publish the tag and packages directly with `gh`
 - Do not publish a tag, package, or GitHub Release until all required local gates pass; fix failures locally and rebuild the artifacts
+- Do not publish per-feature or incremental releases. Complete the full requested product scope and requirement-by-requirement verification first, then create one consolidated tag and package release
