@@ -9,6 +9,7 @@ This Go 1.26 module establishes the first server boundaries for gitsss:
 - allowlisted Git tree, text preview and repository search endpoints backed by immutable commit snapshots;
 - email, Feishu and WeCom notification configuration, test delivery and transactional outbox endpoints;
 - bounded, read-only Gitea `app.ini` assessment with redacted configuration fingerprints and audited Agent report ingestion;
+- encrypted, atomic takeover export with per-file SHA-256 manifests and read-only verification;
 - audited preview clearing with retention-based audit cleanup;
 - a native Agent CLI probe over authenticated HTTP.
 
@@ -34,3 +35,13 @@ go run ./cmd/gitsss-agent assess --agent-id old-gitea --config C:\gitea\custom\c
 ```
 
 Add `--server http://127.0.0.1:8787 --token $env:GITSSS_API_TOKEN` to submit the redacted report. The scanner reads at most 2 MiB of configuration, never follows symlinks, caps each asset category at 10,000 files by default, strips URL paths and queries, and does not return database passwords or integration secrets. Submission uses the `takeover:write` scope; report listing uses `takeover:read`.
+
+Export an assessed instance to a new encrypted container and verify it without extracting files:
+
+```powershell
+$env:GITSSS_BACKUP_PASSPHRASE = "replace-with-a-long-secret"
+go run ./cmd/gitsss-agent backup-export --agent-id old-gitea --config C:\gitea\custom\conf\app.ini --output C:\backups\gitea.gitsss-backup
+go run ./cmd/gitsss-agent backup-verify --input C:\backups\gitea.gitsss-backup
+```
+
+The passphrase is accepted only through the named environment variable, never a command-line value. Export refuses symlinks, incomplete assessments, changed source files and existing output paths. It writes and syncs a same-directory temporary file, then publishes it with an atomic no-replace link only after the encrypted tar stream has closed successfully. Verification is read-only and rejects wrong passphrases, altered headers or payloads, truncation, appended bytes, unsafe paths, duplicate entries, and checksum mismatches. See [`docs/migration/backup-container-v1.md`](../docs/migration/backup-container-v1.md) for the versioned format and current limitations.
