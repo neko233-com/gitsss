@@ -32,6 +32,7 @@ type Server struct {
 	storage       *storage.Service
 	takeovers     *takeover.Registry
 	jobs          *agentjob.Queue
+	audit         *audit.Log
 	now           func() time.Time
 }
 
@@ -43,6 +44,7 @@ type Dependencies struct {
 	Storage       *storage.Service
 	Takeovers     *takeover.Registry
 	Jobs          *agentjob.Queue
+	Audit         *audit.Log
 }
 
 func NewServer(verifier auth.Verifier, dependencies Dependencies) *Server {
@@ -55,6 +57,7 @@ func NewServer(verifier auth.Verifier, dependencies Dependencies) *Server {
 		storage:       dependencies.Storage,
 		takeovers:     dependencies.Takeovers,
 		jobs:          dependencies.Jobs,
+		audit:         dependencies.Audit,
 		now:           time.Now,
 	}
 }
@@ -62,6 +65,9 @@ func NewServer(verifier auth.Verifier, dependencies Dependencies) *Server {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.health)
+	mux.HandleFunc("GET /api/v1/auth/tokens", s.authTokens)
+	mux.HandleFunc("POST /api/v1/auth/tokens", s.authTokenIssue)
+	mux.HandleFunc("DELETE /api/v1/auth/tokens/{token}", s.authTokenRevoke)
 	mux.HandleFunc("GET /api/v1/dashboard", s.dashboardSnapshot)
 	mux.HandleFunc("GET /api/v1/notifications/channels", s.notificationChannels)
 	mux.HandleFunc("POST /api/v1/notifications/channels/{channel}", s.notificationConfigure)
@@ -85,6 +91,78 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/repositories/{repository}/files", s.repositoryFile)
 	mux.HandleFunc("GET /api/v1/repositories/{repository}/search", s.repositorySearch)
 	return mux
+}
+
+func (s *Server) authTokens(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "auth:read"); !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, s.verifier.Tokens())
+}
+
+func (s *Server) authTokenIssue(w http.ResponseWriter, r *http.Request) {
+	principal, ok := s.authenticate(w, r, "auth:write")
+	if !ok {
+		return
+	}
+	var request struct {
+		ID             string   `json:"id"`
+		Scopes         []string `json:"scopes"`
+		ExpiresInHours int      `json:"expires_in_hours"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&request); err != nil || request.ExpiresInHours < 1 || request.ExpiresInHours > 365*24 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid token request"})
+		return
+	}
+	now := s.now().UTC()
+	issued, err := s.verifier.Issue(request.ID, request.Scopes, now, now.Add(time.Duration(request.ExpiresInHours)*time.Hour))
+	if err != nil {
+		s.writeAuthError(w, err)
+		return
+	}
+	if s.audit != nil {
+		entry := audit.Entry{Actor: principal.TokenID, Action: "auth.token.issue", Target: issued.ID, RequestID: requestID(), At: now}
+		if err := s.audit.Append(entry); err != nil {
+			_ = s.verifier.Revoke(issued.ID, principal.TokenID, now)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "audit state could not be updated"})
+			return
+		}
+	}
+	writeJSON(w, http.StatusCreated, issued)
+}
+
+func (s *Server) authTokenRevoke(w http.ResponseWriter, r *http.Request) {
+	principal, ok := s.authenticate(w, r, "auth:write")
+	if !ok {
+		return
+	}
+	id := r.PathValue("token")
+	now := s.now().UTC()
+	if err := s.verifier.Revoke(id, principal.TokenID, now); err != nil {
+		s.writeAuthError(w, err)
+		return
+	}
+	if s.audit != nil {
+		if err := s.audit.Append(audit.Entry{Actor: principal.TokenID, Action: "auth.token.revoke", Target: id, RequestID: requestID(), At: now}); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "audit state could not be updated"})
+			return
+		}
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) writeAuthError(w http.ResponseWriter, err error) {
+	status := http.StatusBadRequest
+	message := err.Error()
+	if errors.Is(err, auth.ErrState) {
+		status = http.StatusInternalServerError
+		message = "authentication state could not be updated"
+	} else if errors.Is(err, auth.ErrTokenNotFound) {
+		status = http.StatusNotFound
+	} else if errors.Is(err, auth.ErrTokenExists) {
+		status = http.StatusConflict
+	}
+	writeJSON(w, status, map[string]string{"error": message})
 }
 
 func (s *Server) agentHealth(w http.ResponseWriter, r *http.Request) {

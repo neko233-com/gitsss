@@ -18,7 +18,7 @@ This Go 1.26 module establishes the first server boundaries for gitsss:
 ## Local verification
 
 ```powershell
-$env:GITSSS_API_TOKEN = "replace-with-a-local-test-token"
+$env:GITSSS_API_TOKEN = "replace-with-at-least-24-random-characters"
 $env:GITSSS_DATA_PATH = "$PWD\data\gitsss.db"
 $env:GITSSS_MASTER_KEY_PATH = "$PWD\data\gitsss.db.key"
 go run ./cmd/gitsss
@@ -26,7 +26,9 @@ go run ./cmd/gitsss-agent probe --server http://127.0.0.1:8787 --token $env:GITS
 go run ./cmd/gitsss-agent runner-report --server http://127.0.0.1:8787 --token $env:GITSSS_API_TOKEN --id local-agent --platform windows/amd64
 ```
 
-The server creates one permission-restricted embedded SQLite file at `GITSSS_DATA_PATH` (default `data/gitsss.db`) with WAL, full synchronous writes, a busy timeout and a versioned schema. Agent jobs, takeover assessments, notification configurations, the notification outbox and the main-service audit log survive process restarts. Notification secrets, message content and audit entries are AES-256-GCM encrypted with identity-bound associated data and a generated 32-byte key at `GITSSS_MASTER_KEY_PATH` (default `<data-path>.key`). Retention cleanup deletes expired audit documents in one transaction before changing the in-memory view. Unix uses `0600`; Windows applies a protected DACL for the service user, SYSTEM and Administrators without calling `icacls`. Losing the key intentionally makes startup fail instead of silently discarding encrypted state. Bootstrap tokens, dashboard previews and the standalone loopback Agent audit log must still move into the durable boundary before release.
+The server creates one permission-restricted embedded SQLite file at `GITSSS_DATA_PATH` (default `data/gitsss.db`) with WAL, full synchronous writes, a busy timeout and a versioned schema. Custom-token hashes and lifecycle metadata, Agent jobs, takeover assessments, notification configurations, the notification outbox and the main-service audit log survive process restarts. Notification secrets, message content and audit entries are AES-256-GCM encrypted with identity-bound associated data and a generated 32-byte key at `GITSSS_MASTER_KEY_PATH` (default `<data-path>.key`). Retention cleanup deletes expired audit documents in one transaction before changing the in-memory view. Unix uses `0600`; Windows applies a protected DACL for the service user, SYSTEM and Administrators without calling `icacls`. Losing the key intentionally makes startup fail instead of silently discarding encrypted state. Dashboard previews and the standalone loopback Agent audit log must still move into the durable boundary before release.
+
+On the first startup only, `GITSSS_API_TOKEN` seeds a full-scope `bootstrap` token that expires after 24 hours. Issue a named replacement through `POST /api/v1/auth/tokens` before it expires; the generated secret is returned once, while later lists expose metadata only. Existing token state is never overwritten from the environment. Listing requires `auth:read`; issuing and revoking require `auth:write`. See [`docs/architecture/auth-token-v1.md`](../docs/architecture/auth-token-v1.md).
 
 Start the local Agent HTTP control plane with an expiring token read from the environment:
 

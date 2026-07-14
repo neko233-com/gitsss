@@ -4,8 +4,12 @@ package auth
 
 import (
 	"errors"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/neko233-com/gitsss/server/internal/state"
 )
 
 func TestVerifierVerify(t *testing.T) {
@@ -19,6 +23,81 @@ func TestVerifierVerify(t *testing.T) {
 	if principal.TokenID != "agent-1" {
 		t.Fatalf("TokenID = %q, want %q", principal.TokenID, "agent-1")
 	}
+}
+
+func TestPersistentVerifierIssuesRevokesAndSurvivesRestart(t *testing.T) {
+	now := time.Date(2026, 7, 14, 0, 0, 0, 0, time.UTC)
+	store, err := state.Open(filepath.Join(t.TempDir(), "gitsss.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	verifier, err := NewPersistentVerifier(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seeded, err := verifier.EnsureBootstrap(strings.Repeat("b", minimumTokenBytes), now, now.Add(24*time.Hour), "auth:read", "auth:write")
+	if err != nil || !seeded {
+		t.Fatalf("bootstrap = %v, %v", seeded, err)
+	}
+	issued, err := verifier.Issue("desktop-admin", []string{"dashboard:read", "auth:read"}, now, now.Add(7*24*time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(issued.Token, "gitsss_") || strings.Contains(string(mustTokenDocuments(t, store)), issued.Token) {
+		t.Fatal("issued token was malformed or persisted as plaintext")
+	}
+	reopened, err := NewPersistentVerifier(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if principal, err := reopened.Verify(issued.Token, "dashboard:read", now); err != nil || principal.TokenID != "desktop-admin" {
+		t.Fatalf("reopened verification = %#v, %v", principal, err)
+	}
+	if err := reopened.Revoke("desktop-admin", "bootstrap", now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reopened.Verify(issued.Token, "dashboard:read", now.Add(2*time.Minute)); !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("revoked verification error = %v", err)
+	}
+	if err := reopened.Revoke("bootstrap", "bootstrap", now); !errors.Is(err, ErrSelfRevoke) {
+		t.Fatalf("self revoke error = %v", err)
+	}
+}
+
+func TestPersistentVerifierRequiresBootstrapOnlyWhenEmpty(t *testing.T) {
+	now := time.Date(2026, 7, 14, 0, 0, 0, 0, time.UTC)
+	store, err := state.Open(filepath.Join(t.TempDir(), "gitsss.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	verifier, err := NewPersistentVerifier(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := verifier.EnsureBootstrap("short", now, now.Add(time.Hour), "auth:write"); !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("short bootstrap error = %v", err)
+	}
+	if seeded, err := verifier.EnsureBootstrap(strings.Repeat("s", minimumTokenBytes), now, now.Add(time.Hour), "auth:write"); err != nil || !seeded {
+		t.Fatalf("bootstrap = %v, %v", seeded, err)
+	}
+	if seeded, err := verifier.EnsureBootstrap("", now, now.Add(time.Hour), "auth:write"); err != nil || seeded {
+		t.Fatalf("existing bootstrap = %v, %v", seeded, err)
+	}
+}
+
+func mustTokenDocuments(t *testing.T, store *state.Store) []byte {
+	t.Helper()
+	documents, err := store.List(tokenStateNamespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var combined []byte
+	for _, document := range documents {
+		combined = append(combined, document.Payload...)
+	}
+	return combined
 }
 
 func TestVerifierRejectsExpiredAndUnscopedTokens(t *testing.T) {

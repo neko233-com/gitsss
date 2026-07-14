@@ -36,6 +36,79 @@ func (notificationAdapter) Deliver(context.Context, notification.Message) error 
 	return nil
 }
 
+func TestServerManagesPersistentTokensWithoutReturningSecretsAgain(t *testing.T) {
+	root := t.TempDir()
+	store, err := state.Open(filepath.Join(root, "gitsss.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	vault, err := state.OpenVault(filepath.Join(root, "gitsss.key"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	auditLog, err := audit.NewPersistentLog(store, vault)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifier, err := auth.NewPersistentVerifier(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 7, 14, 8, 0, 0, 0, time.UTC)
+	bootstrap := strings.Repeat("b", 24)
+	if _, err := verifier.EnsureBootstrap(bootstrap, now, now.Add(24*time.Hour), "auth:read", "auth:write"); err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(verifier, Dependencies{Audit: auditLog})
+	server.now = func() time.Time { return now }
+	handler := server.Handler()
+
+	issue := httptest.NewRequest(http.MethodPost, "/api/v1/auth/tokens", strings.NewReader(`{"id":"desktop-admin","scopes":["auth:read"],"expires_in_hours":48}`))
+	issue.Header.Set("Authorization", "Bearer "+bootstrap)
+	issueResponse := httptest.NewRecorder()
+	handler.ServeHTTP(issueResponse, issue)
+	if issueResponse.Code != http.StatusCreated {
+		t.Fatalf("issue = %d %s", issueResponse.Code, issueResponse.Body.String())
+	}
+	var issued auth.IssuedToken
+	if err := json.Unmarshal(issueResponse.Body.Bytes(), &issued); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(issued.Token, "gitsss_") {
+		t.Fatalf("issued token = %q", issued.Token)
+	}
+
+	list := httptest.NewRequest(http.MethodGet, "/api/v1/auth/tokens", nil)
+	list.Header.Set("Authorization", "Bearer "+issued.Token)
+	listResponse := httptest.NewRecorder()
+	handler.ServeHTTP(listResponse, list)
+	if listResponse.Code != http.StatusOK || strings.Contains(listResponse.Body.String(), issued.Token) || strings.Contains(listResponse.Body.String(), `"hash"`) {
+		t.Fatalf("list = %d %s", listResponse.Code, listResponse.Body.String())
+	}
+
+	revoke := httptest.NewRequest(http.MethodDelete, "/api/v1/auth/tokens/desktop-admin", nil)
+	revoke.Header.Set("Authorization", "Bearer "+bootstrap)
+	revokeResponse := httptest.NewRecorder()
+	handler.ServeHTTP(revokeResponse, revoke)
+	if revokeResponse.Code != http.StatusNoContent {
+		t.Fatalf("revoke = %d %s", revokeResponse.Code, revokeResponse.Body.String())
+	}
+	denied := httptest.NewRecorder()
+	handler.ServeHTTP(denied, list)
+	if denied.Code != http.StatusUnauthorized {
+		t.Fatalf("revoked token status = %d", denied.Code)
+	}
+	entries := auditLog.Entries()
+	actions := make(map[string]bool, len(entries))
+	for _, entry := range entries {
+		actions[entry.Action] = true
+	}
+	if len(entries) != 2 || !actions["auth.token.issue"] || !actions["auth.token.revoke"] {
+		t.Fatalf("audit entries = %#v", entries)
+	}
+}
+
 func TestServerAuthorizesDashboardAndAuditsPreviewClear(t *testing.T) {
 	log := &audit.Log{}
 	service := dashboard.NewService(3, []dashboard.Event{{ID: "event"}}, log)
