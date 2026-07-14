@@ -217,6 +217,10 @@ func (s *Server) notificationConfigure(w http.ResponseWriter, r *http.Request) {
 	configuration.Channel = notification.Channel(r.PathValue("channel"))
 	state, err := s.notifications.Configure(principal.TokenID, requestID(), configuration)
 	if err != nil {
+		if errors.Is(err, notification.ErrState) {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "notification state could not be updated"})
+			return
+		}
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
@@ -244,10 +248,18 @@ func (s *Server) notificationTest(w http.ResponseWriter, r *http.Request) {
 	}
 	id := requestID()
 	if _, err := s.notifications.Enqueue(notification.Channel(r.PathValue("channel")), id, request.Subject, request.Body); err != nil {
+		if errors.Is(err, notification.ErrState) {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "notification state could not be updated"})
+			return
+		}
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	processed := s.notifications.DispatchDue(r.Context(), principal.TokenID, id, 1)
+	processed, err := s.notifications.DispatchDue(r.Context(), principal.TokenID, id, 1)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "notification state could not be updated"})
+		return
+	}
 	if len(processed) == 0 {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": "notification is waiting for retry"})
 		return
@@ -267,7 +279,12 @@ func (s *Server) notificationDispatch(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	writeJSON(w, http.StatusOK, s.notifications.DispatchDue(r.Context(), principal.TokenID, requestID(), 20))
+	processed, err := s.notifications.DispatchDue(r.Context(), principal.TokenID, requestID(), 20)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "notification state could not be updated"})
+		return
+	}
+	writeJSON(w, http.StatusOK, processed)
 }
 
 func (s *Server) health(w http.ResponseWriter, _ *http.Request) {

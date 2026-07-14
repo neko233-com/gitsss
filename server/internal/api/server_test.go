@@ -19,6 +19,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/notification"
 	"github.com/neko233-com/gitsss/server/internal/repository"
 	"github.com/neko233-com/gitsss/server/internal/runner"
+	"github.com/neko233-com/gitsss/server/internal/state"
 	"github.com/neko233-com/gitsss/server/internal/storage"
 	"github.com/neko233-com/gitsss/server/internal/takeover"
 )
@@ -129,6 +130,33 @@ func TestServerConfiguresAndTestsNotificationWithoutReturningSecrets(t *testing.
 	server.Handler().ServeHTTP(testResponse, testRequest)
 	if testResponse.Code != http.StatusOK || !strings.Contains(testResponse.Body.String(), `"status":"delivered"`) {
 		t.Fatalf("test response = %d %s, want delivered", testResponse.Code, testResponse.Body.String())
+	}
+}
+
+func TestServerHidesNotificationPersistenceErrors(t *testing.T) {
+	root := t.TempDir()
+	store, err := state.Open(filepath.Join(root, "gitsss.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	vault, err := state.OpenVault(filepath.Join(root, "gitsss.key"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	notifications, err := notification.NewPersistentService(notificationFactory{}, &audit.Log{}, store, vault)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(auth.NewVerifier(auth.NewRecord("admin", "token", time.Time{}, "notifications:write")), Dependencies{Notifications: notifications})
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/channels/feishu", strings.NewReader(`{"webhook_url":"https://open.feishu.cn/private","secret":"private-secret"}`))
+	request.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusInternalServerError || strings.Contains(response.Body.String(), "closed") || strings.Contains(response.Body.String(), "private") {
+		t.Fatalf("persistence response = %d %s", response.Code, response.Body.String())
 	}
 }
 

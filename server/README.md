@@ -20,12 +20,13 @@ This Go 1.26 module establishes the first server boundaries for gitsss:
 ```powershell
 $env:GITSSS_API_TOKEN = "replace-with-a-local-test-token"
 $env:GITSSS_DATA_PATH = "$PWD\data\gitsss.db"
+$env:GITSSS_MASTER_KEY_PATH = "$PWD\data\gitsss.db.key"
 go run ./cmd/gitsss
 go run ./cmd/gitsss-agent probe --server http://127.0.0.1:8787 --token $env:GITSSS_API_TOKEN
 go run ./cmd/gitsss-agent runner-report --server http://127.0.0.1:8787 --token $env:GITSSS_API_TOKEN --id local-agent --platform windows/amd64
 ```
 
-The server creates one permission-restricted embedded SQLite file at `GITSSS_DATA_PATH` (default `data/gitsss.db`) with WAL, full synchronous writes, a busy timeout and a versioned schema. Agent jobs and takeover assessments survive process restarts; writes reach SQLite before the in-memory view is updated. Bootstrap tokens, notification secrets/outbox, dashboard previews and audit records are still implementation slices and must move into the same durable boundary before release. Notification API responses and audit targets never include webhook URLs, SMTP passwords or signing secrets. Feishu and WeCom webhooks are restricted to their official HTTPS hosts; an internal relay requires a future explicit administrator allowlist.
+The server creates one permission-restricted embedded SQLite file at `GITSSS_DATA_PATH` (default `data/gitsss.db`) with WAL, full synchronous writes, a busy timeout and a versioned schema. Agent jobs, takeover assessments, notification configurations and the notification outbox survive process restarts; writes reach SQLite before the in-memory view is updated. Notification secrets and message content are AES-256-GCM encrypted with identity-bound associated data and a generated 32-byte key at `GITSSS_MASTER_KEY_PATH` (default `<data-path>.key`). Unix uses `0600`; Windows applies a protected DACL for the service user, SYSTEM and Administrators without calling `icacls`. Losing the key intentionally makes startup fail instead of silently discarding encrypted state. Bootstrap tokens, dashboard previews and audit records must still move into the durable boundary before release.
 
 Start the local Agent HTTP control plane with an expiring token read from the environment:
 
@@ -64,7 +65,7 @@ Installation is no-replace and transactional: it atomically publishes the protec
 
 The queue accepts only `takeover.assess`, `takeover.freeze-check`, `backup.export`, `backup.restore-isolated`, `backup.audit-restore`, `takeover.shadow-audit` and `backup.verify`; it cannot execute shell commands. gitsss itself uses embedded SQLite and has no external database runtime. SQLite takeover includes WAL through the embedded online-backup API. PostgreSQL/MySQL takeover uses pure-Go drivers compiled into the Agent, produces a deterministic typed JSONL snapshot, and requires current offline freeze evidence; no `pg_dump` or `mysqldump` installation is needed. Shadow audit rechecks the freeze evidence and database snapshot SHA-256 before accepting Git/LFS parity. Passphrases remain in a named environment variable on the old server. See [`docs/architecture/agent-jobs-v1.md`](../docs/architecture/agent-jobs-v1.md).
 
-Notification control-plane routes use the `notifications:read`, `notifications:write` and `notifications:dispatch` scopes. Configure a channel, send a test, and inspect the outbox through `/api/v1/notifications/channels`, `/api/v1/notifications/channels/{channel}/test` and `/api/v1/notifications/outbox`. Failed deliveries retry with exponential backoff and move to `dead` after four attempts.
+Notification control-plane routes use the `notifications:read`, `notifications:write` and `notifications:dispatch` scopes. Configure a channel, send a test, and inspect the outbox through `/api/v1/notifications/channels`, `/api/v1/notifications/channels/{channel}/test` and `/api/v1/notifications/outbox`. Delivery claims are durably recorded before network I/O. Failed deliveries retry with exponential backoff and move to `dead` after four attempts; a process crash or expired 15-minute delivery lease is recovered with explicit at-least-once semantics.
 
 GitHub-hosted CI is disabled while the repository has no Actions quota. The trusted Windows release path runs the complete local checks, cross-builds six Linux/macOS/Windows packages, verifies binary architecture, writes SHA-256 checksums and can upload a commit-bound prerelease. See [`docs/operations/local-release.md`](../docs/operations/local-release.md).
 

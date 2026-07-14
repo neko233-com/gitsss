@@ -58,7 +58,7 @@ func Open(path string) (*Store, error) {
 	} else {
 		return nil, err
 	}
-	if err := os.Chmod(absolute, 0o600); err != nil {
+	if err := protectFile(absolute); err != nil {
 		return nil, err
 	}
 
@@ -186,7 +186,7 @@ func secureSQLiteSidecars(path string) error {
 		if !info.Mode().IsRegular() {
 			return fmt.Errorf("%w: SQLite sidecar must be a regular file", ErrInvalidDocument)
 		}
-		if err := os.Chmod(sidecar, 0o600); err != nil {
+		if err := protectFile(sidecar); err != nil {
 			return err
 		}
 	}

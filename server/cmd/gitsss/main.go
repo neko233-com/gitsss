@@ -35,6 +35,14 @@ func main() {
 		log.Fatal(err)
 	}
 	defer stateStore.Close()
+	masterKeyPath := os.Getenv("GITSSS_MASTER_KEY_PATH")
+	if masterKeyPath == "" {
+		masterKeyPath = dataPath + ".key"
+	}
+	vault, err := state.OpenVault(masterKeyPath)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	logStore := &audit.Log{}
 	dashboardService := dashboard.NewService(6, []dashboard.Event{
@@ -49,7 +57,10 @@ func main() {
 		{Category: storage.CategoryBackups, Bytes: 150 << 30},
 	})
 	runnerService := runner.NewService("0.1.0")
-	notificationService := notification.NewService(notification.NewFactory(), logStore)
+	notificationService, err := notification.NewPersistentService(notification.NewFactory(), logStore, stateStore, vault)
+	if err != nil {
+		log.Fatal(err)
+	}
 	takeoverRegistry, err := takeover.NewPersistentRegistry(logStore, stateStore)
 	if err != nil {
 		log.Fatal(err)
