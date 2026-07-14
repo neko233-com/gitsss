@@ -48,6 +48,7 @@ gitsss Agent (CLI + authenticated local HTTP) ── existing Gitea intranet ser
 ### 前端与设计系统
 
 - 在 `web/` 建立独立 React/Vite 应用，逐步替代 `web_src/` 的 Vue 页面，避免在一个页面内混用两套渲染模型。
+- Vue 前端作为待删除 Legacy：React 的路由、构建、测试和主流程验证完成后，删除 `web_src/`、Vue 依赖、Vue Vite 插件、Vue 专用测试/文档与旧构建目标；不得长期保留双前端。
 - 用 shadcn/ui 作为可访问的基础组件，不采用其默认视觉作为产品外观；建立 gitsss tokens、动效、焦点、阴影、空白和深浅色主题。
 - 视觉方向为 Apple/Spotlight：留白优先、单一主操作、短层级、键盘优先、轻量半透明浮层，支持 `prefers-reduced-motion`。
 - 重新设计品牌标志与完整的产品图标系统（导航、状态、操作、通知、CI），禁止复用 Gitea 标志、Octicons 品牌隐喻或旧图标资源。
