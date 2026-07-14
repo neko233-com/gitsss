@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"path"
 	"strings"
+
+	"github.com/neko233-com/gitsss/server/internal/launcher"
 )
 
 var ErrInvalidPlan = errors.New("invalid autostart plan")
@@ -23,13 +25,18 @@ const (
 )
 
 type Options struct {
-	Platform         Platform `json:"platform"`
-	Executable       string   `json:"executable"`
-	ServerURL        string   `json:"server_url"`
-	AgentID          string   `json:"agent_id"`
-	TokenFile        string   `json:"token_file,omitempty"`
-	WorkingDirectory string   `json:"working_directory,omitempty"`
-	LogDirectory     string   `json:"log_directory,omitempty"`
+	Platform           Platform `json:"platform"`
+	Executable         string   `json:"executable"`
+	ServerURL          string   `json:"server_url"`
+	AgentID            string   `json:"agent_id"`
+	TokenFile          string   `json:"token_file,omitempty"`
+	WorkingDirectory   string   `json:"working_directory,omitempty"`
+	LogDirectory       string   `json:"log_directory,omitempty"`
+	LauncherExecutable string   `json:"launcher_executable,omitempty"`
+	StateDirectory     string   `json:"state_directory,omitempty"`
+	Version            string   `json:"version,omitempty"`
+	Commit             string   `json:"commit,omitempty"`
+	Architecture       string   `json:"architecture,omitempty"`
 }
 
 type Command struct {
@@ -38,13 +45,15 @@ type Command struct {
 }
 
 type Plan struct {
-	Platform       Platform  `json:"platform"`
-	DefinitionPath string    `json:"definition_path"`
-	TokenFile      string    `json:"token_file"`
-	Directories    []string  `json:"directories"`
-	Definition     string    `json:"definition"`
-	Install        []Command `json:"install"`
-	Uninstall      []Command `json:"uninstall"`
+	Platform        Platform  `json:"platform"`
+	DefinitionPath  string    `json:"definition_path"`
+	TokenFile       string    `json:"token_file"`
+	Directories     []string  `json:"directories"`
+	StatePath       string    `json:"state_path,omitempty"`
+	StateDefinition string    `json:"state_definition,omitempty"`
+	Definition      string    `json:"definition"`
+	Install         []Command `json:"install"`
+	Uninstall       []Command `json:"uninstall"`
 }
 
 func BuildPlan(options Options) (Plan, error) {
@@ -68,6 +77,11 @@ func BuildPlan(options Options) (Plan, error) {
 	if options.LogDirectory != "" && !validTargetAbsolutePath(options.Platform, options.LogDirectory) {
 		return Plan{}, fmt.Errorf("%w: log directory must be absolute", ErrInvalidPlan)
 	}
+	if launcherRequested(options) {
+		if err := validateLauncherOptions(options); err != nil {
+			return Plan{}, err
+		}
+	}
 	switch options.Platform {
 	case PlatformWindows:
 		return windowsPlan(options), nil
@@ -79,6 +93,7 @@ func BuildPlan(options Options) (Plan, error) {
 }
 
 func applyDefaults(options *Options) {
+	useLauncher := launcherRequested(*options)
 	switch options.Platform {
 	case PlatformWindows:
 		if options.TokenFile == "" {
@@ -86,6 +101,9 @@ func applyDefaults(options *Options) {
 		}
 		if options.WorkingDirectory == "" {
 			options.WorkingDirectory = `C:\ProgramData\gitsss`
+		}
+		if useLauncher && options.StateDirectory == "" {
+			options.StateDirectory = `C:\ProgramData\gitsss\launcher-state`
 		}
 	case PlatformDarwin:
 		if options.TokenFile == "" {
@@ -97,12 +115,18 @@ func applyDefaults(options *Options) {
 		if options.LogDirectory == "" {
 			options.LogDirectory = "/Library/Logs/gitsss"
 		}
+		if useLauncher && options.StateDirectory == "" {
+			options.StateDirectory = "/Library/Application Support/gitsss/launcher-state"
+		}
 	case PlatformLinux:
 		if options.TokenFile == "" {
 			options.TokenFile = "/etc/gitsss/agent.token"
 		}
 		if options.WorkingDirectory == "" {
 			options.WorkingDirectory = "/var/lib/gitsss"
+		}
+		if useLauncher && options.StateDirectory == "" {
+			options.StateDirectory = "/var/lib/gitsss/launcher-state"
 		}
 	}
 }
@@ -111,21 +135,36 @@ func workerArguments(options Options) []string {
 	return []string{"work", "--server", options.ServerURL, "--id", options.AgentID, "--token-file", options.TokenFile}
 }
 
+func serviceExecutable(options Options) string {
+	if options.LauncherExecutable != "" {
+		return options.LauncherExecutable
+	}
+	return options.Executable
+}
+
+func serviceArguments(options Options) []string {
+	if options.LauncherExecutable != "" {
+		return []string{"--state-dir", options.StateDirectory}
+	}
+	return workerArguments(options)
+}
+
 func windowsPlan(options Options) Plan {
 	definitionPath := `C:\ProgramData\gitsss\gitsss-agent-task.xml`
-	arguments := windowsCommandLine(workerArguments(options))
+	arguments := windowsCommandLine(serviceArguments(options))
 	definition := `<?xml version="1.0" encoding="UTF-8"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo><Author>gitsss</Author><Description>gitsss persistent Agent worker</Description></RegistrationInfo>
   <Triggers><BootTrigger><Enabled>true</Enabled></BootTrigger></Triggers>
   <Principals><Principal id="System"><UserId>S-1-5-18</UserId><LogonType>ServiceAccount</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals>
   <Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>false</StopIfGoingOnBatteries><StartWhenAvailable>true</StartWhenAvailable><RunOnlyIfNetworkAvailable>true</RunOnlyIfNetworkAvailable><ExecutionTimeLimit>PT0S</ExecutionTimeLimit><RestartOnFailure><Interval>PT1M</Interval><Count>999</Count></RestartOnFailure></Settings>
-  <Actions Context="System"><Exec><Command>` + escapeXML(options.Executable) + `</Command><Arguments>` + escapeXML(arguments) + `</Arguments><WorkingDirectory>` + escapeXML(options.WorkingDirectory) + `</WorkingDirectory></Exec></Actions>
+  <Actions Context="System"><Exec><Command>` + escapeXML(serviceExecutable(options)) + `</Command><Arguments>` + escapeXML(arguments) + `</Arguments><WorkingDirectory>` + escapeXML(options.WorkingDirectory) + `</WorkingDirectory></Exec></Actions>
 </Task>
 `
 	return Plan{
 		Platform: options.Platform, DefinitionPath: definitionPath, TokenFile: options.TokenFile,
 		Directories: serviceDirectories(options), Definition: definition,
+		StatePath: launcherStatePath(options), StateDefinition: launcherStateDefinition(options),
 		Install: []Command{
 			{Executable: "schtasks.exe", Arguments: []string{"/Create", "/TN", "gitsss-agent", "/XML", definitionPath, "/F"}},
 			{Executable: "schtasks.exe", Arguments: []string{"/Run", "/TN", "gitsss-agent"}},
@@ -139,7 +178,7 @@ func windowsPlan(options Options) Plan {
 
 func darwinPlan(options Options) Plan {
 	definitionPath := "/Library/LaunchDaemons/com.gitsss.agent.plist"
-	arguments := append([]string{options.Executable}, workerArguments(options)...)
+	arguments := append([]string{serviceExecutable(options)}, serviceArguments(options)...)
 	var argumentXML strings.Builder
 	for _, argument := range arguments {
 		argumentXML.WriteString("    <string>")
@@ -166,6 +205,7 @@ func darwinPlan(options Options) Plan {
 	return Plan{
 		Platform: options.Platform, DefinitionPath: definitionPath, TokenFile: options.TokenFile,
 		Directories: serviceDirectories(options), Definition: definition,
+		StatePath: launcherStatePath(options), StateDefinition: launcherStateDefinition(options),
 		Install: []Command{
 			{Executable: "/bin/launchctl", Arguments: []string{"bootstrap", "system", definitionPath}},
 			{Executable: "/bin/launchctl", Arguments: []string{"enable", "system/com.gitsss.agent"}},
@@ -177,7 +217,7 @@ func darwinPlan(options Options) Plan {
 
 func linuxPlan(options Options) Plan {
 	definitionPath := "/etc/systemd/system/gitsss-agent.service"
-	arguments := append([]string{options.Executable}, workerArguments(options)...)
+	arguments := append([]string{serviceExecutable(options)}, serviceArguments(options)...)
 	quoted := make([]string, len(arguments))
 	for index, argument := range arguments {
 		quoted[index] = quoteSystemdArgument(argument)
@@ -205,6 +245,7 @@ WantedBy=multi-user.target
 	return Plan{
 		Platform: options.Platform, DefinitionPath: definitionPath, TokenFile: options.TokenFile,
 		Directories: serviceDirectories(options), Definition: definition,
+		StatePath: launcherStatePath(options), StateDefinition: launcherStateDefinition(options),
 		Install: []Command{
 			{Executable: "systemctl", Arguments: []string{"daemon-reload"}},
 			{Executable: "systemctl", Arguments: []string{"enable", "--now", "gitsss-agent.service"}},
@@ -218,6 +259,9 @@ WantedBy=multi-user.target
 
 func serviceDirectories(options Options) []string {
 	candidates := []string{options.WorkingDirectory, targetDirectory(options.Platform, options.TokenFile)}
+	if options.LauncherExecutable != "" {
+		candidates = append(candidates, options.StateDirectory)
+	}
 	if options.LogDirectory != "" {
 		candidates = append(candidates, options.LogDirectory)
 	}
@@ -231,6 +275,78 @@ func serviceDirectories(options Options) []string {
 		directories = append(directories, candidate)
 	}
 	return directories
+}
+
+func launcherRequested(options Options) bool {
+	return options.LauncherExecutable != "" || options.StateDirectory != "" || options.Version != "" || options.Commit != "" || options.Architecture != ""
+}
+
+func validateLauncherOptions(options Options) error {
+	if !validTargetAbsolutePath(options.Platform, options.LauncherExecutable) || !validTargetAbsolutePath(options.Platform, options.StateDirectory) {
+		return fmt.Errorf("%w: launcher and state paths must be absolute", ErrInvalidPlan)
+	}
+	expectedAgent := "gitsss-agent"
+	expectedLauncher := "gitsss-launcher"
+	if options.Platform == PlatformWindows {
+		expectedAgent += ".exe"
+		expectedLauncher += ".exe"
+	}
+	if targetBase(options.Platform, options.Executable) != expectedAgent || targetBase(options.Platform, options.LauncherExecutable) != expectedLauncher {
+		return fmt.Errorf("%w: launcher mode requires packaged Agent and launcher names", ErrInvalidPlan)
+	}
+	_, err := launcher.Canonical(launcher.State{
+		Format: launcher.Format, Generation: 1, Version: options.Version, Commit: options.Commit,
+		Platform: string(options.Platform), Architecture: options.Architecture,
+		Directory: targetDirectory(options.Platform, options.Executable), Executable: expectedAgent,
+		WorkingDirectory: options.WorkingDirectory, Arguments: workerArguments(options),
+	})
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidPlan, err)
+	}
+	return nil
+}
+
+func launcherStatePath(options Options) string {
+	if options.LauncherExecutable == "" {
+		return ""
+	}
+	return targetJoin(options.Platform, options.StateDirectory, launcher.StateFilename(1))
+}
+
+func launcherStateDefinition(options Options) string {
+	if options.LauncherExecutable == "" {
+		return ""
+	}
+	content, _ := launcher.Canonical(launcher.State{
+		Format: launcher.Format, Generation: 1, Version: options.Version, Commit: options.Commit,
+		Platform: string(options.Platform), Architecture: options.Architecture,
+		Directory:  targetDirectory(options.Platform, options.Executable),
+		Executable: targetBase(options.Platform, options.Executable), WorkingDirectory: options.WorkingDirectory,
+		Arguments: workerArguments(options),
+	})
+	return string(content)
+}
+
+func targetBase(platform Platform, filePath string) string {
+	if platform != PlatformWindows {
+		return path.Base(filePath)
+	}
+	index := strings.LastIndexAny(filePath, `\\/`)
+	if index < 0 {
+		return filePath
+	}
+	return filePath[index+1:]
+}
+
+func targetJoin(platform Platform, directory, name string) string {
+	if platform != PlatformWindows {
+		return path.Join(directory, name)
+	}
+	separator := `\`
+	if strings.Contains(directory, "/") && !strings.Contains(directory, `\`) {
+		separator = "/"
+	}
+	return strings.TrimRight(directory, `\/`) + separator + name
 }
 
 func targetDirectory(platform Platform, filePath string) string {

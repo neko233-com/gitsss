@@ -61,6 +61,8 @@ func (host *fakeTransactionHost) RemoveDirectory(path string) error {
 
 func TestInstallCreatesProtectedInputsBeforeStartingService(t *testing.T) {
 	plan := transactionTestPlan(t)
+	plan.StatePath = filepath.Join(filepath.Dir(plan.TokenFile), "active-00000000000000000001.json")
+	plan.StateDefinition = "launcher state\n"
 	host := newFakeTransactionHost()
 	if err := installWithHost(context.Background(), plan, "work-token", host); err != nil {
 		t.Fatal(err)
@@ -71,8 +73,11 @@ func TestInstallCreatesProtectedInputsBeforeStartingService(t *testing.T) {
 	if got := string(host.files[plan.DefinitionPath]); got != plan.Definition {
 		t.Fatalf("definition = %q", got)
 	}
+	if got := string(host.files[plan.StatePath]); got != plan.StateDefinition {
+		t.Fatalf("launcher state = %q", got)
+	}
 	events := strings.Join(host.events, "\n")
-	for _, sequence := range []string{"token " + plan.TokenFile, "definition " + plan.DefinitionPath, "run install-service"} {
+	for _, sequence := range []string{"token " + plan.TokenFile, "definition " + plan.StatePath, "definition " + plan.DefinitionPath, "run install-service"} {
 		if !strings.Contains(events, sequence) {
 			t.Fatalf("events do not contain %q:\n%s", sequence, events)
 		}

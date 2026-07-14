@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -77,6 +78,11 @@ func parseServicePlan(name string, args []string, defaultServer, defaultAgentID 
 	tokenFile := flags.String("token-file", "", "absolute protected Agent work token path")
 	workingDirectory := flags.String("working-directory", "", "absolute service working directory")
 	logDirectory := flags.String("log-directory", "", "absolute log directory; used by launchd")
+	launcherExecutable := flags.String("launcher-executable", "", "absolute stable gitsss-launcher path; auto-detected beside an installed Agent")
+	stateDirectory := flags.String("state-directory", "", "absolute immutable launcher state directory")
+	version := flags.String("version", "", "installed package version; auto-detected from BUILDINFO.json")
+	commit := flags.String("commit", "", "installed package commit; auto-detected from BUILDINFO.json")
+	architecture := flags.String("arch", "", "target architecture: amd64 or arm64")
 	if extend != nil {
 		extend(flags)
 	}
@@ -90,9 +96,72 @@ func parseServicePlan(name string, args []string, defaultServer, defaultAgentID 
 		}
 		*executable = resolved
 	}
+	if strings.TrimSpace(*launcherExecutable) == "" && *platform == runtime.GOOS {
+		candidate := filepath.Join(filepath.Dir(*executable), launcherFilename(runtime.GOOS))
+		if info, err := os.Lstat(candidate); err == nil && info.Mode()&os.ModeSymlink == 0 && info.Mode().IsRegular() {
+			*launcherExecutable = candidate
+		}
+	}
+	if strings.TrimSpace(*launcherExecutable) != "" {
+		if strings.TrimSpace(*version) == "" || strings.TrimSpace(*commit) == "" || strings.TrimSpace(*architecture) == "" {
+			build, err := readServiceBuildInfo(filepath.Join(filepath.Dir(*executable), "BUILDINFO.json"))
+			if err == nil && build.GOOS == *platform {
+				if *version == "" {
+					*version = build.Version
+				}
+				if *commit == "" {
+					*commit = build.Commit
+				}
+				if *architecture == "" {
+					*architecture = build.GOARCH
+				}
+			}
+		}
+		if *architecture == "" && *platform == runtime.GOOS {
+			*architecture = runtime.GOARCH
+		}
+	}
 	return autostart.BuildPlan(autostart.Options{
 		Platform: autostart.Platform(*platform), Executable: *executable,
 		ServerURL: *serverURL, AgentID: *agentID, TokenFile: *tokenFile,
 		WorkingDirectory: *workingDirectory, LogDirectory: *logDirectory,
+		LauncherExecutable: *launcherExecutable, StateDirectory: *stateDirectory,
+		Version: *version, Commit: *commit, Architecture: *architecture,
 	})
+}
+
+type serviceBuildInfo struct {
+	Version string `json:"version"`
+	Commit  string `json:"commit"`
+	GOOS    string `json:"goos"`
+	GOARCH  string `json:"goarch"`
+}
+
+func readServiceBuildInfo(filePath string) (serviceBuildInfo, error) {
+	info, err := os.Lstat(filePath)
+	if err != nil {
+		return serviceBuildInfo{}, err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > 16<<10 {
+		return serviceBuildInfo{}, fmt.Errorf("BUILDINFO.json must be a small regular file")
+	}
+	file, err := os.Open(filePath)
+	if err != nil {
+		return serviceBuildInfo{}, err
+	}
+	defer file.Close()
+	decoder := json.NewDecoder(file)
+	decoder.DisallowUnknownFields()
+	var build serviceBuildInfo
+	if err := decoder.Decode(&build); err != nil {
+		return serviceBuildInfo{}, err
+	}
+	return build, nil
+}
+
+func launcherFilename(platform string) string {
+	if platform == "windows" {
+		return "gitsss-launcher.exe"
+	}
+	return "gitsss-launcher"
 }

@@ -3,9 +3,12 @@
 package autostart
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"strings"
 	"testing"
+
+	"github.com/neko233-com/gitsss/server/internal/launcher"
 )
 
 func TestBuildPlanRendersCrossPlatformDefinitions(t *testing.T) {
@@ -105,5 +108,31 @@ func TestWindowsAndSystemdArgumentQuoting(t *testing.T) {
 	}
 	if quoted := quoteSystemdArgument(`/var/lib/gitsss/100% "safe"`); quoted != `"/var/lib/gitsss/100%% \"safe\""` {
 		t.Fatalf("systemd argument = %q", quoted)
+	}
+}
+
+func TestBuildPlanRoutesServiceThroughLauncher(t *testing.T) {
+	plan, err := BuildPlan(Options{
+		Platform:           PlatformWindows,
+		Executable:         `C:\Program Files\gitsss\versions\1.2.3\gitsss-agent.exe`,
+		LauncherExecutable: `C:\Program Files\gitsss\gitsss-launcher.exe`,
+		ServerURL:          "https://gitsss.internal", AgentID: "studio-agent",
+		Version: "1.2.3", Commit: "0123456789abcdef0123456789abcdef01234567", Architecture: "amd64",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(plan.Definition, `gitsss-launcher.exe`) || !strings.Contains(plan.Definition, `--state-dir`) || strings.Contains(plan.Definition, `--token-file`) {
+		t.Fatalf("service does not route through launcher:\n%s", plan.Definition)
+	}
+	if plan.StatePath != `C:\ProgramData\gitsss\launcher-state\active-00000000000000000001.json` || plan.StateDefinition == "" {
+		t.Fatalf("unexpected launcher state: %s %q", plan.StatePath, plan.StateDefinition)
+	}
+	var state launcher.State
+	if err := json.Unmarshal([]byte(plan.StateDefinition), &state); err != nil {
+		t.Fatal(err)
+	}
+	if state.Platform != "windows" || state.Architecture != "amd64" || state.Executable != "gitsss-agent.exe" || !strings.Contains(plan.StateDefinition, `--token-file`) {
+		t.Fatalf("unexpected state: %#v", state)
 	}
 }

@@ -29,6 +29,7 @@ func TestPublishAndLoadLatestImmutableState(t *testing.T) {
 	}
 	state := State{
 		Format: Format, Generation: 1, Version: "1.2.3", Commit: "0123456789abcdef0123456789abcdef01234567",
+		Platform: runtime.GOOS, Architecture: runtime.GOARCH,
 		Directory: versionDirectory, Executable: executable, WorkingDirectory: root,
 		Arguments: []string{"work", "--server", "https://gitsss.internal", "--id", "studio-agent", "--token-file", filepath.Join(root, "agent.token")},
 	}
@@ -87,6 +88,7 @@ func TestLoadLatestRejectsTamperingAndSymlinkExecutable(t *testing.T) {
 	}
 	state := State{
 		Format: Format, Generation: 2, Version: "1.2.3", Commit: "0123456789abcdef0123456789abcdef01234567",
+		Platform: runtime.GOOS, Architecture: runtime.GOARCH,
 		Directory: versionDirectory, Executable: executable, WorkingDirectory: root, Arguments: []string{"work"},
 	}
 	if _, err := ExecutablePath(state); !errors.Is(err, ErrInvalidState) {

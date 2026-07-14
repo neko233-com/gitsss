@@ -45,6 +45,7 @@ func TestRunLauncherExecutesLatestState(t *testing.T) {
 	}
 	state := launcher.State{
 		Format: launcher.Format, Generation: 1, Version: "1.2.3", Commit: "0123456789abcdef0123456789abcdef01234567",
+		Platform: runtime.GOOS, Architecture: runtime.GOARCH,
 		Directory: versionDirectory, Executable: executable, WorkingDirectory: root,
 		Arguments: []string{"-test.run=^TestRunLauncherExecutesLatestState$"},
 	}

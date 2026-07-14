@@ -8,7 +8,7 @@
 | macOS | system launchd，RunAtLoad + KeepAlive | `/Library/LaunchDaemons/com.gitsss.agent.plist` | `/Library/Application Support/gitsss/agent.token` |
 | Linux Server | systemd，network-online 后启动并自动恢复 | `/etc/systemd/system/gitsss-agent.service` | `/etc/gitsss/agent.token` |
 
-服务定义只包含 `--token-file` 路径，不包含 Token 值。Agent 拒绝相对路径、符号链接、非常规文件、空文件和超过 4096 字节的文件；在 Unix 上还要求文件不能被 group/other 访问。Windows 安装事务需要为 Token 文件设置只允许 SYSTEM 和 Administrators 读取的 ACL。
+已安装的发行包会自动发现同目录的 `gitsss-launcher` 和 `BUILDINFO.json`。平台服务只执行稳定 launcher 与 `--state-dir`；generation 1 state 再指向当前版本 Agent，并包含 `--token-file` 路径，不包含 Token 值。Agent 拒绝相对 Token 路径、符号链接、非常规文件、空文件和超过 4096 字节的文件；在 Unix 上还要求 Token 文件不能被 group/other 访问。Windows 安装事务为 Token 文件设置只允许 SYSTEM 和 Administrators 读取的 ACL。
 
 ## 安装与卸载
 
@@ -20,7 +20,7 @@ gitsss-agent service-install --server https://gitsss.internal --id studio-agent
 Remove-Item Env:GITSSS_AGENT_WORK_TOKEN
 ```
 
-`service-install` 只接受本机平台，并且默认不覆盖已有 Token 或服务定义。它先创建目录，把 Token 以无覆盖原子方式发布为 Unix `0600` 文件或 Windows SYSTEM/Administrators 只读 ACL 文件，再发布服务定义并启动服务。任一安装命令失败都会尝试卸载服务并回滚本次创建的文件。
+`service-install` 只接受本机平台，并且默认不覆盖已有 Token、launcher state 或服务定义。它先创建目录，把 Token 以无覆盖原子方式发布为 Unix `0600` 文件或 Windows SYSTEM/Administrators 只读 ACL 文件，再发布 generation 1、服务定义并启动服务。任一安装命令失败都会尝试卸载服务并回滚本次创建的文件。
 
 卸载不需要再次提供 Token、服务器地址或 Agent ID：
 
@@ -28,7 +28,7 @@ Remove-Item Env:GITSSS_AGENT_WORK_TOKEN
 gitsss-agent service-uninstall
 ```
 
-只有平台服务卸载命令全部成功后，卸载事务才删除 Token 和服务定义；非空的工作/日志目录会保留，避免误删运行日志或后续产生的数据。自定义过 `--token-file`、`--working-directory` 或 `--log-directory` 时，卸载必须传入相同路径。
+只有平台服务卸载命令全部成功后，卸载事务才删除 Token、初始 generation 和服务定义；更新产生的后续 generation、非空工作/日志目录会保留，避免误删审计历史或运行数据。自定义过 `--token-file`、`--state-directory`、`--working-directory` 或 `--log-directory` 时，卸载必须传入相同路径。
 
 运行已经安装到最终位置的二进制时，可以省略 `--platform` 和 `--executable`：
 

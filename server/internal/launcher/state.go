@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -32,6 +33,8 @@ type State struct {
 	Generation       uint64   `json:"generation"`
 	Version          string   `json:"version"`
 	Commit           string   `json:"commit"`
+	Platform         string   `json:"platform"`
+	Architecture     string   `json:"architecture"`
 	Directory        string   `json:"directory"`
 	Executable       string   `json:"executable"`
 	WorkingDirectory string   `json:"working_directory"`
@@ -51,14 +54,14 @@ func Canonical(state State) ([]byte, error) {
 }
 
 func Validate(state State) error {
-	if state.Format != Format || state.Generation == 0 || !safeValue(state.Version) || !validCommit(state.Commit) {
+	if state.Format != Format || state.Generation == 0 || !safeValue(state.Version) || !validCommit(state.Commit) || !validTarget(state.Platform, state.Architecture) {
 		return fmt.Errorf("%w: header is invalid", ErrInvalidState)
 	}
-	if !cleanAbsolute(state.Directory) || !cleanAbsolute(state.WorkingDirectory) {
+	if !cleanTargetAbsolute(state.Platform, state.Directory) || !cleanTargetAbsolute(state.Platform, state.WorkingDirectory) {
 		return fmt.Errorf("%w: directories must be clean absolute paths", ErrInvalidState)
 	}
 	expectedExecutable := "gitsss-agent"
-	if runtime.GOOS == "windows" {
+	if state.Platform == "windows" {
 		expectedExecutable += ".exe"
 	}
 	if state.Executable != expectedExecutable || filepath.Base(state.Executable) != state.Executable {
@@ -78,6 +81,9 @@ func Validate(state State) error {
 func ExecutablePath(state State) (string, error) {
 	if err := Validate(state); err != nil {
 		return "", err
+	}
+	if state.Platform != runtime.GOOS || state.Architecture != runtime.GOARCH {
+		return "", fmt.Errorf("%w: state target %s/%s does not match host %s/%s", ErrInvalidState, state.Platform, state.Architecture, runtime.GOOS, runtime.GOARCH)
 	}
 	for _, directory := range []string{state.Directory, state.WorkingDirectory} {
 		info, err := os.Lstat(directory)
@@ -250,6 +256,20 @@ func cleanAbsolute(value string) bool {
 	return value != "" && filepath.IsAbs(value) && filepath.Clean(value) == value && !strings.ContainsAny(value, "\x00\r\n")
 }
 
+func cleanTargetAbsolute(platform, value string) bool {
+	if value == "" || strings.ContainsAny(value, "\x00\r\n") {
+		return false
+	}
+	if platform != "windows" {
+		return strings.HasPrefix(value, "/") && path.Clean(value) == value
+	}
+	normalized := strings.ReplaceAll(value, `\`, "/")
+	if len(normalized) < 3 || normalized[1] != ':' || normalized[2] != '/' || !((normalized[0] >= 'A' && normalized[0] <= 'Z') || (normalized[0] >= 'a' && normalized[0] <= 'z')) {
+		return false
+	}
+	return path.Clean(normalized) == normalized
+}
+
 func safeValue(value string) bool {
 	if value == "" || len(value) > 128 {
 		return false
@@ -269,4 +289,8 @@ func validCommit(value string) bool {
 	}
 	_, err := hex.DecodeString(value)
 	return err == nil
+}
+
+func validTarget(platform, architecture string) bool {
+	return (platform == "windows" || platform == "darwin" || platform == "linux") && (architecture == "amd64" || architecture == "arm64")
 }

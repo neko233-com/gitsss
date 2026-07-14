@@ -77,6 +77,12 @@ func installWithHost(ctx context.Context, plan Plan, token string, host transact
 		return rollback(fmt.Errorf("create protected token: %w", err), false)
 	}
 	createdFiles = append(createdFiles, plan.TokenFile)
+	if plan.StatePath != "" {
+		if err := host.CreateDefinition(plan.StatePath, []byte(plan.StateDefinition), 0o600); err != nil {
+			return rollback(fmt.Errorf("create launcher state: %w", err), false)
+		}
+		createdFiles = append(createdFiles, plan.StatePath)
+	}
 	if err := host.CreateDefinition(plan.DefinitionPath, []byte(plan.Definition), 0o644); err != nil {
 		return rollback(fmt.Errorf("create service definition: %w", err), false)
 	}
@@ -102,7 +108,10 @@ func uninstallWithHost(ctx context.Context, plan Plan, host transactionHost) err
 	if len(failures) > 0 {
 		return errors.Join(failures...)
 	}
-	for _, filePath := range []string{plan.TokenFile, plan.DefinitionPath} {
+	for _, filePath := range []string{plan.TokenFile, plan.StatePath, plan.DefinitionPath} {
+		if filePath == "" {
+			continue
+		}
 		if err := host.RemoveFile(filePath); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			failures = append(failures, fmt.Errorf("remove %s: %w", filePath, err))
 		}
@@ -119,6 +128,12 @@ func validateTransaction(plan Plan, requireInstall bool) error {
 	}
 	if !validTargetAbsolutePath(plan.Platform, plan.TokenFile) || !validTargetAbsolutePath(plan.Platform, plan.DefinitionPath) {
 		return fmt.Errorf("%w: token and definition paths must be absolute", ErrInvalidTransaction)
+	}
+	if (plan.StatePath == "") != (plan.StateDefinition == "") {
+		return fmt.Errorf("%w: launcher state path and definition must be provided together", ErrInvalidTransaction)
+	}
+	if plan.StatePath != "" && !validTargetAbsolutePath(plan.Platform, plan.StatePath) {
+		return fmt.Errorf("%w: launcher state path must be absolute", ErrInvalidTransaction)
 	}
 	for _, directory := range plan.Directories {
 		if !validTargetAbsolutePath(plan.Platform, directory) {
