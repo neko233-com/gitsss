@@ -833,13 +833,21 @@ func runnerReport(args []string) {
 	id := flags.String("id", "", "stable agent id")
 	platform := flags.String("platform", "", "runner platform, for example windows/amd64")
 	version := flags.String("version", "", "installed runner version")
+	registered := flags.Bool("registered", false, "runner registration is present")
+	unhealthy := flags.Bool("unhealthy", false, "runner health check failed")
+	lastError := flags.String("error", "", "bounded health failure summary")
+	diskFreeBytes := flags.Int64("disk-free-bytes", 0, "free bytes in the runner work volume")
 	flags.Parse(args)
 	if strings.TrimSpace(*serverURL) == "" || strings.TrimSpace(*token) == "" || strings.TrimSpace(*id) == "" || strings.TrimSpace(*platform) == "" {
 		fmt.Fprintln(os.Stderr, "--server, --token, --id and --platform are required")
 		os.Exit(2)
 	}
 
-	payload, err := json.Marshal(runner.Report{ID: *id, Platform: *platform, Version: *version})
+	healthy := !*unhealthy && strings.TrimSpace(*lastError) == ""
+	payload, err := json.Marshal(runner.Report{
+		ID: *id, Platform: *platform, Version: *version, Registered: *registered,
+		Healthy: &healthy, Error: *lastError, DiskFreeBytes: *diskFreeBytes,
+	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

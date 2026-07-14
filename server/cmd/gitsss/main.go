@@ -87,7 +87,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	runnerService := runner.NewService("0.1.0")
+	runnerService, err := runner.NewPersistentService("0.1.0", logStore, stateStore)
+	if err != nil {
+		log.Fatal(err)
+	}
 	notificationService, err := notification.NewPersistentService(notification.NewFactory(), logStore, stateStore, vault)
 	if err != nil {
 		log.Fatal(err)

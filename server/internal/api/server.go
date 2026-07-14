@@ -494,11 +494,12 @@ func (s *Server) runnerList(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.authenticate(w, r, "runners:read"); !ok {
 		return
 	}
-	writeJSON(w, http.StatusOK, s.runners.Runners())
+	writeJSON(w, http.StatusOK, s.runners.RunnersAt(s.now().UTC()))
 }
 
 func (s *Server) runnerReconcile(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.authenticate(w, r, "runners:write"); !ok {
+	principal, ok := s.authenticate(w, r, "runners:write")
+	if !ok {
 		return
 	}
 
@@ -507,8 +508,12 @@ func (s *Server) runnerReconcile(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid runner report"})
 		return
 	}
-	reconciliation, err := s.runners.Reconcile(report, s.now().UTC())
+	reconciliation, err := s.runners.ReconcileAs(principal.TokenID, requestID(), report, s.now().UTC())
 	if err != nil {
+		if errors.Is(err, runner.ErrState) || errors.Is(err, audit.ErrState) {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "runner state could not be updated"})
+			return
+		}
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}

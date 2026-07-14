@@ -5,7 +5,7 @@ This Go 1.26 module establishes the first server boundaries for gitsss:
 - scoped custom-token verification using constant-time hash comparison;
 - dashboard and bounded event-preview HTTP endpoints;
 - live filesystem capacity, reserve-aware write protection, bounded inventory and game-asset attribution endpoints;
-- a bundled Runner reconciliation contract for Agent-driven install, update and health verification;
+- a persistent bundled Runner lifecycle with install/update/pause/repair/verify decisions, health and disk protection;
 - persistent bare-repository creation, authenticated Smart HTTP clone/push, and allowlisted tree, text preview and search endpoints;
 - email, Feishu and WeCom notification configuration, test delivery and transactional outbox endpoints;
 - bounded, read-only Gitea `app.ini` assessment with redacted configuration fingerprints and audited Agent report ingestion;
@@ -70,6 +70,8 @@ Installation is no-replace and transactional: it atomically publishes the protec
 The queue accepts only `takeover.assess`, `takeover.freeze-check`, `backup.export`, `backup.restore-isolated`, `backup.audit-restore`, `takeover.shadow-audit` and `backup.verify`; it cannot execute shell commands. gitsss itself uses embedded SQLite and has no external database runtime. SQLite takeover includes WAL through the embedded online-backup API. PostgreSQL/MySQL takeover uses pure-Go drivers compiled into the Agent, produces a deterministic typed JSONL snapshot, and requires current offline freeze evidence; no `pg_dump` or `mysqldump` installation is needed. Shadow audit rechecks the freeze evidence and database snapshot SHA-256 before accepting Git/LFS parity. Passphrases remain in a named environment variable on the old server. See [`docs/architecture/agent-jobs-v1.md`](../docs/architecture/agent-jobs-v1.md).
 
 Notification control-plane routes use the `notifications:read`, `notifications:write` and `notifications:dispatch` scopes. Configure a channel, send a test, and inspect the outbox through `/api/v1/notifications/channels`, `/api/v1/notifications/channels/{channel}/test` and `/api/v1/notifications/outbox`. Delivery claims are durably recorded before network I/O. Failed deliveries retry with exponential backoff and move to `dead` after four attempts; a process crash or expired 15-minute delivery lease is recovered with explicit at-least-once semantics.
+
+Runner reports persist registration, version, health, work-volume free space and errors across restart. Reconciliation returns one of install, update, pause, repair or verify; low disk pauses new work, and missing reports become offline after two minutes. State and audit failures retain the previous record and fail the request. See [`docs/architecture/runner-lifecycle-v1.md`](../docs/architecture/runner-lifecycle-v1.md).
 
 GitHub-hosted CI is disabled while the repository has no Actions quota. The trusted Windows release path runs the complete local checks, cross-builds six Linux/macOS/Windows packages, verifies binary architecture, writes SHA-256 checksums and can upload a commit-bound prerelease. See [`docs/operations/local-release.md`](../docs/operations/local-release.md).
 
