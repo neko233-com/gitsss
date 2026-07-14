@@ -69,6 +69,8 @@ GitHub-hosted CI is disabled while the repository has no Actions quota. The trus
 
 `gitsss-agent update-verify` verifies a canonical update manifest, its Ed25519 signature and the exact OS/architecture package against an out-of-band trusted public key. `update-stage` re-verifies the same package handle and extracts it into a new bounded, link-free staging directory with ready metadata. Neither command downloads or activates the package. See [`docs/operations/signed-updates.md`](../docs/operations/signed-updates.md).
 
+Release packages also include the stable `gitsss-launcher` entrypoint. It executes the newest immutable canonical active-state generation without a shell, allowing a platform service to keep the launcher stable while versioned Agent binaries change. Autostart wiring and health-checked activation remain separate transactions. See [`docs/architecture/launcher-state-v1.md`](../docs/architecture/launcher-state-v1.md).
+
 Set `GITSSS_REPOSITORY_PATH` to a working tree, subdirectory, or bare repository. The server resolves working-tree subdirectories to the repository root and exposes only configured repository IDs; API callers cannot supply arbitrary filesystem paths. Text previews are capped at 1 MiB, binary game assets return metadata only, and search results are bounded.
 
 Run a takeover assessment locally without uploading credentials:

@@ -111,8 +111,9 @@ try {
         $env:CGO_ENABLED = "0"
         Invoke-Checked go @("build", "-trimpath", "-ldflags=-s -w", "-o", (Join-Path $packageDirectory "gitsss$suffix"), "./cmd/gitsss") (Join-Path $repository "server")
         Invoke-Checked go @("build", "-trimpath", "-ldflags=-s -w", "-o", (Join-Path $packageDirectory "gitsss-agent$suffix"), "./cmd/gitsss-agent") (Join-Path $repository "server")
+        Invoke-Checked go @("build", "-trimpath", "-ldflags=-s -w", "-o", (Join-Path $packageDirectory "gitsss-launcher$suffix"), "./cmd/gitsss-launcher") (Join-Path $repository "server")
 
-        foreach ($binary in @("gitsss$suffix", "gitsss-agent$suffix")) {
+        foreach ($binary in @("gitsss$suffix", "gitsss-agent$suffix", "gitsss-launcher$suffix")) {
             $metadata = (& go version -m (Join-Path $packageDirectory $binary)) -join "`n"
             if ($LASTEXITCODE -ne 0 -or $metadata -notmatch "GOOS=$goos" -or $metadata -notmatch "GOARCH=$goarch") {
                 throw "Architecture verification failed for $name/$binary"

@@ -304,7 +304,7 @@ func (writer *stageWriter) file(name string, size int64, source io.Reader) error
 		return err
 	}
 	mode := fs.FileMode(0o644)
-	if path.Base(relative) == "gitsss" || path.Base(relative) == "gitsss-agent" {
+	if path.Base(relative) == "gitsss" || path.Base(relative) == "gitsss-agent" || path.Base(relative) == "gitsss-launcher" {
 		mode = 0o755
 	}
 	file, err := os.OpenFile(destination, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode)
