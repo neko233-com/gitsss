@@ -202,6 +202,29 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 			result.SourceBytes += entry.Size
 		}
 		return json.Marshal(result)
+	case agentjob.KindBackupRestore:
+		var input agentjob.BackupRestoreInput
+		if err := json.Unmarshal(job.Input, &input); err != nil {
+			return nil, err
+		}
+		if input.AgentID == "" {
+			input.AgentID = agentID
+		}
+		passphrase := os.Getenv(input.PassphraseEnv)
+		if input.AgentID != agentID {
+			return nil, errors.New("restore Agent ID does not match the worker")
+		}
+		if strings.TrimSpace(input.InputPath) == "" || strings.TrimSpace(input.TargetPath) == "" || strings.TrimSpace(input.ExpectedAssessmentID) == "" || !validAgentEnvironmentName(input.PassphraseEnv) || len(passphrase) < 12 || !validAgentSHA256(input.ExpectedContainerSHA256) {
+			return nil, errors.New("restore paths, confirmation, digest and a valid passphrase environment are required")
+		}
+		restored, err := backup.RestoreIsolatedExact(input.InputPath, passphrase, input.TargetPath, input.ExpectedAssessmentID, input.ExpectedContainerSHA256)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(agentjob.BackupRestoreResult{
+			AssessmentID: restored.AssessmentID, Target: restored.Target, ContentPath: restored.ContentPath,
+			Files: restored.Files, Bytes: restored.Bytes, ContainerSHA256: input.ExpectedContainerSHA256, RestoredAt: restored.RestoredAt,
+		})
 	default:
 		return nil, errors.New("unsupported Agent job kind")
 	}
@@ -218,6 +241,14 @@ func validAgentEnvironmentName(value string) bool {
 		return false
 	}
 	return true
+}
+
+func validAgentSHA256(value string) bool {
+	if len(value) != sha256.Size*2 || strings.ToLower(value) != value {
+		return false
+	}
+	_, err := hex.DecodeString(value)
+	return err == nil
 }
 
 func hashAgentFile(filePath string) (int64, string, error) {

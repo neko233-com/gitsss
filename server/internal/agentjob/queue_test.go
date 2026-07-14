@@ -106,3 +106,11 @@ func TestQueueAcceptsEncryptedBackupExport(t *testing.T) {
 		t.Fatalf("backup export job = %#v, %v", job, err)
 	}
 }
+
+func TestQueueAcceptsIsolatedBackupRestore(t *testing.T) {
+	queue := NewQueue(nil)
+	job, err := queue.Create("admin", "request", KindBackupRestore, json.RawMessage(`{"expected_container_sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`), time.Now())
+	if err != nil || job.Kind != KindBackupRestore || job.Status != StatusQueued {
+		t.Fatalf("backup restore job = %#v, %v", job, err)
+	}
+}

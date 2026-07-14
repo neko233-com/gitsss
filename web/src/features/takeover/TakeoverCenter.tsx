@@ -38,10 +38,14 @@ interface Assessment {
 
 interface AgentJob {
   id: string
-  kind: "takeover.assess" | "backup.export" | "backup.verify"
+  kind:
+    | "takeover.assess"
+    | "backup.export"
+    | "backup.restore-isolated"
+    | "backup.verify"
   status: "queued" | "running" | "succeeded" | "failed"
   input: Record<string, unknown>
-  result?: Assessment | BackupExportResult
+  result?: Assessment | BackupExportResult | BackupRestoreResult
   error?: string
   claimed_by?: string
 }
@@ -53,6 +57,16 @@ interface BackupExportResult {
   source_bytes: number
   container_bytes: number
   container_sha256: string
+}
+
+interface BackupRestoreResult {
+  assessment_id: string
+  target: string
+  content_path: string
+  files: number
+  bytes: number
+  container_sha256: string
+  restored_at: string
 }
 
 const assetNames: Record<string, string> = {
@@ -86,13 +100,28 @@ function jobStatus(job?: AgentJob) {
   if (job.status === "queued") return "等待 Agent 领取"
   if (job.status === "running") return `由 ${job.claimed_by ?? "Agent"} 执行中`
   if (job.status === "failed") return job.error || "执行失败"
-  return job.kind === "backup.export" ? "加密备份已回传" : "评估已回传"
+  if (job.kind === "backup.export") return "加密备份已回传"
+  if (job.kind === "backup.restore-isolated") return "隔离恢复已回传"
+  if (job.kind === "backup.verify") return "备份验证已回传"
+  return "评估已回传"
 }
 
 function isAssessment(
-  result: Assessment | BackupExportResult | undefined
+  result: Assessment | BackupExportResult | BackupRestoreResult | undefined
 ): result is Assessment {
   return Boolean(result && "assets" in result)
+}
+
+function isBackupExport(
+  result: Assessment | BackupExportResult | BackupRestoreResult | undefined
+): result is BackupExportResult {
+  return Boolean(result && "output_path" in result)
+}
+
+function isBackupRestore(
+  result: Assessment | BackupExportResult | BackupRestoreResult | undefined
+): result is BackupRestoreResult {
+  return Boolean(result && "content_path" in result)
 }
 
 export function TakeoverCenter() {
@@ -107,6 +136,10 @@ export function TakeoverCenter() {
   )
   const [passphraseEnv, setPassphraseEnv] = useState("GITSSS_BACKUP_PASSPHRASE")
   const [backupConfirmation, setBackupConfirmation] = useState("")
+  const [restoreTargetPath, setRestoreTargetPath] = useState(
+    "/var/lib/gitsss/imports/old-gitea"
+  )
+  const [restoreConfirmation, setRestoreConfirmation] = useState("")
   const [reports, setReports] = useState<Assessment[]>([])
   const [jobs, setJobs] = useState<AgentJob[]>([])
   const [selectedID, setSelectedID] = useState("")
@@ -145,6 +178,23 @@ export function TakeoverCenter() {
       job.kind === "backup.export" &&
       job.input.expected_assessment_id === selected?.id
   )
+  const backupResult =
+    backupJob?.status === "succeeded" && isBackupExport(backupJob.result)
+      ? backupJob.result
+      : undefined
+  const backupPassphraseEnv =
+    typeof backupJob?.input.passphrase_env === "string"
+      ? backupJob.input.passphrase_env
+      : passphraseEnv
+  const restoreJob = jobs.find(
+    (job) =>
+      job.kind === "backup.restore-isolated" &&
+      job.input.expected_container_sha256 === backupResult?.container_sha256
+  )
+  const restoreResult =
+    restoreJob?.status === "succeeded" && isBackupRestore(restoreJob.result)
+      ? restoreJob.result
+      : undefined
 
   const refresh = async () => {
     setLoading(true)
@@ -219,6 +269,30 @@ export function TakeoverCenter() {
     }
   }
 
+  const dispatchRestore = async () => {
+    if (!selected || !backupResult) return
+    setLoading(true)
+    setError("")
+    try {
+      const job = await apiMutation<AgentJob>("/api/v1/agent/jobs", token, {
+        kind: "backup.restore-isolated",
+        input: {
+          agent_id: selected.agent_id,
+          input_path: backupResult.output_path,
+          passphrase_env: backupPassphraseEnv,
+          target_path: restoreTargetPath,
+          expected_assessment_id: backupResult.assessment_id,
+          expected_container_sha256: restoreConfirmation,
+        },
+      })
+      setJobs((current) => [job, ...current])
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "无法下发隔离恢复")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const blockers = selected?.findings.filter(
     (finding) => finding.severity === "blocker"
   ).length
@@ -226,8 +300,9 @@ export function TakeoverCenter() {
     (total, asset) => total + asset.bytes,
     0
   )
-  const completedSteps =
-    backupJob?.status === "succeeded"
+  const completedSteps = restoreResult
+    ? 4
+    : backupResult
       ? 3
       : selected
         ? 2
@@ -510,24 +585,94 @@ export function TakeoverCenter() {
                   {backupJob ? jobStatus(backupJob) : "口令不会离开旧服务器"}
                 </output>
               </div>
-              {backupJob?.status === "succeeded" &&
-              backupJob.result &&
-              !isAssessment(backupJob.result) ? (
+              {backupResult ? (
                 <div className="mt-5 border-l-2 border-emerald-500 pl-4 text-xs leading-5 text-zinc-600">
                   <p className="font-medium text-emerald-800">加密备份已生成</p>
                   <p>
-                    {backupJob.result.files} 个文件 ·{" "}
-                    {formatBytes(backupJob.result.container_bytes)}
+                    {backupResult.files} 个文件 ·{" "}
+                    {formatBytes(backupResult.container_bytes)}
                   </p>
                   <p className="truncate font-mono text-[11px] text-zinc-500">
-                    {backupJob.result.output_path}
+                    {backupResult.output_path}
                   </p>
                   <p className="truncate font-mono text-[11px] text-zinc-400">
-                    SHA-256 {backupJob.result.container_sha256}
+                    SHA-256 {backupResult.container_sha256}
                   </p>
                 </div>
               ) : null}
             </div>
+            {backupResult ? (
+              <div className="mt-7 border-y border-zinc-200 py-5">
+                <p className="text-sm font-medium">下一步：隔离恢复</p>
+                <p className="mt-2 text-xs leading-5 text-zinc-500">
+                  恢复到全新目录，不会覆盖 Gitea 或 gitsss 的在线数据。Agent
+                  会在发布目录前再次验证容器，并要求前后 SHA-256 完全一致。
+                </p>
+                <label
+                  className="mt-5 grid gap-2 text-xs font-medium"
+                  htmlFor="restore-target-path"
+                >
+                  旧服务器上的隔离目录
+                  <Input
+                    id="restore-target-path"
+                    onChange={(event) =>
+                      setRestoreTargetPath(event.target.value)
+                    }
+                    value={restoreTargetPath}
+                  />
+                </label>
+                <label
+                  className="mt-4 grid gap-2 text-xs font-medium"
+                  htmlFor="restore-confirmation"
+                >
+                  输入容器 SHA-256 以确认
+                  <Input
+                    id="restore-confirmation"
+                    onChange={(event) =>
+                      setRestoreConfirmation(event.target.value)
+                    }
+                    placeholder={backupResult.container_sha256}
+                    value={restoreConfirmation}
+                  />
+                </label>
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  <Button
+                    disabled={
+                      loading ||
+                      !restoreTargetPath ||
+                      restoreConfirmation !== backupResult.container_sha256 ||
+                      restoreJob?.status === "queued" ||
+                      restoreJob?.status === "running"
+                    }
+                    onClick={dispatchRestore}
+                    variant="outline"
+                  >
+                    {restoreJob ? "重新下发隔离恢复" : "下发隔离恢复"}
+                  </Button>
+                  <output
+                    className={`text-xs ${restoreJob?.status === "failed" ? "text-red-600" : "text-zinc-500"}`}
+                  >
+                    {restoreJob
+                      ? jobStatus(restoreJob)
+                      : "目标必须是尚不存在的目录"}
+                  </output>
+                </div>
+                {restoreResult ? (
+                  <div className="mt-5 border-l-2 border-emerald-500 pl-4 text-xs leading-5 text-zinc-600">
+                    <p className="font-medium text-emerald-800">
+                      隔离副本已发布
+                    </p>
+                    <p>
+                      {restoreResult.files} 个文件 ·{" "}
+                      {formatBytes(restoreResult.bytes)}
+                    </p>
+                    <p className="truncate font-mono text-[11px] text-zinc-500">
+                      {restoreResult.content_path}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="flex min-h-80 flex-col items-center justify-center border-y border-zinc-200 text-center">

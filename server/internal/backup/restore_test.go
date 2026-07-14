@@ -62,6 +62,18 @@ func TestRestoreIsolatedRejectsConfirmationAndExistingTarget(t *testing.T) {
 	}
 }
 
+func TestRestoreIsolatedExactRejectsDifferentContainer(t *testing.T) {
+	directory := t.TempDir()
+	backupPath, assessmentID := createRestoreTestBackup(t, directory)
+	target := filepath.Join(directory, "isolated")
+	if _, err := RestoreIsolatedExact(backupPath, "restore test passphrase", target, assessmentID, strings.Repeat("0", 64)); !errors.Is(err, ErrIntegrity) {
+		t.Fatalf("container confirmation error = %v", err)
+	}
+	if _, err := os.Stat(target); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("rejected container created target: %v", err)
+	}
+}
+
 func TestRestoreIsolatedRejectsInvalidBackupBeforeWriting(t *testing.T) {
 	directory := t.TempDir()
 	backupPath, assessmentID := createRestoreTestBackup(t, directory)

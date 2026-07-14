@@ -2,6 +2,8 @@
 
 package agentjob
 
+import "time"
+
 type BackupExportInput struct {
 	AgentID              string `json:"agent_id"`
 	ConfigPath           string `json:"config_path"`
@@ -20,4 +22,23 @@ type BackupExportResult struct {
 	SourceBytes     int64  `json:"source_bytes"`
 	ContainerBytes  int64  `json:"container_bytes"`
 	ContainerSHA256 string `json:"container_sha256"`
+}
+
+type BackupRestoreInput struct {
+	AgentID                 string `json:"agent_id"`
+	InputPath               string `json:"input_path"`
+	PassphraseEnv           string `json:"passphrase_env"`
+	TargetPath              string `json:"target_path"`
+	ExpectedAssessmentID    string `json:"expected_assessment_id"`
+	ExpectedContainerSHA256 string `json:"expected_container_sha256"`
+}
+
+type BackupRestoreResult struct {
+	AssessmentID    string    `json:"assessment_id"`
+	Target          string    `json:"target"`
+	ContentPath     string    `json:"content_path"`
+	Files           int       `json:"files"`
+	Bytes           int64     `json:"bytes"`
+	ContainerSHA256 string    `json:"container_sha256"`
+	RestoredAt      time.Time `json:"restored_at"`
 }

@@ -21,9 +21,11 @@ import (
 )
 
 type Verification struct {
-	Manifest Manifest `json:"manifest"`
-	Files    int      `json:"files"`
-	Bytes    int64    `json:"bytes"`
+	Manifest        Manifest `json:"manifest"`
+	Files           int      `json:"files"`
+	Bytes           int64    `json:"bytes"`
+	ContainerBytes  int64    `json:"container_bytes"`
+	ContainerSHA256 string   `json:"container_sha256"`
 }
 
 func Verify(inputPath, passphrase string) (Verification, error) {
@@ -41,7 +43,10 @@ func processContainer(inputPath, passphrase string, consume entryConsumer) (Veri
 		return Verification{}, err
 	}
 	defer file.Close()
-	decrypted, err := newDecryptReader(file, passphrase)
+	hasher := sha256.New()
+	var containerCounter byteCounter
+	container := io.TeeReader(file, io.MultiWriter(hasher, &containerCounter))
+	decrypted, err := newDecryptReader(container, passphrase)
 	if err != nil {
 		return Verification{}, integrityError(err)
 	}
@@ -97,6 +102,8 @@ func processContainer(inputPath, passphrase string, consume entryConsumer) (Veri
 	if err := decrypted.Finish(); err != nil {
 		return Verification{}, integrityError(err)
 	}
+	verification.ContainerBytes = int64(containerCounter)
+	verification.ContainerSHA256 = hex.EncodeToString(hasher.Sum(nil))
 	return verification, nil
 }
 

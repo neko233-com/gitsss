@@ -19,9 +19,11 @@ queued → running (5 分钟租约) → succeeded | failed
 - 重复完成同一终态作业是幂等操作，不会产生第二次执行结果。
 - 创建、领取和完成分别写入审计，包含 request ID、非敏感操作者、作业 ID 和状态。
 
-v1 白名单仅包含 `takeover.assess`、`backup.export` 与 `backup.verify`。评估和导出都强制输入中的 `agent_id` 与执行 Worker 一致；备份口令只按环境变量名称在旧服务器本地读取，不进入作业内容或结果。
+v1 白名单仅包含 `takeover.assess`、`backup.export`、`backup.restore-isolated` 与 `backup.verify`。评估、导出和恢复都强制输入中的 `agent_id` 与执行 Worker 一致；备份口令只按环境变量名称在旧服务器本地读取，不进入作业内容或结果。
 
 `backup.export` 必须携带管理员刚刚确认的评估 ID。Agent 会在导出前重新读取配置和资产路径，只有新评估 ID 与确认值完全一致才会生成容器；配置或范围在确认后发生变化时，任务失败且不会创建输出。输出路径使用 no-replace 原子发布，成功结果只回传文件数、字节数、容器路径和 SHA-256。
+
+`backup.restore-isolated` 必须同时携带评估 ID 和管理员确认的容器 SHA-256。Agent 在两次完整认证解密中计算原始容器摘要，只有两次摘要与确认值都相等才会以 no-replace 方式发布全新的隔离目录；在线 Gitea 和 gitsss 数据路径不在该任务的写入范围内。
 
 ## HTTP 接口
 
@@ -32,4 +34,4 @@ v1 白名单仅包含 `takeover.assess`、`backup.export` 与 `backup.verify`。
 | `POST /api/v1/agent/jobs/claim` | `agents:work` | 原子领取一个作业 |
 | `POST /api/v1/agent/jobs/{id}/complete` | `agents:work` | 回传成功结果或失败原因 |
 
-当前队列是进程内实现，用于先固定安全协议和 UI 状态机。生产版本必须迁移到事务数据库，增加设备绑定、租约续期、幂等键、取消、进度事件、持久审计和离线退避；这些能力完成前不会通过作业协议开放隔离恢复、Runner 安装、服务切换或回滚。
+当前队列是进程内实现，用于先固定安全协议和 UI 状态机。生产版本必须迁移到事务数据库，增加设备绑定、租约续期、幂等键、取消、进度事件、持久审计和离线退避；这些能力完成前不会通过作业协议开放在线导入、Runner 安装、服务切换或回滚。

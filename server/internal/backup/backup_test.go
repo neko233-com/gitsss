@@ -3,6 +3,8 @@
 package backup
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
@@ -43,17 +45,19 @@ func TestExportVerifyRoundTripAndRejectCorruption(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if verification.Files != 2 || verification.Manifest.Source.AssessmentID != report.ID || verification.Manifest.CreatedAt != createdAt {
+	container, err := os.ReadFile(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(container)
+	if verification.Files != 2 || verification.Manifest.Source.AssessmentID != report.ID || verification.Manifest.CreatedAt != createdAt || verification.ContainerBytes != int64(len(container)) || verification.ContainerSHA256 != hex.EncodeToString(digest[:]) {
 		t.Fatalf("unexpected verification: %#v", verification)
 	}
 	if _, err := Verify(output, "the wrong passphrase"); !errors.Is(err, ErrIntegrity) {
 		t.Fatalf("wrong passphrase error = %v", err)
 	}
 
-	original, err := os.ReadFile(output)
-	if err != nil {
-		t.Fatal(err)
-	}
+	original := container
 	assertCorruptBackup(t, directory, original, "tampered", func(content []byte) []byte {
 		content[len(content)-1] ^= 0xff
 		return content

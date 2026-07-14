@@ -27,9 +27,16 @@ type RestoreResult struct {
 }
 
 func RestoreIsolated(inputPath, passphrase, target, confirmation string) (RestoreResult, error) {
+	return RestoreIsolatedExact(inputPath, passphrase, target, confirmation, "")
+}
+
+func RestoreIsolatedExact(inputPath, passphrase, target, confirmation, expectedContainerSHA256 string) (RestoreResult, error) {
 	verification, err := Verify(inputPath, passphrase)
 	if err != nil {
 		return RestoreResult{}, err
+	}
+	if expectedContainerSHA256 != "" && verification.ContainerSHA256 != expectedContainerSHA256 {
+		return RestoreResult{}, ErrIntegrity
 	}
 	if confirmation == "" || confirmation != verification.Manifest.Source.AssessmentID {
 		return RestoreResult{}, ErrConfirmation
@@ -79,6 +86,9 @@ func RestoreIsolated(inputPath, passphrase, target, confirmation string) (Restor
 	}
 	if secondVerification.Manifest.Source.AssessmentID != confirmation {
 		return RestoreResult{}, ErrConfirmation
+	}
+	if secondVerification.ContainerSHA256 != verification.ContainerSHA256 || (expectedContainerSHA256 != "" && secondVerification.ContainerSHA256 != expectedContainerSHA256) {
+		return RestoreResult{}, ErrIntegrity
 	}
 	if reason := inspectImportAncestors(absolute); reason != "" {
 		return RestoreResult{}, fmt.Errorf("%w: %s", ErrInvalidBackup, reason)

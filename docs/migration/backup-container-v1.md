@@ -32,7 +32,7 @@ tar 的第一项固定为 `manifest.json`。清单包含格式版本、创建时
 
 `backup-import-plan` 在完成同样的全量验证后，把归档相对路径映射到管理员指定的隔离目标，并只读检查现状：不存在为 `new`，大小和 SHA-256 均一致为 `identical`，内容不同或目标不是常规文件为 `conflict`，无法读取、父路径不是目录或任一目标组件是符号链接为 `blocked`。输出包含逐项原因和汇总，命令本身不会创建目标目录或文件。后续恢复命令只能消费没有 `blocked` 的最新计划，并在发生 `conflict` 时要求显式策略。
 
-`backup-restore-isolated` 只接受尚不存在的目标，并要求 `--confirm` 与清单中的 assessment ID 完全一致。命令先全量验证容器，再解密到目标同盘的随机隐藏暂存目录；第二次认证流处理成功后，才创建目标作为 no-replace 预留，并把暂存目录原子移动为 `<target>/content`。错误确认、已有目标、父级符号链接、第二次篡改或写入失败不会覆盖任何既有路径。该命令只产生隔离恢复副本，不能把内容直接写回在线 Gitea 或 gitsss 数据目录。
+`backup-restore-isolated` 只接受尚不存在的目标，并要求 `--confirm` 与清单中的 assessment ID 完全一致。命令先全量验证容器，再解密到目标同盘的随机隐藏暂存目录；第二次认证流处理成功后，才创建目标作为 no-replace 预留，并把暂存目录原子移动为 `<target>/content`。AI Agent 作业还要求两次读取计算出的原始容器 SHA-256 都与管理员确认值一致。错误确认、已有目标、父级符号链接、容器替换、第二次篡改或写入失败不会覆盖任何既有路径。该命令只产生隔离恢复副本，不能把内容直接写回在线 Gitea 或 gitsss 数据目录。
 
 `backup-audit-restore` 再次把清单中的每个文件与 `<target>/content` 比较，要求全部为 `identical`。对清单中识别出的每个 `.git` 裸仓库，它以参数数组直接调用本机 Git（不经过 shell），执行有超时和输出上限的 `git fsck --full --strict`、`count-objects -v` 和 `show-ref --head -d`，输出对象数、引用数和确定性引用摘要。LFS 对象文件若使用 64 位 OID 作为文件名，则文件名必须等于已经验证的内容 SHA-256。任一文件差异、Git 损坏、未分类仓库文件、LFS OID 不一致或 Git 不可用都会令 `ready_for_shadow_mode` 为 false，并使 CLI 以非零状态退出。
 
