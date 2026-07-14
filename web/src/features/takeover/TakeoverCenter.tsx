@@ -38,12 +38,21 @@ interface Assessment {
 
 interface AgentJob {
   id: string
-  kind: "takeover.assess" | "backup.verify"
+  kind: "takeover.assess" | "backup.export" | "backup.verify"
   status: "queued" | "running" | "succeeded" | "failed"
   input: Record<string, unknown>
-  result?: Assessment
+  result?: Assessment | BackupExportResult
   error?: string
   claimed_by?: string
+}
+
+interface BackupExportResult {
+  assessment_id: string
+  output_path: string
+  files: number
+  source_bytes: number
+  container_bytes: number
+  container_sha256: string
 }
 
 const assetNames: Record<string, string> = {
@@ -77,7 +86,13 @@ function jobStatus(job?: AgentJob) {
   if (job.status === "queued") return "等待 Agent 领取"
   if (job.status === "running") return `由 ${job.claimed_by ?? "Agent"} 执行中`
   if (job.status === "failed") return job.error || "执行失败"
-  return "评估已回传"
+  return job.kind === "backup.export" ? "加密备份已回传" : "评估已回传"
+}
+
+function isAssessment(
+  result: Assessment | BackupExportResult | undefined
+): result is Assessment {
+  return Boolean(result && "assets" in result)
 }
 
 export function TakeoverCenter() {
@@ -87,6 +102,11 @@ export function TakeoverCenter() {
   const [agentID, setAgentID] = useState("old-gitea")
   const [configPath, setConfigPath] = useState("/etc/gitea/app.ini")
   const [workPath, setWorkPath] = useState("")
+  const [backupOutputPath, setBackupOutputPath] = useState(
+    "/var/backups/gitea.gitsss-backup"
+  )
+  const [passphraseEnv, setPassphraseEnv] = useState("GITSSS_BACKUP_PASSPHRASE")
+  const [backupConfirmation, setBackupConfirmation] = useState("")
   const [reports, setReports] = useState<Assessment[]>([])
   const [jobs, setJobs] = useState<AgentJob[]>([])
   const [selectedID, setSelectedID] = useState("")
@@ -94,7 +114,9 @@ export function TakeoverCenter() {
   const [error, setError] = useState("")
 
   const jobReports = jobs.flatMap((job) =>
-    job.kind === "takeover.assess" && job.status === "succeeded" && job.result
+    job.kind === "takeover.assess" &&
+    job.status === "succeeded" &&
+    isAssessment(job.result)
       ? [job.result]
       : []
   )
@@ -108,6 +130,21 @@ export function TakeoverCenter() {
   const assessmentJob = jobs.find(
     (job) => job.kind === "takeover.assess" && job.input.agent_id === agentID
   )
+  const selectedAssessmentJob = jobs.find(
+    (job) =>
+      job.kind === "takeover.assess" &&
+      isAssessment(job.result) &&
+      job.result.id === selected?.id
+  )
+  const assessedWorkPath =
+    typeof selectedAssessmentJob?.input.work_path === "string"
+      ? selectedAssessmentJob.input.work_path
+      : workPath
+  const backupJob = jobs.find(
+    (job) =>
+      job.kind === "backup.export" &&
+      job.input.expected_assessment_id === selected?.id
+  )
 
   const refresh = async () => {
     setLoading(true)
@@ -120,9 +157,12 @@ export function TakeoverCenter() {
       ])
       setReports(nextReports)
       setJobs(nextJobs)
-      const nextJobReport = nextJobs.find(
-        (job) => job.kind === "takeover.assess" && job.result
+      const nextJobResult = nextJobs.find(
+        (job) => job.kind === "takeover.assess" && isAssessment(job.result)
       )?.result
+      const nextJobReport = isAssessment(nextJobResult)
+        ? nextJobResult
+        : undefined
       setSelectedID(nextReports[0]?.id ?? nextJobReport?.id ?? "")
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "无法读取接管状态")
@@ -153,6 +193,32 @@ export function TakeoverCenter() {
     }
   }
 
+  const dispatchBackup = async () => {
+    if (!selected) return
+    setLoading(true)
+    setError("")
+    try {
+      const job = await apiMutation<AgentJob>("/api/v1/agent/jobs", token, {
+        kind: "backup.export",
+        input: {
+          agent_id: selected.agent_id,
+          config_path: selected.config_path,
+          work_path: assessedWorkPath || undefined,
+          gitea_version: selected.gitea_version,
+          max_entries: 1_000_000,
+          output_path: backupOutputPath,
+          passphrase_env: passphraseEnv,
+          expected_assessment_id: backupConfirmation,
+        },
+      })
+      setJobs((current) => [job, ...current])
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "无法下发加密备份")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const blockers = selected?.findings.filter(
     (finding) => finding.severity === "blocker"
   ).length
@@ -160,11 +226,14 @@ export function TakeoverCenter() {
     (total, asset) => total + asset.bytes,
     0
   )
-  const completedSteps = selected
-    ? 2
-    : assessmentJob?.status === "running"
-      ? 1
-      : 0
+  const completedSteps =
+    backupJob?.status === "succeeded"
+      ? 3
+      : selected
+        ? 2
+        : assessmentJob?.status === "running"
+          ? 1
+          : 0
 
   return (
     <section className="mx-auto max-w-5xl pt-8">
@@ -375,9 +444,89 @@ export function TakeoverCenter() {
                   • {finding.message}
                 </p>
               ))}
-              <Button className="mt-5" disabled variant="outline">
-                {blockers ? "先处理阻断项" : "等待加密备份作业接入"}
-              </Button>
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <label
+                  className="grid gap-2 text-xs font-medium"
+                  htmlFor="backup-output-path"
+                >
+                  旧服务器上的备份路径
+                  <Input
+                    id="backup-output-path"
+                    onChange={(event) =>
+                      setBackupOutputPath(event.target.value)
+                    }
+                    value={backupOutputPath}
+                  />
+                </label>
+                <label
+                  className="grid gap-2 text-xs font-medium"
+                  htmlFor="backup-passphrase-env"
+                >
+                  口令环境变量名
+                  <Input
+                    id="backup-passphrase-env"
+                    onChange={(event) => setPassphraseEnv(event.target.value)}
+                    value={passphraseEnv}
+                  />
+                </label>
+              </div>
+              <label
+                className="mt-4 grid gap-2 text-xs font-medium"
+                htmlFor="backup-confirmation"
+              >
+                输入评估 ID 以确认范围
+                <Input
+                  id="backup-confirmation"
+                  onChange={(event) =>
+                    setBackupConfirmation(event.target.value)
+                  }
+                  placeholder={selected.id}
+                  value={backupConfirmation}
+                />
+              </label>
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <Button
+                  disabled={
+                    Boolean(blockers) ||
+                    loading ||
+                    backupConfirmation !== selected.id ||
+                    !backupOutputPath ||
+                    !passphraseEnv ||
+                    backupJob?.status === "queued" ||
+                    backupJob?.status === "running"
+                  }
+                  onClick={dispatchBackup}
+                  variant="outline"
+                >
+                  {blockers
+                    ? "先处理阻断项"
+                    : backupJob
+                      ? "重新下发加密备份"
+                      : "下发加密备份"}
+                </Button>
+                <output
+                  className={`text-xs ${backupJob?.status === "failed" ? "text-red-600" : "text-zinc-500"}`}
+                >
+                  {backupJob ? jobStatus(backupJob) : "口令不会离开旧服务器"}
+                </output>
+              </div>
+              {backupJob?.status === "succeeded" &&
+              backupJob.result &&
+              !isAssessment(backupJob.result) ? (
+                <div className="mt-5 border-l-2 border-emerald-500 pl-4 text-xs leading-5 text-zinc-600">
+                  <p className="font-medium text-emerald-800">加密备份已生成</p>
+                  <p>
+                    {backupJob.result.files} 个文件 ·{" "}
+                    {formatBytes(backupJob.result.container_bytes)}
+                  </p>
+                  <p className="truncate font-mono text-[11px] text-zinc-500">
+                    {backupJob.result.output_path}
+                  </p>
+                  <p className="truncate font-mono text-[11px] text-zinc-400">
+                    SHA-256 {backupJob.result.container_sha256}
+                  </p>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : (

@@ -4,6 +4,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -149,7 +151,7 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 			return nil, err
 		}
 		passphrase := os.Getenv(input.PassphraseEnv)
-		if strings.TrimSpace(input.InputPath) == "" || strings.TrimSpace(input.PassphraseEnv) == "" || passphrase == "" {
+		if strings.TrimSpace(input.InputPath) == "" || !validAgentEnvironmentName(input.PassphraseEnv) || passphrase == "" {
 			return nil, errors.New("backup input path and passphrase environment are required")
 		}
 		verification, err := backup.Verify(input.InputPath, passphrase)
@@ -157,9 +159,79 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 			return nil, err
 		}
 		return json.Marshal(verification)
+	case agentjob.KindBackupExport:
+		var input agentjob.BackupExportInput
+		if err := json.Unmarshal(job.Input, &input); err != nil {
+			return nil, err
+		}
+		if input.AgentID == "" {
+			input.AgentID = agentID
+		}
+		if input.AgentID != agentID {
+			return nil, errors.New("backup Agent ID does not match the worker")
+		}
+		if strings.TrimSpace(input.OutputPath) == "" || !validAgentEnvironmentName(input.PassphraseEnv) || len(os.Getenv(input.PassphraseEnv)) < 12 {
+			return nil, errors.New("backup output path and a valid passphrase environment are required")
+		}
+		report, err := takeover.Assess(takeover.Options{
+			AgentID: input.AgentID, ConfigPath: input.ConfigPath, WorkPath: input.WorkPath,
+			GiteaVersion: input.GiteaVersion, MaxEntries: input.MaxEntries,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if input.ExpectedAssessmentID == "" || report.ID != input.ExpectedAssessmentID {
+			return nil, errors.New("backup confirmation does not match the current assessment")
+		}
+		plan, err := backup.BuildPlan(report, time.Now())
+		if err != nil {
+			return nil, err
+		}
+		if err := backup.Export(input.OutputPath, os.Getenv(input.PassphraseEnv), plan); err != nil {
+			return nil, err
+		}
+		containerBytes, containerDigest, err := hashAgentFile(input.OutputPath)
+		if err != nil {
+			return nil, err
+		}
+		result := agentjob.BackupExportResult{
+			AssessmentID: report.ID, OutputPath: input.OutputPath, Files: len(plan.Manifest.Entries),
+			ContainerBytes: containerBytes, ContainerSHA256: containerDigest,
+		}
+		for _, entry := range plan.Manifest.Entries {
+			result.SourceBytes += entry.Size
+		}
+		return json.Marshal(result)
 	default:
 		return nil, errors.New("unsupported Agent job kind")
 	}
+}
+
+func validAgentEnvironmentName(value string) bool {
+	if value == "" || len(value) > 128 {
+		return false
+	}
+	for index, character := range value {
+		if (character >= 'A' && character <= 'Z') || character == '_' || (index > 0 && character >= '0' && character <= '9') {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func hashAgentFile(filePath string) (int64, string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return 0, "", err
+	}
+	defer file.Close()
+	hasher := sha256.New()
+	written, err := io.Copy(hasher, file)
+	if err != nil {
+		return 0, "", err
+	}
+	return written, hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 func completeAgentJob(serverURL, token, agentID, jobID string, result json.RawMessage, failure string) (agentjob.Job, error) {

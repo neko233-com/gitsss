@@ -98,3 +98,11 @@ func TestQueueRejectsInvalidPayloadAndCompletion(t *testing.T) {
 		t.Fatalf("ambiguous completion error = %v", err)
 	}
 }
+
+func TestQueueAcceptsEncryptedBackupExport(t *testing.T) {
+	queue := NewQueue(nil)
+	job, err := queue.Create("admin", "request", KindBackupExport, json.RawMessage(`{"expected_assessment_id":"assessment-0123456789abcdef"}`), time.Now())
+	if err != nil || job.Kind != KindBackupExport || job.Status != StatusQueued {
+		t.Fatalf("backup export job = %#v, %v", job, err)
+	}
+}
