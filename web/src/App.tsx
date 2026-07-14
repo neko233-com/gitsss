@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { MotionSurface } from "@/components/MotionSurface"
 import {
   Command,
   CommandDialog,
@@ -539,11 +540,17 @@ export function App() {
           </p>
 
           {area === "repository" ? (
-            <RepositoryBrowser />
+            <MotionSurface key="repository">
+              <RepositoryBrowser />
+            </MotionSurface>
           ) : area === "notifications" ? (
-            <NotificationCenter />
+            <MotionSurface key="notifications">
+              <NotificationCenter />
+            </MotionSurface>
           ) : area === "takeover" ? (
-            <TakeoverCenter />
+            <MotionSurface key="takeover">
+              <TakeoverCenter />
+            </MotionSurface>
           ) : (
             <Tabs className="pt-6" defaultValue="dashboard">
               <TabsList className="max-w-full overflow-x-auto" variant="line">
@@ -553,7 +560,7 @@ export function App() {
                 <TabsTrigger value="download">Git 客户端下载</TabsTrigger>
               </TabsList>
               <TabsContent value="dashboard">
-                <div className="min-w-0 pt-8">
+                <MotionSurface className="pt-8">
                   <section
                     aria-label="团队概览"
                     className="grid grid-cols-3 divide-x divide-zinc-200"
@@ -730,25 +737,31 @@ export function App() {
                       </div>
                     </div>
                   </section>
-                </div>
+                </MotionSurface>
               </TabsContent>
               <TabsContent value="events">
-                <EventStreamTab
-                  events={eventPreview.items()}
-                  onClear={clearPreview}
-                />
+                <MotionSurface>
+                  <EventStreamTab
+                    events={eventPreview.items()}
+                    onClear={clearPreview}
+                  />
+                </MotionSurface>
               </TabsContent>
               <TabsContent value="storage">
-                <StorageAwarenessTab
-                  onReview={() => setNotice("已打开存储清理预览")}
-                />
+                <MotionSurface>
+                  <StorageAwarenessTab
+                    onReview={() => setNotice("已打开存储清理预览")}
+                  />
+                </MotionSurface>
               </TabsContent>
               <TabsContent value="download">
-                <GitClientDownloadTab
-                  onPlatformChange={setClientPlatform}
-                  onMirrorOpen={() => setNotice("已打开受签名镜像目录")}
-                  platform={clientPlatform}
-                />
+                <MotionSurface>
+                  <GitClientDownloadTab
+                    onPlatformChange={setClientPlatform}
+                    onMirrorOpen={() => setNotice("已打开受签名镜像目录")}
+                    platform={clientPlatform}
+                  />
+                </MotionSurface>
               </TabsContent>
             </Tabs>
           )}
