@@ -36,6 +36,14 @@ func TestMaterializeBuildsStandaloneGenerationAndDetectsDrift(t *testing.T) {
 		`INSERT INTO issue VALUES (4, 3, 'lighting', 0), (5, 3, 'merge', 1)`,
 		`CREATE TABLE pull_request (id INTEGER PRIMARY KEY, issue_id INTEGER)`,
 		`INSERT INTO pull_request VALUES (6, 5)`,
+		`CREATE TABLE comment (id INTEGER PRIMARY KEY, issue_id INTEGER, poster_id INTEGER, content TEXT)`,
+		`INSERT INTO comment VALUES (7, 4, 1, 'approved')`,
+		`CREATE TABLE label (id INTEGER PRIMARY KEY, repo_id INTEGER, name TEXT, color TEXT)`,
+		`INSERT INTO label VALUES (8, 3, 'art', 'ff8800')`,
+		`CREATE TABLE milestone (id INTEGER PRIMARY KEY, repo_id INTEGER, name TEXT, is_closed INTEGER)`,
+		`INSERT INTO milestone VALUES (9, 3, 'Vertical slice', 0)`,
+		`CREATE TABLE release (id INTEGER PRIMARY KEY, repo_id INTEGER, tag_name TEXT, name TEXT)`,
+		`INSERT INTO release VALUES (10, 3, 'v1.0.0', 'First release')`,
 	} {
 		if _, err := database.Exec(statement); err != nil {
 			database.Close()
@@ -99,6 +107,10 @@ func TestMaterializeBuildsStandaloneGenerationAndDetectsDrift(t *testing.T) {
 	workItems, err := store.ListPrefix("import-work-items", "00000000000000000003-", "", 10)
 	if err != nil || len(workItems) != 2 {
 		t.Fatalf("work item index = %#v, %v", workItems, err)
+	}
+	history, err := store.ListPrefix("import-repository-history", "00000000000000000003-", "", 10)
+	if err != nil || len(history) != 4 {
+		t.Fatalf("repository history index = %#v, %v", history, err)
 	}
 	if content, err := os.ReadFile(filepath.Join(target, "content", "lfs", "objects", "aa", "asset")); err != nil || string(content) != "asset" {
 		t.Fatalf("LFS content = %q, %v", content, err)

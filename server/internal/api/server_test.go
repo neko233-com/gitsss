@@ -137,6 +137,9 @@ func TestServerPublishesSanitizedImportedBusinessRecordsByScope(t *testing.T) {
 	if err := store.Put("import-work-items", "00000000000000000003-00000000000000000001", json.RawMessage(`{"source_table":"issue","ordinal":1,"values":{"id":2,"repo_id":3,"index":4,"name":"Review"}}`)); err != nil {
 		t.Fatal(err)
 	}
+	if err := store.Put("import-repository-history", "00000000000000000003-00000000000000000001", json.RawMessage(`{"source_table":"release","ordinal":1,"values":{"id":5,"_repository_id":3,"tag_name":"v1.0.0","name":"First release"}}`)); err != nil {
+		t.Fatal(err)
+	}
 	catalog, err := importcatalog.New(store)
 	if err != nil {
 		t.Fatal(err)
@@ -159,6 +162,13 @@ func TestServerPublishesSanitizedImportedBusinessRecordsByScope(t *testing.T) {
 	handler.ServeHTTP(itemsResponse, items)
 	if itemsResponse.Code != http.StatusOK || !strings.Contains(itemsResponse.Body.String(), `"title":"Review"`) {
 		t.Fatalf("work items = %d %s", itemsResponse.Code, itemsResponse.Body.String())
+	}
+	history := httptest.NewRequest(http.MethodGet, "/api/v1/imports/repository-history?repository_id=3", nil)
+	history.Header.Set("Authorization", "Bearer reader-token")
+	historyResponse := httptest.NewRecorder()
+	handler.ServeHTTP(historyResponse, history)
+	if historyResponse.Code != http.StatusOK || !strings.Contains(historyResponse.Body.String(), `"kind":"release"`) || !strings.Contains(historyResponse.Body.String(), `"tag":"v1.0.0"`) {
+		t.Fatalf("repository history = %d %s", historyResponse.Code, historyResponse.Body.String())
 	}
 	deniedRequest := httptest.NewRequest(http.MethodGet, "/api/v1/imports/directory", nil)
 	deniedRequest.Header.Set("Authorization", "Bearer reader-token")

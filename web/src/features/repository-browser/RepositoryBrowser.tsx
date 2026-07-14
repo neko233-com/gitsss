@@ -76,9 +76,34 @@ interface ImportedWorkItem {
   updated_at?: string
 }
 
+interface ImportedHistoryEntry {
+  kind: "comment" | "label" | "milestone" | "release"
+  source_id: string
+  repository_id: string
+  issue_id?: string
+  title?: string
+  body?: string
+  body_truncated: boolean
+  author_id?: string
+  tag?: string
+  color?: string
+  closed?: boolean
+  draft?: boolean
+  prerelease?: boolean
+  created_at?: string
+  updated_at?: string
+}
+
 interface ImportedPage<T> {
   items: T[]
   next_cursor?: string
+}
+
+const historyLabels: Record<ImportedHistoryEntry["kind"], string> = {
+  comment: "评论",
+  label: "标签",
+  milestone: "里程碑",
+  release: "发布",
 }
 
 function formatBytes(bytes: number) {
@@ -166,9 +191,11 @@ export function RepositoryBrowser({
   const [matches, setMatches] = useState<SearchMatch[] | null>(null)
   const [workItems, setWorkItems] = useState<ImportedWorkItem[]>([])
   const [workItemCursor, setWorkItemCursor] = useState("")
-  const [contentView, setContentView] = useState<"files" | "work-items">(
-    "files"
-  )
+  const [history, setHistory] = useState<ImportedHistoryEntry[]>([])
+  const [historyCursor, setHistoryCursor] = useState("")
+  const [contentView, setContentView] = useState<
+    "files" | "work-items" | "history"
+  >("files")
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(
     () => new Set()
   )
@@ -224,8 +251,10 @@ export function RepositoryBrowser({
       setMatches(null)
       setWorkItems([])
       setWorkItemCursor("")
+      setHistory([])
+      setHistoryCursor("")
       setContentView("files")
-      const [response, imported] = await Promise.all([
+      const [response, imported, importedHistory] = await Promise.all([
         apiRequest<RepositoryTreeResponse>(
           `/api/v1/repositories/${encodeURIComponent(activeRepository)}/tree?ref=HEAD`,
           activeToken,
@@ -238,10 +267,19 @@ export function RepositoryBrowser({
               signal
             )
           : Promise.resolve<ImportedPage<ImportedWorkItem>>({ items: [] }),
+        sourceID
+          ? apiRequest<ImportedPage<ImportedHistoryEntry>>(
+              `/api/v1/imports/repository-history?repository_id=${encodeURIComponent(sourceID)}&limit=200`,
+              activeToken,
+              signal
+            )
+          : Promise.resolve<ImportedPage<ImportedHistoryEntry>>({ items: [] }),
       ])
       setTreeResponse(response)
       setWorkItems(imported.items)
       setWorkItemCursor(imported.next_cursor ?? "")
+      setHistory(importedHistory.items)
+      setHistoryCursor(importedHistory.next_cursor ?? "")
       setExpandedPaths(
         new Set(
           response.entries.flatMap((entry) => {
@@ -369,6 +407,31 @@ export function RepositoryBrowser({
     }
   }
 
+  const loadMoreHistory = async () => {
+    const sourceID = repositories.find(
+      (repository) => repository.id === repositoryID
+    )?.source_id
+    if (!sourceID || !historyCursor) return
+    setLoading(true)
+    setError("")
+    try {
+      const page = await apiRequest<ImportedPage<ImportedHistoryEntry>>(
+        `/api/v1/imports/repository-history?repository_id=${encodeURIComponent(sourceID)}&after=${encodeURIComponent(historyCursor)}&limit=200`,
+        token
+      )
+      setHistory((current) => [...current, ...page.items])
+      setHistoryCursor(page.next_cursor ?? "")
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "接管记录加载失败"
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const toggleDirectory = (path: string) => {
     setExpandedPaths((current) => {
       const next = new Set(current)
@@ -480,6 +543,18 @@ export function RepositoryBrowser({
             <span>Issue 与 PR</span>
             <span>{workItems.length}</span>
           </button>
+          <button
+            className={`mb-3 flex h-9 w-full items-center justify-between rounded-lg px-3 text-xs font-medium ${
+              contentView === "history"
+                ? "bg-zinc-950 text-white"
+                : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+            }`}
+            onClick={() => setContentView("history")}
+            type="button"
+          >
+            <span>评论与发布</span>
+            <span>{history.length}</span>
+          </button>
           <TreeNodes
             expandedPaths={expandedPaths}
             nodes={tree}
@@ -550,6 +625,79 @@ export function RepositoryBrowser({
                   variant="outline"
                 >
                   加载更多工作项
+                </Button>
+              ) : null}
+            </div>
+          ) : contentView === "history" ? (
+            <div>
+              <div className="flex items-center justify-between gap-4 border-b border-zinc-200 pb-3">
+                <div>
+                  <h3 className="text-sm font-semibold">已接管业务记录</h3>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    评论、标签、里程碑与发布均保留源编号并按仓库隔离。
+                  </p>
+                </div>
+                <span className="text-xs text-zinc-400">
+                  {history.length} 项
+                </span>
+              </div>
+              <div className="divide-y divide-zinc-200">
+                {history.length ? (
+                  history.map((entry) => (
+                    <article
+                      className="py-4"
+                      key={`${entry.kind}-${entry.source_id}`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-zinc-900">
+                            {entry.kind === "comment"
+                              ? `Issue ${entry.issue_id || "—"} 的评论`
+                              : entry.kind === "release"
+                                ? `${entry.tag || "未标记版本"} · ${entry.title || "未命名发布"}`
+                                : entry.title ||
+                                  `未命名${historyLabels[entry.kind]}`}
+                          </p>
+                          <p className="mt-1 text-xs text-zinc-500">
+                            源 {historyLabels[entry.kind]} #{entry.source_id}
+                            {entry.author_id
+                              ? ` · 成员 ${entry.author_id}`
+                              : ""}
+                            {entry.color ? ` · 颜色 ${entry.color}` : ""}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-medium text-zinc-600">
+                          {entry.draft
+                            ? "草稿"
+                            : entry.prerelease
+                              ? "预发布"
+                              : entry.closed
+                                ? "已关闭"
+                                : historyLabels[entry.kind]}
+                        </span>
+                      </div>
+                      {entry.body ? (
+                        <p className="mt-3 line-clamp-4 text-xs leading-5 whitespace-pre-wrap text-zinc-600">
+                          {entry.body}
+                          {entry.body_truncated ? "…" : ""}
+                        </p>
+                      ) : null}
+                    </article>
+                  ))
+                ) : (
+                  <p className="py-10 text-sm text-zinc-500">
+                    此仓库没有从旧服务器接管的评论、标签、里程碑或发布。
+                  </p>
+                )}
+              </div>
+              {historyCursor ? (
+                <Button
+                  className="mt-4"
+                  disabled={loading}
+                  onClick={() => void loadMoreHistory()}
+                  variant="outline"
+                >
+                  加载更多业务记录
                 </Button>
               ) : null}
             </div>

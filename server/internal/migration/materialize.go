@@ -128,6 +128,9 @@ func Materialize(restoredContent, outputTarget, activePath, expectedInventory st
 		return Materialization{}, err
 	}
 	imported, importErr := importBusinessRows(store, inventory.Snapshot, filepath.Join(content, "imports", "oversize"))
+	if importErr == nil {
+		importErr = indexRepositoryHistory(store, inventory.Snapshot)
+	}
 	closeErr := store.Close()
 	if importErr != nil {
 		return Materialization{}, importErr
@@ -381,6 +384,79 @@ func indexedWorkItemPayload(ordinal int64, values map[string]any) ([]byte, error
 		indexed[key] = value
 	}
 	return json.Marshal(importedRow{SourceTable: "issue", Ordinal: ordinal, Values: indexed})
+}
+
+func indexRepositoryHistory(store *state.Store, snapshot string) error {
+	issueRepositories := map[string]string{}
+	if err := visitSnapshotRows(snapshot, func(table string, values map[string]any) error {
+		if table == "issue" {
+			issueRepositories[importedString(values["id"])] = importedString(values["repo_id"])
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	const namespace = "import-repository-history"
+	counts := map[string]int64{}
+	batches := []state.Document{}
+	flush := func() error {
+		if err := store.PutMany(namespace, batches); err != nil {
+			return err
+		}
+		batches = batches[:0]
+		return nil
+	}
+	tableOrdinals := map[string]int64{}
+	err := visitSnapshotRows(snapshot, func(table string, values map[string]any) error {
+		if table != "comment" && table != "label" && table != "milestone" && table != "release" {
+			return nil
+		}
+		tableOrdinals[table]++
+		repositoryID := importedString(values["repo_id"])
+		if table == "comment" {
+			repositoryID = issueRepositories[importedString(values["issue_id"])]
+		}
+		if repositoryID == "" {
+			return nil
+		}
+		sortableRepositoryID, err := sortableSourceID(repositoryID)
+		if err != nil {
+			return err
+		}
+		counts[repositoryID]++
+		payload, err := indexedHistoryPayload(table, tableOrdinals[table], repositoryID, values)
+		if err != nil {
+			return err
+		}
+		batches = append(batches, state.Document{
+			ID: sortableRepositoryID + "-" + fmt.Sprintf("%020d", counts[repositoryID]), Payload: payload,
+		})
+		if len(batches) >= importBatchSize {
+			return flush()
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if len(batches) > 0 {
+		return flush()
+	}
+	return nil
+}
+
+func indexedHistoryPayload(table string, ordinal int64, repositoryID string, values map[string]any) ([]byte, error) {
+	indexed := make(map[string]any, len(values)+1)
+	for key, value := range values {
+		if (key == "content" || key == "body" || key == "note" || key == "description") && len(importedString(value)) > 64<<10 {
+			indexed[key] = importedString(value)[:64<<10]
+			indexed["_body_truncated"] = true
+			continue
+		}
+		indexed[key] = value
+	}
+	indexed["_repository_id"] = repositoryID
+	return json.Marshal(importedRow{SourceTable: table, Ordinal: ordinal, Values: indexed})
 }
 
 func visitSnapshotRows(snapshot string, visit func(string, map[string]any) error) error {

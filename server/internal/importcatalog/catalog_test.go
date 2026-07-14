@@ -24,6 +24,12 @@ func TestCatalogExposesSanitizedImportedDirectoryAndWorkItems(t *testing.T) {
 		t.Fatal(err)
 	}
 	putImportedRow(t, store, "access", "00000000000000000001", `{"source_table":"access","ordinal":1,"values":{"user_id":1,"repo_id":3,"mode":2}}`)
+	if err := store.Put("import-repository-history", "00000000000000000003-00000000000000000001", json.RawMessage(`{"source_table":"comment","ordinal":1,"values":{"id":11,"_repository_id":3,"issue_id":9,"poster_id":1,"content":"Looks good"}}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Put("import-repository-history", "00000000000000000003-00000000000000000002", json.RawMessage(`{"source_table":"release","ordinal":1,"values":{"id":12,"_repository_id":3,"name":"First release","tag_name":"v1.0.0","note":"Ready"}}`)); err != nil {
+		t.Fatal(err)
+	}
 	catalog, err := New(store)
 	if err != nil {
 		t.Fatal(err)
@@ -46,6 +52,10 @@ func TestCatalogExposesSanitizedImportedDirectoryAndWorkItems(t *testing.T) {
 	items, err := catalog.WorkItems("3", "", 10)
 	if err != nil || len(items.Items) != 1 || items.Items[0].Repository != "3" || items.Items[0].Title != "Lighting pass" || !items.Items[0].Closed {
 		t.Fatalf("work items = %#v, %v", items, err)
+	}
+	history, err := catalog.RepositoryHistory("3", "", 10)
+	if err != nil || len(history.Items) != 2 || history.Items[0].Kind != "comment" || history.Items[0].Body != "Looks good" || history.Items[1].Tag != "v1.0.0" {
+		t.Fatalf("repository history = %#v, %v", history, err)
 	}
 	access, err := catalog.Access("", 10)
 	if err != nil || len(access.Items) != 1 || access.Items[0].Mode != 2 || access.Items[0].User != "1" {

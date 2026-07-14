@@ -42,6 +42,24 @@ type WorkItem struct {
 	UpdatedAt   time.Time `json:"updated_at,omitempty"`
 }
 
+type RepositoryHistoryEntry struct {
+	Kind       string    `json:"kind"`
+	SourceID   string    `json:"source_id"`
+	Repository string    `json:"repository_id"`
+	Issue      string    `json:"issue_id,omitempty"`
+	Title      string    `json:"title,omitempty"`
+	Body       string    `json:"body,omitempty"`
+	BodyCut    bool      `json:"body_truncated"`
+	Author     string    `json:"author_id,omitempty"`
+	Tag        string    `json:"tag,omitempty"`
+	Color      string    `json:"color,omitempty"`
+	Closed     bool      `json:"closed,omitempty"`
+	Draft      bool      `json:"draft,omitempty"`
+	Prerelease bool      `json:"prerelease,omitempty"`
+	CreatedAt  time.Time `json:"created_at,omitempty"`
+	UpdatedAt  time.Time `json:"updated_at,omitempty"`
+}
+
 type AccessEntry struct {
 	SourceID   string `json:"source_id"`
 	Repository string `json:"repository_id"`
@@ -130,6 +148,39 @@ func (catalog *Catalog) WorkItems(repositoryID, after string, limit int) (Page[W
 	return page, nil
 }
 
+func (catalog *Catalog) RepositoryHistory(repositoryID, after string, limit int) (Page[RepositoryHistoryEntry], error) {
+	prefix, err := sourceIDPrefix(repositoryID)
+	if err != nil {
+		return Page[RepositoryHistoryEntry]{}, err
+	}
+	documents, err := catalog.store.ListPrefix("import-repository-history", prefix, after, normalizedLimit(limit))
+	if err != nil {
+		return Page[RepositoryHistoryEntry]{}, err
+	}
+	page := Page[RepositoryHistoryEntry]{Items: make([]RepositoryHistoryEntry, 0, len(documents))}
+	for _, document := range documents {
+		row, err := decodeHistoryRow(document)
+		if err != nil {
+			return Page[RepositoryHistoryEntry]{}, err
+		}
+		body, truncated := boundedText(firstText(row.Values, "content", "body", "note", "description"))
+		page.Items = append(page.Items, RepositoryHistoryEntry{
+			Kind: row.SourceTable, SourceID: stringValue(row.Values["id"]),
+			Repository: firstText(row.Values, "_repository_id", "repo_id"), Issue: stringValue(row.Values["issue_id"]),
+			Title: firstText(row.Values, "name", "title"), Body: body,
+			BodyCut: truncated || boolean(row.Values["_body_truncated"]),
+			Author:  firstText(row.Values, "poster_id", "publisher_id", "creator_id"),
+			Tag:     firstText(row.Values, "tag_name", "lower_tag_name"), Color: firstText(row.Values, "color"),
+			Closed: boolean(row.Values["is_closed"]), Draft: boolean(row.Values["is_draft"]),
+			Prerelease: boolean(row.Values["is_prerelease"]),
+			CreatedAt:  timestamp(row.Values, "created_unix", "created"),
+			UpdatedAt:  timestamp(row.Values, "updated_unix", "updated", "published_unix"),
+		})
+	}
+	page.NextCursor = nextCursor(documents, limit)
+	return page, nil
+}
+
 func sourceIDPrefix(value string) (string, error) {
 	parsed, err := strconv.ParseUint(strings.TrimSpace(value), 10, 64)
 	if err != nil || parsed == 0 {
@@ -166,6 +217,21 @@ func decodeRow(document state.Document, table string) (sourceRow, error) {
 		return sourceRow{}, fmt.Errorf("%w: corrupt %s row %s", ErrInvalidImport, table, document.ID)
 	}
 	return row, nil
+}
+
+func decodeHistoryRow(document state.Document) (sourceRow, error) {
+	decoder := json.NewDecoder(bytes.NewReader(document.Payload))
+	decoder.UseNumber()
+	var row sourceRow
+	if err := decoder.Decode(&row); err != nil || row.Ordinal < 1 || row.External != "" || row.Values == nil {
+		return sourceRow{}, fmt.Errorf("%w: corrupt repository history row %s", ErrInvalidImport, document.ID)
+	}
+	switch row.SourceTable {
+	case "comment", "label", "milestone", "release":
+		return row, nil
+	default:
+		return sourceRow{}, fmt.Errorf("%w: unexpected repository history row %s", ErrInvalidImport, document.ID)
+	}
 }
 
 func normalizedLimit(limit int) int {

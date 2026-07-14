@@ -87,6 +87,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/git-clients", s.gitClientCatalog)
 	mux.HandleFunc("GET /api/v1/imports/directory", s.importDirectory)
 	mux.HandleFunc("GET /api/v1/imports/work-items", s.importWorkItems)
+	mux.HandleFunc("GET /api/v1/imports/repository-history", s.importRepositoryHistory)
 	mux.HandleFunc("GET /api/v1/imports/access", s.importAccess)
 	mux.HandleFunc("GET /api/v1/auth/tokens", s.authTokens)
 	mux.HandleFunc("POST /api/v1/auth/tokens", s.authTokenIssue)
@@ -180,6 +181,31 @@ func (s *Server) importWorkItems(w http.ResponseWriter, r *http.Request) {
 	page, err := s.imports.WorkItems(repositoryID, after, limit)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "imported work items could not be read"})
+		return
+	}
+	writeJSON(w, http.StatusOK, page)
+}
+
+func (s *Server) importRepositoryHistory(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "repositories:read"); !ok {
+		return
+	}
+	after, limit, ok := importPage(w, r)
+	if !ok {
+		return
+	}
+	if s.imports == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "import catalog is unavailable"})
+		return
+	}
+	repositoryID := r.URL.Query().Get("repository_id")
+	if repositoryID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "source repository ID is required"})
+		return
+	}
+	page, err := s.imports.RepositoryHistory(repositoryID, after, limit)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "imported repository history could not be read"})
 		return
 	}
 	writeJSON(w, http.StatusOK, page)
