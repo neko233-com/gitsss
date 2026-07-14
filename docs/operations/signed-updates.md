@@ -45,4 +45,6 @@ gitsss-agent update-activate `
 
 `v0.1.0-alpha.1` 是切换到本机发布流程的 SHA-256 基线包，尚未包含此验证命令或 Ed25519 manifest。签名发布从完成离线私钥托管和公钥预置的后续预发布开始，不能追认旧包为已签名。
 
+`v0.1.0-alpha.4` 按 checksum-only 本机直传策略发布，没有 `update-manifest.json` 或 `update-manifest.sig`，因此签名更新命令不会接受它。手动安装时应使用 Release 中的 `SHA256SUMS` 校验六平台归档。
+
 发布构建机使用 `go run ./cmd/gitsss-release keygen` 一次性生成 Ed25519 seed、公钥和 key ID。该命令的 JSON 含私钥材料，只能捕获到受保护的密钥托管流程，不能粘贴到工单、日志或提交中。实际打包通过 `-SigningKeyEnvironment` 指定环境变量名称；发布工具从环境读取 seed，扫描并绑定恰好六个目标归档，私钥不会写入输出目录。

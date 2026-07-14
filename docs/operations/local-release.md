@@ -45,3 +45,5 @@ seed 只从命名环境变量读取，不得放入参数、脚本、仓库或 re
 ```
 
 `-UploadTag` 先创建 draft release，并把 tag 绑定到本次构建的 commit，而不是可移动的分支头；随后逐个上传资产，将 GitHub 返回的每个 SHA-256 digest 与本地文件复核，全部一致后才发布 prerelease。上传失败会保留本地归档和远端 draft 供诊断，不会冒充完整版本。若 tag/release 已存在，命令失败且不会覆盖已有资产。仅用于归档的 staging 目录会在生成校验清单后安全删除；`-SkipTests` 只用于本地脚本 smoke test，不能用于正式发布。
+
+未配置 `-SigningKeyEnvironment` 时，脚本发布六个平台归档和 `SHA256SUMS`，不生成签名 manifest。`v0.1.0-alpha.4` 是绑定 commit `4324abf15a71689857dd834334890f6b6369f205` 的 checksum-only 直传预发布；它适用于手动安装和校验，不作为签名自动更新输入。
