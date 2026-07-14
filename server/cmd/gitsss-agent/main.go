@@ -254,6 +254,33 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 			})
 		}
 		return json.Marshal(result)
+	case agentjob.KindShadowAudit:
+		var input agentjob.ShadowAuditInput
+		if err := json.Unmarshal(job.Input, &input); err != nil {
+			return nil, err
+		}
+		if input.AgentID == "" {
+			input.AgentID = agentID
+		}
+		passphrase := os.Getenv(input.PassphraseEnv)
+		if input.AgentID != agentID {
+			return nil, errors.New("shadow audit Agent ID does not match the worker")
+		}
+		if strings.TrimSpace(input.ConfigPath) == "" || strings.TrimSpace(input.InputPath) == "" || strings.TrimSpace(input.TargetPath) == "" || strings.TrimSpace(input.ExpectedAssessmentID) == "" || !validAgentEnvironmentName(input.PassphraseEnv) || len(passphrase) < 12 || !validAgentSHA256(input.ExpectedContainerSHA256) {
+			return nil, errors.New("shadow audit paths, confirmation, digest and a valid passphrase environment are required")
+		}
+		audit, err := backup.AuditShadowExact(
+			input.InputPath, passphrase, input.TargetPath,
+			takeover.Options{
+				AgentID: input.AgentID, ConfigPath: input.ConfigPath, WorkPath: input.WorkPath,
+				GiteaVersion: input.GiteaVersion, MaxEntries: input.MaxEntries,
+			},
+			input.ExpectedAssessmentID, input.ExpectedContainerSHA256,
+		)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(audit)
 	default:
 		return nil, errors.New("unsupported Agent job kind")
 	}

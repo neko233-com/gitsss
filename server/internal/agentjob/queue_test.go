@@ -122,3 +122,11 @@ func TestQueueAcceptsPostRestoreAudit(t *testing.T) {
 		t.Fatalf("backup audit job = %#v, %v", job, err)
 	}
 }
+
+func TestQueueAcceptsShadowAudit(t *testing.T) {
+	queue := NewQueue(nil)
+	job, err := queue.Create("admin", "request", KindShadowAudit, json.RawMessage(`{"expected_assessment_id":"assessment-0123456789abcdef"}`), time.Now())
+	if err != nil || job.Kind != KindShadowAudit || job.Status != StatusQueued {
+		t.Fatalf("shadow audit job = %#v, %v", job, err)
+	}
+}

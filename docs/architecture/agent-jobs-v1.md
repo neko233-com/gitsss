@@ -21,13 +21,15 @@ queued → running (5 分钟租约) → succeeded | failed
 - 常驻 Worker 在空队列和控制面故障时分别使用有上限的指数退避；Token 默认只从环境变量读取。
 - 执行已结束但完成请求失败时，进程会保留待回传结果并只重试完成请求，不在同一进程中重复执行作业。
 
-v1 白名单仅包含 `takeover.assess`、`backup.export`、`backup.restore-isolated`、`backup.audit-restore` 与 `backup.verify`。评估、导出、恢复和审计都强制输入中的 `agent_id` 与执行 Worker 一致；备份口令只按环境变量名称在旧服务器本地读取，不进入作业内容或结果。
+v1 白名单仅包含 `takeover.assess`、`backup.export`、`backup.restore-isolated`、`backup.audit-restore`、`takeover.shadow-audit` 与 `backup.verify`。评估、导出、恢复和审计都强制输入中的 `agent_id` 与执行 Worker 一致；备份口令只按环境变量名称在旧服务器本地读取，不进入作业内容或结果。
 
 `backup.export` 必须携带管理员刚刚确认的评估 ID。Agent 会在导出前重新读取配置和资产路径，只有新评估 ID 与确认值完全一致才会生成容器；配置或范围在确认后发生变化时，任务失败且不会创建输出。输出路径使用 no-replace 原子发布，成功结果只回传文件数、字节数、容器路径和 SHA-256。
 
 `backup.restore-isolated` 必须同时携带评估 ID 和管理员确认的容器 SHA-256。Agent 在两次完整认证解密中计算原始容器摘要，只有两次摘要与确认值都相等才会以 no-replace 方式发布全新的隔离目录；在线 Gitea 和 gitsss 数据路径不在该任务的写入范围内。
 
-`backup.audit-restore` 继承同一评估 ID、容器 SHA-256 和隔离目标，任务本身只读。成功回传只表示审计已执行；只有逐文件清单全部一致、所有 Git 仓库严格校验通过且 LFS OID 无异常时，结果中的 `ready_for_shadow_mode` 才为 true，线性向导才进入影子模式步骤。
+`backup.audit-restore` 继承同一评估 ID、容器 SHA-256 和隔离目标，任务本身只读。成功回传只表示恢复内容审计已执行；只有逐文件清单全部一致、所有 Git 仓库严格校验通过且 LFS OID 无异常时，线性向导才允许下发 `takeover.shadow-audit`。
+
+`takeover.shadow-audit` 再次读取 live `app.ini`、资产清单和 bare Git refs，并与已确认容器及隔离恢复逐项比较。返回内容分离配置、恢复、资产、仓库汇总、最多 64 条有界仓库差异和结构化 blocker/warning；完整差异计数始终保留。只有配置原始文件未变化、恢复审计通过、资产文件数/字节数未漂移、源/恢复仓库集合及 refs 指纹完全一致、且 SQLite 主数据库已进入备份清单时，`ready_for_shadow_mode` 才为 true。MySQL、PostgreSQL、MSSQL 在一致性 dump 适配器完成前必须返回 `database.snapshot_unavailable` blocker。
 
 ## HTTP 接口
 

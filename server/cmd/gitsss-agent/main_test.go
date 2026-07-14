@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/neko233-com/gitsss/server/internal/agentjob"
+	"github.com/neko233-com/gitsss/server/internal/backup"
 	"github.com/neko233-com/gitsss/server/internal/takeover"
 )
 
@@ -148,5 +149,24 @@ func TestExecuteAgentJobRestoresConfirmedContainer(t *testing.T) {
 	}
 	if !auditResult.ReadyForShadowMode || auditResult.Files.Identical != restoreResult.Files || auditResult.ContainerSHA256 != exportResult.ContainerSHA256 || auditResult.Git == nil {
 		t.Fatalf("unexpected audit result: %#v", auditResult)
+	}
+	shadowInput, err := json.Marshal(agentjob.ShadowAuditInput{
+		AgentID: "old-server", ConfigPath: configPath, InputPath: backupPath,
+		PassphraseEnv: "GITSSS_AGENT_JOB_PASSPHRASE", TargetPath: targetPath,
+		ExpectedAssessmentID: report.ID, ExpectedContainerSHA256: exportResult.ContainerSHA256,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	shadowed, err := executeAgentJob(agentjob.Job{Kind: agentjob.KindShadowAudit, Input: shadowInput}, "old-server")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var shadowResult backup.ShadowAudit
+	if err := json.Unmarshal(shadowed, &shadowResult); err != nil {
+		t.Fatal(err)
+	}
+	if shadowResult.ReadyForShadowMode {
+		t.Fatalf("remote database without a snapshot was accepted: %#v", shadowResult)
 	}
 }

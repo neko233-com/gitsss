@@ -52,6 +52,19 @@ type BackupAuditInput struct {
 	ExpectedContainerSHA256 string `json:"expected_container_sha256"`
 }
 
+type ShadowAuditInput struct {
+	AgentID                 string `json:"agent_id"`
+	ConfigPath              string `json:"config_path"`
+	WorkPath                string `json:"work_path,omitempty"`
+	GiteaVersion            string `json:"gitea_version,omitempty"`
+	MaxEntries              int    `json:"max_entries,omitempty"`
+	InputPath               string `json:"input_path"`
+	PassphraseEnv           string `json:"passphrase_env"`
+	TargetPath              string `json:"target_path"`
+	ExpectedAssessmentID    string `json:"expected_assessment_id"`
+	ExpectedContainerSHA256 string `json:"expected_container_sha256"`
+}
+
 type BackupAuditFileSummary struct {
 	New       int `json:"new"`
 	Identical int `json:"identical"`

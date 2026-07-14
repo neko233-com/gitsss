@@ -44,10 +44,15 @@ interface AgentJob {
     | "backup.export"
     | "backup.restore-isolated"
     | "backup.verify"
+    | "takeover.shadow-audit"
   status: "queued" | "running" | "succeeded" | "failed"
   input: Record<string, unknown>
   result?:
-    Assessment | BackupAuditResult | BackupExportResult | BackupRestoreResult
+    | Assessment
+    | BackupAuditResult
+    | BackupExportResult
+    | BackupRestoreResult
+    | ShadowAuditResult
   error?: string
   claimed_by?: string
 }
@@ -100,6 +105,36 @@ interface BackupAuditResult {
   audited_at: string
 }
 
+interface ShadowAuditResult {
+  assessment_id: string
+  target: string
+  config_matches: boolean
+  restore_ready: boolean
+  assets: Array<{
+    kind: string
+    source_files: number
+    snapshot_files: number
+    source_bytes: number
+    snapshot_bytes: number
+    matches: boolean
+  }>
+  repository_summary: {
+    source: number
+    restored: number
+    matched: number
+    mismatched: number
+  }
+  repository_mismatches?: Array<{
+    path: string
+    refs_match: boolean
+    objects_match: boolean
+  }>
+  mismatch_truncated: boolean
+  findings?: Finding[]
+  ready_for_shadow_mode: boolean
+  audited_at: string
+}
+
 const assetNames: Record<string, string> = {
   repositories: "Git 仓库",
   lfs: "LFS",
@@ -135,6 +170,7 @@ function jobStatus(job?: AgentJob) {
   if (job.kind === "backup.export") return "加密备份已回传"
   if (job.kind === "backup.restore-isolated") return "隔离恢复已回传"
   if (job.kind === "backup.verify") return "备份验证已回传"
+  if (job.kind === "takeover.shadow-audit") return "影子差异已回传"
   return "评估已回传"
 }
 
@@ -144,6 +180,7 @@ function isAssessment(
     | BackupAuditResult
     | BackupExportResult
     | BackupRestoreResult
+    | ShadowAuditResult
     | undefined
 ): result is Assessment {
   return Boolean(result && "assets" in result)
@@ -155,6 +192,7 @@ function isBackupExport(
     | BackupAuditResult
     | BackupExportResult
     | BackupRestoreResult
+    | ShadowAuditResult
     | undefined
 ): result is BackupExportResult {
   return Boolean(result && "output_path" in result)
@@ -166,6 +204,7 @@ function isBackupRestore(
     | BackupAuditResult
     | BackupExportResult
     | BackupRestoreResult
+    | ShadowAuditResult
     | undefined
 ): result is BackupRestoreResult {
   return Boolean(result && "content_path" in result)
@@ -177,9 +216,22 @@ function isBackupAudit(
     | BackupAuditResult
     | BackupExportResult
     | BackupRestoreResult
+    | ShadowAuditResult
     | undefined
 ): result is BackupAuditResult {
-  return Boolean(result && "ready_for_shadow_mode" in result)
+  return Boolean(result && "files" in result && "lfs_objects" in result)
+}
+
+function isShadowAudit(
+  result:
+    | Assessment
+    | BackupAuditResult
+    | BackupExportResult
+    | BackupRestoreResult
+    | ShadowAuditResult
+    | undefined
+): result is ShadowAuditResult {
+  return Boolean(result && "repository_summary" in result)
 }
 
 export function TakeoverCenter() {
@@ -262,6 +314,16 @@ export function TakeoverCenter() {
   const auditResult =
     auditJob?.status === "succeeded" && isBackupAudit(auditJob.result)
       ? auditJob.result
+      : undefined
+  const shadowJob = jobs.find(
+    (job) =>
+      job.kind === "takeover.shadow-audit" &&
+      job.input.expected_container_sha256 === backupResult?.container_sha256 &&
+      job.input.target_path === restoreResult?.target
+  )
+  const shadowResult =
+    shadowJob?.status === "succeeded" && isShadowAudit(shadowJob.result)
+      ? shadowJob.result
       : undefined
 
   const refresh = async () => {
@@ -385,6 +447,34 @@ export function TakeoverCenter() {
     }
   }
 
+  const dispatchShadowAudit = async () => {
+    if (!selected || !backupResult || !restoreResult || !auditResult) return
+    setLoading(true)
+    setError("")
+    try {
+      const job = await apiMutation<AgentJob>("/api/v1/agent/jobs", token, {
+        kind: "takeover.shadow-audit",
+        input: {
+          agent_id: selected.agent_id,
+          config_path: selected.config_path,
+          work_path: assessedWorkPath || undefined,
+          gitea_version: selected.gitea_version,
+          max_entries: 1_000_000,
+          input_path: backupResult.output_path,
+          passphrase_env: backupPassphraseEnv,
+          target_path: restoreResult.target,
+          expected_assessment_id: backupResult.assessment_id,
+          expected_container_sha256: backupResult.container_sha256,
+        },
+      })
+      setJobs((current) => [job, ...current])
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "无法下发影子审计")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const blockers = selected?.findings.filter(
     (finding) => finding.severity === "blocker"
   ).length
@@ -392,8 +482,10 @@ export function TakeoverCenter() {
     (total, asset) => total + asset.bytes,
     0
   )
-  const completedSteps = auditResult?.ready_for_shadow_mode
-    ? 5
+  const completedSteps = shadowResult?.ready_for_shadow_mode
+    ? 6
+    : auditResult?.ready_for_shadow_mode
+      ? 5
     : restoreResult
       ? 4
       : backupResult
@@ -829,6 +921,82 @@ export function TakeoverCenter() {
                     ))}
                     {auditResult.findings?.map((finding) => (
                       <p key={finding}>{finding}</p>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {auditResult?.ready_for_shadow_mode ? (
+              <div className="mt-7 border-y border-zinc-200 py-5">
+                <p className="text-sm font-medium">下一步：影子模式预检</p>
+                <p className="mt-2 text-xs leading-5 text-zinc-500">
+                  再次读取源配置和资产清单，并逐仓库比较 live refs
+                  指纹与隔离副本。该步骤只读；远程数据库没有一致性快照时会明确阻断。
+                </p>
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  <Button
+                    disabled={
+                      loading ||
+                      shadowJob?.status === "queued" ||
+                      shadowJob?.status === "running"
+                    }
+                    onClick={dispatchShadowAudit}
+                    variant="outline"
+                  >
+                    {shadowJob ? "重新运行影子预检" : "开始影子预检"}
+                  </Button>
+                  <output
+                    className={
+                      shadowJob?.status === "failed"
+                        ? "text-xs text-red-600"
+                        : "text-xs text-zinc-500"
+                    }
+                  >
+                    {shadowJob ? jobStatus(shadowJob) : "等待源与副本差异审计"}
+                  </output>
+                </div>
+                {shadowResult ? (
+                  <div
+                    className={
+                      shadowResult.ready_for_shadow_mode
+                        ? "mt-5 border-l-2 border-emerald-500 pl-4 text-xs leading-5 text-zinc-600"
+                        : "mt-5 border-l-2 border-red-500 pl-4 text-xs leading-5 text-red-700"
+                    }
+                  >
+                    <p className="font-medium">
+                      {shadowResult.ready_for_shadow_mode
+                        ? "影子模式预检通过"
+                        : "源实例与快照之间存在阻断差异"}
+                    </p>
+                    <p>
+                      配置{shadowResult.config_matches ? "一致" : "已变化"} ·
+                      恢复{shadowResult.restore_ready ? "通过" : "未通过"} · Git
+                      refs {shadowResult.repository_summary.matched}/
+                      {shadowResult.repository_summary.source} 一致
+                    </p>
+                    {shadowResult.assets
+                      .filter((asset) => !asset.matches)
+                      .map((asset) => (
+                        <p key={asset.kind}>
+                          {assetNames[asset.kind] ?? asset.kind}：源
+                          {asset.source_files} 个/
+                          {formatBytes(asset.source_bytes)}，快照
+                          {asset.snapshot_files} 个/
+                          {formatBytes(asset.snapshot_bytes)}
+                        </p>
+                      ))}
+                    {shadowResult.repository_mismatches?.map((repository) => (
+                      <p className="truncate" key={repository.path}>
+                        {repository.path}：refs 指纹不一致
+                      </p>
+                    ))}
+                    {shadowResult.mismatch_truncated ? (
+                      <p>差异过多，仅显示前 64 项。</p>
+                    ) : null}
+                    {shadowResult.findings?.map((finding) => (
+                      <p key={finding.code + finding.message}>
+                        {finding.message}
+                      </p>
                     ))}
                   </div>
                 ) : null}
