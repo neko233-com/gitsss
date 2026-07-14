@@ -441,7 +441,7 @@ func TestServerDispatchesAgentJobWithScopedClaimAndCompletion(t *testing.T) {
 	server := NewServer(
 		auth.NewVerifier(
 			auth.NewRecord("admin", "admin-token", time.Time{}, "agents:dispatch", "agents:read"),
-			auth.NewRecord("worker", "worker-token", time.Time{}, "agents:work"),
+			auth.NewRecord("old-server", "worker-token", time.Time{}, "agents:work"),
 		),
 		Dependencies{Jobs: agentjob.NewQueue(log)},
 	)
@@ -462,6 +462,13 @@ func TestServerDispatchesAgentJobWithScopedClaimAndCompletion(t *testing.T) {
 	server.Handler().ServeHTTP(claimResponse, claim)
 	if claimResponse.Code != http.StatusOK || !strings.Contains(claimResponse.Body.String(), created.ID) {
 		t.Fatalf("claim = %d %s", claimResponse.Code, claimResponse.Body.String())
+	}
+	heartbeat := httptest.NewRequest(http.MethodPost, "/api/v1/agent/jobs/"+created.ID+"/heartbeat", strings.NewReader(`{"agent_id":"old-server"}`))
+	heartbeat.Header.Set("Authorization", "Bearer worker-token")
+	heartbeatResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(heartbeatResponse, heartbeat)
+	if heartbeatResponse.Code != http.StatusOK || !strings.Contains(heartbeatResponse.Body.String(), `"status":"running"`) {
+		t.Fatalf("heartbeat = %d %s", heartbeatResponse.Code, heartbeatResponse.Body.String())
 	}
 	wrong := httptest.NewRequest(http.MethodPost, "/api/v1/agent/jobs/"+created.ID+"/complete", strings.NewReader(`{"agent_id":"other","result":{"id":"assessment-1"}}`))
 	wrong.Header.Set("Authorization", "Bearer worker-token")

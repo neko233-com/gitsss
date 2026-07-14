@@ -36,12 +36,13 @@ type agentCycleOutcome struct {
 }
 
 type agentWorker struct {
-	serverURL string
-	token     string
-	agentID   string
-	client    *http.Client
-	execute   agentJobExecutor
-	pending   *pendingAgentCompletion
+	serverURL         string
+	token             string
+	agentID           string
+	client            *http.Client
+	execute           agentJobExecutor
+	pending           *pendingAgentCompletion
+	heartbeatInterval time.Duration
 }
 
 func health(args []string) {
@@ -98,7 +99,7 @@ func newAgentWorker(serverURL, token, agentID string, client *http.Client, execu
 	}
 	return &agentWorker{
 		serverURL: strings.TrimRight(serverURL, "/"), token: token, agentID: agentID,
-		client: client, execute: execute,
+		client: client, execute: execute, heartbeatInterval: time.Minute,
 	}
 }
 
@@ -110,7 +111,7 @@ func (worker *agentWorker) Cycle(ctx context.Context) (agentCycleOutcome, error)
 	if err != nil || !found {
 		return agentCycleOutcome{}, err
 	}
-	result, executionErr := worker.execute(job, worker.agentID)
+	result, executionErr := worker.executeWithHeartbeat(ctx, job)
 	failure := ""
 	if executionErr != nil {
 		failure = executionErr.Error()
@@ -119,6 +120,38 @@ func (worker *agentWorker) Cycle(ctx context.Context) (agentCycleOutcome, error)
 		jobID: job.ID, result: result, failure: failure, executionErr: executionErr,
 	}
 	return worker.flushPending(ctx)
+}
+
+func (worker *agentWorker) executeWithHeartbeat(ctx context.Context, job agentjob.Job) (json.RawMessage, error) {
+	type executionResult struct {
+		result json.RawMessage
+		err    error
+	}
+	completed := make(chan executionResult, 1)
+	go func() {
+		result, err := worker.execute(job, worker.agentID)
+		completed <- executionResult{result: result, err: err}
+	}()
+	interval := worker.heartbeatInterval
+	if interval <= 0 {
+		interval = time.Minute
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case result := <-completed:
+			return result.result, result.err
+		case <-ticker.C:
+			heartbeatContext, cancel := context.WithTimeout(ctx, 15*time.Second)
+			_ = heartbeatAgentJobContext(
+				heartbeatContext, worker.client, worker.serverURL, worker.token, worker.agentID, job.ID,
+			)
+			cancel()
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
 }
 
 func (worker *agentWorker) flushPending(ctx context.Context) (agentCycleOutcome, error) {

@@ -68,6 +68,20 @@ type ShadowAuditInput struct {
 	ExpectedFreezeID        string `json:"expected_freeze_id,omitempty"`
 }
 
+type CutoverInput struct {
+	ShadowAuditInput
+	ActivePath   string `json:"active_path"`
+	Confirmation string `json:"confirmation"`
+}
+
+type RollbackInput struct {
+	AgentID      string `json:"agent_id"`
+	ActivePath   string `json:"active_path"`
+	StatePath    string `json:"state_path"`
+	CutoverID    string `json:"cutover_id"`
+	Confirmation string `json:"confirmation"`
+}
+
 type FreezeCheckInput struct {
 	AgentID      string `json:"agent_id"`
 	ConfigPath   string `json:"config_path"`

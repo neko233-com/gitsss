@@ -46,6 +46,8 @@ interface AgentJob {
     | "backup.verify"
     | "takeover.shadow-audit"
     | "takeover.freeze-check"
+    | "takeover.cutover"
+    | "takeover.rollback"
   status: "queued" | "running" | "succeeded" | "failed"
   input: Record<string, unknown>
   result?:
@@ -55,6 +57,8 @@ interface AgentJob {
     | BackupRestoreResult
     | ShadowAuditResult
     | FreezeEvidence
+    | CutoverResult
+    | RollbackResult
   error?: string
   claimed_by?: string
 }
@@ -148,6 +152,25 @@ interface ShadowAuditResult {
   audited_at: string
 }
 
+interface CutoverResult {
+  id: string
+  assessment_id: string
+  active_path: string
+  rollback_path?: string
+  state_path: string
+  previous_active: boolean
+  activated_sha256: string
+  cutover_at: string
+}
+
+interface RollbackResult {
+  cutover_id: string
+  active_path: string
+  archived_path: string
+  restored_previous: boolean
+  rolled_back_at: string
+}
+
 const assetNames: Record<string, string> = {
   repositories: "Git 仓库",
   lfs: "LFS",
@@ -167,6 +190,8 @@ const takeoverSteps = [
   "隔离恢复",
   "数据审计",
   "影子模式",
+  "原子切换",
+  "回滚保护",
 ]
 
 function formatBytes(bytes: number) {
@@ -187,6 +212,8 @@ function jobStatus(job?: AgentJob) {
   if (job.kind === "backup.verify") return "备份验证已回传"
   if (job.kind === "takeover.shadow-audit") return "影子差异已回传"
   if (job.kind === "takeover.freeze-check") return "停服状态已回传"
+  if (job.kind === "takeover.cutover") return "目录切换已完成"
+  if (job.kind === "takeover.rollback") return "回滚已完成"
   return "评估已回传"
 }
 
@@ -198,6 +225,8 @@ function isAssessment(
     | BackupRestoreResult
     | ShadowAuditResult
     | FreezeEvidence
+    | CutoverResult
+    | RollbackResult
     | undefined
 ): result is Assessment {
   return Boolean(result && "assets" in result)
@@ -211,6 +240,8 @@ function isBackupExport(
     | BackupRestoreResult
     | ShadowAuditResult
     | FreezeEvidence
+    | CutoverResult
+    | RollbackResult
     | undefined
 ): result is BackupExportResult {
   return Boolean(result && "output_path" in result)
@@ -224,6 +255,8 @@ function isBackupRestore(
     | BackupRestoreResult
     | ShadowAuditResult
     | FreezeEvidence
+    | CutoverResult
+    | RollbackResult
     | undefined
 ): result is BackupRestoreResult {
   return Boolean(result && "content_path" in result)
@@ -237,6 +270,8 @@ function isBackupAudit(
     | BackupRestoreResult
     | ShadowAuditResult
     | FreezeEvidence
+    | CutoverResult
+    | RollbackResult
     | undefined
 ): result is BackupAuditResult {
   return Boolean(result && "files" in result && "lfs_objects" in result)
@@ -250,6 +285,8 @@ function isShadowAudit(
     | BackupRestoreResult
     | ShadowAuditResult
     | FreezeEvidence
+    | CutoverResult
+    | RollbackResult
     | undefined
 ): result is ShadowAuditResult {
   return Boolean(result && "repository_summary" in result)
@@ -263,9 +300,23 @@ function isFreezeEvidence(
     | BackupRestoreResult
     | ShadowAuditResult
     | FreezeEvidence
+    | CutoverResult
+    | RollbackResult
     | undefined
 ): result is FreezeEvidence {
   return Boolean(result && "offline" in result && "network" in result)
+}
+
+function isCutoverResult(result: AgentJob["result"]): result is CutoverResult {
+  return Boolean(
+    result && "state_path" in result && "activated_sha256" in result
+  )
+}
+
+function isRollbackResult(
+  result: AgentJob["result"]
+): result is RollbackResult {
+  return Boolean(result && "cutover_id" in result && "rolled_back_at" in result)
 }
 
 export function TakeoverCenter({
@@ -287,6 +338,9 @@ export function TakeoverCenter({
     "/var/lib/gitsss/imports/old-gitea"
   )
   const [restoreConfirmation, setRestoreConfirmation] = useState("")
+  const [activePath, setActivePath] = useState("/var/lib/gitsss/data")
+  const [cutoverConfirmation, setCutoverConfirmation] = useState("")
+  const [rollbackConfirmation, setRollbackConfirmation] = useState("")
   const [reports, setReports] = useState<Assessment[]>([])
   const [jobs, setJobs] = useState<AgentJob[]>([])
   const [selectedID, setSelectedID] = useState("")
@@ -375,6 +429,25 @@ export function TakeoverCenter({
   const shadowResult =
     shadowJob?.status === "succeeded" && isShadowAudit(shadowJob.result)
       ? shadowJob.result
+      : undefined
+  const cutoverJob = jobs.find(
+    (job) =>
+      job.kind === "takeover.cutover" &&
+      job.input.expected_container_sha256 === backupResult?.container_sha256 &&
+      job.input.target_path === restoreResult?.target
+  )
+  const cutoverResult =
+    cutoverJob?.status === "succeeded" && isCutoverResult(cutoverJob.result)
+      ? cutoverJob.result
+      : undefined
+  const rollbackJob = jobs.find(
+    (job) =>
+      job.kind === "takeover.rollback" &&
+      job.input.cutover_id === cutoverResult?.id
+  )
+  const rollbackResult =
+    rollbackJob?.status === "succeeded" && isRollbackResult(rollbackJob.result)
+      ? rollbackJob.result
       : undefined
 
   const refresh = async () => {
@@ -541,11 +614,66 @@ export function TakeoverCenter({
           target_path: restoreResult.target,
           expected_assessment_id: backupResult.assessment_id,
           expected_container_sha256: backupResult.container_sha256,
+          expected_freeze_id: backupResult.freeze_id,
         },
       })
       setJobs((current) => [job, ...current])
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "无法下发影子审计")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const dispatchCutover = async () => {
+    if (!selected || !backupResult || !restoreResult || !shadowResult) return
+    setLoading(true)
+    setError("")
+    try {
+      const job = await apiMutation<AgentJob>("/api/v1/agent/jobs", token, {
+        kind: "takeover.cutover",
+        input: {
+          agent_id: selected.agent_id,
+          config_path: selected.config_path,
+          work_path: assessedWorkPath || undefined,
+          gitea_version: selected.gitea_version,
+          max_entries: 1_000_000,
+          input_path: backupResult.output_path,
+          passphrase_env: backupPassphraseEnv,
+          target_path: restoreResult.target,
+          active_path: activePath,
+          expected_assessment_id: backupResult.assessment_id,
+          expected_container_sha256: backupResult.container_sha256,
+          expected_freeze_id: backupResult.freeze_id,
+          confirmation: cutoverConfirmation,
+        },
+      })
+      setJobs((current) => [job, ...current])
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "无法下发原子切换")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const dispatchRollback = async () => {
+    if (!selected || !cutoverResult) return
+    setLoading(true)
+    setError("")
+    try {
+      const job = await apiMutation<AgentJob>("/api/v1/agent/jobs", token, {
+        kind: "takeover.rollback",
+        input: {
+          agent_id: selected.agent_id,
+          active_path: cutoverResult.active_path,
+          state_path: cutoverResult.state_path,
+          cutover_id: cutoverResult.id,
+          confirmation: rollbackConfirmation,
+        },
+      })
+      setJobs((current) => [job, ...current])
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "无法下发回滚")
     } finally {
       setLoading(false)
     }
@@ -558,21 +686,23 @@ export function TakeoverCenter({
     (total, asset) => total + asset.bytes,
     0
   )
-  const completedSteps = shadowResult?.ready_for_shadow_mode
-    ? 7
-    : auditResult?.ready_for_shadow_mode
-      ? 6
-      : restoreResult
-        ? 5
-        : backupResult
-          ? 4
-          : selected && freezeSatisfied
-            ? 3
-            : selected
-              ? 2
-              : assessmentJob?.status === "running"
-                ? 1
-                : 0
+  const completedSteps = cutoverResult
+    ? 9
+    : shadowResult?.ready_for_shadow_mode
+      ? 7
+      : auditResult?.ready_for_shadow_mode
+        ? 6
+        : restoreResult
+          ? 5
+          : backupResult
+            ? 4
+            : selected && freezeSatisfied
+              ? 3
+              : selected
+                ? 2
+                : assessmentJob?.status === "running"
+                  ? 1
+                  : 0
 
   return (
     <section className="mx-auto max-w-5xl pt-8">
@@ -586,7 +716,7 @@ export function TakeoverCenter({
         </p>
       </div>
 
-      <ol className="mt-8 grid grid-cols-2 border-y border-zinc-200 py-4 text-xs text-zinc-500 sm:grid-cols-3 lg:grid-cols-7">
+      <ol className="mt-8 grid grid-cols-2 border-y border-zinc-200 py-4 text-xs text-zinc-500 sm:grid-cols-3 lg:grid-cols-9">
         {takeoverSteps.map((step, index) => {
           const complete = index < completedSteps
           const active = index === completedSteps
@@ -1124,6 +1254,133 @@ export function TakeoverCenter({
                         {finding.message}
                       </p>
                     ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {shadowResult?.ready_for_shadow_mode ? (
+              <div className="mt-7 border-y border-zinc-200 py-5">
+                <p className="text-sm font-medium">最终步骤：原子切换</p>
+                <p className="mt-2 text-xs leading-5 text-zinc-500">
+                  Agent
+                  会再次执行完整影子校验，然后保留当前活跃目录作为回滚点，并把隔离副本原子切入。不会删除任一代数据。
+                </p>
+                <label
+                  className="mt-4 grid gap-2 text-xs font-medium"
+                  htmlFor="cutover-active-path"
+                >
+                  gitsss 活跃数据目录
+                  <Input
+                    id="cutover-active-path"
+                    onChange={(event) => setActivePath(event.target.value)}
+                    value={activePath}
+                  />
+                </label>
+                <label
+                  className="mt-4 grid gap-2 text-xs font-medium"
+                  htmlFor="cutover-confirmation"
+                >
+                  输入 CUTOVER {selected!.id}
+                  <Input
+                    id="cutover-confirmation"
+                    onChange={(event) =>
+                      setCutoverConfirmation(event.target.value)
+                    }
+                    value={cutoverConfirmation}
+                  />
+                </label>
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  <Button
+                    disabled={
+                      loading ||
+                      !activePath ||
+                      cutoverConfirmation !== `CUTOVER ${selected!.id}` ||
+                      cutoverJob?.status === "queued" ||
+                      cutoverJob?.status === "running" ||
+                      Boolean(cutoverResult)
+                    }
+                    onClick={dispatchCutover}
+                  >
+                    执行原子切换
+                  </Button>
+                  <output
+                    className={
+                      cutoverJob?.status === "failed"
+                        ? "text-xs text-red-600"
+                        : "text-xs text-zinc-500"
+                    }
+                  >
+                    {cutoverJob
+                      ? jobStatus(cutoverJob)
+                      : "等待明确确认；切换前会重新校验"}
+                  </output>
+                </div>
+                {cutoverResult ? (
+                  <div className="mt-6 border-l-2 border-emerald-500 pl-4 text-xs leading-5 text-zinc-600">
+                    <p className="font-medium text-emerald-800">
+                      接管完成，回滚点已保留
+                    </p>
+                    <p className="truncate font-mono text-[11px]">
+                      活跃：{cutoverResult.active_path}
+                    </p>
+                    {cutoverResult.rollback_path ? (
+                      <p className="truncate font-mono text-[11px]">
+                        回滚：{cutoverResult.rollback_path}
+                      </p>
+                    ) : (
+                      <p>切换前没有活跃目录；回滚会停用本次接管目录。</p>
+                    )}
+                    <p className="mt-3 text-amber-700">
+                      一旦新实例产生写入，安全回滚会拒绝丢弃这些变化。请先停止新实例并导出增量。
+                    </p>
+                    {!rollbackResult ? (
+                      <>
+                        <label
+                          className="mt-4 grid gap-2 font-medium"
+                          htmlFor="rollback-confirmation"
+                        >
+                          紧急回滚时输入 ROLLBACK {cutoverResult.id}
+                          <Input
+                            id="rollback-confirmation"
+                            onChange={(event) =>
+                              setRollbackConfirmation(event.target.value)
+                            }
+                            value={rollbackConfirmation}
+                          />
+                        </label>
+                        <div className="mt-4 flex flex-wrap items-center gap-3">
+                          <Button
+                            disabled={
+                              loading ||
+                              rollbackConfirmation !==
+                                `ROLLBACK ${cutoverResult.id}` ||
+                              rollbackJob?.status === "queued" ||
+                              rollbackJob?.status === "running"
+                            }
+                            onClick={dispatchRollback}
+                            variant="outline"
+                          >
+                            验证并回滚
+                          </Button>
+                          <output
+                            className={
+                              rollbackJob?.status === "failed"
+                                ? "text-red-600"
+                                : "text-zinc-500"
+                            }
+                          >
+                            {rollbackJob
+                              ? jobStatus(rollbackJob)
+                              : "未触发；回滚点保持不变"}
+                          </output>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="mt-4 font-medium text-emerald-800">
+                        已恢复切换前目录；本次接管数据保存在
+                        {rollbackResult.archived_path}
+                      </p>
+                    )}
                   </div>
                 ) : null}
               </div>

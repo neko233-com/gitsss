@@ -14,6 +14,8 @@
 
 先以管理员/root 身份打开终端，将 scoped work Token 放入环境变量，再执行本机安装。Token 不会进入命令行、服务定义或计划 JSON：
 
+该 Token 必须使用 `agents:work` scope，且 Token ID 必须与 `--id` 完全一致。控制面在领取、心跳和完成三个入口都会验证这一绑定；共享一个工作 Token 启动多个不同 ID 的 Agent 会被拒绝。
+
 ```powershell
 $env:GITSSS_AGENT_WORK_TOKEN = "replace-with-a-scoped-work-token"
 gitsss-agent service-install --server https://gitsss.internal --id studio-agent

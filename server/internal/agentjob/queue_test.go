@@ -141,6 +141,39 @@ func TestQueueAcceptsFreezeCheck(t *testing.T) {
 	}
 }
 
+func TestQueueAcceptsCutoverAndRollback(t *testing.T) {
+	queue := NewQueue(nil)
+	for _, kind := range []Kind{KindCutover, KindRollback} {
+		job, err := queue.Create("admin", "request", kind, json.RawMessage(`{"agent_id":"old-server"}`), time.Now())
+		if err != nil || job.Kind != kind || job.Status != StatusQueued {
+			t.Fatalf("%s job = %#v, %v", kind, job, err)
+		}
+	}
+}
+
+func TestHeartbeatExtendsOnlyTheClaimingAgentLease(t *testing.T) {
+	now := time.Date(2026, 7, 14, 12, 0, 0, 0, time.UTC)
+	queue := NewQueue(nil)
+	created, err := queue.Create("admin", "request", KindCutover, json.RawMessage(`{"agent_id":"old-server"}`), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claimed, found, err := queue.Claim("old-server", "claim", now)
+	if err != nil || !found {
+		t.Fatalf("claim = %#v, %v, %v", claimed, found, err)
+	}
+	if _, err := queue.Heartbeat("other", created.ID, now.Add(time.Minute)); !errors.Is(err, ErrWrongAgent) {
+		t.Fatalf("wrong heartbeat error = %v", err)
+	}
+	heartbeat, err := queue.Heartbeat("old-server", created.ID, now.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !heartbeat.LeaseUntil.Equal(now.Add(time.Minute + leaseDuration)) {
+		t.Fatalf("lease = %s", heartbeat.LeaseUntil)
+	}
+}
+
 func TestPersistentQueueSurvivesRestart(t *testing.T) {
 	now := time.Date(2026, time.July, 14, 12, 0, 0, 0, time.UTC)
 	path := filepath.Join(t.TempDir(), "gitsss.db")

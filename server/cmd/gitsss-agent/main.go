@@ -121,6 +121,29 @@ func claimAgentJobContext(ctx context.Context, client *http.Client, serverURL, t
 	return job, true, nil
 }
 
+func heartbeatAgentJobContext(ctx context.Context, client *http.Client, serverURL, token, agentID, jobID string) error {
+	payload, err := json.Marshal(map[string]string{"agent_id": agentID})
+	if err != nil {
+		return err
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(serverURL, "/")+"/api/v1/agent/jobs/"+jobID+"/heartbeat", bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(response.Body, 4<<10))
+		return fmt.Errorf("heartbeat Agent job: %s: %s", response.Status, strings.TrimSpace(string(body)))
+	}
+	return nil
+}
+
 func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) {
 	switch job.Kind {
 	case agentjob.KindAssessment:
@@ -319,6 +342,62 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 			return nil, err
 		}
 		return json.Marshal(audit)
+	case agentjob.KindCutover:
+		var input agentjob.CutoverInput
+		if err := json.Unmarshal(job.Input, &input); err != nil {
+			return nil, err
+		}
+		if input.AgentID == "" {
+			input.AgentID = agentID
+		}
+		passphrase := os.Getenv(input.PassphraseEnv)
+		if input.AgentID != agentID {
+			return nil, errors.New("cutover Agent ID does not match the worker")
+		}
+		if strings.TrimSpace(input.ConfigPath) == "" || strings.TrimSpace(input.InputPath) == "" || strings.TrimSpace(input.TargetPath) == "" || strings.TrimSpace(input.ActivePath) == "" || strings.TrimSpace(input.ExpectedAssessmentID) == "" || !validAgentEnvironmentName(input.PassphraseEnv) || len(passphrase) < 12 || !validAgentSHA256(input.ExpectedContainerSHA256) {
+			return nil, errors.New("cutover paths, confirmation, digest and a valid passphrase environment are required")
+		}
+		audit, err := backup.AuditShadowExact(
+			input.InputPath, passphrase, input.TargetPath,
+			takeover.Options{
+				AgentID: input.AgentID, ConfigPath: input.ConfigPath, WorkPath: input.WorkPath,
+				GiteaVersion: input.GiteaVersion, MaxEntries: input.MaxEntries, FreezeID: input.ExpectedFreezeID,
+			},
+			input.ExpectedAssessmentID, input.ExpectedContainerSHA256,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if !audit.ReadyForShadowMode {
+			return nil, errors.New("cutover requires a current successful shadow audit")
+		}
+		result, err := backup.CutoverVerified(backup.CutoverOptions{
+			AssessmentID: input.ExpectedAssessmentID, ContainerSHA256: input.ExpectedContainerSHA256,
+			RestoredTarget: input.TargetPath, ActivePath: input.ActivePath, Confirmation: input.Confirmation,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(result)
+	case agentjob.KindRollback:
+		var input agentjob.RollbackInput
+		if err := json.Unmarshal(job.Input, &input); err != nil {
+			return nil, err
+		}
+		if input.AgentID == "" {
+			input.AgentID = agentID
+		}
+		if input.AgentID != agentID {
+			return nil, errors.New("rollback Agent ID does not match the worker")
+		}
+		if strings.TrimSpace(input.ActivePath) == "" || strings.TrimSpace(input.StatePath) == "" || strings.TrimSpace(input.CutoverID) == "" {
+			return nil, errors.New("rollback active path, state path and cutover ID are required")
+		}
+		result, err := backup.RollbackCutover(input.ActivePath, input.StatePath, input.CutoverID, input.Confirmation, nil)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(result)
 	default:
 		return nil, errors.New("unsupported Agent job kind")
 	}

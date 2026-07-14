@@ -62,6 +62,39 @@ func TestAgentWorkerRetriesCompletionWithoutReexecution(t *testing.T) {
 	}
 }
 
+func TestAgentWorkerHeartbeatsDuringLongExecution(t *testing.T) {
+	var heartbeats atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/api/v1/agent/jobs/claim":
+			writeWorkerJSON(t, response, agentjob.Job{
+				ID: "job-long", Kind: agentjob.KindCutover, Status: agentjob.StatusRunning,
+				Input: json.RawMessage(`{}`), ClaimedBy: "agent-1",
+			})
+		case "/api/v1/agent/jobs/job-long/heartbeat":
+			heartbeats.Add(1)
+			writeWorkerJSON(t, response, agentjob.Job{ID: "job-long", Status: agentjob.StatusRunning})
+		case "/api/v1/agent/jobs/job-long/complete":
+			writeWorkerJSON(t, response, agentjob.Job{ID: "job-long", Status: agentjob.StatusSucceeded})
+		default:
+			response.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+	worker := newAgentWorker(server.URL, "work-token", "agent-1", server.Client(), func(agentjob.Job, string) (json.RawMessage, error) {
+		time.Sleep(35 * time.Millisecond)
+		return json.RawMessage(`{"ok":true}`), nil
+	})
+	worker.heartbeatInterval = 5 * time.Millisecond
+	outcome, err := worker.Cycle(context.Background())
+	if err != nil || outcome.Completed.Status != agentjob.StatusSucceeded {
+		t.Fatalf("cycle = %#v, %v", outcome, err)
+	}
+	if heartbeats.Load() < 2 {
+		t.Fatalf("heartbeats = %d, want repeated lease extension", heartbeats.Load())
+	}
+}
+
 func TestAgentWorkerCancelsInFlightClaim(t *testing.T) {
 	arrived := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {

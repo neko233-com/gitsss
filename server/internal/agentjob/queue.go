@@ -41,6 +41,8 @@ const (
 	KindBackupVerify  Kind = "backup.verify"
 	KindShadowAudit   Kind = "takeover.shadow-audit"
 	KindFreezeCheck   Kind = "takeover.freeze-check"
+	KindCutover       Kind = "takeover.cutover"
+	KindRollback      Kind = "takeover.rollback"
 
 	StatusQueued    Status = "queued"
 	StatusRunning   Status = "running"
@@ -160,6 +162,30 @@ func (queue *Queue) Claim(agentID, requestID string, now time.Time) (Job, bool, 
 	return Job{}, false, nil
 }
 
+func (queue *Queue) Heartbeat(agentID, jobID string, now time.Time) (Job, error) {
+	agentID = strings.TrimSpace(agentID)
+	if agentID == "" || len(agentID) > 128 || now.IsZero() {
+		return Job{}, ErrInvalidJob
+	}
+	queue.mu.Lock()
+	defer queue.mu.Unlock()
+	job, ok := queue.jobs[jobID]
+	if !ok {
+		return Job{}, ErrNotFound
+	}
+	if job.Status != StatusRunning || job.ClaimedBy != agentID {
+		return Job{}, ErrWrongAgent
+	}
+	updated := clone(*job)
+	updated.UpdatedAt = now.UTC()
+	updated.LeaseUntil = now.UTC().Add(leaseDuration)
+	if err := queue.persist(updated); err != nil {
+		return Job{}, err
+	}
+	*job = updated
+	return clone(updated), nil
+}
+
 func (queue *Queue) Complete(agentID, requestID, jobID string, result json.RawMessage, failure string, now time.Time) (Job, error) {
 	if len(result) > maxResultBytes || (len(result) > 0 && !json.Valid(result)) || len(failure) > 1024 || (len(result) == 0) == (strings.TrimSpace(failure) == "") {
 		return Job{}, ErrInvalidJob
@@ -218,7 +244,7 @@ func (queue *Queue) record(actor, action, target, requestID, result string, now 
 }
 
 func validKind(kind Kind) bool {
-	return kind == KindAssessment || kind == KindBackupExport || kind == KindBackupAudit || kind == KindBackupRestore || kind == KindBackupVerify || kind == KindShadowAudit || kind == KindFreezeCheck
+	return kind == KindAssessment || kind == KindBackupExport || kind == KindBackupAudit || kind == KindBackupRestore || kind == KindBackupVerify || kind == KindShadowAudit || kind == KindFreezeCheck || kind == KindCutover || kind == KindRollback
 }
 
 func validPersistedJob(job Job) bool {

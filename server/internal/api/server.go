@@ -97,6 +97,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/agent/health", s.agentHealth)
 	mux.HandleFunc("POST /api/v1/agent/jobs", s.agentJobCreate)
 	mux.HandleFunc("POST /api/v1/agent/jobs/claim", s.agentJobClaim)
+	mux.HandleFunc("POST /api/v1/agent/jobs/{job}/heartbeat", s.agentJobHeartbeat)
 	mux.HandleFunc("POST /api/v1/agent/jobs/{job}/complete", s.agentJobComplete)
 	mux.HandleFunc("DELETE /api/v1/events/preview", s.clearPreview)
 	mux.HandleFunc("GET /api/v1/storage", s.storageSnapshot)
@@ -300,7 +301,8 @@ func (s *Server) agentJobCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) agentJobClaim(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.authenticate(w, r, "agents:work"); !ok {
+	principal, ok := s.authenticate(w, r, "agents:work")
+	if !ok {
 		return
 	}
 	var request struct {
@@ -308,6 +310,10 @@ func (s *Server) agentJobClaim(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&request); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid Agent identity"})
+		return
+	}
+	if request.AgentID != principal.TokenID {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Agent identity does not match its Token"})
 		return
 	}
 	job, found, err := s.jobs.Claim(request.AgentID, requestID(), s.now().UTC())
@@ -326,8 +332,39 @@ func (s *Server) agentJobClaim(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, job)
 }
 
+func (s *Server) agentJobHeartbeat(w http.ResponseWriter, r *http.Request) {
+	principal, ok := s.authenticate(w, r, "agents:work")
+	if !ok {
+		return
+	}
+	var request struct {
+		AgentID string `json:"agent_id"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&request); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid Agent heartbeat"})
+		return
+	}
+	if request.AgentID != principal.TokenID {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Agent identity does not match its Token"})
+		return
+	}
+	job, err := s.jobs.Heartbeat(request.AgentID, r.PathValue("job"), s.now().UTC())
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, agentjob.ErrNotFound) {
+			status = http.StatusNotFound
+		} else if errors.Is(err, agentjob.ErrWrongAgent) {
+			status = http.StatusForbidden
+		}
+		writeJSON(w, status, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, job)
+}
+
 func (s *Server) agentJobComplete(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.authenticate(w, r, "agents:work"); !ok {
+	principal, ok := s.authenticate(w, r, "agents:work")
+	if !ok {
 		return
 	}
 	var request struct {
@@ -337,6 +374,10 @@ func (s *Server) agentJobComplete(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 264<<10)).Decode(&request); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid Agent completion"})
+		return
+	}
+	if request.AgentID != principal.TokenID {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Agent identity does not match its Token"})
 		return
 	}
 	job, err := s.jobs.Complete(request.AgentID, requestID(), r.PathValue("job"), request.Result, request.Error, s.now().UTC())

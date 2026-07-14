@@ -44,6 +44,25 @@ func TestOpenAgentHTTPAuditPersistsAcrossRestart(t *testing.T) {
 	}
 }
 
+func TestExecuteCutoverAndRollbackBindAgentIdentity(t *testing.T) {
+	cutoverInput, err := json.Marshal(agentjob.CutoverInput{
+		ShadowAuditInput: agentjob.ShadowAuditInput{AgentID: "other"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := executeAgentJob(agentjob.Job{Kind: agentjob.KindCutover, Input: cutoverInput}, "old-server"); err == nil || !strings.Contains(err.Error(), "does not match") {
+		t.Fatalf("cutover identity error = %v", err)
+	}
+	rollbackInput, err := json.Marshal(agentjob.RollbackInput{AgentID: "other"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := executeAgentJob(agentjob.Job{Kind: agentjob.KindRollback, Input: rollbackInput}, "old-server"); err == nil || !strings.Contains(err.Error(), "does not match") {
+		t.Fatalf("rollback identity error = %v", err)
+	}
+}
+
 func TestDefaultAgentHTTPStatePathUsesExplicitEnvironment(t *testing.T) {
 	expected := filepath.Join(t.TempDir(), "custom-agent.db")
 	t.Setenv("GITSSS_AGENT_HTTP_STATE_PATH", expected)
