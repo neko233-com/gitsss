@@ -26,7 +26,7 @@ func TestExportVerifyRoundTripAndRejectCorruption(t *testing.T) {
 	writeTestFile(t, filepath.Join(repositoryPath, "world.git"), "git-object-data")
 	report := takeover.Report{
 		ID: "assessment-0123456789abcdef", ConfigPath: configPath,
-		ConfigDigest: "sha256:" + strings.Repeat("a", 64), GiteaVersion: "1.26.0",
+		ConfigDigest: "sha256:" + strings.Repeat("a", 64), SourceVersion: "1.26.0",
 		Assets: []takeover.Asset{{Kind: "repositories", Path: repositoryPath, Exists: true, Readable: true}},
 	}
 	createdAt := time.Date(2026, time.July, 14, 10, 0, 0, 0, time.UTC)

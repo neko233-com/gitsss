@@ -1,0 +1,11 @@
+gitsss
+Copyright 2026 The gitsss Authors
+
+This repository was established from a Gitea fork. The gitsss product name,
+interface, runtime module and release artifacts are independently maintained.
+Compatibility code reads existing Gitea configuration and data formats solely
+to support administrator-controlled migration. gitsss is not affiliated with
+or endorsed by the Gitea project.
+
+The retained upstream copyright notices in LICENSE are legal attribution only
+and are not product branding.

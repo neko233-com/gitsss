@@ -9,7 +9,7 @@ GitHub Actions 额度不可用期间，gitsss 不注册远端 CI 或发布工作
 - PowerShell、`tar`、Git
 - 上传时需要已登录且有仓库写权限的 GitHub CLI `gh`
 
-脚本要求 tracked worktree 与 index 都干净，并把产物绑定到精确的 40 位 commit SHA。未跟踪的上游 Gitea 兼容快照不会进入新包。
+脚本要求 tracked worktree 与 index 都干净，并把产物绑定到精确的 40 位 commit SHA。产品树只包含 gitsss 自有运行代码；迁移兼容说明只在 `NOTICE` 和接管文档中保留。
 
 ## 仅构建
 
@@ -23,7 +23,7 @@ GitHub Actions 额度不可用期间，gitsss 不注册远端 CI 或发布工作
 - macOS amd64 / arm64 (`.tar.gz`)
 - Windows amd64 / arm64 (`.zip`)
 
-每个包包含 `gitsss`、`gitsss-agent`、React web bundle、Agent 开机启动文档和绑定版本/commit/平台的 `BUILDINFO.json`。脚本通过 `go version -m` 复核每个二进制的 GOOS/GOARCH，并为六个归档生成无 BOM UTF-8 `SHA256SUMS`。
+每个包包含 `gitsss`、`gitsss-agent`、`gitsss-launcher`、React web bundle、README、LICENSE、NOTICE、Agent/服务端操作文档和绑定版本/commit/平台的 `BUILDINFO.json`。脚本通过 `go version -m` 复核每个二进制的 GOOS/GOARCH，并为六个归档生成无 BOM UTF-8 `SHA256SUMS`。
 
 提供已托管的 Ed25519 seed 环境变量时，脚本还会生成 canonical `update-manifest.json`、`update-manifest.sig` 和 `release.pub`，并把这些文件纳入 `SHA256SUMS`：
 

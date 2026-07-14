@@ -8,7 +8,7 @@ type BackupExportInput struct {
 	AgentID              string `json:"agent_id"`
 	ConfigPath           string `json:"config_path"`
 	WorkPath             string `json:"work_path,omitempty"`
-	GiteaVersion         string `json:"gitea_version,omitempty"`
+	SourceVersion        string `json:"source_version,omitempty"`
 	MaxEntries           int    `json:"max_entries,omitempty"`
 	OutputPath           string `json:"output_path"`
 	PassphraseEnv        string `json:"passphrase_env"`
@@ -58,7 +58,7 @@ type ShadowAuditInput struct {
 	AgentID                 string `json:"agent_id"`
 	ConfigPath              string `json:"config_path"`
 	WorkPath                string `json:"work_path,omitempty"`
-	GiteaVersion            string `json:"gitea_version,omitempty"`
+	SourceVersion           string `json:"source_version,omitempty"`
 	MaxEntries              int    `json:"max_entries,omitempty"`
 	InputPath               string `json:"input_path"`
 	PassphraseEnv           string `json:"passphrase_env"`
@@ -83,11 +83,11 @@ type RollbackInput struct {
 }
 
 type FreezeCheckInput struct {
-	AgentID      string `json:"agent_id"`
-	ConfigPath   string `json:"config_path"`
-	WorkPath     string `json:"work_path,omitempty"`
-	GiteaVersion string `json:"gitea_version,omitempty"`
-	MaxEntries   int    `json:"max_entries,omitempty"`
+	AgentID       string `json:"agent_id"`
+	ConfigPath    string `json:"config_path"`
+	WorkPath      string `json:"work_path,omitempty"`
+	SourceVersion string `json:"source_version,omitempty"`
+	MaxEntries    int    `json:"max_entries,omitempty"`
 }
 
 type BackupAuditFileSummary struct {

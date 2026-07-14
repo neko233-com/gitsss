@@ -20,6 +20,6 @@
 | `POST /api/v1/backups/verify` | `backup:verify` | 从指定环境变量取口令，只读验证加密备份 |
 | `GET /api/v1/audit` | `audit:read` | 返回最近 500 条 Agent 审计记录 |
 
-所有 JSON 写请求有大小上限、拒绝未知字段，并且只能包含一个 JSON 对象。评估请求字段为 `agent_id`、`config_path`、可选 `work_path`、`gitea_version` 和 `max_entries`。备份验证字段为 `input_path` 与 `passphrase_env`；API 不接受明文口令字段。
+所有 JSON 写请求有大小上限、拒绝未知字段，并且只能包含一个 JSON 对象。评估请求字段为 `agent_id`、`config_path`、可选 `work_path`、`source_version` 和 `max_entries`。备份验证字段为 `input_path` 与 `passphrase_env`；API 不接受明文口令字段。
 
 AI Agent v1 只能执行只读评估和验证。备份导出、隔离恢复、Runner 安装、服务切换和回滚仍保留在人工 CLI 确认路径；把它们开放为 HTTP 工具前，必须加入作业 ID、幂等键、计划摘要确认、进度流、取消、设备绑定和持久审计。

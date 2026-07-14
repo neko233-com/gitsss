@@ -10,7 +10,7 @@ This Go 1.26 module runs the gitsss API and serves the sole React client from th
 - persistent bare-repository creation, authenticated Smart HTTP clone/push, and allowlisted tree, text preview and search endpoints;
 - native Git LFS batch/upload/download with SHA-256 deduplication, disk admission, ranges and resumable chunks;
 - email, Feishu and WeCom notification configuration, test delivery and transactional outbox endpoints;
-- bounded, read-only Gitea `app.ini` assessment with redacted configuration fingerprints and audited Agent report ingestion;
+- bounded, read-only source `app.ini` assessment with redacted configuration fingerprints and audited Agent report ingestion;
 - encrypted, atomic takeover export with per-file SHA-256 manifests and read-only verification;
 - loopback-only Agent HTTP with expiring scoped custom tokens, AI-tool-ready JSON contracts and retained audit records;
 - an outbound Agent job protocol with persistent claims, heartbeats, identity-bound work tokens, idempotent completion and strict task allowlisting;
@@ -49,7 +49,7 @@ For centrally orchestrated takeover, create a typed job through `/api/v1/agent/j
 
 ```powershell
 $env:GITSSS_AGENT_WORK_TOKEN = "replace-with-a-scoped-work-token"
-go run ./cmd/gitsss-agent work --server http://gitsss.internal:8787 --id old-gitea
+go run ./cmd/gitsss-agent work --server http://gitsss.internal:8787 --id old-server
 ```
 
 The persistent worker drains available jobs immediately, backs empty queues off from one to thirty seconds, and backs control-plane failures off to two minutes. If execution finishes but its completion response is lost, the running process retains the result and retries completion without executing the task again. `work-once` remains available for diagnostics; its `--token-env` form avoids exposing the token in process arguments.
@@ -57,7 +57,7 @@ The persistent worker drains available jobs immediately, backs empty queues off 
 Generate a reviewable boot-service plan without changing the host:
 
 ```powershell
-gitsss-agent service-plan --server https://gitsss.internal --id old-gitea
+gitsss-agent service-plan --server https://gitsss.internal --id old-server
 ```
 
 Windows Task Scheduler, macOS launchd and Linux systemd plans reference a protected `--token-file`; the token value is never embedded in the service definition or plan JSON. See [`docs/operations/agent-autostart.md`](../docs/operations/agent-autostart.md).
@@ -65,7 +65,7 @@ Windows Task Scheduler, macOS launchd and Linux systemd plans reference a protec
 Install the native package as administrator/root with the scoped token supplied through `GITSSS_AGENT_WORK_TOKEN`:
 
 ```powershell
-gitsss-agent service-install --server https://gitsss.internal --id old-gitea
+gitsss-agent service-install --server https://gitsss.internal --id old-server
 gitsss-agent service-uninstall
 ```
 
@@ -94,7 +94,7 @@ Git LFS uses `GITSSS_LFS_ROOT` (default `<data-directory>/lfs`) and the same rep
 Run a takeover assessment locally without uploading credentials:
 
 ```powershell
-go run ./cmd/gitsss-agent assess --agent-id old-gitea --config C:\gitea\custom\conf\app.ini
+go run ./cmd/gitsss-agent assess --agent-id old-server --config C:\old-service\custom\conf\app.ini
 ```
 
 Add `--server http://127.0.0.1:8787 --token $env:GITSSS_API_TOKEN` to submit the redacted report. The scanner reads at most 2 MiB of configuration, never follows symlinks, caps each asset category at 10,000 files by default, strips URL paths and queries, and does not return database passwords or integration secrets. Submission uses the `takeover:write` scope; report listing uses `takeover:read`.
@@ -103,11 +103,11 @@ Export an assessed instance to a new encrypted container and verify it without e
 
 ```powershell
 $env:GITSSS_BACKUP_PASSPHRASE = "replace-with-a-long-secret"
-go run ./cmd/gitsss-agent backup-export --agent-id old-gitea --config C:\gitea\custom\conf\app.ini --output C:\backups\gitea.gitsss-backup
-go run ./cmd/gitsss-agent backup-verify --input C:\backups\gitea.gitsss-backup
-go run ./cmd/gitsss-agent backup-import-plan --input C:\backups\gitea.gitsss-backup --target C:\gitsss-import\old-gitea
-go run ./cmd/gitsss-agent backup-restore-isolated --input C:\backups\gitea.gitsss-backup --target C:\gitsss-import\old-gitea --confirm assessment-0123456789abcdef
-go run ./cmd/gitsss-agent backup-audit-restore --input C:\backups\gitea.gitsss-backup --target C:\gitsss-import\old-gitea
+go run ./cmd/gitsss-agent backup-export --agent-id old-server --config C:\old-service\custom\conf\app.ini --output C:\backups\source.gitsss-backup
+go run ./cmd/gitsss-agent backup-verify --input C:\backups\source.gitsss-backup
+go run ./cmd/gitsss-agent backup-import-plan --input C:\backups\source.gitsss-backup --target C:\gitsss-import\source
+go run ./cmd/gitsss-agent backup-restore-isolated --input C:\backups\source.gitsss-backup --target C:\gitsss-import\source --confirm assessment-0123456789abcdef
+go run ./cmd/gitsss-agent backup-audit-restore --input C:\backups\source.gitsss-backup --target C:\gitsss-import\source
 ```
 
-The passphrase is accepted only through the named environment variable, never a command-line value. Export refuses symlinks, incomplete assessments, changed source files and existing output paths. It writes and syncs a same-directory temporary file, then publishes it with an atomic no-replace link only after the encrypted tar stream has closed successfully. Verification is read-only, reports the raw container byte count and SHA-256, and rejects wrong passphrases, altered headers or payloads, truncation, appended bytes, unsafe paths, duplicate entries, and checksum mismatches. Import planning also remains read-only: after full container verification, it marks every destination as `new`, `identical`, `conflict`, or `blocked` and refuses to traverse symlinks. Isolated restore requires the exact assessment ID, refuses existing targets, verifies twice around extraction, and publishes plaintext only under the new target's `content/` directory. Post-restore audit repeats the manifest comparison, runs strict Git object verification, fingerprints refs, counts objects, and checks LFS OIDs; it exits non-zero unless `ready_for_shadow_mode` is true. None of these commands imports into a live database or Gitea path. See [`docs/migration/backup-container-v1.md`](../docs/migration/backup-container-v1.md) for the versioned format and current limitations.
+The passphrase is accepted only through the named environment variable, never a command-line value. Export refuses symlinks, incomplete assessments, changed source files and existing output paths. It writes and syncs a same-directory temporary file, then publishes it with an atomic no-replace link only after the encrypted tar stream has closed successfully. Verification is read-only, reports the raw container byte count and SHA-256, and rejects wrong passphrases, altered headers or payloads, truncation, appended bytes, unsafe paths, duplicate entries, and checksum mismatches. Import planning also remains read-only: after full container verification, it marks every destination as `new`, `identical`, `conflict`, or `blocked` and refuses to traverse symlinks. Isolated restore requires the exact assessment ID, refuses existing targets, verifies twice around extraction, and publishes plaintext only under the new target's `content/` directory. Post-restore audit repeats the manifest comparison, runs strict Git object verification, fingerprints refs, counts objects, and checks LFS OIDs; it exits non-zero unless `ready_for_shadow_mode` is true. None of these commands imports into a live source or gitsss path. See [`docs/migration/backup-container-v1.md`](../docs/migration/backup-container-v1.md) for the versioned format and current limitations.

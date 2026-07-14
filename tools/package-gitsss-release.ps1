@@ -121,7 +121,10 @@ try {
         }
 
         Copy-Item -Recurse -Force (Join-Path $repository "web/dist/*") $webDirectory
-        Copy-Item -Force (Join-Path $repository "server/README.md") (Join-Path $packageDirectory "README.md")
+        Copy-Item -Force (Join-Path $repository "README.md") (Join-Path $packageDirectory "README.md")
+        Copy-Item -Force (Join-Path $repository "LICENSE") (Join-Path $packageDirectory "LICENSE")
+        Copy-Item -Force (Join-Path $repository "NOTICE") (Join-Path $packageDirectory "NOTICE")
+        Copy-Item -Force (Join-Path $repository "server/README.md") (Join-Path $docsDirectory "server.md")
         Copy-Item -Force (Join-Path $repository "docs/operations/agent-autostart.md") (Join-Path $docsDirectory "agent-autostart.md")
         Copy-Item -Force $trustedPublicKey (Join-Path $packageDirectory "release.pub")
         $buildInfo = [ordered]@{

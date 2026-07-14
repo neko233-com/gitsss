@@ -22,18 +22,18 @@ import (
 const maxConfigBytes = 2 << 20
 
 var (
-	ErrConfigTooLarge = errors.New("Gitea configuration exceeds 2 MiB")
-	ErrInvalidConfig  = errors.New("invalid Gitea configuration")
+	ErrConfigTooLarge = errors.New("source configuration exceeds 2 MiB")
+	ErrInvalidConfig  = errors.New("invalid source configuration")
 )
 
 type Options struct {
-	AgentID      string           `json:"agent_id"`
-	ConfigPath   string           `json:"config_path"`
-	WorkPath     string           `json:"work_path,omitempty"`
-	GiteaVersion string           `json:"gitea_version,omitempty"`
-	MaxEntries   int              `json:"max_entries,omitempty"`
-	FreezeID     string           `json:"-"`
-	Now          func() time.Time `json:"-"`
+	AgentID       string           `json:"agent_id"`
+	ConfigPath    string           `json:"config_path"`
+	WorkPath      string           `json:"work_path,omitempty"`
+	SourceVersion string           `json:"source_version,omitempty"`
+	MaxEntries    int              `json:"max_entries,omitempty"`
+	FreezeID      string           `json:"-"`
+	Now           func() time.Time `json:"-"`
 }
 
 type Database struct {
@@ -73,7 +73,7 @@ type Report struct {
 	AgentID          string    `json:"agent_id"`
 	ConfigPath       string    `json:"config_path"`
 	ConfigDigest     string    `json:"config_digest"`
-	GiteaVersion     string    `json:"gitea_version,omitempty"`
+	SourceVersion    string    `json:"source_version,omitempty"`
 	PublicOrigin     string    `json:"public_origin,omitempty"`
 	Database         Database  `json:"database"`
 	Assets           []Asset   `json:"assets"`
@@ -116,7 +116,7 @@ func Assess(options Options) (Report, error) {
 		AgentID:          strings.TrimSpace(options.AgentID),
 		ConfigPath:       path,
 		ConfigDigest:     digest,
-		GiteaVersion:     strings.TrimSpace(options.GiteaVersion),
+		SourceVersion:    strings.TrimSpace(options.SourceVersion),
 		PublicOrigin:     safeOrigin(value(configuration, "server", "ROOT_URL")),
 		Database:         database,
 		Assets:           assets,

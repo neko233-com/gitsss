@@ -26,7 +26,7 @@ interface Assessment {
   agent_id: string
   config_path: string
   config_digest: string
-  gitea_version?: string
+  source_version?: string
   public_origin?: string
   database: { type: string; name?: string; location: string; tls_mode?: string }
   assets: Asset[]
@@ -326,16 +326,16 @@ export function TakeoverCenter({
   onConnect: () => void
   token: string
 }) {
-  const [agentID, setAgentID] = useState("old-gitea")
-  const [configPath, setConfigPath] = useState("/etc/gitea/app.ini")
+  const [agentID, setAgentID] = useState("old-server")
+  const [configPath, setConfigPath] = useState("/etc/old-service/app.ini")
   const [workPath, setWorkPath] = useState("")
   const [backupOutputPath, setBackupOutputPath] = useState(
-    "/var/backups/gitea.gitsss-backup"
+    "/var/backups/source.gitsss-backup"
   )
   const [passphraseEnv, setPassphraseEnv] = useState("GITSSS_BACKUP_PASSPHRASE")
   const [backupConfirmation, setBackupConfirmation] = useState("")
   const [restoreTargetPath, setRestoreTargetPath] = useState(
-    "/var/lib/gitsss/imports/old-gitea"
+    "/var/lib/gitsss/imports/source"
   )
   const [restoreConfirmation, setRestoreConfirmation] = useState("")
   const [activePath, setActivePath] = useState("/var/lib/gitsss/data")
@@ -506,7 +506,7 @@ export function TakeoverCenter({
           agent_id: selected.agent_id,
           config_path: selected.config_path,
           work_path: assessedWorkPath || undefined,
-          gitea_version: selected.gitea_version,
+          source_version: selected.source_version,
           max_entries: 1_000_000,
           output_path: backupOutputPath,
           passphrase_env: passphraseEnv,
@@ -535,7 +535,7 @@ export function TakeoverCenter({
           agent_id: selected.agent_id,
           config_path: selected.config_path,
           work_path: assessedWorkPath || undefined,
-          gitea_version: selected.gitea_version,
+          source_version: selected.source_version,
           max_entries: 1_000_000,
         },
       })
@@ -607,7 +607,7 @@ export function TakeoverCenter({
           agent_id: selected.agent_id,
           config_path: selected.config_path,
           work_path: assessedWorkPath || undefined,
-          gitea_version: selected.gitea_version,
+          source_version: selected.source_version,
           max_entries: 1_000_000,
           input_path: backupResult.output_path,
           passphrase_env: backupPassphraseEnv,
@@ -636,7 +636,7 @@ export function TakeoverCenter({
           agent_id: selected.agent_id,
           config_path: selected.config_path,
           work_path: assessedWorkPath || undefined,
-          gitea_version: selected.gitea_version,
+          source_version: selected.source_version,
           max_entries: 1_000_000,
           input_path: backupResult.output_path,
           passphrase_env: backupPassphraseEnv,
@@ -913,7 +913,7 @@ export function TakeoverCenter({
               {requiresFreeze ? (
                 <div className="mt-5 border-l-2 border-amber-500 pl-4 text-xs leading-5 text-zinc-600">
                   <p className="font-medium text-zinc-900">
-                    先停止旧 Gitea，再验证冻结窗口
+                    先停止旧实例，再验证冻结窗口
                   </p>
                   <p className="mt-1">
                     PostgreSQL/MySQL 由 Agent
@@ -1046,7 +1046,7 @@ export function TakeoverCenter({
               <div className="mt-7 border-y border-zinc-200 py-5">
                 <p className="text-sm font-medium">下一步：隔离恢复</p>
                 <p className="mt-2 text-xs leading-5 text-zinc-500">
-                  恢复到全新目录，不会覆盖 Gitea 或 gitsss 的在线数据。Agent
+                  恢复到全新目录，不会覆盖旧实例或 gitsss 的在线数据。Agent
                   会在发布目录前再次验证容器，并要求前后 SHA-256 完全一致。
                 </p>
                 <label

@@ -22,13 +22,13 @@ gitsss 是面向团队所有成员（不仅是开发者）的自托管代码协�
 
 ## 当前基线（2026-07-14）
 
-- 已建立 `neko233-com/gitsss` 私有仓库与 `main` 分支；新的 `PLAN.md`、Go 服务和 React 客户端已提交，原 Gitea 源码快照仍作为未跟踪的兼容输入保留在工作区。
+- 已建立 `neko233-com/gitsss` 私有仓库与 `main` 分支；产品树只包含新的 `PLAN.md`、Go 服务、React 客户端、操作文档与法律归属文件，旧上游源码快照已从工作区清理。
 - `server/` 已提供自定义 Token、审计、事件预览、真实卷容量与保留空间保护、持久化 bare 仓库目录、受独立 clone/push 作用域保护并经真实 Git 客户端验证的 Smart HTTP、仓库树/文件/搜索 API、Runner 调和、通知 Outbox、Gitea `app.ini` 只读接管评估与审计上报、loopback 限定的本地 Agent HTTP、由 Agent 主动领取的类型化 AI 作业协议，以及带逐文件 SHA-256 清单、分块 AES-GCM、原子提交、只读完整性验证、导入冲突预览、显式确认隔离恢复和 Git/LFS 恢复审计的加密备份 v1；主服务已默认创建权限收紧、WAL、FULL 同步、busy timeout 和版本化 schema 的内置 SQLite 文件，自定义 Token 摘要与过期/撤销状态、仓库目录、Agent 作业、接管评估、飞书/企微/邮件配置、通知 Outbox、按 Token ID 隔离的 Dashboard 事件预览与主服务审计记录均通过重启恢复测试；首次启动凭据只创建 24 小时 bootstrap，具名 Token 由服务生成 256 位随机明文并只返回一次，数据库仅保存摘要，签发/撤销受作用域控制并审计；Dashboard 预览正文加密、主体 ID 哈希化并按事件 ID 执行有界 LRU，清空只影响当前主体且不会淘汰合规审计；通知密钥、正文和审计记录使用独立主密钥进行 AES-256-GCM 身份绑定加密，Windows 使用原生受保护 DACL，审计保留期清理以单个事务删除持久化记录，敏感操作遇到审计落盘失败会显式失败，投递状态具备持久化 claim、指数退避、死信和崩溃后 at-least-once 恢复；独立 loopback Agent 也默认打开用户级受保护 SQLite 与主密钥文件，审计加密跨重启恢复并在清理或追加失败时关闭对应请求；AI 作业已真实贯通只读评估、冻结证据、加密导出、隔离恢复、恢复审计、影子差异预检、原子切换和有条件回滚；SQLite 使用内嵌 online-backup API 吸收 WAL，PostgreSQL/MySQL 使用编译进 Agent 的纯 Go 驱动导出确定性 JSONL 快照，不依赖 `pg_dump`、`mysqldump` 或目标侧数据库服务；远程源库备份必须绑定明确的旧 Gitea 停服证据，切换会即时重做影子审计、以 prepared 状态恢复中断并保留切换前后两代，切换后出现新写入时自动回滚会明确阻断；常驻 Agent Worker 已支持环境/受保护文件 Token、Token ID 与 Agent ID 绑定、长任务心跳续租、可取消请求、空闲/故障退避和完成回传重试去重，并提供不含密钥的 Windows Task Scheduler、macOS launchd、Linux systemd 计划、无覆盖失败回滚的本机安装/卸载事务，以及绑定版本/commit/平台/大小/SHA-256 的 canonical Ed25519 更新验证和有界、无链接、失败清理的隔离 staging；稳定 `gitsss-launcher`、不可变 generation active-state、独占激活锁、启动回执、认证健康探测和失败时更高 generation 回滚已接入 autostart 更新事务；`web/` 已提供首页四 Tab、命令面板、仓库浏览、通知连接和九阶段线性 AI 接管向导，并通过 ReactBits `AnimatedContent` 的按需 GSAP 分包为 Tab/功能区切换提供克制动画；快速自动化测试会逐字节验证 PSD、FBX、MP3、MP4 的加密备份与恢复，并验证 SQLite WAL、数据库漂移、有提交/空 bare Git、LFS、篡改阻断、live refs 漂移、切换中断恢复和新写入回滚保护；GitHub Actions 被仓库级 `AGENTS.md` 明确禁止，交付只走本机完整验证、Linux/macOS/Windows 六平台打包、远端 digest 复核与 `gh` 直传；此前 alpha 只作为开发基线保留，后续不再按功能发布，必须完成全部范围审计后一次性发布整合版本。
 - Gitsss Pipelines 已以嵌入式 SQLite 运行队列、不可变 commit、固定本地模板、两分钟 lease、三次故障接管、日志限额/Token 脱敏和审计闭环落地；同一个签名 Agent 包提供 `pipeline-work`，`service-install --runner` 会生成独立的 Windows Task Scheduler、macOS launchd 或 Linux systemd 自启动服务，不依赖 GitHub Actions 或另行下载的 Runner。仓库代码只在专用 Runner 服务账户下执行，命令/工作目录/超时不能由 API 调用者注入。
 - 原生 Git LFS Basic 已与 Smart HTTP、仓库 Token、审计和真实卷写入保护打通：按 SHA-256 OID 跨仓库去重、同卷 no-replace 发布、GET/HEAD/Range、顺序 `Content-Range` 续传和 PSD 真实客户端逐字节 push/clone 测试均已落地；新建托管仓库默认启用 protocol v2 部分克隆 filter、reachable wants、commit-graph 与 bitmap 配置，自动化测试以 `--filter=blob:none` 验证 promisor，而不是只在文档宣称高性能。
 - 飞书、企业微信和邮件通知已从“可手动 dispatch”补齐为服务启动即运行的持久化后台投递：配置审计失败会补偿回滚，外部网络调用前必须先写授权审计，1/2/4 分钟退避、四次死信和 15 分钟崩溃恢复保留；流水线结果自动按幂等键进入全部已配置通道。Webhook 限定官方 HTTPS 端点，SMTP 465 使用隐式 TLS、其他端口强制 TLS 1.2+ STARTTLS，拒绝明文邮件传输。
 - React 工作台已移除首页仓库、流水线、容量和事件的前端假数据，按角色并发读取实时 API 并明确区分连接失效与部分权限隐藏；同一 Session Token 贯通大盘、仓库、通知、接管、CI 与授权，`Ctrl/Cmd+K` 可检索真实仓库并准确打开所选对象。工作区提供“仓库 → 固定模板 → 不可变提交”的本地 CI 三步流和 Runner 健康门禁；授权区提供“职责 → 范围预览 → 有效期 → 单次 Token”的最小权限签发流，当前连接不可从界面误撤销；通知区展示真实配置状态和持久化投递队列。
-- 远端只跟踪 gitsss 自有的 Go 1.26 模块与 React 客户端；旧 Vue、上游模块、品牌资产、工作流和依赖从未进入产品分支。工作区中未跟踪的上游快照只作为一次性兼容分析输入，不进入构建或发行包。
+- 远端只跟踪 gitsss 自有的 Go 1.26 模块与 React 客户端；旧 Vue、上游模块、品牌资产、工作流和依赖从未进入产品分支，其本地分析快照也已删除。
 - 本机可用 Go 1.26.4、Node 24.14.0、pnpm 11.7.0；唯一 `web/` 客户端固定 Vite 8.1.4、TypeScript 7.0.2、React 19.2.7，并由 Go 服务从同源直接交付。
 - Windows 环境没有 `make` 别名，但可使用 `mingw32-make`；后续应补一个兼容入口或在开发文档中明确该映射。
 - 现有启动与迁移逻辑已经以 `app.ini`、工作目录和数据库迁移为边界，适合作为“接管评估器”和兼容适配层的起点。
@@ -57,7 +57,7 @@ gitsss Agent (CLI + authenticated local HTTP) ── existing Gitea intranet ser
 ### 前端与设计系统
 
 - `web/` 是唯一 React/Vite 应用；Go 服务同源交付其构建产物，不引入第二套渲染模型或 Legacy 前端运行入口。
-- 旧 Vue、Vue Vite 插件、专用测试和依赖不进入 gitsss 跟踪树、构建图与发行包；兼容分析使用的未跟踪快照在最终审计后清理。
+- 旧 Vue、Vue Vite 插件、专用测试和依赖不进入 gitsss 跟踪树、构建图与发行包；本地 Legacy 快照已经清理。
 - 用 shadcn/ui 作为可访问的基础组件，不采用其默认视觉作为产品外观；建立 gitsss tokens、动效、焦点、阴影、空白和深浅色主题。
 - 视觉方向为 Apple/Spotlight：留白优先、单一主操作、短层级、键盘优先、轻量半透明浮层，支持 `prefers-reduced-motion`。
 - 页面采用精简的 API 工作台式信息层级：一个当前 Tab、一个主要决策区、一个可展开的细节区；禁止把所有监控数据同时堆满首页。
@@ -165,7 +165,7 @@ gitsss Agent (CLI + authenticated local HTTP) ── existing Gitea intranet ser
 
 ## 决策记录与待确认输入
 
-- 默认远程仓库设为私有，避免在重构前公开包含上游源码快照的内容；需要公开时再显式调整可见性。
+- 默认远程仓库保持私有；完成最终安全、法律与发布审计后，再由所有者显式决定是否公开。
 - gitsss 运行时数据库固定为内置 SQLite；不提供外接数据库部署模式。旧 SQLite/MySQL/PostgreSQL 只存在于接管读取边界，数据转换完成后不成为 gitsss 运行依赖。
 - 接管实施前需要目标实例的版本、数据库类型与备份方式、`app.ini`（脱敏）、Git/LFS/对象存储路径、身份源、反向代理和允许的维护窗口。
 - Agent 实施前需要目标主机的操作系统、CPU 架构、网络边界、代理/证书策略、可用服务账户、允许的监听地址与更新策略。

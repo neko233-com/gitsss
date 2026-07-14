@@ -57,14 +57,14 @@ func checkFreezeWithDial(options Options, dial func(context.Context, string, str
 	connection, dialErr := dial(ctx, network, address)
 	if dialErr == nil {
 		connection.Close()
-		evidence.Finding = "Gitea 本地监听仍可连接，请先停止旧实例"
+		evidence.Finding = "旧实例的本地监听仍可连接，请先停止旧实例"
 		return evidence, nil
 	}
 	if freezeDialProvesOffline(network, dialErr) {
 		evidence.Offline = true
 		return evidence, nil
 	}
-	evidence.Finding = "无法确定 Gitea 是否已停止；超时、权限错误或网络不可达不能作为停服证据"
+	evidence.Finding = "无法确定旧实例是否已停止；超时、权限错误或网络不可达不能作为停服证据"
 	return evidence, nil
 }
 
@@ -84,7 +84,7 @@ func freezeEndpoint(configuration ini, workPath string) (string, string, error) 
 		return "unix", filepath.Clean(socket), nil
 	}
 	if protocol != "http" && protocol != "https" && protocol != "fcgi" {
-		return "", "", fmt.Errorf("%w: unsupported Gitea server protocol %q", ErrInvalidConfig, protocol)
+		return "", "", fmt.Errorf("%w: unsupported source server protocol %q", ErrInvalidConfig, protocol)
 	}
 	host := strings.TrimSpace(value(configuration, "server", "HTTP_ADDR"))
 	if host == "" || host == "0.0.0.0" {
@@ -97,7 +97,7 @@ func freezeEndpoint(configuration ini, workPath string) (string, string, error) 
 		port = "3000"
 	}
 	if parsed, err := net.LookupPort("tcp", port); err != nil || parsed < 1 || parsed > 65535 {
-		return "", "", fmt.Errorf("%w: invalid Gitea HTTP_PORT", ErrInvalidConfig)
+		return "", "", fmt.Errorf("%w: invalid source HTTP_PORT", ErrInvalidConfig)
 	}
 	return "tcp", net.JoinHostPort(strings.Trim(host, "[]"), port), nil
 }

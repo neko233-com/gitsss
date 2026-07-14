@@ -175,7 +175,7 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 		}
 		evidence, err := takeover.CheckFreeze(takeover.Options{
 			AgentID: input.AgentID, ConfigPath: input.ConfigPath, WorkPath: input.WorkPath,
-			GiteaVersion: input.GiteaVersion, MaxEntries: input.MaxEntries,
+			SourceVersion: input.SourceVersion, MaxEntries: input.MaxEntries,
 		})
 		if err != nil {
 			return nil, err
@@ -214,7 +214,7 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 		}
 		options := takeover.Options{
 			AgentID: input.AgentID, ConfigPath: input.ConfigPath, WorkPath: input.WorkPath,
-			GiteaVersion: input.GiteaVersion, MaxEntries: input.MaxEntries,
+			SourceVersion: input.SourceVersion, MaxEntries: input.MaxEntries,
 		}
 		report, err := takeover.Assess(options)
 		if err != nil {
@@ -334,7 +334,7 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 			input.InputPath, passphrase, input.TargetPath,
 			takeover.Options{
 				AgentID: input.AgentID, ConfigPath: input.ConfigPath, WorkPath: input.WorkPath,
-				GiteaVersion: input.GiteaVersion, MaxEntries: input.MaxEntries, FreezeID: input.ExpectedFreezeID,
+				SourceVersion: input.SourceVersion, MaxEntries: input.MaxEntries, FreezeID: input.ExpectedFreezeID,
 			},
 			input.ExpectedAssessmentID, input.ExpectedContainerSHA256,
 		)
@@ -361,7 +361,7 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 			input.InputPath, passphrase, input.TargetPath,
 			takeover.Options{
 				AgentID: input.AgentID, ConfigPath: input.ConfigPath, WorkPath: input.WorkPath,
-				GiteaVersion: input.GiteaVersion, MaxEntries: input.MaxEntries, FreezeID: input.ExpectedFreezeID,
+				SourceVersion: input.SourceVersion, MaxEntries: input.MaxEntries, FreezeID: input.ExpectedFreezeID,
 			},
 			input.ExpectedAssessmentID, input.ExpectedContainerSHA256,
 		)
@@ -573,12 +573,12 @@ func (values *stringList) Set(value string) error {
 func assess(args []string) {
 	flags := flag.NewFlagSet("assess", flag.ExitOnError)
 	var configPaths stringList
-	flags.Var(&configPaths, "config", "Gitea app.ini path; may be repeated")
-	workPath := flags.String("work-path", "", "Gitea application work path for relative settings")
+	flags.Var(&configPaths, "config", "source app.ini path; may be repeated")
+	workPath := flags.String("work-path", "", "source application work path for relative settings")
 	serverURL := flags.String("server", "", "gitsss API base URL; omit for local JSON output")
 	token := flags.String("token", "", "agent token; required with --server")
 	agentID := flags.String("agent-id", "", "stable agent device ID")
-	version := flags.String("gitea-version", "", "detected Gitea version when known")
+	version := flags.String("source-version", "", "detected source version when known")
 	maxEntries := flags.Int("max-entries", 10_000, "maximum files scanned per asset category")
 	flags.Parse(args)
 	if strings.TrimSpace(*agentID) == "" {
@@ -592,7 +592,7 @@ func assess(args []string) {
 	if len(configPaths) == 0 {
 		configPaths = takeover.DiscoverConfigPaths()
 		if len(configPaths) == 0 {
-			fmt.Fprintln(os.Stderr, "no Gitea app.ini found; pass --config explicitly")
+			fmt.Fprintln(os.Stderr, "no source app.ini found; pass --config explicitly")
 			os.Exit(1)
 		}
 	}
@@ -601,7 +601,7 @@ func assess(args []string) {
 	for _, configPath := range configPaths {
 		report, err := takeover.Assess(takeover.Options{
 			AgentID: *agentID, ConfigPath: configPath, WorkPath: *workPath,
-			GiteaVersion: *version, MaxEntries: *maxEntries,
+			SourceVersion: *version, MaxEntries: *maxEntries,
 		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "assess %s: %v\n", configPath, err)
@@ -653,8 +653,8 @@ func uploadAssessment(serverURL, token string, report takeover.Report) error {
 
 func freezeCheck(args []string) {
 	flags := flag.NewFlagSet("freeze-check", flag.ExitOnError)
-	configPath := flags.String("config", "", "Gitea app.ini path; auto-discovered when exactly one exists")
-	workPath := flags.String("work-path", "", "Gitea application work path for relative settings")
+	configPath := flags.String("config", "", "source app.ini path; auto-discovered when exactly one exists")
+	workPath := flags.String("work-path", "", "source application work path for relative settings")
 	agentID := flags.String("agent-id", "", "stable agent device ID")
 	flags.Parse(args)
 	if strings.TrimSpace(*agentID) == "" {
@@ -665,7 +665,7 @@ func freezeCheck(args []string) {
 	if resolvedConfig == "" {
 		paths := takeover.DiscoverConfigPaths()
 		if len(paths) != 1 {
-			fmt.Fprintln(os.Stderr, "auto-discovery requires exactly one Gitea app.ini; pass --config explicitly")
+			fmt.Fprintln(os.Stderr, "auto-discovery requires exactly one source app.ini; pass --config explicitly")
 			os.Exit(1)
 		}
 		resolvedConfig = paths[0]
@@ -688,12 +688,12 @@ func freezeCheck(args []string) {
 
 func backupExport(args []string) {
 	flags := flag.NewFlagSet("backup-export", flag.ExitOnError)
-	configPath := flags.String("config", "", "Gitea app.ini path; auto-discovered when exactly one exists")
-	workPath := flags.String("work-path", "", "Gitea application work path for relative settings")
+	configPath := flags.String("config", "", "source app.ini path; auto-discovered when exactly one exists")
+	workPath := flags.String("work-path", "", "source application work path for relative settings")
 	outputPath := flags.String("output", "", "new .gitsss-backup output path")
 	passphraseEnv := flags.String("passphrase-env", "GITSSS_BACKUP_PASSPHRASE", "environment variable containing the backup passphrase")
 	agentID := flags.String("agent-id", "", "stable agent device ID")
-	version := flags.String("gitea-version", "", "detected Gitea version when known")
+	version := flags.String("source-version", "", "detected source version when known")
 	maxEntries := flags.Int("max-entries", 10_000, "maximum files scanned per asset category")
 	freezeID := flags.String("freeze-id", "", "current freeze evidence ID; required for PostgreSQL/MySQL")
 	flags.Parse(args)
@@ -705,7 +705,7 @@ func backupExport(args []string) {
 	if resolvedConfig == "" {
 		paths := takeover.DiscoverConfigPaths()
 		if len(paths) != 1 {
-			fmt.Fprintln(os.Stderr, "auto-discovery requires exactly one Gitea app.ini; pass --config explicitly")
+			fmt.Fprintln(os.Stderr, "auto-discovery requires exactly one source app.ini; pass --config explicitly")
 			os.Exit(1)
 		}
 		resolvedConfig = paths[0]
@@ -717,7 +717,7 @@ func backupExport(args []string) {
 	}
 	options := takeover.Options{
 		AgentID: *agentID, ConfigPath: resolvedConfig, WorkPath: *workPath,
-		GiteaVersion: *version, MaxEntries: *maxEntries,
+		SourceVersion: *version, MaxEntries: *maxEntries,
 	}
 	report, err := takeover.Assess(options)
 	if err != nil {
