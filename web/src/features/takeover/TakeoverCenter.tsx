@@ -620,7 +620,7 @@ export function TakeoverCenter({
   }
 
   const dispatchAudit = async () => {
-    if (!selected || !backupResult || !restoreResult) return
+    if (!selected || !backupResult || !restoreResult || !inventoryResult) return
     setLoading(true)
     setError("")
     try {

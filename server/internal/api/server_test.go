@@ -110,6 +110,17 @@ func TestServerManagesPersistentTokensWithoutReturningSecretsAgain(t *testing.T)
 	}
 }
 
+func TestServerPublishesAuditedGitClientCatalogWithoutAuthentication(t *testing.T) {
+	response := httptest.NewRecorder()
+	NewServer(auth.NewVerifier(), Dependencies{}).Handler().ServeHTTP(
+		response,
+		httptest.NewRequest(http.MethodGet, "/api/v1/git-clients", nil),
+	)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"version":"2.55.0.windows.2"`) || !strings.Contains(response.Body.String(), `"kind":"mirror"`) || !strings.Contains(response.Body.String(), `"sha256":"74300da8`) {
+		t.Fatalf("catalog = %d %s", response.Code, response.Body.String())
+	}
+}
+
 func TestServerPreviewsRoleAndIssuesRoleToken(t *testing.T) {
 	now := time.Date(2026, 7, 14, 8, 0, 0, 0, time.UTC)
 	verifier := auth.NewVerifier(auth.NewRecord("admin", "token", time.Time{}, "auth:read", "auth:write"))

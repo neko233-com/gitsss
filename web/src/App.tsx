@@ -63,8 +63,12 @@ import { NotificationCenter } from "@/features/notifications/NotificationCenter"
 import { PipelineCenter } from "@/features/pipelines/PipelineCenter"
 import { RepositoryBrowser } from "@/features/repository-browser/RepositoryBrowser"
 import { TakeoverCenter } from "@/features/takeover/TakeoverCenter"
-import { apiDelete } from "@/lib/api"
+import { apiDelete, apiRequest } from "@/lib/api"
 import type { RecentEvent } from "@/lib/recent-events"
+import {
+  parseGitClientCatalog,
+  type GitClientCatalog,
+} from "@/features/downloads/git-client-catalog"
 import {
   readSessionToken,
   writeSelectedRepository,
@@ -294,15 +298,20 @@ function StorageAwarenessTab({
 }
 
 function GitClientDownloadTab({
+  catalog,
+  error,
+  loading,
   platform,
   onPlatformChange,
-  onMirrorOpen,
 }: {
+  catalog?: GitClientCatalog
+  error: string
+  loading: boolean
   platform: "windows" | "macos"
   onPlatformChange: (platform: "windows" | "macos") => void
-  onMirrorOpen: () => void
 }) {
   const isWindows = platform === "windows"
+  const selected = catalog?.platforms.find((item) => item.id === platform)
   return (
     <section className="mx-auto max-w-3xl pt-8">
       <div className="flex items-start justify-between gap-4">
@@ -332,34 +341,65 @@ function GitClientDownloadTab({
       </div>
       <div className="mt-6 border-y border-zinc-200 py-6">
         <p className="text-sm font-medium">
-          {isWindows
-            ? "Windows 11 / 10（x64、ARM64）"
-            : "macOS（Apple Silicon、Intel）"}
+          {selected?.label ?? (isWindows ? "Windows" : "macOS")}
+          {selected ? ` · Git ${selected.version}` : ""}
         </p>
         <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-600">
           下载并安装后，gitsss 会用向导连接你的团队、检查 SSH 或
           Token，并用文件树而不是命令行开始第一个仓库。
         </p>
-        <div className="mt-5 flex flex-wrap gap-3">
-          <a
-            className="inline-flex h-9 items-center rounded-lg bg-zinc-950 px-4 text-sm font-medium text-white"
-            href={
-              isWindows
-                ? "https://git-scm.com/download/win"
-                : "https://git-scm.com/download/mac"
-            }
-            rel="noreferrer"
-            target="_blank"
-          >
-            官方下载安装
-          </a>
-          <Button onClick={onMirrorOpen} variant="outline">
-            查看可用镜像
-          </Button>
-        </div>
+        {loading ? (
+          <p className="mt-5 text-sm text-zinc-500">正在读取下载目录…</p>
+        ) : error ? (
+          <Alert className="mt-5" variant="destructive">
+            <AlertIcon />
+            <AlertTitle>下载目录不可用</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : selected ? (
+          <div className="mt-5 divide-y divide-zinc-200 border-t border-zinc-200">
+            {selected.sources.map((source) => (
+              <div
+                className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                key={`${source.kind}-${source.label}`}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-zinc-800">
+                    {source.label}
+                    {source.architecture ? ` · ${source.architecture}` : ""}
+                  </p>
+                  {source.command ? (
+                    <p className="mt-1 font-mono text-xs text-zinc-600">
+                      {source.command}
+                    </p>
+                  ) : null}
+                  {source.sha256 ? (
+                    <p className="mt-1 truncate font-mono text-[11px] text-zinc-500">
+                      SHA-256 {source.sha256}
+                      {source.bytes ? ` · ${formatBytes(source.bytes)}` : ""}
+                    </p>
+                  ) : null}
+                </div>
+                <a
+                  className={`inline-flex h-9 items-center justify-center rounded-lg px-4 text-sm font-medium ${source.kind === "official" ? "bg-zinc-950 text-white" : "border border-zinc-200 bg-white text-zinc-800"}`}
+                  href={source.url}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {source.kind === "official" ? "官方源" : "国内镜像"}
+                </a>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-5 text-sm text-zinc-500">当前平台暂无可用来源。</p>
+        )}
       </div>
       <p className="text-xs leading-5 text-zinc-500">
-        镜像地址、版本与校验和由服务器端受签名目录提供；离线内网环境由管理员预置软件包源。
+        目录由 gitsss 服务端内置并标注核验时间；Windows 官方源和国内镜像使用同一
+        SHA-256。macOS
+        由系统工具或包管理器安装，不提供过期的第三方二进制安装包。
+        {catalog ? ` 最近核验：${catalog.verified_at.slice(0, 10)}。` : ""}
       </p>
     </section>
   )
@@ -375,6 +415,9 @@ export function App() {
   const [notice, setNotice] = useState("工作台已准备就绪")
   const [operational, setOperational] = useState<OperationalData>()
   const [dashboardLoading, setDashboardLoading] = useState(false)
+  const [clientCatalog, setClientCatalog] = useState<GitClientCatalog>()
+  const [clientCatalogError, setClientCatalogError] = useState("")
+  const [clientCatalogLoading, setClientCatalogLoading] = useState(false)
   const [clientPlatform, setClientPlatform] = useState<"windows" | "macos">(
     "windows"
   )
@@ -409,6 +452,26 @@ export function App() {
       window.clearInterval(interval)
     }
   }, [area, refreshDashboard])
+
+  useEffect(() => {
+    if (area !== "workspace" || workspaceTab !== "download" || clientCatalog)
+      return
+    const controller = new AbortController()
+    setClientCatalogLoading(true)
+    setClientCatalogError("")
+    void apiRequest<unknown>("/api/v1/git-clients", "", controller.signal)
+      .then((catalog) => setClientCatalog(parseGitClientCatalog(catalog)))
+      .catch((caught: unknown) => {
+        if (!controller.signal.aborted)
+          setClientCatalogError(
+            caught instanceof Error ? caught.message : "无法读取服务端下载目录"
+          )
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setClientCatalogLoading(false)
+      })
+    return () => controller.abort()
+  }, [area, clientCatalog, workspaceTab])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -967,8 +1030,10 @@ export function App() {
               <TabsContent value="download">
                 <MotionSurface>
                   <GitClientDownloadTab
+                    catalog={clientCatalog}
+                    error={clientCatalogError}
+                    loading={clientCatalogLoading}
                     onPlatformChange={setClientPlatform}
-                    onMirrorOpen={() => setNotice("已打开受签名镜像目录")}
                     platform={clientPlatform}
                   />
                 </MotionSurface>

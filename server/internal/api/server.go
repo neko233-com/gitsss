@@ -80,6 +80,7 @@ func NewServer(verifier auth.Verifier, dependencies Dependencies) *Server {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.health)
+	mux.HandleFunc("GET /api/v1/git-clients", s.gitClientCatalog)
 	mux.HandleFunc("GET /api/v1/auth/tokens", s.authTokens)
 	mux.HandleFunc("POST /api/v1/auth/tokens", s.authTokenIssue)
 	mux.HandleFunc("DELETE /api/v1/auth/tokens/{token}", s.authTokenRevoke)
@@ -119,6 +120,48 @@ func (s *Server) Handler() http.Handler {
 		mux.Handle("/git/", http.HandlerFunc(s.gitProtocol))
 	}
 	return mux
+}
+
+type gitClientSource struct {
+	Kind         string `json:"kind"`
+	Label        string `json:"label"`
+	URL          string `json:"url"`
+	Architecture string `json:"architecture,omitempty"`
+	SHA256       string `json:"sha256,omitempty"`
+	Bytes        int64  `json:"bytes,omitempty"`
+	Command      string `json:"command,omitempty"`
+}
+
+type gitClientPlatform struct {
+	ID      string            `json:"id"`
+	Label   string            `json:"label"`
+	Version string            `json:"version"`
+	Sources []gitClientSource `json:"sources"`
+}
+
+func (s *Server) gitClientCatalog(w http.ResponseWriter, _ *http.Request) {
+	const (
+		x64Digest   = "74300da8dfe0d844c5449ffb809662f8eeac47916f83730c879c4084890c6c0e"
+		arm64Digest = "3df091fc297001ea9592554ee630111ea27b2d33b137859d08c4971abb319a7c"
+	)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"version":     1,
+		"verified_at": "2026-07-15T00:00:00Z",
+		"trust":       "embedded-release-catalog",
+		"platforms": []gitClientPlatform{
+			{ID: "windows", Label: "Windows 11 / 10", Version: "2.55.0.windows.2", Sources: []gitClientSource{
+				{Kind: "official", Label: "官方 x64 安装包", Architecture: "x64", URL: "https://github.com/git-for-windows/git/releases/download/v2.55.0.windows.2/Git-2.55.0.2-64-bit.exe", SHA256: x64Digest, Bytes: 65449488},
+				{Kind: "mirror", Label: "国内镜像 x64", Architecture: "x64", URL: "https://registry.npmmirror.com/-/binary/git-for-windows/v2.55.0.windows.2/Git-2.55.0.2-64-bit.exe", SHA256: x64Digest, Bytes: 65449488},
+				{Kind: "official", Label: "官方 ARM64 安装包", Architecture: "arm64", URL: "https://github.com/git-for-windows/git/releases/download/v2.55.0.windows.2/Git-2.55.0.2-arm64.exe", SHA256: arm64Digest, Bytes: 63236912},
+				{Kind: "mirror", Label: "国内镜像 ARM64", Architecture: "arm64", URL: "https://registry.npmmirror.com/-/binary/git-for-windows/v2.55.0.windows.2/Git-2.55.0.2-arm64.exe", SHA256: arm64Digest, Bytes: 63236912},
+			}},
+			{ID: "macos", Label: "macOS", Version: "2.55.0", Sources: []gitClientSource{
+				{Kind: "official", Label: "Xcode 命令行工具", URL: "https://git-scm.com/install/mac", Architecture: "universal", Command: "xcode-select --install"},
+				{Kind: "official", Label: "Homebrew", URL: "https://brew.sh/", Architecture: "universal", Command: "brew install git"},
+				{Kind: "mirror", Label: "清华 Homebrew 镜像配置", URL: "https://mirrors.tuna.tsinghua.edu.cn/help/homebrew/", Architecture: "universal", Command: "brew install git"},
+			}},
+		},
+	})
 }
 
 func (s *Server) gitProtocol(w http.ResponseWriter, r *http.Request) {
