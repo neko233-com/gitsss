@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -51,6 +52,8 @@ func main() {
 		serve(os.Args[2:])
 	case "work-once":
 		workOnce(os.Args[2:])
+	case "work":
+		work(os.Args[2:])
 	default:
 		printUsage()
 		os.Exit(2)
@@ -58,54 +61,26 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Fprintln(os.Stderr, "usage: gitsss-agent <serve|work-once|probe|runner-report|assess|backup-export|backup-verify|backup-import-plan|backup-restore-isolated|backup-audit-restore> [options]")
+	fmt.Fprintln(os.Stderr, "usage: gitsss-agent <serve|work|work-once|probe|runner-report|assess|backup-export|backup-verify|backup-import-plan|backup-restore-isolated|backup-audit-restore> [options]")
 }
 
 func workOnce(args []string) {
-	flags := flag.NewFlagSet("work-once", flag.ExitOnError)
-	serverURL := flags.String("server", "", "gitsss API base URL")
-	token := flags.String("token", "", "Agent work token")
-	agentID := flags.String("id", "", "stable Agent device ID")
-	flags.Parse(args)
-	if strings.TrimSpace(*serverURL) == "" || strings.TrimSpace(*token) == "" || strings.TrimSpace(*agentID) == "" {
-		fmt.Fprintln(os.Stderr, "--server, --token and --id are required")
-		os.Exit(2)
-	}
-	job, found, err := claimAgentJob(*serverURL, *token, *agentID)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	if !found {
-		fmt.Println("no Agent job available")
-		return
-	}
-	result, executionErr := executeAgentJob(job, *agentID)
-	failure := ""
-	if executionErr != nil {
-		failure = executionErr.Error()
-	}
-	completed, err := completeAgentJob(*serverURL, *token, *agentID, job.ID, result, failure)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	fmt.Printf("Agent job %s: %s\n", completed.ID, completed.Status)
-	if executionErr != nil {
-		fmt.Fprintln(os.Stderr, executionErr)
-		os.Exit(1)
-	}
+	runWorkOnce(args)
 }
 
 func claimAgentJob(serverURL, token, agentID string) (agentjob.Job, bool, error) {
+	return claimAgentJobContext(context.Background(), &http.Client{Timeout: 30 * time.Second}, serverURL, token, agentID)
+}
+
+func claimAgentJobContext(ctx context.Context, client *http.Client, serverURL, token, agentID string) (agentjob.Job, bool, error) {
 	payload, _ := json.Marshal(map[string]string{"agent_id": agentID})
-	request, err := http.NewRequest(http.MethodPost, strings.TrimRight(serverURL, "/")+"/api/v1/agent/jobs/claim", bytes.NewReader(payload))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(serverURL, "/")+"/api/v1/agent/jobs/claim", bytes.NewReader(payload))
 	if err != nil {
 		return agentjob.Job{}, false, err
 	}
 	request.Header.Set("Authorization", "Bearer "+token)
 	request.Header.Set("Content-Type", "application/json")
-	response, err := (&http.Client{Timeout: 30 * time.Second}).Do(request)
+	response, err := client.Do(request)
 	if err != nil {
 		return agentjob.Job{}, false, err
 	}
@@ -306,6 +281,10 @@ func hashAgentFile(filePath string) (int64, string, error) {
 }
 
 func completeAgentJob(serverURL, token, agentID, jobID string, result json.RawMessage, failure string) (agentjob.Job, error) {
+	return completeAgentJobContext(context.Background(), &http.Client{Timeout: 30 * time.Second}, serverURL, token, agentID, jobID, result, failure)
+}
+
+func completeAgentJobContext(ctx context.Context, client *http.Client, serverURL, token, agentID, jobID string, result json.RawMessage, failure string) (agentjob.Job, error) {
 	payload, err := json.Marshal(struct {
 		AgentID string          `json:"agent_id"`
 		Result  json.RawMessage `json:"result,omitempty"`
@@ -314,13 +293,13 @@ func completeAgentJob(serverURL, token, agentID, jobID string, result json.RawMe
 	if err != nil {
 		return agentjob.Job{}, err
 	}
-	request, err := http.NewRequest(http.MethodPost, strings.TrimRight(serverURL, "/")+"/api/v1/agent/jobs/"+jobID+"/complete", bytes.NewReader(payload))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(serverURL, "/")+"/api/v1/agent/jobs/"+jobID+"/complete", bytes.NewReader(payload))
 	if err != nil {
 		return agentjob.Job{}, err
 	}
 	request.Header.Set("Authorization", "Bearer "+token)
 	request.Header.Set("Content-Type", "application/json")
-	response, err := (&http.Client{Timeout: 30 * time.Second}).Do(request)
+	response, err := client.Do(request)
 	if err != nil {
 		return agentjob.Job{}, err
 	}

@@ -38,8 +38,11 @@ The listener rejects non-loopback addresses. Its default token scopes are `agent
 For centrally orchestrated takeover, create a typed job through `/api/v1/agent/jobs`, then let the old server initiate the connection:
 
 ```powershell
-go run ./cmd/gitsss-agent work-once --server http://gitsss.internal:8787 --token $env:GITSSS_AGENT_WORK_TOKEN --id old-gitea
+$env:GITSSS_AGENT_WORK_TOKEN = "replace-with-a-scoped-work-token"
+go run ./cmd/gitsss-agent work --server http://gitsss.internal:8787 --id old-gitea
 ```
+
+The persistent worker drains available jobs immediately, backs empty queues off from one to thirty seconds, and backs control-plane failures off to two minutes. If execution finishes but its completion response is lost, the running process retains the result and retries completion without executing the task again. `work-once` remains available for diagnostics; its `--token-env` form avoids exposing the token in process arguments.
 
 The queue currently accepts only `takeover.assess`, `backup.export`, `backup.restore-isolated`, `backup.audit-restore` and `backup.verify`; it cannot execute shell commands. An export re-runs assessment and requires its resulting ID to match the administrator's explicit confirmation before creating a no-replace encrypted container. An isolated restore binds both authenticated reads to the confirmed container SHA-256 before publishing a new directory. The post-restore audit is read-only and reports file, strict Git and LFS evidence separately from its shadow-mode readiness decision. Passphrases remain in a named environment variable on the old server. A claim has a five-minute lease, is bound to one Agent ID, and terminal completion is idempotent. See [`docs/architecture/agent-jobs-v1.md`](../docs/architecture/agent-jobs-v1.md).
 
