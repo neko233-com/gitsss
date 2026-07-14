@@ -52,3 +52,40 @@ func TestStoreRejectsUnsafeDocumentsAndNonFiles(t *testing.T) {
 		t.Fatalf("directory database error = %v", err)
 	}
 }
+
+func TestStoreDeletesDocumentsInOneNamespace(t *testing.T) {
+	store, err := Open(filepath.Join(t.TempDir(), "gitsss.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	for _, document := range []struct {
+		namespace string
+		id        string
+	}{
+		{namespace: "audit-entries", id: "audit-1"},
+		{namespace: "audit-entries", id: "audit-2"},
+		{namespace: "agent-jobs", id: "audit-1"},
+	} {
+		if err := store.Put(document.namespace, document.id, json.RawMessage(`{"status":"stored"}`)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := store.DeleteMany("audit-entries", []string{"audit-1", "audit-2"}); err != nil {
+		t.Fatal(err)
+	}
+	auditDocuments, err := store.List("audit-entries")
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobDocuments, err := store.List("agent-jobs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(auditDocuments) != 0 || len(jobDocuments) != 1 {
+		t.Fatalf("audit/job documents = %d/%d", len(auditDocuments), len(jobDocuments))
+	}
+	if err := store.DeleteMany("bad\nnamespace", []string{"audit-1"}); !errors.Is(err, ErrInvalidDocument) {
+		t.Fatalf("unsafe delete error = %v", err)
+	}
+}

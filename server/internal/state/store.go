@@ -125,6 +125,36 @@ func (store *Store) List(namespace string) ([]Document, error) {
 	return documents, rows.Err()
 }
 
+func (store *Store) DeleteMany(namespace string, ids []string) error {
+	if !validKey(namespace, 64) {
+		return ErrInvalidDocument
+	}
+	for _, id := range ids {
+		if !validKey(id, 256) {
+			return ErrInvalidDocument
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	transaction, err := store.database.Begin()
+	if err != nil {
+		return err
+	}
+	defer transaction.Rollback()
+	statement, err := transaction.Prepare(`DELETE FROM state_documents WHERE namespace = ? AND id = ?`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+	for _, id := range ids {
+		if _, err := statement.Exec(namespace, id); err != nil {
+			return err
+		}
+	}
+	return transaction.Commit()
+}
+
 func (store *Store) initialize() error {
 	var journalMode string
 	if err := store.database.QueryRow("PRAGMA journal_mode = WAL").Scan(&journalMode); err != nil {

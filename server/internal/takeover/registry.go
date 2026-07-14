@@ -68,7 +68,9 @@ func (r *Registry) Submit(actor, requestID string, report Report, now time.Time)
 	r.reports[report.ID] = report
 	r.mu.Unlock()
 	if r.audit != nil {
-		r.audit.Append(audit.Entry{Actor: actor, Action: "takeover.assessment.submit", Target: report.ID, RequestID: requestID, At: now.UTC()})
+		if err := r.audit.Append(audit.Entry{Actor: actor, Action: "takeover.assessment.submit", Target: report.ID, RequestID: requestID, At: now.UTC()}); err != nil {
+			return Report{}, err
+		}
 	}
 	return report, nil
 }

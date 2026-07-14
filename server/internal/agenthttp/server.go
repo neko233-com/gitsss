@@ -173,8 +173,8 @@ func (server *Server) authorize(response http.ResponseWriter, request *http.Requ
 
 func (server *Server) record(actor, action, target, requestID, result string) {
 	now := server.now().UTC()
-	server.audit.Cleanup(now.Add(-auditRetention))
-	server.audit.Append(audit.Entry{Actor: actor, Action: action, Target: target, RequestID: requestID, Result: result, At: now})
+	_, _ = server.audit.Cleanup(now.Add(-auditRetention))
+	_ = server.audit.Append(audit.Entry{Actor: actor, Action: action, Target: target, RequestID: requestID, Result: result, At: now})
 }
 
 func decodeJSON(response http.ResponseWriter, request *http.Request, limit int64, value any) error {

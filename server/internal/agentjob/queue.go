@@ -120,7 +120,9 @@ func (queue *Queue) Create(actor, requestID string, kind Kind, input json.RawMes
 	queue.jobs[job.ID] = &job
 	queue.order = append(queue.order, job.ID)
 	queue.mu.Unlock()
-	queue.record(actor, "agent.job.create", job.ID, requestID, "queued", now)
+	if err := queue.record(actor, "agent.job.create", job.ID, requestID, "queued", now); err != nil {
+		return Job{}, err
+	}
 	return clone(job), nil
 }
 
@@ -150,7 +152,9 @@ func (queue *Queue) Claim(agentID, requestID string, now time.Time) (Job, bool, 
 			return Job{}, false, err
 		}
 		*job = candidate
-		queue.record(agentID, "agent.job.claim", candidate.ID, requestID, "running", now)
+		if err := queue.record(agentID, "agent.job.claim", candidate.ID, requestID, "running", now); err != nil {
+			return Job{}, false, err
+		}
 		return clone(candidate), true, nil
 	}
 	return Job{}, false, nil
@@ -189,7 +193,9 @@ func (queue *Queue) Complete(agentID, requestID, jobID string, result json.RawMe
 		return Job{}, err
 	}
 	*job = candidate
-	queue.record(agentID, "agent.job.complete", candidate.ID, requestID, string(candidate.Status), now)
+	if err := queue.record(agentID, "agent.job.complete", candidate.ID, requestID, string(candidate.Status), now); err != nil {
+		return Job{}, err
+	}
 	return clone(candidate), nil
 }
 
@@ -204,10 +210,11 @@ func (queue *Queue) Jobs() []Job {
 	return jobs
 }
 
-func (queue *Queue) record(actor, action, target, requestID, result string, now time.Time) {
+func (queue *Queue) record(actor, action, target, requestID, result string, now time.Time) error {
 	if queue.audit != nil {
-		queue.audit.Append(audit.Entry{Actor: actor, Action: action, Target: target, RequestID: requestID, Result: result, At: now.UTC()})
+		return queue.audit.Append(audit.Entry{Actor: actor, Action: action, Target: target, RequestID: requestID, Result: result, At: now.UTC()})
 	}
+	return nil
 }
 
 func validKind(kind Kind) bool {

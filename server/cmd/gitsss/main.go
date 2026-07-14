@@ -44,7 +44,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	logStore := &audit.Log{}
+	logStore, err := audit.NewPersistentLog(stateStore, vault)
+	if err != nil {
+		log.Fatal(err)
+	}
 	dashboardService := dashboard.NewService(6, []dashboard.Event{
 		{ID: "merge", Action: "feature/export 合并到 main", Actor: "张晨", At: "10:24", Kind: "change"},
 		{ID: "build", Action: "构建 #1942 失败（支付服务）", Actor: "CI", At: "10:18", Kind: "build"},

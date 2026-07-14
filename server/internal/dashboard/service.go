@@ -71,10 +71,14 @@ func (s *Service) Touch(event Event) {
 	}
 }
 
-func (s *Service) ClearPreview(actor, requestID string, now time.Time) {
+func (s *Service) ClearPreview(actor, requestID string, now time.Time) error {
+	if s.audit != nil {
+		if err := s.audit.Append(audit.Entry{Actor: actor, Action: "events.preview.clear", Target: "dashboard", RequestID: requestID, At: now}); err != nil {
+			return err
+		}
+	}
 	s.mu.Lock()
 	s.events = nil
 	s.mu.Unlock()
-
-	s.audit.Append(audit.Entry{Actor: actor, Action: "events.preview.clear", Target: "dashboard", RequestID: requestID, At: now})
+	return nil
 }

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/neko233-com/gitsss/server/internal/agentjob"
+	"github.com/neko233-com/gitsss/server/internal/audit"
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/dashboard"
 	"github.com/neko233-com/gitsss/server/internal/notification"
@@ -116,6 +117,10 @@ func (s *Server) agentJobCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	job, err := s.jobs.Create(principal.TokenID, requestID(), request.Kind, request.Input, s.now().UTC())
 	if err != nil {
+		if errors.Is(err, audit.ErrState) {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "audit state could not be updated"})
+			return
+		}
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
@@ -135,6 +140,10 @@ func (s *Server) agentJobClaim(w http.ResponseWriter, r *http.Request) {
 	}
 	job, found, err := s.jobs.Claim(request.AgentID, requestID(), s.now().UTC())
 	if err != nil {
+		if errors.Is(err, audit.ErrState) {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "audit state could not be updated"})
+			return
+		}
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
@@ -161,12 +170,18 @@ func (s *Server) agentJobComplete(w http.ResponseWriter, r *http.Request) {
 	job, err := s.jobs.Complete(request.AgentID, requestID(), r.PathValue("job"), request.Result, request.Error, s.now().UTC())
 	if err != nil {
 		status := http.StatusBadRequest
-		if errors.Is(err, agentjob.ErrNotFound) {
+		if errors.Is(err, audit.ErrState) {
+			status = http.StatusInternalServerError
+		} else if errors.Is(err, agentjob.ErrNotFound) {
 			status = http.StatusNotFound
 		} else if errors.Is(err, agentjob.ErrWrongAgent) {
 			status = http.StatusForbidden
 		}
-		writeJSON(w, status, map[string]string{"error": err.Error()})
+		message := err.Error()
+		if errors.Is(err, audit.ErrState) {
+			message = "audit state could not be updated"
+		}
+		writeJSON(w, status, map[string]string{"error": message})
 		return
 	}
 	writeJSON(w, http.StatusOK, job)
@@ -191,6 +206,10 @@ func (s *Server) takeoverAssessmentSubmit(w http.ResponseWriter, r *http.Request
 	}
 	stored, err := s.takeovers.Submit(principal.TokenID, requestID(), report, s.now().UTC())
 	if err != nil {
+		if errors.Is(err, audit.ErrState) {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "audit state could not be updated"})
+			return
+		}
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
@@ -303,7 +322,10 @@ func (s *Server) clearPreview(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	s.dashboard.ClearPreview(principal.TokenID, requestID(), s.now().UTC())
+	if err := s.dashboard.ClearPreview(principal.TokenID, requestID(), s.now().UTC()); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "audit state could not be updated"})
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 

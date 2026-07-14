@@ -147,7 +147,9 @@ func (s *Service) Configure(actor, requestID string, configuration Configuration
 	s.mu.Unlock()
 
 	if s.audit != nil {
-		s.audit.Append(audit.Entry{Actor: actor, Action: "notifications.configure", Target: "notification:" + string(configuration.Channel), RequestID: requestID, At: s.now().UTC()})
+		if err := s.audit.Append(audit.Entry{Actor: actor, Action: "notifications.configure", Target: "notification:" + string(configuration.Channel), RequestID: requestID, At: s.now().UTC()}); err != nil {
+			return ChannelState{}, fmt.Errorf("%w: %v", ErrState, err)
+		}
 	}
 	return stateFor(configuration), nil
 }
@@ -233,7 +235,9 @@ func (s *Service) DispatchDue(ctx context.Context, actor, requestID string, limi
 			action = "notifications.delivery_failed"
 		}
 		if s.audit != nil {
-			s.audit.Append(audit.Entry{Actor: actor, Action: action, Target: "notification:" + string(updated.Channel), RequestID: requestID, At: s.now().UTC()})
+			if err := s.audit.Append(audit.Entry{Actor: actor, Action: action, Target: "notification:" + string(updated.Channel), RequestID: requestID, At: s.now().UTC()}); err != nil {
+				return processed, fmt.Errorf("%w: %v", ErrState, err)
+			}
 		}
 	}
 	return processed, nil

@@ -5,9 +5,9 @@ gitsss 主服务只打开一个随二进制运行的 SQLite 数据库，不依�
 ## 文件保护与加密
 
 - SQLite 主文件与 WAL/SHM sidecar 在 Unix 上使用 `0600`；Windows 通过原生安全 API设置 protected DACL，只允许当前服务账户、SYSTEM 和 Administrators，不调用 `icacls`。
-- 通知配置、Webhook、SMTP 密码、收件人、主题和正文在写入 SQLite 前使用 AES-256-GCM 加密。
+- 通知配置、Webhook、SMTP 密码、收件人、主题、正文和审计记录在写入 SQLite 前使用 AES-256-GCM 加密。
 - 每个密文把 namespace 与 document ID 作为 associated data；把密文移动到另一个通道或消息 ID 会校验失败。
-- 32 字节主密钥默认位于 `<data-path>.key`，可通过 `GITSSS_MASTER_KEY_PATH` 放到独立受保护卷。密钥丢失、长度错误或密文篡改都会阻止服务启动，不会静默重置通知。
+- 32 字节主密钥默认位于 `<data-path>.key`，可通过 `GITSSS_MASTER_KEY_PATH` 放到独立受保护卷。密钥丢失、长度错误或密文篡改都会阻止服务启动，不会静默重置通知或审计记录。
 
 ## Outbox 语义
 
@@ -17,4 +17,4 @@ gitsss 主服务只打开一个随二进制运行的 SQLite 数据库，不依�
 
 ## 当前持久化范围
 
-已持久化 Agent 作业、接管评估、通知配置和通知 Outbox。Bootstrap Token、Dashboard 事件预览和审计记录仍需迁入同一内置状态边界；在这些状态完成前，v1 仍是开发预览而不是正式发布版本。
+已持久化 Agent 作业、接管评估、通知配置、通知 Outbox 和主服务审计记录。审计记录按独立随机 ID 加密，启动时逐条鉴别；保留期清理在一个 SQLite 事务中删除全部到期记录，提交成功后才更新内存视图。敏感操作遇到审计落盘失败会返回明确的服务端错误，Dashboard 事件预览清理会保持原数据不变。Bootstrap Token、Dashboard 事件预览以及独立 loopback Agent 的本地审计仍需迁入同一内置状态边界；在这些状态完成前，v1 仍是开发预览而不是正式发布版本。
