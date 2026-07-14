@@ -65,6 +65,7 @@ type ShadowAuditInput struct {
 	TargetPath              string `json:"target_path"`
 	ExpectedAssessmentID    string `json:"expected_assessment_id"`
 	ExpectedContainerSHA256 string `json:"expected_container_sha256"`
+	ExpectedInventorySHA256 string `json:"expected_inventory_sha256"`
 	ExpectedFreezeID        string `json:"expected_freeze_id,omitempty"`
 }
 
@@ -72,6 +73,11 @@ type CutoverInput struct {
 	ShadowAuditInput
 	ActivePath   string `json:"active_path"`
 	Confirmation string `json:"confirmation"`
+}
+
+type InventoryInput struct {
+	AgentID    string `json:"agent_id"`
+	TargetPath string `json:"target_path"`
 }
 
 type RollbackInput struct {

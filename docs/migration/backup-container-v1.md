@@ -40,7 +40,9 @@ SQLite 导出使用内嵌 online-backup API 读取包含 WAL 在内的一致视�
 
 PostgreSQL/MySQL 接管先用 `takeover.freeze-check` 验证旧 Gitea 的本地 TCP/Unix 监听已经明确停止。Agent 以只读 repeatable-read 事务列举用户 schema 的 base table，按稳定表/行顺序把列名、源类型和带类型值编码成 `gitsss-database-v1` JSONL；二进制按 Base64 保存，密码只在 Agent 内存中使用。freeze ID 进入清单，旧实例重新上线、配置变化或证据不匹配都会拒绝后续影子审计。
 
-线性向导随后用 `takeover.shadow-audit` 重新评估源实例，不写入源或副本。它对 `app.ini` 做原始文件哈希比较（结果不回传哈希或密钥），按普通资产类型比较文件数与总字节数，对数据库再次生成确定性快照并比较大小与 SHA-256，并对最多 10,000 个 bare Git 与恢复副本比较仓库集合及 `show-ref` 确定性摘要；对象数不同但 refs 一致只产生 warning。差异详情限制为 64 条有界记录，完整汇总仍保留。
+线性向导先用 `takeover.inventory` 盘点隔离数据库中的业务对象。SQLite 通过只读连接和 `quick_check` 逐表计数；PostgreSQL/MySQL 可移植快照会重新验证 header、表声明、类型和值长度，再统计成员、组织、仓库、Issue、PR、评论、发布、标签、里程碑、附件、团队和 Actions 运行。表级计数与核心分类形成 canonical SHA-256，供最终切换重新核对。
+
+随后用 `takeover.shadow-audit` 重新评估源实例，不写入源或副本。它对 `app.ini` 做原始文件哈希比较（结果不回传哈希或密钥），按普通资产类型比较文件数与总字节数，对数据库再次生成确定性快照并比较大小与 SHA-256，并对最多 10,000 个 bare Git 与恢复副本比较仓库集合及 `show-ref` 确定性摘要；对象数不同但 refs 一致只产生 warning。差异详情限制为 64 条有界记录，完整汇总仍保留。
 
 `takeover.cutover` 在真正写入前再次执行上述影子审计，而不是复用可能已经过期的 UI 结果。管理员必须输入精确的 `CUTOVER <assessment-id>`。Agent 拒绝重叠路径、卷根、符号链接和特殊文件，计算完整隔离树摘要，写入 `<active>.gitsss-cutover.json` prepared 标记，然后把现有活动目录改名为不可覆盖的 rollback generation，再把 `<target>/content` 原子改名为活动目录。两个目录必须位于支持原子 rename 的同一文件系统；跨卷操作会安全失败。旧代不会自动删除。
 

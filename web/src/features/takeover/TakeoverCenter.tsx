@@ -46,6 +46,7 @@ interface AgentJob {
     | "backup.verify"
     | "takeover.shadow-audit"
     | "takeover.freeze-check"
+    | "takeover.inventory"
     | "takeover.cutover"
     | "takeover.rollback"
   status: "queued" | "running" | "succeeded" | "failed"
@@ -57,6 +58,7 @@ interface AgentJob {
     | BackupRestoreResult
     | ShadowAuditResult
     | FreezeEvidence
+    | BusinessInventory
     | CutoverResult
     | RollbackResult
   error?: string
@@ -152,6 +154,28 @@ interface ShadowAuditResult {
   audited_at: string
 }
 
+interface BusinessInventory {
+  database: "sqlite3" | "postgres" | "mysql"
+  snapshot: string
+  tables: Record<string, number>
+  counts: {
+    users: number
+    organizations: number
+    repositories: number
+    issues: number
+    pull_requests: number
+    comments: number
+    releases: number
+    labels: number
+    milestones: number
+    attachments: number
+    teams: number
+    action_runs: number
+  }
+  digest: string
+  inspected_at: string
+}
+
 interface CutoverResult {
   id: string
   assessment_id: string
@@ -189,6 +213,7 @@ const takeoverSteps = [
   "加密备份",
   "隔离恢复",
   "数据审计",
+  "业务盘点",
   "影子模式",
   "原子切换",
   "回滚保护",
@@ -212,6 +237,7 @@ function jobStatus(job?: AgentJob) {
   if (job.kind === "backup.verify") return "备份验证已回传"
   if (job.kind === "takeover.shadow-audit") return "影子差异已回传"
   if (job.kind === "takeover.freeze-check") return "停服状态已回传"
+  if (job.kind === "takeover.inventory") return "业务对象盘点已回传"
   if (job.kind === "takeover.cutover") return "目录切换已完成"
   if (job.kind === "takeover.rollback") return "回滚已完成"
   return "评估已回传"
@@ -225,6 +251,7 @@ function isAssessment(
     | BackupRestoreResult
     | ShadowAuditResult
     | FreezeEvidence
+    | BusinessInventory
     | CutoverResult
     | RollbackResult
     | undefined
@@ -240,6 +267,7 @@ function isBackupExport(
     | BackupRestoreResult
     | ShadowAuditResult
     | FreezeEvidence
+    | BusinessInventory
     | CutoverResult
     | RollbackResult
     | undefined
@@ -255,6 +283,7 @@ function isBackupRestore(
     | BackupRestoreResult
     | ShadowAuditResult
     | FreezeEvidence
+    | BusinessInventory
     | CutoverResult
     | RollbackResult
     | undefined
@@ -270,6 +299,7 @@ function isBackupAudit(
     | BackupRestoreResult
     | ShadowAuditResult
     | FreezeEvidence
+    | BusinessInventory
     | CutoverResult
     | RollbackResult
     | undefined
@@ -285,6 +315,7 @@ function isShadowAudit(
     | BackupRestoreResult
     | ShadowAuditResult
     | FreezeEvidence
+    | BusinessInventory
     | CutoverResult
     | RollbackResult
     | undefined
@@ -300,6 +331,7 @@ function isFreezeEvidence(
     | BackupRestoreResult
     | ShadowAuditResult
     | FreezeEvidence
+    | BusinessInventory
     | CutoverResult
     | RollbackResult
     | undefined
@@ -311,6 +343,12 @@ function isCutoverResult(result: AgentJob["result"]): result is CutoverResult {
   return Boolean(
     result && "state_path" in result && "activated_sha256" in result
   )
+}
+
+function isBusinessInventory(
+  result: AgentJob["result"]
+): result is BusinessInventory {
+  return Boolean(result && "digest" in result && "counts" in result)
 }
 
 function isRollbackResult(
@@ -419,6 +457,16 @@ export function TakeoverCenter({
   const auditResult =
     auditJob?.status === "succeeded" && isBackupAudit(auditJob.result)
       ? auditJob.result
+      : undefined
+  const inventoryJob = jobs.find(
+    (job) =>
+      job.kind === "takeover.inventory" &&
+      job.input.target_path === restoreResult?.target
+  )
+  const inventoryResult =
+    inventoryJob?.status === "succeeded" &&
+    isBusinessInventory(inventoryJob.result)
+      ? inventoryJob.result
       : undefined
   const shadowJob = jobs.find(
     (job) =>
@@ -585,6 +633,7 @@ export function TakeoverCenter({
           target_path: restoreResult.target,
           expected_assessment_id: backupResult.assessment_id,
           expected_container_sha256: backupResult.container_sha256,
+          expected_inventory_sha256: inventoryResult.digest,
           expected_freeze_id: backupResult.freeze_id,
         },
       })
@@ -597,7 +646,14 @@ export function TakeoverCenter({
   }
 
   const dispatchShadowAudit = async () => {
-    if (!selected || !backupResult || !restoreResult || !auditResult) return
+    if (
+      !selected ||
+      !backupResult ||
+      !restoreResult ||
+      !auditResult ||
+      !inventoryResult
+    )
+      return
     setLoading(true)
     setError("")
     try {
@@ -625,8 +681,36 @@ export function TakeoverCenter({
     }
   }
 
+  const dispatchInventory = async () => {
+    if (!selected || !restoreResult || !auditResult?.ready_for_shadow_mode)
+      return
+    setLoading(true)
+    setError("")
+    try {
+      const job = await apiMutation<AgentJob>("/api/v1/agent/jobs", token, {
+        kind: "takeover.inventory",
+        input: {
+          agent_id: selected.agent_id,
+          target_path: restoreResult.target,
+        },
+      })
+      setJobs((current) => [job, ...current])
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "无法盘点业务对象")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const dispatchCutover = async () => {
-    if (!selected || !backupResult || !restoreResult || !shadowResult) return
+    if (
+      !selected ||
+      !backupResult ||
+      !restoreResult ||
+      !shadowResult ||
+      !inventoryResult
+    )
+      return
     setLoading(true)
     setError("")
     try {
@@ -644,6 +728,7 @@ export function TakeoverCenter({
           active_path: activePath,
           expected_assessment_id: backupResult.assessment_id,
           expected_container_sha256: backupResult.container_sha256,
+          expected_inventory_sha256: inventoryResult.digest,
           expected_freeze_id: backupResult.freeze_id,
           confirmation: cutoverConfirmation,
         },
@@ -687,22 +772,24 @@ export function TakeoverCenter({
     0
   )
   const completedSteps = cutoverResult
-    ? 9
+    ? 10
     : shadowResult?.ready_for_shadow_mode
-      ? 7
-      : auditResult?.ready_for_shadow_mode
-        ? 6
-        : restoreResult
-          ? 5
-          : backupResult
-            ? 4
-            : selected && freezeSatisfied
-              ? 3
-              : selected
-                ? 2
-                : assessmentJob?.status === "running"
-                  ? 1
-                  : 0
+      ? 8
+      : inventoryResult
+        ? 7
+        : auditResult?.ready_for_shadow_mode
+          ? 6
+          : restoreResult
+            ? 5
+            : backupResult
+              ? 4
+              : selected && freezeSatisfied
+                ? 3
+                : selected
+                  ? 2
+                  : assessmentJob?.status === "running"
+                    ? 1
+                    : 0
 
   return (
     <section className="mx-auto max-w-5xl pt-8">
@@ -716,7 +803,7 @@ export function TakeoverCenter({
         </p>
       </div>
 
-      <ol className="mt-8 grid grid-cols-2 border-y border-zinc-200 py-4 text-xs text-zinc-500 sm:grid-cols-3 lg:grid-cols-9">
+      <ol className="mt-8 grid grid-cols-2 border-y border-zinc-200 py-4 text-xs text-zinc-500 sm:grid-cols-3 lg:grid-cols-10">
         {takeoverSteps.map((step, index) => {
           const complete = index < completedSteps
           const active = index === completedSteps
@@ -1145,7 +1232,7 @@ export function TakeoverCenter({
                   >
                     <p className="font-medium">
                       {auditResult.ready_for_shadow_mode
-                        ? "数据一致，可以进入影子模式"
+                        ? "文件数据一致，可以盘点业务对象"
                         : "审计发现阻断项"}
                     </p>
                     <p>
@@ -1182,6 +1269,69 @@ export function TakeoverCenter({
               </div>
             ) : null}
             {auditResult?.ready_for_shadow_mode ? (
+              <div className="mt-7 border-y border-zinc-200 py-5">
+                <p className="text-sm font-medium">下一步：业务对象盘点</p>
+                <p className="mt-2 text-xs leading-5 text-zinc-500">
+                  读取隔离数据库并统计账号、组织、仓库、Issue、PR、评论、发布、附件和流水线对象。该步骤只读；表结构不兼容或记录异常会直接阻断。
+                </p>
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  <Button
+                    disabled={
+                      loading ||
+                      inventoryJob?.status === "queued" ||
+                      inventoryJob?.status === "running"
+                    }
+                    onClick={dispatchInventory}
+                    variant="outline"
+                  >
+                    {inventoryJob ? "重新盘点业务对象" : "开始业务盘点"}
+                  </Button>
+                  <output
+                    className={
+                      inventoryJob?.status === "failed"
+                        ? "text-xs text-red-600"
+                        : "text-xs text-zinc-500"
+                    }
+                  >
+                    {inventoryJob
+                      ? jobStatus(inventoryJob)
+                      : "等待数据库只读盘点"}
+                  </output>
+                </div>
+                {inventoryResult ? (
+                  <div className="mt-5 border-l-2 border-emerald-500 pl-4 text-xs leading-5 text-zinc-600">
+                    <p className="font-medium text-emerald-800">
+                      业务对象清单已固定 · {inventoryResult.database}
+                    </p>
+                    <div className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+                      <p>
+                        成员与组织：{inventoryResult.counts.users} /{" "}
+                        {inventoryResult.counts.organizations}
+                      </p>
+                      <p>仓库：{inventoryResult.counts.repositories}</p>
+                      <p>
+                        Issue / PR：{inventoryResult.counts.issues} /{" "}
+                        {inventoryResult.counts.pull_requests}
+                      </p>
+                      <p>评论：{inventoryResult.counts.comments}</p>
+                      <p>
+                        发布 / 流水线：{inventoryResult.counts.releases} /{" "}
+                        {inventoryResult.counts.action_runs}
+                      </p>
+                      <p>
+                        标签 / 里程碑 / 附件：{inventoryResult.counts.labels} /{" "}
+                        {inventoryResult.counts.milestones} /{" "}
+                        {inventoryResult.counts.attachments}
+                      </p>
+                    </div>
+                    <p className="mt-3 truncate font-mono text-[11px] text-zinc-500">
+                      清单 SHA-256：{inventoryResult.digest}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {inventoryResult ? (
               <div className="mt-7 border-y border-zinc-200 py-5">
                 <p className="text-sm font-medium">下一步：影子模式预检</p>
                 <p className="mt-2 text-xs leading-5 text-zinc-500">

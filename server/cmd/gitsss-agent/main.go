@@ -23,6 +23,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/audit"
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/backup"
+	"github.com/neko233-com/gitsss/server/internal/migration"
 	"github.com/neko233-com/gitsss/server/internal/runner"
 	"github.com/neko233-com/gitsss/server/internal/state"
 	"github.com/neko233-com/gitsss/server/internal/takeover"
@@ -327,8 +328,15 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 		if input.AgentID != agentID {
 			return nil, errors.New("shadow audit Agent ID does not match the worker")
 		}
-		if strings.TrimSpace(input.ConfigPath) == "" || strings.TrimSpace(input.InputPath) == "" || strings.TrimSpace(input.TargetPath) == "" || strings.TrimSpace(input.ExpectedAssessmentID) == "" || !validAgentEnvironmentName(input.PassphraseEnv) || len(passphrase) < 12 || !validAgentSHA256(input.ExpectedContainerSHA256) {
+		if strings.TrimSpace(input.ConfigPath) == "" || strings.TrimSpace(input.InputPath) == "" || strings.TrimSpace(input.TargetPath) == "" || strings.TrimSpace(input.ExpectedAssessmentID) == "" || !validAgentEnvironmentName(input.PassphraseEnv) || len(passphrase) < 12 || !validAgentSHA256(input.ExpectedContainerSHA256) || !validAgentSHA256(input.ExpectedInventorySHA256) {
 			return nil, errors.New("shadow audit paths, confirmation, digest and a valid passphrase environment are required")
+		}
+		inventory, err := migration.Inspect(filepath.Join(input.TargetPath, "content"), time.Now())
+		if err != nil {
+			return nil, err
+		}
+		if inventory.Digest != input.ExpectedInventorySHA256 {
+			return nil, errors.New("business inventory changed after confirmation")
 		}
 		audit, err := backup.AuditShadowExact(
 			input.InputPath, passphrase, input.TargetPath,
@@ -342,6 +350,25 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 			return nil, err
 		}
 		return json.Marshal(audit)
+	case agentjob.KindInventory:
+		var input agentjob.InventoryInput
+		if err := json.Unmarshal(job.Input, &input); err != nil {
+			return nil, err
+		}
+		if input.AgentID == "" {
+			input.AgentID = agentID
+		}
+		if input.AgentID != agentID {
+			return nil, errors.New("inventory Agent ID does not match the worker")
+		}
+		if strings.TrimSpace(input.TargetPath) == "" {
+			return nil, errors.New("inventory target path is required")
+		}
+		inventory, err := migration.Inspect(filepath.Join(input.TargetPath, "content"), time.Now())
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(inventory)
 	case agentjob.KindCutover:
 		var input agentjob.CutoverInput
 		if err := json.Unmarshal(job.Input, &input); err != nil {
@@ -354,8 +381,15 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 		if input.AgentID != agentID {
 			return nil, errors.New("cutover Agent ID does not match the worker")
 		}
-		if strings.TrimSpace(input.ConfigPath) == "" || strings.TrimSpace(input.InputPath) == "" || strings.TrimSpace(input.TargetPath) == "" || strings.TrimSpace(input.ActivePath) == "" || strings.TrimSpace(input.ExpectedAssessmentID) == "" || !validAgentEnvironmentName(input.PassphraseEnv) || len(passphrase) < 12 || !validAgentSHA256(input.ExpectedContainerSHA256) {
+		if strings.TrimSpace(input.ConfigPath) == "" || strings.TrimSpace(input.InputPath) == "" || strings.TrimSpace(input.TargetPath) == "" || strings.TrimSpace(input.ActivePath) == "" || strings.TrimSpace(input.ExpectedAssessmentID) == "" || !validAgentEnvironmentName(input.PassphraseEnv) || len(passphrase) < 12 || !validAgentSHA256(input.ExpectedContainerSHA256) || !validAgentSHA256(input.ExpectedInventorySHA256) {
 			return nil, errors.New("cutover paths, confirmation, digest and a valid passphrase environment are required")
+		}
+		inventory, err := migration.Inspect(filepath.Join(input.TargetPath, "content"), time.Now())
+		if err != nil {
+			return nil, err
+		}
+		if inventory.Digest != input.ExpectedInventorySHA256 {
+			return nil, errors.New("business inventory changed after confirmation")
 		}
 		audit, err := backup.AuditShadowExact(
 			input.InputPath, passphrase, input.TargetPath,

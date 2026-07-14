@@ -14,7 +14,6 @@ import (
 
 	"github.com/neko233-com/gitsss/server/internal/agentjob"
 	"github.com/neko233-com/gitsss/server/internal/audit"
-	"github.com/neko233-com/gitsss/server/internal/backup"
 	"github.com/neko233-com/gitsss/server/internal/takeover"
 )
 
@@ -44,7 +43,14 @@ func TestOpenAgentHTTPAuditPersistsAcrossRestart(t *testing.T) {
 	}
 }
 
-func TestExecuteCutoverAndRollbackBindAgentIdentity(t *testing.T) {
+func TestExecuteInventoryCutoverAndRollbackBindAgentIdentity(t *testing.T) {
+	inventoryInput, err := json.Marshal(agentjob.InventoryInput{AgentID: "other"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := executeAgentJob(agentjob.Job{Kind: agentjob.KindInventory, Input: inventoryInput}, "old-server"); err == nil || !strings.Contains(err.Error(), "does not match") {
+		t.Fatalf("inventory identity error = %v", err)
+	}
 	cutoverInput, err := json.Marshal(agentjob.CutoverInput{
 		ShadowAuditInput: agentjob.ShadowAuditInput{AgentID: "other"},
 	})
@@ -253,23 +259,11 @@ func TestExecuteAgentJobRestoresConfirmedContainer(t *testing.T) {
 	if !auditResult.ReadyForShadowMode || auditResult.Files.Identical != restoreResult.Files || auditResult.ContainerSHA256 != exportResult.ContainerSHA256 || auditResult.Git == nil {
 		t.Fatalf("unexpected audit result: %#v", auditResult)
 	}
-	shadowInput, err := json.Marshal(agentjob.ShadowAuditInput{
-		AgentID: "old-server", ConfigPath: configPath, InputPath: backupPath,
-		PassphraseEnv: "GITSSS_AGENT_JOB_PASSPHRASE", TargetPath: targetPath,
-		ExpectedAssessmentID: report.ID, ExpectedContainerSHA256: exportResult.ContainerSHA256,
-	})
+	inventoryInput, err := json.Marshal(agentjob.InventoryInput{AgentID: "old-server", TargetPath: targetPath})
 	if err != nil {
 		t.Fatal(err)
 	}
-	shadowed, err := executeAgentJob(agentjob.Job{Kind: agentjob.KindShadowAudit, Input: shadowInput}, "old-server")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var shadowResult backup.ShadowAudit
-	if err := json.Unmarshal(shadowed, &shadowResult); err != nil {
-		t.Fatal(err)
-	}
-	if shadowResult.ReadyForShadowMode {
-		t.Fatalf("remote database without a snapshot was accepted: %#v", shadowResult)
+	if _, err := executeAgentJob(agentjob.Job{Kind: agentjob.KindInventory, Input: inventoryInput}, "old-server"); err == nil {
+		t.Fatal("remote database without a portable snapshot was accepted")
 	}
 }
