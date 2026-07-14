@@ -132,3 +132,23 @@ export function MoreIcon(props: IconProps) {
     </IconFrame>
   )
 }
+
+export function StorageIcon(props: IconProps) {
+  return (
+    <IconFrame {...props}>
+      <ellipse cx="12" cy="6.25" rx="6.75" ry="2.75" />
+      <path d="M5.25 6.25v6.25c0 1.52 3.02 2.75 6.75 2.75s6.75-1.23 6.75-2.75V6.25" />
+      <path d="M5.25 12.5v5.25c0 1.52 3.02 2.75 6.75 2.75s6.75-1.23 6.75-2.75V12.5" />
+    </IconFrame>
+  )
+}
+
+export function DownloadIcon(props: IconProps) {
+  return (
+    <IconFrame {...props}>
+      <path d="M12 4v10.25" />
+      <path d="m7.75 10 4.25 4.25L16.25 10" />
+      <path d="M5.25 19.25h13.5" />
+    </IconFrame>
+  )
+}
