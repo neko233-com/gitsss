@@ -5,6 +5,7 @@ package api
 import (
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/audit"
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/dashboard"
+	"github.com/neko233-com/gitsss/server/internal/repository"
 	"github.com/neko233-com/gitsss/server/internal/runner"
 	"github.com/neko233-com/gitsss/server/internal/storage"
 )
@@ -19,7 +21,7 @@ import (
 func TestServerAuthorizesDashboardAndAuditsPreviewClear(t *testing.T) {
 	log := &audit.Log{}
 	service := dashboard.NewService(3, []dashboard.Event{{ID: "event"}}, log)
-	server := NewServer(auth.NewVerifier(auth.NewRecord("agent-1", "token", time.Time{}, "dashboard:read", "events:write", "storage:read", "storage:write")), service, storage.NewService(100, []storage.Usage{{Category: storage.CategoryGitObjects, Bytes: 87}}), runner.NewService("1.0.0"))
+	server := NewServer(auth.NewVerifier(auth.NewRecord("agent-1", "token", time.Time{}, "dashboard:read", "events:write", "storage:read", "storage:write")), Dependencies{Dashboard: service, Runners: runner.NewService("1.0.0"), Storage: storage.NewService(100, []storage.Usage{{Category: storage.CategoryGitObjects, Bytes: 87}})})
 
 	get := httptest.NewRequest(http.MethodGet, "/api/v1/dashboard", nil)
 	get.Header.Set("Authorization", "Bearer token")
@@ -42,7 +44,7 @@ func TestServerAuthorizesDashboardAndAuditsPreviewClear(t *testing.T) {
 }
 
 func TestServerReportsStorageAndProtectsProjectedWrites(t *testing.T) {
-	server := NewServer(auth.NewVerifier(auth.NewRecord("agent-1", "token", time.Time{}, "storage:read", "storage:write")), dashboard.NewService(1, nil, &audit.Log{}), storage.NewService(100, []storage.Usage{{Category: storage.CategoryLFSAssets, Bytes: 87}}), runner.NewService("1.0.0"))
+	server := NewServer(auth.NewVerifier(auth.NewRecord("agent-1", "token", time.Time{}, "storage:read", "storage:write")), Dependencies{Dashboard: dashboard.NewService(1, nil, &audit.Log{}), Runners: runner.NewService("1.0.0"), Storage: storage.NewService(100, []storage.Usage{{Category: storage.CategoryLFSAssets, Bytes: 87}})})
 
 	get := httptest.NewRequest(http.MethodGet, "/api/v1/storage", nil)
 	get.Header.Set("Authorization", "Bearer token")
@@ -63,7 +65,7 @@ func TestServerReportsStorageAndProtectsProjectedWrites(t *testing.T) {
 }
 
 func TestServerReconcilesBundledRunner(t *testing.T) {
-	server := NewServer(auth.NewVerifier(auth.NewRecord("agent-1", "token", time.Time{}, "runners:write")), dashboard.NewService(1, nil, &audit.Log{}), storage.NewService(100, nil), runner.NewService("1.0.0"))
+	server := NewServer(auth.NewVerifier(auth.NewRecord("agent-1", "token", time.Time{}, "runners:write")), Dependencies{Dashboard: dashboard.NewService(1, nil, &audit.Log{}), Runners: runner.NewService("1.0.0"), Storage: storage.NewService(100, nil)})
 
 	reconcile := httptest.NewRequest(http.MethodPost, "/api/v1/runners/reconcile", strings.NewReader(`{"id":"agent-1","platform":"windows/amd64"}`))
 	reconcile.Header.Set("Authorization", "Bearer token")
@@ -72,5 +74,21 @@ func TestServerReconcilesBundledRunner(t *testing.T) {
 	server.Handler().ServeHTTP(response, reconcile)
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"action":"install"`) {
 		t.Fatalf("reconcile response = %d %s, want install action", response.Code, response.Body.String())
+	}
+}
+
+func TestServerReadsAllowlistedRepositoryTree(t *testing.T) {
+	repositories, err := repository.NewService([]repository.Repository{{ID: "gitsss", Name: "gitsss", Path: filepath.Join("..", "..", "..")}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(auth.NewVerifier(auth.NewRecord("user-1", "token", time.Time{}, "repositories:read")), Dependencies{Repositories: repositories})
+
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/repositories/gitsss/tree?ref=HEAD", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"path":"server/go.mod"`) {
+		t.Fatalf("tree response = %d %s, want tracked server/go.mod", response.Code, response.Body.String())
 	}
 }

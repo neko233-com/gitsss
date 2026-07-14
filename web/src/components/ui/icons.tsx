@@ -152,3 +152,28 @@ export function DownloadIcon(props: IconProps) {
     </IconFrame>
   )
 }
+
+export function FolderIcon(props: IconProps) {
+  return (
+    <IconFrame {...props}>
+      <path d="M3.75 6.75h6l1.75 2h8.75v9.5h-16.5z" />
+    </IconFrame>
+  )
+}
+
+export function FileIcon(props: IconProps) {
+  return (
+    <IconFrame {...props}>
+      <path d="M6.25 3.75h7.5l4 4v12.5H6.25z" />
+      <path d="M13.75 3.75v4h4" />
+    </IconFrame>
+  )
+}
+
+export function ChevronIcon(props: IconProps) {
+  return (
+    <IconFrame {...props}>
+      <path d="m9 6 6 6-6 6" />
+    </IconFrame>
+  )
+}

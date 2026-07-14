@@ -9,3 +9,4 @@ Concept reference: `C:\Users\14170\.codex\generated_images\019f5efc-135b-7d62-b6
 - Components: shadcn Radix Button, Avatar, Separator, Dialog and Command. gitsss supplies a bespoke rounded 1.65px icon family rather than product icons from an external set.
 - First viewport copy: `今天`, `搜索或执行命令`, `待处理`, `构建失败`, `待发布`, `下一步`, `近期事件`, `清除预览`.
 - Interaction: `Ctrl/Cmd+K` opens the command dialog; selecting a command produces an observable status message; clearing the event rail clears only the bounded LRU preview. Storage and download actions produce an explicit next-step state rather than silently navigating.
+- Repository workspace: entering 仓库 leaves the four home Tabs intact and opens a true-white, two-rail browser with a collapsible file tree, immutable commit label, bounded search, text preview and binary-asset metadata state. Mobile adds only 概览 / 仓库 navigation and stacks the tree above the preview.

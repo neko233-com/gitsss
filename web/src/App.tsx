@@ -26,6 +26,7 @@ import {
   WorkIcon,
 } from "@/components/ui/icons"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { RepositoryBrowser } from "@/features/repository-browser/RepositoryBrowser"
 import { RecentEventsPreview, type RecentEvent } from "@/lib/recent-events"
 
 const initialEvents: RecentEvent[] = [
@@ -328,6 +329,7 @@ function GitClientDownloadTab({
 }
 
 export function App() {
+  const [area, setArea] = useState<"workspace" | "repository">("workspace")
   const [commandOpen, setCommandOpen] = useState(false)
   const [notice, setNotice] = useState("今天有 3 项需要你处理")
   const [eventPreview, setEventPreview] = useState(() =>
@@ -363,6 +365,17 @@ export function App() {
     setNotice("近期事件预览已清除；审计记录不受影响")
   }
 
+  const openWorkspace = (sectionID?: string) => {
+    setArea("workspace")
+    if (sectionID) {
+      window.requestAnimationFrame(() =>
+        document
+          .getElementById(sectionID)
+          ?.scrollIntoView({ behavior: "smooth", block: "start" })
+      )
+    }
+  }
+
   return (
     <div className="min-h-svh bg-white text-zinc-950 selection:bg-blue-100">
       <div className="grid min-h-svh lg:grid-cols-[13.5rem_minmax(0,1fr)]">
@@ -370,39 +383,44 @@ export function App() {
           <a
             className="flex items-center gap-2 px-2 text-[17px] font-semibold tracking-[-0.03em]"
             href="#overview"
+            onClick={() => openWorkspace()}
           >
             <BrandMark className="size-6" />
             gitsss
           </a>
           <nav aria-label="主导航" className="mt-12 flex flex-col gap-1">
-            <a
-              className="flex h-11 items-center gap-3 rounded-xl bg-blue-50 px-3 text-sm font-medium text-blue-700"
-              href="#overview"
+            <button
+              className={`flex h-11 items-center gap-3 rounded-xl px-3 text-left text-sm transition-colors ${area === "workspace" ? "bg-blue-50 font-medium text-blue-700" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950"}`}
+              onClick={() => openWorkspace()}
+              type="button"
             >
               <OverviewIcon className="size-5" />
               概览
-            </a>
-            <a
+            </button>
+            <button
               className="flex h-11 items-center gap-3 rounded-xl px-3 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950"
-              href="#next"
+              onClick={() => openWorkspace("next")}
+              type="button"
             >
               <WorkIcon className="size-5" />
               工作
-            </a>
-            <a
-              className="flex h-11 items-center gap-3 rounded-xl px-3 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950"
-              href="#repositories"
+            </button>
+            <button
+              className={`flex h-11 items-center gap-3 rounded-xl px-3 text-left text-sm transition-colors ${area === "repository" ? "bg-blue-50 font-medium text-blue-700" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950"}`}
+              onClick={() => setArea("repository")}
+              type="button"
             >
               <RepositoryIcon className="size-5" />
               仓库
-            </a>
-            <a
+            </button>
+            <button
               className="flex h-11 items-center gap-3 rounded-xl px-3 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950"
-              href="#settings"
+              onClick={() => setNotice("设置中心将在授权工作流完成后开放")}
+              type="button"
             >
               <SettingsIcon className="size-5" />
               设置
-            </a>
+            </button>
           </nav>
           <p className="mt-auto px-2 text-xs leading-5 text-zinc-400">
             gitsss 预览版
@@ -419,7 +437,7 @@ export function App() {
                 <span className="font-semibold tracking-[-0.03em]">gitsss</span>
               </div>
               <h1 className="mt-2 text-[28px] font-semibold tracking-[-0.045em] sm:text-[32px] lg:mt-0">
-                今天
+                {area === "workspace" ? "今天" : "仓库"}
               </h1>
             </div>
             <div className="flex items-center gap-3">
@@ -434,6 +452,7 @@ export function App() {
                 <kbd className="font-sans text-xs text-zinc-500">⌘ K</kbd>
               </button>
               <Button
+                aria-label="打开命令面板"
                 className="sm:hidden"
                 onClick={() => setCommandOpen(true)}
                 size="icon"
@@ -449,206 +468,242 @@ export function App() {
             </div>
           </header>
 
+          <nav
+            aria-label="移动端导航"
+            className="grid grid-cols-2 border-b border-zinc-200 lg:hidden"
+          >
+            <button
+              className={`flex h-11 items-center justify-center gap-2 text-sm ${area === "workspace" ? "border-b-2 border-zinc-950 font-medium text-zinc-950" : "text-zinc-500"}`}
+              onClick={() => openWorkspace()}
+              type="button"
+            >
+              <OverviewIcon className="size-4" />
+              概览
+            </button>
+            <button
+              className={`flex h-11 items-center justify-center gap-2 text-sm ${area === "repository" ? "border-b-2 border-zinc-950 font-medium text-zinc-950" : "text-zinc-500"}`}
+              onClick={() => setArea("repository")}
+              type="button"
+            >
+              <RepositoryIcon className="size-4" />
+              仓库
+            </button>
+          </nav>
+
           <p aria-live="polite" className="sr-only">
             {notice}
           </p>
 
-          <Tabs className="pt-6" defaultValue="dashboard">
-            <TabsList className="max-w-full overflow-x-auto" variant="line">
-              <TabsTrigger value="dashboard">数据大盘</TabsTrigger>
-              <TabsTrigger value="events">近期事件流</TabsTrigger>
-              <TabsTrigger value="storage">存储感知</TabsTrigger>
-              <TabsTrigger value="download">Git 客户端下载</TabsTrigger>
-            </TabsList>
-            <TabsContent value="dashboard">
-              <div className="min-w-0 pt-8">
-                <section
-                  aria-label="团队概览"
-                  className="grid grid-cols-3 divide-x divide-zinc-200"
-                >
-                  <div className="pr-4">
-                    <p className="text-xs font-medium text-zinc-500">待处理</p>
-                    <p className="mt-1 text-3xl font-medium tracking-[-0.05em]">
-                      12
-                    </p>
-                  </div>
-                  <div className="px-4">
-                    <p className="text-xs font-medium text-zinc-500">
-                      构建失败
-                    </p>
-                    <p className="mt-1 text-3xl font-medium tracking-[-0.05em]">
-                      3
-                    </p>
-                  </div>
-                  <div className="pl-4">
-                    <p className="text-xs font-medium text-zinc-500">待发布</p>
-                    <p className="mt-1 text-3xl font-medium tracking-[-0.05em]">
-                      2
-                    </p>
-                  </div>
-                </section>
+          {area === "repository" ? (
+            <RepositoryBrowser />
+          ) : (
+            <Tabs className="pt-6" defaultValue="dashboard">
+              <TabsList className="max-w-full overflow-x-auto" variant="line">
+                <TabsTrigger value="dashboard">数据大盘</TabsTrigger>
+                <TabsTrigger value="events">近期事件流</TabsTrigger>
+                <TabsTrigger value="storage">存储感知</TabsTrigger>
+                <TabsTrigger value="download">Git 客户端下载</TabsTrigger>
+              </TabsList>
+              <TabsContent value="dashboard">
+                <div className="min-w-0 pt-8">
+                  <section
+                    aria-label="团队概览"
+                    className="grid grid-cols-3 divide-x divide-zinc-200"
+                  >
+                    <div className="pr-4">
+                      <p className="text-xs font-medium text-zinc-500">
+                        待处理
+                      </p>
+                      <p className="mt-1 text-3xl font-medium tracking-[-0.05em]">
+                        12
+                      </p>
+                    </div>
+                    <div className="px-4">
+                      <p className="text-xs font-medium text-zinc-500">
+                        构建失败
+                      </p>
+                      <p className="mt-1 text-3xl font-medium tracking-[-0.05em]">
+                        3
+                      </p>
+                    </div>
+                    <div className="pl-4">
+                      <p className="text-xs font-medium text-zinc-500">
+                        待发布
+                      </p>
+                      <p className="mt-1 text-3xl font-medium tracking-[-0.05em]">
+                        2
+                      </p>
+                    </div>
+                  </section>
 
-                <section className="mt-10" id="next">
-                  <h2 className="text-lg font-semibold tracking-[-0.03em]">
-                    下一步
-                  </h2>
-                  <div className="mt-4 divide-y divide-zinc-200 border-y border-zinc-200">
-                    {nextSteps.map((step) => (
-                      <div
-                        className="flex items-center gap-3 py-4 sm:gap-4"
-                        key={step.id}
-                      >
-                        <span
-                          aria-hidden="true"
-                          className={
-                            step.priority
-                              ? "size-2 shrink-0 rounded-full bg-blue-600"
-                              : "size-2 shrink-0"
-                          }
-                        />
-                        <Avatar className="size-9 shrink-0">
-                          <AvatarFallback className="bg-zinc-100 text-xs font-medium">
-                            {step.initials}
-                          </AvatarFallback>
-                        </Avatar>
-                        <p className="min-w-0 flex-1 text-sm leading-5 font-medium text-zinc-800">
-                          {step.action}
-                        </p>
-                        <span className="hidden items-center gap-1 text-xs text-zinc-500 md:flex">
-                          <ClockIcon className="size-4" />
-                          {step.time}
-                        </span>
-                        <Button
-                          className="rounded-lg px-4"
-                          onClick={() => setNotice(`已选择：${step.action}`)}
-                          size="sm"
-                        >
-                          {step.label}
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                <section
-                  className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,.78fr)_minmax(0,1.22fr)]"
-                  id="repositories"
-                >
-                  <div>
+                  <section className="mt-10" id="next">
                     <h2 className="text-lg font-semibold tracking-[-0.03em]">
-                      流水线健康度
+                      下一步
                     </h2>
-                    <div className="mt-5 flex flex-col gap-5">
-                      {[
-                        {
-                          name: "支付服务",
-                          states: ["done", "done", "done", "failed", "idle"],
-                        },
-                        {
-                          name: "用户服务",
-                          states: ["done", "done", "done", "done", "idle"],
-                        },
-                        {
-                          name: "前端应用",
-                          states: ["done", "done", "done", "running", "idle"],
-                        },
-                      ].map((pipeline) => (
+                    <div className="mt-4 divide-y divide-zinc-200 border-y border-zinc-200">
+                      {nextSteps.map((step) => (
                         <div
-                          className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-3"
-                          key={pipeline.name}
+                          className="flex items-center gap-3 py-4 sm:gap-4"
+                          key={step.id}
                         >
-                          <span className="text-sm text-zinc-700">
-                            {pipeline.name}
+                          <span
+                            aria-hidden="true"
+                            className={
+                              step.priority
+                                ? "size-2 shrink-0 rounded-full bg-blue-600"
+                                : "size-2 shrink-0"
+                            }
+                          />
+                          <Avatar className="size-9 shrink-0">
+                            <AvatarFallback className="bg-zinc-100 text-xs font-medium">
+                              {step.initials}
+                            </AvatarFallback>
+                          </Avatar>
+                          <p className="min-w-0 flex-1 text-sm leading-5 font-medium text-zinc-800">
+                            {step.action}
+                          </p>
+                          <span className="hidden items-center gap-1 text-xs text-zinc-500 md:flex">
+                            <ClockIcon className="size-4" />
+                            {step.time}
                           </span>
-                          <div
-                            aria-label={`${pipeline.name} 流水线状态`}
-                            className="flex items-center gap-2"
+                          <Button
+                            className="rounded-lg px-4"
+                            onClick={() => setNotice(`已选择：${step.action}`)}
+                            size="sm"
                           >
-                            {pipeline.states.map((state, index) => (
-                              <span
-                                className={`size-3 rounded-full border ${state === "done" ? "border-emerald-600 bg-emerald-500" : state === "failed" ? "border-red-600 bg-red-500" : state === "running" ? "border-blue-600 bg-white ring-2 ring-blue-100" : "border-zinc-300 bg-white"}`}
-                                key={`${pipeline.name}-${index}`}
-                              />
-                            ))}
-                          </div>
+                            {step.label}
+                          </Button>
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </section>
 
-                  <div>
-                    <h2 className="text-lg font-semibold tracking-[-0.03em]">
-                      仓库
-                    </h2>
-                    <div className="mt-3 overflow-x-auto">
-                      <table className="w-full min-w-[31rem] border-collapse text-left text-xs">
-                        <thead className="border-b border-zinc-200 text-zinc-500">
-                          <tr>
-                            <th className="py-2 font-medium">仓库</th>
-                            <th className="py-2 font-medium">分支</th>
-                            <th className="py-2 font-medium">状态</th>
-                            <th className="py-2 font-medium">最近提交</th>
-                            <th className="py-2 text-right font-medium">
-                              更新
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {repositories.map((repository) => (
-                            <tr
-                              className="border-b border-zinc-100 last:border-0"
-                              key={repository.name}
+                  <section
+                    className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,.78fr)_minmax(0,1.22fr)]"
+                    id="repositories"
+                  >
+                    <div>
+                      <h2 className="text-lg font-semibold tracking-[-0.03em]">
+                        流水线健康度
+                      </h2>
+                      <div className="mt-5 flex flex-col gap-5">
+                        {[
+                          {
+                            name: "支付服务",
+                            states: ["done", "done", "done", "failed", "idle"],
+                          },
+                          {
+                            name: "用户服务",
+                            states: ["done", "done", "done", "done", "idle"],
+                          },
+                          {
+                            name: "前端应用",
+                            states: ["done", "done", "done", "running", "idle"],
+                          },
+                        ].map((pipeline) => (
+                          <div
+                            className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-3"
+                            key={pipeline.name}
+                          >
+                            <span className="text-sm text-zinc-700">
+                              {pipeline.name}
+                            </span>
+                            <div
+                              aria-label={`${pipeline.name} 流水线状态`}
+                              className="flex items-center gap-2"
                             >
-                              <td className="py-3 font-medium text-zinc-800">
-                                {repository.name}
-                              </td>
-                              <td className="py-3 text-zinc-600">
-                                {repository.branch}
-                              </td>
-                              <td
-                                className={`py-3 font-medium ${repository.tone}`}
-                              >
-                                {repository.status}
-                              </td>
-                              <td className="py-3">
-                                <span className="block text-zinc-700">
-                                  {repository.detail}
-                                </span>
-                                <span className="text-zinc-400">
-                                  {repository.owner}
-                                </span>
-                              </td>
-                              <td className="py-3 text-right text-zinc-500">
-                                {repository.updated}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                              {pipeline.states.map((state, index) => (
+                                <span
+                                  className={`size-3 rounded-full border ${state === "done" ? "border-emerald-600 bg-emerald-500" : state === "failed" ? "border-red-600 bg-red-500" : state === "running" ? "border-blue-600 bg-white ring-2 ring-blue-100" : "border-zinc-300 bg-white"}`}
+                                  key={`${pipeline.name}-${index}`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                </section>
-              </div>
-            </TabsContent>
-            <TabsContent value="events">
-              <EventStreamTab
-                events={eventPreview.items()}
-                onClear={clearPreview}
-              />
-            </TabsContent>
-            <TabsContent value="storage">
-              <StorageAwarenessTab
-                onReview={() => setNotice("已打开存储清理预览")}
-              />
-            </TabsContent>
-            <TabsContent value="download">
-              <GitClientDownloadTab
-                onPlatformChange={setClientPlatform}
-                onMirrorOpen={() => setNotice("已打开受签名镜像目录")}
-                platform={clientPlatform}
-              />
-            </TabsContent>
-          </Tabs>
+
+                    <div>
+                      <h2 className="text-lg font-semibold tracking-[-0.03em]">
+                        仓库
+                      </h2>
+                      <div className="mt-3 overflow-x-auto">
+                        <table className="w-full min-w-[31rem] border-collapse text-left text-xs">
+                          <thead className="border-b border-zinc-200 text-zinc-500">
+                            <tr>
+                              <th className="py-2 font-medium">仓库</th>
+                              <th className="py-2 font-medium">分支</th>
+                              <th className="py-2 font-medium">状态</th>
+                              <th className="py-2 font-medium">最近提交</th>
+                              <th className="py-2 text-right font-medium">
+                                更新
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {repositories.map((repository) => (
+                              <tr
+                                className="border-b border-zinc-100 last:border-0"
+                                key={repository.name}
+                              >
+                                <td className="py-3 font-medium text-zinc-800">
+                                  <button
+                                    className="hover:text-blue-700"
+                                    onClick={() => setArea("repository")}
+                                    type="button"
+                                  >
+                                    {repository.name}
+                                  </button>
+                                </td>
+                                <td className="py-3 text-zinc-600">
+                                  {repository.branch}
+                                </td>
+                                <td
+                                  className={`py-3 font-medium ${repository.tone}`}
+                                >
+                                  {repository.status}
+                                </td>
+                                <td className="py-3">
+                                  <span className="block text-zinc-700">
+                                    {repository.detail}
+                                  </span>
+                                  <span className="text-zinc-400">
+                                    {repository.owner}
+                                  </span>
+                                </td>
+                                <td className="py-3 text-right text-zinc-500">
+                                  {repository.updated}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </TabsContent>
+              <TabsContent value="events">
+                <EventStreamTab
+                  events={eventPreview.items()}
+                  onClear={clearPreview}
+                />
+              </TabsContent>
+              <TabsContent value="storage">
+                <StorageAwarenessTab
+                  onReview={() => setNotice("已打开存储清理预览")}
+                />
+              </TabsContent>
+              <TabsContent value="download">
+                <GitClientDownloadTab
+                  onPlatformChange={setClientPlatform}
+                  onMirrorOpen={() => setNotice("已打开受签名镜像目录")}
+                  platform={clientPlatform}
+                />
+              </TabsContent>
+            </Tabs>
+          )}
         </main>
       </div>
 

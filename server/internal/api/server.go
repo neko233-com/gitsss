@@ -8,25 +8,42 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/dashboard"
+	"github.com/neko233-com/gitsss/server/internal/repository"
 	"github.com/neko233-com/gitsss/server/internal/runner"
 	"github.com/neko233-com/gitsss/server/internal/storage"
 )
 
 type Server struct {
-	verifier  auth.Verifier
-	dashboard *dashboard.Service
-	runners   *runner.Service
-	storage   *storage.Service
-	now       func() time.Time
+	verifier     auth.Verifier
+	dashboard    *dashboard.Service
+	repositories *repository.Service
+	runners      *runner.Service
+	storage      *storage.Service
+	now          func() time.Time
 }
 
-func NewServer(verifier auth.Verifier, dashboardService *dashboard.Service, storageService *storage.Service, runnerService *runner.Service) *Server {
-	return &Server{verifier: verifier, dashboard: dashboardService, storage: storageService, runners: runnerService, now: time.Now}
+type Dependencies struct {
+	Dashboard    *dashboard.Service
+	Repositories *repository.Service
+	Runners      *runner.Service
+	Storage      *storage.Service
+}
+
+func NewServer(verifier auth.Verifier, dependencies Dependencies) *Server {
+	return &Server{
+		verifier:     verifier,
+		dashboard:    dependencies.Dashboard,
+		repositories: dependencies.Repositories,
+		runners:      dependencies.Runners,
+		storage:      dependencies.Storage,
+		now:          time.Now,
+	}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -38,6 +55,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/storage/admission", s.storageAdmission)
 	mux.HandleFunc("GET /api/v1/runners", s.runnerList)
 	mux.HandleFunc("POST /api/v1/runners/reconcile", s.runnerReconcile)
+	mux.HandleFunc("GET /api/v1/repositories", s.repositoryList)
+	mux.HandleFunc("GET /api/v1/repositories/{repository}/tree", s.repositoryTree)
+	mux.HandleFunc("GET /api/v1/repositories/{repository}/files", s.repositoryFile)
+	mux.HandleFunc("GET /api/v1/repositories/{repository}/search", s.repositorySearch)
 	return mux
 }
 
@@ -106,6 +127,67 @@ func (s *Server) runnerReconcile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, reconciliation)
+}
+
+func (s *Server) repositoryList(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "repositories:read"); !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, s.repositories.Repositories())
+}
+
+func (s *Server) repositoryTree(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "repositories:read"); !ok {
+		return
+	}
+	tree, err := s.repositories.Tree(r.Context(), r.PathValue("repository"), r.URL.Query().Get("ref"))
+	if err != nil {
+		s.writeRepositoryError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, tree)
+}
+
+func (s *Server) repositoryFile(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "repositories:read"); !ok {
+		return
+	}
+	file, err := s.repositories.File(r.Context(), r.PathValue("repository"), r.URL.Query().Get("ref"), r.URL.Query().Get("path"))
+	if err != nil {
+		s.writeRepositoryError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, file)
+}
+
+func (s *Server) repositorySearch(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.authenticate(w, r, "repositories:search"); !ok {
+		return
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	matches, err := s.repositories.Search(r.Context(), r.PathValue("repository"), r.URL.Query().Get("ref"), r.URL.Query().Get("q"), limit)
+	if err != nil {
+		s.writeRepositoryError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, matches)
+}
+
+func (s *Server) writeRepositoryError(w http.ResponseWriter, err error) {
+	status := http.StatusInternalServerError
+	message := "repository operation failed"
+	switch {
+	case errors.Is(err, repository.ErrNotFound):
+		status = http.StatusNotFound
+		message = err.Error()
+	case errors.Is(err, repository.ErrInvalidPath), errors.Is(err, repository.ErrInvalidQuery), errors.Is(err, repository.ErrInvalidRef):
+		status = http.StatusBadRequest
+		message = err.Error()
+	case errors.Is(err, repository.ErrResultTooLarge):
+		status = http.StatusRequestEntityTooLarge
+		message = err.Error()
+	}
+	writeJSON(w, status, map[string]string{"error": message})
 }
 
 func (s *Server) authenticate(w http.ResponseWriter, r *http.Request, scope string) (auth.Principal, bool) {
