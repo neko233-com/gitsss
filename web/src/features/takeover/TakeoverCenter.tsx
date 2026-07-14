@@ -40,12 +40,14 @@ interface AgentJob {
   id: string
   kind:
     | "takeover.assess"
+    | "backup.audit-restore"
     | "backup.export"
     | "backup.restore-isolated"
     | "backup.verify"
   status: "queued" | "running" | "succeeded" | "failed"
   input: Record<string, unknown>
-  result?: Assessment | BackupExportResult | BackupRestoreResult
+  result?:
+    Assessment | BackupAuditResult | BackupExportResult | BackupRestoreResult
   error?: string
   claimed_by?: string
 }
@@ -67,6 +69,35 @@ interface BackupRestoreResult {
   bytes: number
   container_sha256: string
   restored_at: string
+}
+
+interface BackupAuditResult {
+  assessment_id: string
+  target: string
+  files: {
+    new: number
+    identical: number
+    conflicts: number
+    blocked: number
+  }
+  git?: Array<{
+    path: string
+    valid: boolean
+    objects: number
+    refs: number
+    reference_sha256?: string
+    error?: string
+  }>
+  lfs_objects: number
+  lfs_invalid?: Array<{
+    path: string
+    expected_oid: string
+    actual_sha256: string
+  }>
+  findings?: string[]
+  ready_for_shadow_mode: boolean
+  container_sha256: string
+  audited_at: string
 }
 
 const assetNames: Record<string, string> = {
@@ -100,6 +131,7 @@ function jobStatus(job?: AgentJob) {
   if (job.status === "queued") return "等待 Agent 领取"
   if (job.status === "running") return `由 ${job.claimed_by ?? "Agent"} 执行中`
   if (job.status === "failed") return job.error || "执行失败"
+  if (job.kind === "backup.audit-restore") return "数据审计已回传"
   if (job.kind === "backup.export") return "加密备份已回传"
   if (job.kind === "backup.restore-isolated") return "隔离恢复已回传"
   if (job.kind === "backup.verify") return "备份验证已回传"
@@ -107,21 +139,47 @@ function jobStatus(job?: AgentJob) {
 }
 
 function isAssessment(
-  result: Assessment | BackupExportResult | BackupRestoreResult | undefined
+  result:
+    | Assessment
+    | BackupAuditResult
+    | BackupExportResult
+    | BackupRestoreResult
+    | undefined
 ): result is Assessment {
   return Boolean(result && "assets" in result)
 }
 
 function isBackupExport(
-  result: Assessment | BackupExportResult | BackupRestoreResult | undefined
+  result:
+    | Assessment
+    | BackupAuditResult
+    | BackupExportResult
+    | BackupRestoreResult
+    | undefined
 ): result is BackupExportResult {
   return Boolean(result && "output_path" in result)
 }
 
 function isBackupRestore(
-  result: Assessment | BackupExportResult | BackupRestoreResult | undefined
+  result:
+    | Assessment
+    | BackupAuditResult
+    | BackupExportResult
+    | BackupRestoreResult
+    | undefined
 ): result is BackupRestoreResult {
   return Boolean(result && "content_path" in result)
+}
+
+function isBackupAudit(
+  result:
+    | Assessment
+    | BackupAuditResult
+    | BackupExportResult
+    | BackupRestoreResult
+    | undefined
+): result is BackupAuditResult {
+  return Boolean(result && "ready_for_shadow_mode" in result)
 }
 
 export function TakeoverCenter() {
@@ -194,6 +252,16 @@ export function TakeoverCenter() {
   const restoreResult =
     restoreJob?.status === "succeeded" && isBackupRestore(restoreJob.result)
       ? restoreJob.result
+      : undefined
+  const auditJob = jobs.find(
+    (job) =>
+      job.kind === "backup.audit-restore" &&
+      job.input.expected_container_sha256 === backupResult?.container_sha256 &&
+      job.input.target_path === restoreResult?.target
+  )
+  const auditResult =
+    auditJob?.status === "succeeded" && isBackupAudit(auditJob.result)
+      ? auditJob.result
       : undefined
 
   const refresh = async () => {
@@ -293,6 +361,30 @@ export function TakeoverCenter() {
     }
   }
 
+  const dispatchAudit = async () => {
+    if (!selected || !backupResult || !restoreResult) return
+    setLoading(true)
+    setError("")
+    try {
+      const job = await apiMutation<AgentJob>("/api/v1/agent/jobs", token, {
+        kind: "backup.audit-restore",
+        input: {
+          agent_id: selected.agent_id,
+          input_path: backupResult.output_path,
+          passphrase_env: backupPassphraseEnv,
+          target_path: restoreResult.target,
+          expected_assessment_id: backupResult.assessment_id,
+          expected_container_sha256: backupResult.container_sha256,
+        },
+      })
+      setJobs((current) => [job, ...current])
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "无法下发数据审计")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const blockers = selected?.findings.filter(
     (finding) => finding.severity === "blocker"
   ).length
@@ -300,15 +392,17 @@ export function TakeoverCenter() {
     (total, asset) => total + asset.bytes,
     0
   )
-  const completedSteps = restoreResult
-    ? 4
-    : backupResult
-      ? 3
-      : selected
-        ? 2
-        : assessmentJob?.status === "running"
-          ? 1
-          : 0
+  const completedSteps = auditResult?.ready_for_shadow_mode
+    ? 5
+    : restoreResult
+      ? 4
+      : backupResult
+        ? 3
+        : selected
+          ? 2
+          : assessmentJob?.status === "running"
+            ? 1
+            : 0
 
   return (
     <section className="mx-auto max-w-5xl pt-8">
@@ -669,6 +763,73 @@ export function TakeoverCenter() {
                     <p className="truncate font-mono text-[11px] text-zinc-500">
                       {restoreResult.content_path}
                     </p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {restoreResult ? (
+              <div className="mt-7 border-y border-zinc-200 py-5">
+                <p className="text-sm font-medium">下一步：数据审计</p>
+                <p className="mt-2 text-xs leading-5 text-zinc-500">
+                  逐文件对照清单，并对每个 bare Git 执行严格 fsck、统计对象和
+                  refs，同时校验 LFS OID。该任务只读，不会修复或改写副本。
+                </p>
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  <Button
+                    disabled={
+                      loading ||
+                      auditJob?.status === "queued" ||
+                      auditJob?.status === "running"
+                    }
+                    onClick={dispatchAudit}
+                    variant="outline"
+                  >
+                    {auditJob ? "重新运行数据审计" : "开始数据审计"}
+                  </Button>
+                  <output
+                    className={`text-xs ${auditJob?.status === "failed" ? "text-red-600" : "text-zinc-500"}`}
+                  >
+                    {auditJob ? jobStatus(auditJob) : "等待只读审计"}
+                  </output>
+                </div>
+                {auditResult ? (
+                  <div
+                    className={`mt-5 border-l-2 pl-4 text-xs leading-5 ${auditResult.ready_for_shadow_mode ? "border-emerald-500 text-zinc-600" : "border-red-500 text-red-700"}`}
+                  >
+                    <p className="font-medium">
+                      {auditResult.ready_for_shadow_mode
+                        ? "数据一致，可以进入影子模式"
+                        : "审计发现阻断项"}
+                    </p>
+                    <p>
+                      文件 {auditResult.files.identical} 一致 ·{" "}
+                      {auditResult.files.conflicts} 冲突 ·{" "}
+                      {auditResult.files.blocked} 阻断
+                    </p>
+                    <p>
+                      Git{" "}
+                      {auditResult.git?.filter((item) => item.valid).length ??
+                        0}
+                      /{auditResult.git?.length ?? 0} 通过 · LFS{" "}
+                      {auditResult.lfs_objects} 个对象 ·{" "}
+                      {auditResult.lfs_invalid?.length ?? 0} 异常
+                    </p>
+                    {auditResult.git
+                      ?.filter((repository) => !repository.valid)
+                      .map((repository) => (
+                        <p key={repository.path}>
+                          {repository.path}：
+                          {repository.error || "Git 校验失败"}
+                        </p>
+                      ))}
+                    {auditResult.lfs_invalid?.map((issue) => (
+                      <p className="truncate" key={issue.path}>
+                        {issue.path}：LFS OID 不一致
+                      </p>
+                    ))}
+                    {auditResult.findings?.map((finding) => (
+                      <p key={finding}>{finding}</p>
+                    ))}
                   </div>
                 ) : null}
               </div>

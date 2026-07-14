@@ -225,6 +225,46 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 			AssessmentID: restored.AssessmentID, Target: restored.Target, ContentPath: restored.ContentPath,
 			Files: restored.Files, Bytes: restored.Bytes, ContainerSHA256: input.ExpectedContainerSHA256, RestoredAt: restored.RestoredAt,
 		})
+	case agentjob.KindBackupAudit:
+		var input agentjob.BackupAuditInput
+		if err := json.Unmarshal(job.Input, &input); err != nil {
+			return nil, err
+		}
+		if input.AgentID == "" {
+			input.AgentID = agentID
+		}
+		passphrase := os.Getenv(input.PassphraseEnv)
+		if input.AgentID != agentID {
+			return nil, errors.New("audit Agent ID does not match the worker")
+		}
+		if strings.TrimSpace(input.InputPath) == "" || strings.TrimSpace(input.TargetPath) == "" || strings.TrimSpace(input.ExpectedAssessmentID) == "" || !validAgentEnvironmentName(input.PassphraseEnv) || len(passphrase) < 12 || !validAgentSHA256(input.ExpectedContainerSHA256) {
+			return nil, errors.New("audit paths, confirmation, digest and a valid passphrase environment are required")
+		}
+		audit, err := backup.AuditRestoreExact(input.InputPath, passphrase, input.TargetPath, input.ExpectedAssessmentID, input.ExpectedContainerSHA256)
+		if err != nil {
+			return nil, err
+		}
+		result := agentjob.BackupAuditResult{
+			AssessmentID: audit.AssessmentID, Target: audit.Target,
+			Files: agentjob.BackupAuditFileSummary{
+				New: audit.Files.New, Identical: audit.Files.Identical, Conflicts: audit.Files.Conflicts, Blocked: audit.Files.Blocked,
+			},
+			Git: make([]agentjob.BackupAuditGit, 0), LFSObjects: audit.LFS.Objects,
+			Findings: audit.Findings, ReadyForShadowMode: audit.ReadyForShadowMode,
+			ContainerSHA256: input.ExpectedContainerSHA256, AuditedAt: audit.AuditedAt,
+		}
+		for _, repository := range audit.Git {
+			result.Git = append(result.Git, agentjob.BackupAuditGit{
+				Path: repository.Path, Valid: repository.Valid, Objects: repository.Objects, Refs: repository.Refs,
+				ReferenceSHA256: repository.ReferenceSHA256, Error: repository.Error,
+			})
+		}
+		for _, issue := range audit.LFS.Invalid {
+			result.LFSInvalid = append(result.LFSInvalid, agentjob.BackupAuditLFSIssue{
+				Path: issue.Path, Expected: issue.Expected, Actual: issue.Actual,
+			})
+		}
+		return json.Marshal(result)
 	default:
 		return nil, errors.New("unsupported Agent job kind")
 	}

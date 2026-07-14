@@ -114,3 +114,11 @@ func TestQueueAcceptsIsolatedBackupRestore(t *testing.T) {
 		t.Fatalf("backup restore job = %#v, %v", job, err)
 	}
 }
+
+func TestQueueAcceptsPostRestoreAudit(t *testing.T) {
+	queue := NewQueue(nil)
+	job, err := queue.Create("admin", "request", KindBackupAudit, json.RawMessage(`{"expected_assessment_id":"assessment-0123456789abcdef"}`), time.Now())
+	if err != nil || job.Kind != KindBackupAudit || job.Status != StatusQueued {
+		t.Fatalf("backup audit job = %#v, %v", job, err)
+	}
+}

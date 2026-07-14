@@ -131,4 +131,22 @@ func TestExecuteAgentJobRestoresConfirmedContainer(t *testing.T) {
 	if err != nil || string(content) != "[database]\nDB_TYPE = mysql\n" {
 		t.Fatalf("restored configuration = %q, %v", content, err)
 	}
+	auditInput, err := json.Marshal(agentjob.BackupAuditInput{
+		AgentID: "old-server", InputPath: backupPath, PassphraseEnv: "GITSSS_AGENT_JOB_PASSPHRASE",
+		TargetPath: targetPath, ExpectedAssessmentID: report.ID, ExpectedContainerSHA256: exportResult.ContainerSHA256,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	audited, err := executeAgentJob(agentjob.Job{Kind: agentjob.KindBackupAudit, Input: auditInput}, "old-server")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var auditResult agentjob.BackupAuditResult
+	if err := json.Unmarshal(audited, &auditResult); err != nil {
+		t.Fatal(err)
+	}
+	if !auditResult.ReadyForShadowMode || auditResult.Files.Identical != restoreResult.Files || auditResult.ContainerSHA256 != exportResult.ContainerSHA256 || auditResult.Git == nil {
+		t.Fatalf("unexpected audit result: %#v", auditResult)
+	}
 }

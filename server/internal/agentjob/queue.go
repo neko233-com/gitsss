@@ -34,6 +34,7 @@ type Status string
 const (
 	KindAssessment    Kind = "takeover.assess"
 	KindBackupExport  Kind = "backup.export"
+	KindBackupAudit   Kind = "backup.audit-restore"
 	KindBackupRestore Kind = "backup.restore-isolated"
 	KindBackupVerify  Kind = "backup.verify"
 
@@ -160,7 +161,7 @@ func (queue *Queue) record(actor, action, target, requestID, result string, now 
 }
 
 func validKind(kind Kind) bool {
-	return kind == KindAssessment || kind == KindBackupExport || kind == KindBackupRestore || kind == KindBackupVerify
+	return kind == KindAssessment || kind == KindBackupExport || kind == KindBackupAudit || kind == KindBackupRestore || kind == KindBackupVerify
 }
 
 func clone(job Job) Job {

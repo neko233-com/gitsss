@@ -19,11 +19,13 @@ queued → running (5 分钟租约) → succeeded | failed
 - 重复完成同一终态作业是幂等操作，不会产生第二次执行结果。
 - 创建、领取和完成分别写入审计，包含 request ID、非敏感操作者、作业 ID 和状态。
 
-v1 白名单仅包含 `takeover.assess`、`backup.export`、`backup.restore-isolated` 与 `backup.verify`。评估、导出和恢复都强制输入中的 `agent_id` 与执行 Worker 一致；备份口令只按环境变量名称在旧服务器本地读取，不进入作业内容或结果。
+v1 白名单仅包含 `takeover.assess`、`backup.export`、`backup.restore-isolated`、`backup.audit-restore` 与 `backup.verify`。评估、导出、恢复和审计都强制输入中的 `agent_id` 与执行 Worker 一致；备份口令只按环境变量名称在旧服务器本地读取，不进入作业内容或结果。
 
 `backup.export` 必须携带管理员刚刚确认的评估 ID。Agent 会在导出前重新读取配置和资产路径，只有新评估 ID 与确认值完全一致才会生成容器；配置或范围在确认后发生变化时，任务失败且不会创建输出。输出路径使用 no-replace 原子发布，成功结果只回传文件数、字节数、容器路径和 SHA-256。
 
 `backup.restore-isolated` 必须同时携带评估 ID 和管理员确认的容器 SHA-256。Agent 在两次完整认证解密中计算原始容器摘要，只有两次摘要与确认值都相等才会以 no-replace 方式发布全新的隔离目录；在线 Gitea 和 gitsss 数据路径不在该任务的写入范围内。
+
+`backup.audit-restore` 继承同一评估 ID、容器 SHA-256 和隔离目标，任务本身只读。成功回传只表示审计已执行；只有逐文件清单全部一致、所有 Git 仓库严格校验通过且 LFS OID 无异常时，结果中的 `ready_for_shadow_mode` 才为 true，线性向导才进入影子模式步骤。
 
 ## HTTP 接口
 

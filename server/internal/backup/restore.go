@@ -90,6 +90,9 @@ func RestoreIsolatedExact(inputPath, passphrase, target, confirmation, expectedC
 	if secondVerification.ContainerSHA256 != verification.ContainerSHA256 || (expectedContainerSHA256 != "" && secondVerification.ContainerSHA256 != expectedContainerSHA256) {
 		return RestoreResult{}, ErrIntegrity
 	}
+	if err := restoreBareRepositoryDirectories(temporary, secondVerification.Manifest); err != nil {
+		return RestoreResult{}, err
+	}
 	if reason := inspectImportAncestors(absolute); reason != "" {
 		return RestoreResult{}, fmt.Errorf("%w: %s", ErrInvalidBackup, reason)
 	}
@@ -109,6 +112,23 @@ func RestoreIsolatedExact(inputPath, passphrase, target, confirmation, expectedC
 		AssessmentID: confirmation, Target: absolute, ContentPath: contentPath,
 		Files: secondVerification.Files, Bytes: secondVerification.Bytes, RestoredAt: time.Now().UTC(),
 	}, nil
+}
+
+func restoreBareRepositoryDirectories(root string, manifest Manifest) error {
+	repositories, _ := repositoryRoots(manifest)
+	for _, repository := range repositories {
+		repositoryRoot := filepath.Join(root, filepath.FromSlash(repository))
+		relative, err := filepath.Rel(root, repositoryRoot)
+		if err != nil || relative == "." || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+			return fmt.Errorf("%w: repository path escapes target", ErrInvalidBackup)
+		}
+		for _, directory := range []string{"objects/info", "objects/pack", "refs/heads", "refs/tags"} {
+			if err := os.MkdirAll(filepath.Join(repositoryRoot, filepath.FromSlash(directory)), 0o700); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func restoreEntry(root string, entry Entry, content io.Reader) error {

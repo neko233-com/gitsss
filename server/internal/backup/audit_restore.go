@@ -58,10 +58,24 @@ type RestoreAudit struct {
 }
 
 func AuditRestore(inputPath, passphrase, target string) (RestoreAudit, error) {
+	return AuditRestoreExact(inputPath, passphrase, target, "", "")
+}
+
+func AuditRestoreExact(inputPath, passphrase, target, expectedAssessmentID, expectedContainerSHA256 string) (RestoreAudit, error) {
 	verification, err := Verify(inputPath, passphrase)
 	if err != nil {
 		return RestoreAudit{}, err
 	}
+	if expectedContainerSHA256 != "" && verification.ContainerSHA256 != expectedContainerSHA256 {
+		return RestoreAudit{}, ErrIntegrity
+	}
+	if expectedAssessmentID != "" && verification.Manifest.Source.AssessmentID != expectedAssessmentID {
+		return RestoreAudit{}, ErrConfirmation
+	}
+	return auditVerifiedRestore(verification, target)
+}
+
+func auditVerifiedRestore(verification Verification, target string) (RestoreAudit, error) {
 	absolute, err := filepath.Abs(target)
 	if err != nil {
 		return RestoreAudit{}, err
@@ -110,7 +124,7 @@ func repositoryRoots(manifest Manifest) ([]string, int) {
 		components := strings.Split(entry.Path, "/")
 		found := ""
 		for index, component := range components {
-			if strings.HasSuffix(strings.ToLower(component), ".git") {
+			if index < len(components)-1 && strings.HasSuffix(strings.ToLower(component), ".git") {
 				found = path.Join(components[:index+1]...)
 				break
 			}
