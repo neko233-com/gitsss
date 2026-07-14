@@ -6,7 +6,7 @@ This Go 1.26 module establishes the first server boundaries for gitsss:
 - dashboard and bounded event-preview HTTP endpoints;
 - live filesystem capacity, reserve-aware write protection, bounded inventory and game-asset attribution endpoints;
 - a bundled Runner reconciliation contract for Agent-driven install, update and health verification;
-- allowlisted Git tree, text preview and repository search endpoints backed by immutable commit snapshots;
+- persistent bare-repository creation, authenticated Smart HTTP clone/push, and allowlisted tree, text preview and search endpoints;
 - email, Feishu and WeCom notification configuration, test delivery and transactional outbox endpoints;
 - bounded, read-only Gitea `app.ini` assessment with redacted configuration fingerprints and audited Agent report ingestion;
 - encrypted, atomic takeover export with per-file SHA-256 manifests and read-only verification;
@@ -78,6 +78,8 @@ GitHub-hosted CI is disabled while the repository has no Actions quota. The trus
 Release packages also include the stable `gitsss-launcher` entrypoint. It executes the newest immutable canonical active-state generation without a shell, allowing a platform service to keep the launcher stable while versioned Agent binaries change. `service-install` auto-detects packaged launcher/BUILDINFO files, publishes generation 1 and registers the platform service against the launcher. See [`docs/architecture/launcher-state-v1.md`](../docs/architecture/launcher-state-v1.md).
 
 Set `GITSSS_REPOSITORY_PATH` to a working tree, subdirectory, or bare repository. The server resolves working-tree subdirectories to the repository root and exposes only configured repository IDs; API callers cannot supply arbitrary filesystem paths. Text previews are capped at 1 MiB, binary game assets return metadata only, and search results are bounded.
+
+New repositories are created under `GITSSS_REPOSITORY_ROOT` (default `<data-directory>/repositories`) through `POST /api/v1/repositories`. Clone/fetch and push use separate `repositories:clone` and `repositories:push` Token scopes at `/git/{repository}.git`; Git credential helpers can use the Token as the password. The catalog survives restart, creation is no-replace and audited, and filesystem paths never appear in API responses. See [`docs/architecture/git-smart-http-v1.md`](../docs/architecture/git-smart-http-v1.md).
 
 Run a takeover assessment locally without uploading credentials:
 

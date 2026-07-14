@@ -16,6 +16,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/audit"
 	"github.com/neko233-com/gitsss/server/internal/auth"
 	"github.com/neko233-com/gitsss/server/internal/dashboard"
+	"github.com/neko233-com/gitsss/server/internal/gittransport"
 	"github.com/neko233-com/gitsss/server/internal/notification"
 	"github.com/neko233-com/gitsss/server/internal/repository"
 	"github.com/neko233-com/gitsss/server/internal/runner"
@@ -33,6 +34,7 @@ type Server struct {
 	takeovers     *takeover.Registry
 	jobs          *agentjob.Queue
 	audit         *audit.Log
+	git           *gittransport.Handler
 	now           func() time.Time
 }
 
@@ -48,7 +50,7 @@ type Dependencies struct {
 }
 
 func NewServer(verifier auth.Verifier, dependencies Dependencies) *Server {
-	return &Server{
+	server := &Server{
 		verifier:      verifier,
 		dashboard:     dependencies.Dashboard,
 		notifications: dependencies.Notifications,
@@ -60,6 +62,10 @@ func NewServer(verifier auth.Verifier, dependencies Dependencies) *Server {
 		audit:         dependencies.Audit,
 		now:           time.Now,
 	}
+	if dependencies.Repositories != nil && dependencies.Audit != nil {
+		server.git = gittransport.NewHandler(verifier, dependencies.Repositories, dependencies.Audit)
+	}
+	return server
 }
 
 func (s *Server) Handler() http.Handler {
@@ -87,9 +93,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/runners", s.runnerList)
 	mux.HandleFunc("POST /api/v1/runners/reconcile", s.runnerReconcile)
 	mux.HandleFunc("GET /api/v1/repositories", s.repositoryList)
+	mux.HandleFunc("POST /api/v1/repositories", s.repositoryCreate)
 	mux.HandleFunc("GET /api/v1/repositories/{repository}/tree", s.repositoryTree)
 	mux.HandleFunc("GET /api/v1/repositories/{repository}/files", s.repositoryFile)
 	mux.HandleFunc("GET /api/v1/repositories/{repository}/search", s.repositorySearch)
+	if s.git != nil {
+		mux.Handle("/git/", s.git)
+	}
 	return mux
 }
 
@@ -462,6 +472,24 @@ func (s *Server) repositoryList(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.repositories.Repositories())
 }
 
+func (s *Server) repositoryCreate(w http.ResponseWriter, r *http.Request) {
+	principal, ok := s.authenticate(w, r, "repositories:write")
+	if !ok {
+		return
+	}
+	var input repository.CreateInput
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<10)).Decode(&input); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid repository request"})
+		return
+	}
+	created, err := s.repositories.Create(principal.TokenID, requestID(), input, s.now().UTC())
+	if err != nil {
+		s.writeRepositoryError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, created)
+}
+
 func (s *Server) repositoryTree(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.authenticate(w, r, "repositories:read"); !ok {
 		return
@@ -512,12 +540,27 @@ func (s *Server) writeRepositoryError(w http.ResponseWriter, err error) {
 	case errors.Is(err, repository.ErrResultTooLarge):
 		status = http.StatusRequestEntityTooLarge
 		message = err.Error()
+	case errors.Is(err, repository.ErrExists):
+		status = http.StatusConflict
+		message = err.Error()
+	case errors.Is(err, repository.ErrState), errors.Is(err, audit.ErrState):
+		status = http.StatusInternalServerError
+		message = "repository state could not be updated"
 	}
 	writeJSON(w, status, map[string]string{"error": message})
 }
 
 func (s *Server) authenticate(w http.ResponseWriter, r *http.Request, scope string) (auth.Principal, bool) {
-	token := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer"))
+	header := r.Header.Get("Authorization")
+	if !strings.HasPrefix(header, "Bearer ") {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": auth.ErrInvalidToken.Error()})
+		return auth.Principal{}, false
+	}
+	token := strings.TrimPrefix(header, "Bearer ")
+	if token == "" || strings.TrimSpace(token) != token || strings.ContainsAny(token, " \t\r\n\x00") {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": auth.ErrInvalidToken.Error()})
+		return auth.Principal{}, false
+	}
 	principal, err := s.verifier.Verify(token, scope, s.now())
 	if err == nil {
 		return principal, true

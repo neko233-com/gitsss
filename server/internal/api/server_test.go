@@ -216,6 +216,39 @@ func TestServerReadsAllowlistedRepositoryTree(t *testing.T) {
 	}
 }
 
+func TestServerCreatesPersistentHostedRepository(t *testing.T) {
+	root := t.TempDir()
+	store, err := state.Open(filepath.Join(root, "gitsss.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	log := &audit.Log{}
+	repositories, err := repository.NewPersistentService(log, store, filepath.Join(root, "repositories"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(auth.NewVerifier(auth.NewRecord("admin", "token", time.Time{}, "repositories:write")), Dependencies{Repositories: repositories, Audit: log})
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/repositories", strings.NewReader(`{"id":"art-team","name":"Art Team","default_branch":"main"}`))
+	request.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusCreated || !strings.Contains(response.Body.String(), `"hosted":true`) || strings.Contains(response.Body.String(), filepath.Join(root, "repositories")) {
+		t.Fatalf("create response = %d %s", response.Code, response.Body.String())
+	}
+	if _, err := repositories.Resolve("art-team"); err != nil {
+		t.Fatal(err)
+	}
+
+	malformed := httptest.NewRequest(http.MethodPost, "/api/v1/repositories", strings.NewReader(`{"id":"bad","name":"Bad"}`))
+	malformed.Header.Set("Authorization", "Bearertoken")
+	malformedResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(malformedResponse, malformed)
+	if malformedResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("malformed bearer status = %d", malformedResponse.Code)
+	}
+}
+
 func TestServerConfiguresAndTestsNotificationWithoutReturningSecrets(t *testing.T) {
 	log := &audit.Log{}
 	notifications := notification.NewService(notificationFactory{}, log)

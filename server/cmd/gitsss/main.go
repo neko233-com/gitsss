@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/neko233-com/gitsss/server/internal/agentjob"
@@ -49,7 +50,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	bootstrapScopes := []string{"auth:read", "auth:write", "dashboard:read", "events:write", "storage:read", "storage:write", "runners:read", "runners:write", "repositories:read", "repositories:search", "notifications:read", "notifications:write", "notifications:dispatch", "takeover:read", "takeover:write", "agents:read", "agents:dispatch", "agents:work"}
+	bootstrapScopes := []string{"auth:read", "auth:write", "dashboard:read", "events:write", "storage:read", "storage:write", "runners:read", "runners:write", "repositories:read", "repositories:write", "repositories:search", "repositories:clone", "repositories:push", "notifications:read", "notifications:write", "notifications:dispatch", "takeover:read", "takeover:write", "agents:read", "agents:dispatch", "agents:work"}
 	now := time.Now().UTC()
 	seeded, err := verifier.EnsureBootstrap(token, now, now.Add(24*time.Hour), bootstrapScopes...)
 	if err != nil {
@@ -66,11 +67,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	repositoryPath := os.Getenv("GITSSS_REPOSITORY_PATH")
-	if repositoryPath == "" {
-		repositoryPath = "."
+	repositoryRoot := os.Getenv("GITSSS_REPOSITORY_ROOT")
+	if repositoryRoot == "" {
+		repositoryRoot = filepath.Join(filepath.Dir(dataPath), "repositories")
 	}
-	storageOptions, err := liveStorageOptions(dataPath, repositoryPath)
+	existingRepositories := make([]repository.Repository, 0, 1)
+	if repositoryPath := os.Getenv("GITSSS_REPOSITORY_PATH"); repositoryPath != "" {
+		existingRepositories = append(existingRepositories, repository.Repository{ID: "gitsss", Name: "gitsss", DefaultBranch: "main", Path: repositoryPath})
+	}
+	repositoryService, err := repository.NewPersistentService(logStore, stateStore, repositoryRoot, existingRepositories)
+	if err != nil {
+		log.Fatal(err)
+	}
+	storageOptions, err := liveStorageOptions(dataPath, repositoryRoot, os.Getenv("GITSSS_REPOSITORY_PATH"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -88,10 +97,6 @@ func main() {
 		log.Fatal(err)
 	}
 	agentJobs, err := agentjob.NewPersistentQueue(logStore, stateStore)
-	if err != nil {
-		log.Fatal(err)
-	}
-	repositoryService, err := repository.NewService([]repository.Repository{{ID: "gitsss", Name: "gitsss", DefaultBranch: "main", Path: repositoryPath}})
 	if err != nil {
 		log.Fatal(err)
 	}

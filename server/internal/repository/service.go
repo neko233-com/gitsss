@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -22,6 +23,8 @@ var (
 	ErrInvalidQuery   = errors.New("invalid search query")
 	ErrInvalidRef     = errors.New("invalid repository ref")
 	ErrNotFound       = errors.New("repository not found")
+	ErrExists         = errors.New("repository already exists")
+	ErrState          = errors.New("repository state unavailable")
 	ErrResultTooLarge = errors.New("repository result exceeds the configured limit")
 )
 
@@ -33,10 +36,12 @@ const (
 )
 
 type Repository struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	DefaultBranch string `json:"default_branch"`
-	Path          string `json:"-"`
+	ID            string    `json:"id"`
+	Name          string    `json:"name"`
+	DefaultBranch string    `json:"default_branch"`
+	Hosted        bool      `json:"hosted"`
+	CreatedAt     time.Time `json:"created_at,omitempty"`
+	Path          string    `json:"-"`
 }
 
 type Entry struct {
@@ -72,9 +77,11 @@ type Match struct {
 }
 
 type Service struct {
+	mu           sync.RWMutex
 	repositories map[string]Repository
 	previewLimit int64
 	timeout      time.Duration
+	catalog      *catalogConfiguration
 }
 
 func NewService(repositories []Repository) (*Service, error) {
@@ -84,35 +91,21 @@ func NewService(repositories []Repository) (*Service, error) {
 		timeout:      5 * time.Second,
 	}
 	for _, repository := range repositories {
-		if strings.TrimSpace(repository.ID) == "" || strings.TrimSpace(repository.Name) == "" || strings.TrimSpace(repository.Path) == "" {
-			return nil, fmt.Errorf("%w: repository id, name and path are required", ErrInvalidPath)
-		}
-		absolutePath, err := filepath.Abs(repository.Path)
+		normalized, err := service.normalizeRepository(repository)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrInvalidPath, err)
+			return nil, err
 		}
-		repository.Path = absolutePath
-		if repository.DefaultBranch == "" {
-			repository.DefaultBranch = "HEAD"
+		if _, exists := service.repositories[normalized.ID]; exists {
+			return nil, ErrExists
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), service.timeout)
-		root, rootErr := runGit(ctx, repository.Path, 4096, "rev-parse", "--show-toplevel")
-		cancel()
-		if rootErr == nil {
-			repository.Path = strings.TrimSpace(string(root))
-		}
-		ctx, cancel = context.WithTimeout(context.Background(), service.timeout)
-		_, err = runGit(ctx, repository.Path, 512, "rev-parse", "--git-dir")
-		cancel()
-		if err != nil {
-			return nil, fmt.Errorf("%w: %s is not a Git repository", ErrInvalidPath, repository.Path)
-		}
-		service.repositories[repository.ID] = repository
+		service.repositories[normalized.ID] = normalized
 	}
 	return service, nil
 }
 
 func (s *Service) Repositories() []Repository {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	repositories := make([]Repository, 0, len(s.repositories))
 	for _, repository := range s.repositories {
 		repositories = append(repositories, repository)
@@ -251,11 +244,57 @@ func (s *Service) Search(ctx context.Context, repositoryID, ref, query string, l
 }
 
 func (s *Service) repository(id string) (Repository, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	repository, ok := s.repositories[id]
 	if !ok {
 		return Repository{}, ErrNotFound
 	}
 	return repository, nil
+}
+
+func (s *Service) Resolve(id string) (Repository, error) {
+	return s.repository(id)
+}
+
+func (s *Service) normalizeRepository(repository Repository) (Repository, error) {
+	if !validRepositoryID(repository.ID) || strings.TrimSpace(repository.Name) == "" || len(repository.Name) > 120 || strings.TrimSpace(repository.Path) == "" {
+		return Repository{}, fmt.Errorf("%w: repository id, name and path are required", ErrInvalidPath)
+	}
+	absolutePath, err := filepath.Abs(repository.Path)
+	if err != nil {
+		return Repository{}, fmt.Errorf("%w: %v", ErrInvalidPath, err)
+	}
+	repository.Path = filepath.Clean(absolutePath)
+	if repository.DefaultBranch == "" {
+		repository.DefaultBranch = "HEAD"
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
+	root, rootErr := runGit(ctx, repository.Path, 4096, "rev-parse", "--show-toplevel")
+	cancel()
+	if rootErr == nil {
+		repository.Path = strings.TrimSpace(string(root))
+	}
+	ctx, cancel = context.WithTimeout(context.Background(), s.timeout)
+	_, err = runGit(ctx, repository.Path, 512, "rev-parse", "--git-dir")
+	cancel()
+	if err != nil {
+		return Repository{}, fmt.Errorf("%w: %s is not a Git repository", ErrInvalidPath, repository.Path)
+	}
+	return repository, nil
+}
+
+func validRepositoryID(id string) bool {
+	if id == "" || len(id) > 64 || id[0] == '-' || id[len(id)-1] == '-' {
+		return false
+	}
+	for _, character := range id {
+		if character >= 'a' && character <= 'z' || character >= '0' && character <= '9' || character == '-' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func (s *Service) resolveCommit(ctx context.Context, repository Repository, ref string) (string, error) {

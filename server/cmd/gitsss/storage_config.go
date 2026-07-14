@@ -15,7 +15,7 @@ import (
 
 const defaultStorageReserveBytes = 10 << 30
 
-func liveStorageOptions(dataPath, repositoryPath string) (storage.LiveOptions, error) {
+func liveStorageOptions(dataPath string, repositoryPaths ...string) (storage.LiveOptions, error) {
 	volumePath := strings.TrimSpace(os.Getenv("GITSSS_STORAGE_VOLUME_PATH"))
 	if volumePath == "" {
 		volumePath = filepath.Dir(dataPath)
@@ -35,9 +35,11 @@ func liveStorageOptions(dataPath, repositoryPath string) (storage.LiveOptions, e
 			return storage.LiveOptions{}, fmt.Errorf("GITSSS_STORAGE_CACHE_TTL must be between 1ns and 10m")
 		}
 	}
-	roots := []storage.InventoryRoot{
-		{Category: storage.CategoryDatabase, Path: dataPath},
-		{Category: storage.CategoryGitObjects, Path: repositoryPath},
+	roots := []storage.InventoryRoot{{Category: storage.CategoryDatabase, Path: dataPath}}
+	for _, repositoryPath := range repositoryPaths {
+		if repositoryPath = strings.TrimSpace(repositoryPath); repositoryPath != "" {
+			roots = append(roots, storage.InventoryRoot{Category: storage.CategoryGitObjects, Path: repositoryPath})
+		}
 	}
 	for _, source := range []struct {
 		environment string
