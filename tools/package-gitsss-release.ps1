@@ -4,7 +4,8 @@ param(
     [string]$OutputDirectory = "",
     [switch]$SkipTests,
     [string]$SigningKeyEnvironment = "",
-    [string]$UploadTag = ""
+    [string]$UploadTag = "",
+    [switch]$Prerelease
 )
 
 $ErrorActionPreference = "Stop"
@@ -195,13 +196,17 @@ if (-not [string]::IsNullOrWhiteSpace($UploadTag)) {
         throw "UploadTag must start with v and contain only release-safe characters"
     }
     $assets = Get-ChildItem -LiteralPath $releaseDirectory -File | Sort-Object Name | ForEach-Object FullName
-    Invoke-Checked gh @("release", "create", $UploadTag, "--repo", "neko233-com/gitsss", "--target", $commit, "--title", "gitsss $UploadTag", "--generate-notes", "--prerelease", "--draft") $repository
+    $createArguments = @("release", "create", $UploadTag, "--repo", "neko233-com/gitsss", "--target", $commit, "--title", "gitsss $UploadTag", "--generate-notes", "--draft")
+    if ($Prerelease) {
+        $createArguments += "--prerelease"
+    }
+    Invoke-Checked gh $createArguments $repository
     foreach ($asset in $assets) {
         Invoke-Checked gh @("release", "upload", $UploadTag, $asset, "--repo", "neko233-com/gitsss") $repository
     }
 
-    $remote = (& gh release view $UploadTag --repo neko233-com/gitsss --json assets,isDraft,targetCommitish | ConvertFrom-Json)
-    if ($LASTEXITCODE -ne 0 -or -not $remote.isDraft -or $remote.targetCommitish -ne $commit -or $remote.assets.Count -ne $assets.Count) {
+    $remote = (& gh release view $UploadTag --repo neko233-com/gitsss --json assets,isDraft,isPrerelease,targetCommitish | ConvertFrom-Json)
+    if ($LASTEXITCODE -ne 0 -or -not $remote.isDraft -or $remote.isPrerelease -ne [bool]$Prerelease -or $remote.targetCommitish -ne $commit -or $remote.assets.Count -ne $assets.Count) {
         throw "Draft release metadata does not match the local release"
     }
     foreach ($asset in $remote.assets) {
@@ -214,7 +219,8 @@ if (-not [string]::IsNullOrWhiteSpace($UploadTag)) {
             throw "Remote digest does not match: $($asset.name)"
         }
     }
-    Invoke-Checked gh @("release", "edit", $UploadTag, "--repo", "neko233-com/gitsss", "--draft=false", "--prerelease") $repository
+    $prereleaseValue = ([bool]$Prerelease).ToString().ToLowerInvariant()
+    Invoke-Checked gh @("release", "edit", $UploadTag, "--repo", "neko233-com/gitsss", "--draft=false", "--prerelease=$prereleaseValue") $repository
 }
 
 Write-Host "Release artifacts: $releaseDirectory"

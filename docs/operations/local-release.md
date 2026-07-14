@@ -14,7 +14,7 @@ GitHub Actions 额度不可用期间，gitsss 不注册远端 CI 或发布工作
 ## 仅构建
 
 ```powershell
-.\tools\package-gitsss-release.ps1 -Version 0.1.0-alpha.1
+.\tools\package-gitsss-release.ps1 -Version 0.1.0
 ```
 
 默认输出到系统临时目录中的唯一目录。脚本依次执行 frozen pnpm install、lint、typecheck、Vitest、Vite build、Go race tests 和 vet，再以 `CGO_ENABLED=0` 构建：
@@ -29,21 +29,21 @@ GitHub Actions 额度不可用期间，gitsss 不注册远端 CI 或发布工作
 
 ```powershell
 .\tools\package-gitsss-release.ps1 `
-  -Version 0.1.0-alpha.2 `
+  -Version 0.1.0 `
   -SigningKeyEnvironment GITSSS_RELEASE_SIGNING_KEY
 ```
 
 seed 只从命名环境变量读取，不得放入参数、脚本、仓库或 release asset。脚本强制签名派生公钥与仓库的 `keys/release-ed25519.pub`（Key ID `11d4f94bdcb5c016`）一致，并把该公钥嵌入每个平台包。`release.pub` 用于分发和指纹核对，但不能仅因与更新包一同下载就自动成为信任根；安装器/Agent 必须预置管理员已经核对的同一公钥。
 
-## 构建并上传预发布
+## 构建并上传 Release
 
 ```powershell
 .\tools\package-gitsss-release.ps1 `
-  -Version 0.1.0-alpha.2 `
+  -Version 0.1.0 `
   -SigningKeyEnvironment GITSSS_RELEASE_SIGNING_KEY `
-  -UploadTag v0.1.0-alpha.2
+  -UploadTag v0.1.0
 ```
 
-`-UploadTag` 先创建 draft release，并把 tag 绑定到本次构建的 commit，而不是可移动的分支头；随后逐个上传资产，将 GitHub 返回的每个 SHA-256 digest 与本地文件复核，全部一致后才发布 prerelease。上传失败会保留本地归档和远端 draft 供诊断，不会冒充完整版本。若 tag/release 已存在，命令失败且不会覆盖已有资产。仅用于归档的 staging 目录会在生成校验清单后安全删除；`-SkipTests` 只用于本地脚本 smoke test，不能用于正式发布。
+`-UploadTag` 先创建 draft release，并把 tag 绑定到本次构建的 commit，而不是可移动的分支头；随后逐个上传资产，将 GitHub 返回的每个 SHA-256 digest 与本地文件复核，全部一致后才发布。上传失败会保留本地归档和远端 draft 供诊断，不会冒充完整版本。若 tag/release 已存在，命令失败且不会覆盖已有资产。只有显式传入 `-Prerelease` 才会标记预发布；默认生成稳定 Release。仅用于归档的 staging 目录会在生成校验清单后安全删除；`-SkipTests` 只用于本地脚本 smoke test，不能用于正式发布。
 
-未配置 `-SigningKeyEnvironment` 时，脚本发布六个平台归档和 `SHA256SUMS`，不生成签名 manifest。`v0.1.0-alpha.4` 是绑定 commit `4324abf15a71689857dd834334890f6b6369f205` 的 checksum-only 直传预发布；它适用于手动安装和校验，不作为签名自动更新输入。
+未配置 `-SigningKeyEnvironment` 时，脚本发布六个平台归档和 `SHA256SUMS`，不生成签名 manifest；这种 Release 适用于手动安装和校验，不作为签名自动更新输入。不得为了生成签名而临时更换仓库信任公钥：发布私钥必须来自既有的受保护托管，并与 `keys/release-ed25519.pub` 匹配。

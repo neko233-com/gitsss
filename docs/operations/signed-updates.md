@@ -43,8 +43,6 @@ gitsss-agent update-activate `
 
 重启、回执或健康探测失败时，事务发布更高 generation 指回旧目录，再重启并验证旧版本；不会改写或删除已有 generation。并发更新会直接失败。进程异常退出遗留的 `.gitsss-update-activation.lock` 不会自动过期：管理员必须先核对最新 active state 与服务进程，再只删除该锁。当前事务不下载更新，也不自动回收旧版本目录；磁盘预留和经审批的历史版本清理仍属于后续安装器策略。
 
-`v0.1.0-alpha.1` 是切换到本机发布流程的 SHA-256 基线包，尚未包含此验证命令或 Ed25519 manifest。签名发布从完成离线私钥托管和公钥预置的后续预发布开始，不能追认旧包为已签名。
-
-`v0.1.0-alpha.4` 按 checksum-only 本机直传策略发布，没有 `update-manifest.json` 或 `update-manifest.sig`，因此签名更新命令不会接受它。手动安装时应使用 Release 中的 `SHA256SUMS` 校验六平台归档。
+没有 `update-manifest.json` 和 `update-manifest.sig` 的 checksum-only Release 只能用于人工安装，并必须使用同一 Release 中的 `SHA256SUMS` 校验；它不会被签名更新命令接受。历史包不能在事后追认为已签名。只有发布构建机持有与预置 `release.pub` 匹配的私钥时，才允许生成并发布自动更新清单。
 
 发布构建机使用 `go run ./cmd/gitsss-release keygen` 一次性生成 Ed25519 seed、公钥和 key ID。该命令的 JSON 含私钥材料，只能捕获到受保护的密钥托管流程，不能粘贴到工单、日志或提交中。实际打包通过 `-SigningKeyEnvironment` 指定环境变量名称；发布工具从环境读取 seed，扫描并绑定恰好六个目标归档，私钥不会写入输出目录。
