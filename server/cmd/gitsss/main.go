@@ -3,10 +3,14 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/neko233-com/gitsss/server/internal/agentjob"
@@ -128,6 +132,30 @@ func main() {
 	if address == "" {
 		address = "127.0.0.1:8787"
 	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	go notificationService.RunDispatcher(ctx, notification.DispatcherOptions{}, func(err error) {
+		log.Printf("notification dispatcher: %v", err)
+	})
+	httpServer := &http.Server{
+		Addr: address,
+		Handler: api.NewServer(verifier, api.Dependencies{
+			Dashboard: dashboardService, Notifications: notificationService, Pipelines: pipelineService,
+			Repositories: repositoryService, Runners: runnerService, Storage: storageService,
+			Takeovers: takeoverRegistry, Jobs: agentJobs, Audit: logStore, LFS: lfsHandler,
+		}).Handler(),
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	go func() {
+		<-ctx.Done()
+		shutdownContext, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := httpServer.Shutdown(shutdownContext); err != nil {
+			log.Printf("HTTP shutdown: %v", err)
+		}
+	}()
 	log.Printf("gitsss API listening on %s", address)
-	log.Fatal(http.ListenAndServe(address, api.NewServer(verifier, api.Dependencies{Dashboard: dashboardService, Notifications: notificationService, Pipelines: pipelineService, Repositories: repositoryService, Runners: runnerService, Storage: storageService, Takeovers: takeoverRegistry, Jobs: agentJobs, Audit: logStore, LFS: lfsHandler}).Handler()))
+	if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Fatal(err)
+	}
 }

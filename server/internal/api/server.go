@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -659,7 +660,38 @@ func (s *Server) pipelineComplete(w http.ResponseWriter, r *http.Request) {
 		s.writePipelineError(w, err)
 		return
 	}
+	if err := s.enqueuePipelineNotifications(run); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "pipeline notification could not be queued"})
+		return
+	}
 	writeJSON(w, http.StatusOK, run)
+}
+
+func (s *Server) enqueuePipelineNotifications(run pipeline.Run) error {
+	if s.notifications == nil {
+		return nil
+	}
+	subject := "流水线执行成功"
+	if run.Status == pipeline.StatusFailed {
+		subject = "流水线执行失败"
+	}
+	commit := run.Commit
+	if len(commit) > 12 {
+		commit = commit[:12]
+	}
+	body := fmt.Sprintf("仓库：%s\n提交：%s\n运行：%s\n状态：%s", run.RepositoryID, commit, run.ID, run.Status)
+	if run.Error != "" {
+		body += "\n原因：" + run.Error
+	}
+	for _, channel := range s.notifications.Channels() {
+		if !channel.Configured {
+			continue
+		}
+		if _, err := s.notifications.Enqueue(channel.Channel, "pipeline:"+run.ID+":"+string(run.Status), subject, body); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Server) writePipelineError(w http.ResponseWriter, err error) {

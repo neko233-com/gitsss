@@ -23,10 +23,17 @@ func (f testFactory) Build(Configuration) (Adapter, error) {
 }
 
 type testAdapter struct {
-	err error
+	err       error
+	delivered chan struct{}
 }
 
 func (a *testAdapter) Deliver(context.Context, Message) error {
+	if a.delivered != nil {
+		select {
+		case a.delivered <- struct{}{}:
+		default:
+		}
+	}
 	return a.err
 }
 
@@ -57,8 +64,66 @@ func TestServiceDeduplicatesAndDeliversOutboxMessage(t *testing.T) {
 	if len(processed) != 1 || processed[0].Status != StatusDelivered {
 		t.Fatalf("processed = %#v, want one delivered message", processed)
 	}
-	if entries := log.Entries(); len(entries) != 2 {
-		t.Fatalf("audit entries = %d, want configure and delivery", len(entries))
+	if entries := log.Entries(); len(entries) != 3 {
+		t.Fatalf("audit entries = %d, want configure, authorization and delivery", len(entries))
+	}
+}
+
+func TestDispatcherAutomaticallyDrainsOutbox(t *testing.T) {
+	delivered := make(chan struct{}, 1)
+	service := NewService(testFactory{adapter: &testAdapter{delivered: delivered}}, &audit.Log{})
+	if _, err := service.Configure("admin", "configure", Configuration{Channel: ChannelFeishu}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Enqueue(ChannelFeishu, "automatic", "构建完成", "可以下载制品"); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		service.RunDispatcher(ctx, DispatcherOptions{Interval: time.Millisecond, Batch: 1}, nil)
+		close(done)
+	}()
+	select {
+	case <-delivered:
+	case <-time.After(time.Second):
+		t.Fatal("automatic dispatcher did not deliver the message")
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("automatic dispatcher did not stop")
+	}
+	if messages := service.Messages(); len(messages) != 1 || messages[0].Status != StatusDelivered {
+		t.Fatalf("automatic messages = %#v", messages)
+	}
+}
+
+func TestPersistentConfigureRollsBackWhenAuditFails(t *testing.T) {
+	root := t.TempDir()
+	store, err := state.Open(filepath.Join(root, "gitsss.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	vault, err := state.OpenVault(filepath.Join(root, "gitsss.key"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	service, err := NewPersistentService(testFactory{adapter: &testAdapter{}}, &audit.Log{}, store, vault)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Configure("", "configure", Configuration{Channel: ChannelFeishu}); !errors.Is(err, ErrState) {
+		t.Fatalf("configure audit error = %v", err)
+	}
+	if channels := service.Channels(); channels[1].Configured {
+		t.Fatalf("configuration remained active: %#v", channels)
+	}
+	documents, err := store.List(configurationNamespace)
+	if err != nil || len(documents) != 0 {
+		t.Fatalf("configuration rollback documents = %#v, %v", documents, err)
 	}
 }
 

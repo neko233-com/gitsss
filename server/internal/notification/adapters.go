@@ -7,11 +7,13 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"mime"
+	"net"
 	"net/http"
 	"net/mail"
 	"net/smtp"
@@ -22,7 +24,7 @@ import (
 )
 
 type SMTPTransport interface {
-	Send(address string, authentication smtp.Auth, from string, recipients []string, message []byte) error
+	Send(context.Context, string, string, int, smtp.Auth, string, []string, []byte) error
 }
 
 type HTTPSMTPFactory struct {
@@ -131,6 +133,7 @@ func validateWebhook(rawURL, expectedHost, expectedPath string) error {
 type emailAdapter struct {
 	address    string
 	host       string
+	port       int
 	username   string
 	password   string
 	from       string
@@ -157,6 +160,7 @@ func newEmailAdapter(configuration Configuration, transport SMTPTransport) (Adap
 	return emailAdapter{
 		address:    configuration.SMTPHost + ":" + strconv.Itoa(configuration.SMTPPort),
 		host:       configuration.SMTPHost,
+		port:       configuration.SMTPPort,
 		username:   configuration.Username,
 		password:   configuration.Password,
 		from:       sender.Address,
@@ -165,7 +169,7 @@ func newEmailAdapter(configuration Configuration, transport SMTPTransport) (Adap
 	}, nil
 }
 
-func (a emailAdapter) Deliver(_ context.Context, message Message) error {
+func (a emailAdapter) Deliver(ctx context.Context, message Message) error {
 	if strings.ContainsAny(message.Subject, "\r\n") {
 		return errors.New("invalid email subject")
 	}
@@ -183,11 +187,71 @@ func (a emailAdapter) Deliver(_ context.Context, message Message) error {
 		"",
 		strings.ReplaceAll(message.Body, "\n", "\r\n"),
 	}
-	return a.transport.Send(a.address, authentication, a.from, a.recipients, []byte(strings.Join(headers, "\r\n")))
+	return a.transport.Send(ctx, a.address, a.host, a.port, authentication, a.from, a.recipients, []byte(strings.Join(headers, "\r\n")))
 }
 
 type smtpTransport struct{}
 
-func (smtpTransport) Send(address string, authentication smtp.Auth, from string, recipients []string, message []byte) error {
-	return smtp.SendMail(address, authentication, from, recipients, message)
+func (smtpTransport) Send(ctx context.Context, address, host string, port int, authentication smtp.Auth, from string, recipients []string, message []byte) error {
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	connection, err := dialer.DialContext(ctx, "tcp", address)
+	if err != nil {
+		return errors.New("SMTP connection failed")
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = connection.SetDeadline(deadline)
+	} else {
+		_ = connection.SetDeadline(time.Now().Add(15 * time.Second))
+	}
+	tlsConfiguration := &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}
+	if port == 465 {
+		tlsConnection := tls.Client(connection, tlsConfiguration)
+		if err := tlsConnection.HandshakeContext(ctx); err != nil {
+			connection.Close()
+			return errors.New("SMTP TLS handshake failed")
+		}
+		connection = tlsConnection
+	}
+	client, err := smtp.NewClient(connection, host)
+	if err != nil {
+		connection.Close()
+		return errors.New("SMTP greeting failed")
+	}
+	defer client.Close()
+	if port != 465 {
+		if supported, _ := client.Extension("STARTTLS"); !supported {
+			return errors.New("SMTP server does not require STARTTLS")
+		}
+		if err := client.StartTLS(tlsConfiguration); err != nil {
+			return errors.New("SMTP STARTTLS failed")
+		}
+	}
+	if authentication != nil {
+		if err := client.Auth(authentication); err != nil {
+			return errors.New("SMTP authentication failed")
+		}
+	}
+	if err := client.Mail(from); err != nil {
+		return errors.New("SMTP sender was rejected")
+	}
+	for _, recipient := range recipients {
+		if err := client.Rcpt(recipient); err != nil {
+			return errors.New("SMTP recipient was rejected")
+		}
+	}
+	writer, err := client.Data()
+	if err != nil {
+		return errors.New("SMTP message was rejected")
+	}
+	if _, err := writer.Write(message); err != nil {
+		writer.Close()
+		return errors.New("SMTP message upload failed")
+	}
+	if err := writer.Close(); err != nil {
+		return errors.New("SMTP message completion failed")
+	}
+	if err := client.Quit(); err != nil {
+		return errors.New("SMTP session completion failed")
+	}
+	return nil
 }

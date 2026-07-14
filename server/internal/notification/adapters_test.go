@@ -3,8 +3,11 @@
 package notification
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/smtp"
@@ -18,7 +21,7 @@ type recordingSMTP struct {
 	message string
 }
 
-func (transport *recordingSMTP) Send(_ string, _ smtp.Auth, from string, _ []string, message []byte) error {
+func (transport *recordingSMTP) Send(_ context.Context, _, _ string, _ int, _ smtp.Auth, from string, _ []string, message []byte) error {
 	transport.from = from
 	transport.message = string(message)
 	return nil
@@ -77,4 +80,37 @@ func TestEmailAdapterUsesParsedEnvelopeAddressAndEncodedSubject(t *testing.T) {
 	if transport.from != "gitsss@example.com" || !strings.Contains(transport.message, "Subject: =?UTF-8?q?") {
 		t.Fatalf("SMTP envelope = %q, message = %q", transport.from, transport.message)
 	}
+}
+
+func TestSMTPTransportRejectsServerWithoutSTARTTLS(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		connection, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer connection.Close()
+		_, _ = connection.Write([]byte("220 localhost ESMTP\r\n"))
+		line, _ := bufio.NewReader(connection).ReadString('\n')
+		if strings.HasPrefix(line, "EHLO ") {
+			_, _ = connection.Write([]byte("250-localhost\r\n250 AUTH PLAIN\r\n"))
+		}
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	address := listener.Addr().String()
+	_, portText, _ := net.SplitHostPort(address)
+	port := 0
+	_, _ = fmt.Sscanf(portText, "%d", &port)
+	err = (smtpTransport{}).Send(ctx, address, "localhost", port, nil, "from@example.com", []string{"to@example.com"}, []byte("test"))
+	if err == nil || !strings.Contains(err.Error(), "STARTTLS") {
+		t.Fatalf("SMTP error = %v, want STARTTLS rejection", err)
+	}
+	<-done
 }

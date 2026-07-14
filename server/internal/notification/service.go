@@ -105,6 +105,11 @@ type Service struct {
 	vault          *state.Vault
 }
 
+type DispatcherOptions struct {
+	Interval time.Duration
+	Batch    int
+}
+
 func NewPersistentService(factory Factory, log *audit.Log, store *state.Store, vault *state.Vault) (*Service, error) {
 	if store == nil || vault == nil {
 		return nil, errors.New("notification state store and vault are required")
@@ -139,18 +144,20 @@ func (s *Service) Configure(actor, requestID string, configuration Configuration
 
 	configuration.Recipients = append([]string(nil), configuration.Recipients...)
 	s.mu.Lock()
+	previous, existed := s.configurations[configuration.Channel]
 	if err := s.persistConfiguration(configuration); err != nil {
 		s.mu.Unlock()
 		return ChannelState{}, err
 	}
-	s.configurations[configuration.Channel] = configuration
-	s.mu.Unlock()
-
 	if s.audit != nil {
 		if err := s.audit.Append(audit.Entry{Actor: actor, Action: "notifications.configure", Target: "notification:" + string(configuration.Channel), RequestID: requestID, At: s.now().UTC()}); err != nil {
-			return ChannelState{}, fmt.Errorf("%w: %v", ErrState, err)
+			rollbackErr := s.rollbackConfiguration(previous, existed, configuration.Channel)
+			s.mu.Unlock()
+			return ChannelState{}, errors.Join(fmt.Errorf("%w: %v", ErrState, err), rollbackErr)
 		}
 	}
+	s.configurations[configuration.Channel] = configuration
+	s.mu.Unlock()
 	return stateFor(configuration), nil
 }
 
@@ -221,6 +228,12 @@ func (s *Service) DispatchDue(ctx context.Context, actor, requestID string, limi
 		if !ok {
 			break
 		}
+		if s.audit != nil {
+			if err := s.audit.Append(audit.Entry{Actor: actor, Action: "notifications.delivery_authorized", Target: "notification:" + string(message.Channel), RequestID: requestID, At: s.now().UTC()}); err != nil {
+				_, _ = s.finish(index, message.ID, errors.New("delivery audit authorization failed"))
+				return processed, fmt.Errorf("%w: %v", ErrState, err)
+			}
+		}
 		adapter, err := s.factory.Build(configuration)
 		if err == nil {
 			err = adapter.Deliver(ctx, message)
@@ -241,6 +254,32 @@ func (s *Service) DispatchDue(ctx context.Context, actor, requestID string, limi
 		}
 	}
 	return processed, nil
+}
+
+func (s *Service) RunDispatcher(ctx context.Context, options DispatcherOptions, report func(error)) {
+	if options.Interval <= 0 || options.Interval > 5*time.Minute {
+		options.Interval = 15 * time.Second
+	}
+	if options.Batch <= 0 || options.Batch > 50 {
+		options.Batch = 20
+	}
+	dispatch := func() {
+		_, err := s.DispatchDue(ctx, "notification-worker", newDispatchRequestID(), options.Batch)
+		if err != nil && ctx.Err() == nil && report != nil {
+			report(err)
+		}
+	}
+	dispatch()
+	ticker := time.NewTicker(options.Interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			dispatch()
+		}
+	}
 }
 
 func (s *Service) Messages() []Message {
@@ -415,6 +454,19 @@ func (s *Service) persistConfiguration(configuration Configuration) error {
 	return nil
 }
 
+func (s *Service) rollbackConfiguration(previous Configuration, existed bool, channel Channel) error {
+	if s.store == nil {
+		return nil
+	}
+	if existed {
+		return s.persistConfiguration(previous)
+	}
+	if err := s.store.DeleteMany(configurationNamespace, []string{string(channel)}); err != nil {
+		return fmt.Errorf("%w: %v", ErrState, err)
+	}
+	return nil
+}
+
 func (s *Service) persistMessage(message Message) error {
 	if s.store == nil {
 		return nil
@@ -463,6 +515,14 @@ func newMessageID() string {
 		return fmt.Sprintf("notification-%024x", uint64(time.Now().UnixNano()))
 	}
 	return "notification-" + hex.EncodeToString(value)
+}
+
+func newDispatchRequestID() string {
+	value := make([]byte, 12)
+	if _, err := rand.Read(value); err != nil {
+		return fmt.Sprintf("dispatch-%024x", uint64(time.Now().UnixNano()))
+	}
+	return "dispatch-" + hex.EncodeToString(value)
 }
 
 func validChannel(channel Channel) bool {

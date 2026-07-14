@@ -252,7 +252,11 @@ func TestServerRunsPipelineThroughBoundRunnerIdentity(t *testing.T) {
 		auth.NewRecord("maintainer", "maintainer-token", time.Time{}, "pipelines:read", "pipelines:write"),
 		auth.NewRecord("runner-1", "runner-token", time.Time{}, "pipelines:work"),
 	)
-	server := NewServer(verifier, Dependencies{Audit: log, Pipelines: pipelines, Repositories: repositories})
+	notifications := notification.NewService(notificationFactory{}, log)
+	if _, err := notifications.Configure("maintainer", "configure", notification.Configuration{Channel: notification.ChannelFeishu}); err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(verifier, Dependencies{Audit: log, Notifications: notifications, Pipelines: pipelines, Repositories: repositories})
 	server.now = func() time.Time { return time.Date(2026, 7, 14, 12, 0, 0, 0, time.UTC) }
 
 	create := httptest.NewRequest(http.MethodPost, "/api/v1/pipelines/runs", strings.NewReader(`{"repository_id":"gitsss","ref":"HEAD","template_id":"gitsss-verify"}`))
@@ -296,6 +300,9 @@ func TestServerRunsPipelineThroughBoundRunnerIdentity(t *testing.T) {
 	server.Handler().ServeHTTP(completeResponse, complete)
 	if completeResponse.Code != http.StatusOK || !strings.Contains(completeResponse.Body.String(), `"status":"succeeded"`) {
 		t.Fatalf("pipeline complete = %d %s", completeResponse.Code, completeResponse.Body.String())
+	}
+	if messages := notifications.Messages(); len(messages) != 1 || messages[0].Status != notification.StatusPending || !strings.Contains(messages[0].Body, created.ID) {
+		t.Fatalf("pipeline notifications = %#v", messages)
 	}
 }
 
