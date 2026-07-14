@@ -16,6 +16,7 @@ import (
 	"github.com/neko233-com/gitsss/server/internal/notification"
 	"github.com/neko233-com/gitsss/server/internal/repository"
 	"github.com/neko233-com/gitsss/server/internal/runner"
+	"github.com/neko233-com/gitsss/server/internal/state"
 	"github.com/neko233-com/gitsss/server/internal/storage"
 	"github.com/neko233-com/gitsss/server/internal/takeover"
 )
@@ -25,6 +26,15 @@ func main() {
 	if token == "" {
 		log.Fatal("GITSSS_API_TOKEN must be configured")
 	}
+	dataPath := os.Getenv("GITSSS_DATA_PATH")
+	if dataPath == "" {
+		dataPath = "data/gitsss.db"
+	}
+	stateStore, err := state.Open(dataPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer stateStore.Close()
 
 	logStore := &audit.Log{}
 	dashboardService := dashboard.NewService(6, []dashboard.Event{
@@ -40,8 +50,14 @@ func main() {
 	})
 	runnerService := runner.NewService("0.1.0")
 	notificationService := notification.NewService(notification.NewFactory(), logStore)
-	takeoverRegistry := takeover.NewRegistry(logStore)
-	agentJobs := agentjob.NewQueue(logStore)
+	takeoverRegistry, err := takeover.NewPersistentRegistry(logStore, stateStore)
+	if err != nil {
+		log.Fatal(err)
+	}
+	agentJobs, err := agentjob.NewPersistentQueue(logStore, stateStore)
+	if err != nil {
+		log.Fatal(err)
+	}
 	repositoryPath := os.Getenv("GITSSS_REPOSITORY_PATH")
 	if repositoryPath == "" {
 		repositoryPath = "."

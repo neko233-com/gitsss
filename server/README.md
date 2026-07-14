@@ -19,12 +19,13 @@ This Go 1.26 module establishes the first server boundaries for gitsss:
 
 ```powershell
 $env:GITSSS_API_TOKEN = "replace-with-a-local-test-token"
+$env:GITSSS_DATA_PATH = "$PWD\data\gitsss.db"
 go run ./cmd/gitsss
 go run ./cmd/gitsss-agent probe --server http://127.0.0.1:8787 --token $env:GITSSS_API_TOKEN
 go run ./cmd/gitsss-agent runner-report --server http://127.0.0.1:8787 --token $env:GITSSS_API_TOKEN --id local-agent --platform windows/amd64
 ```
 
-The current in-memory store is an implementation slice, not production persistence. Tokens, notification secrets, outbox messages and audit records will move to encrypted, durable storage before release. Notification API responses and audit targets never include webhook URLs, SMTP passwords or signing secrets. Feishu and WeCom webhooks are restricted to their official HTTPS hosts; an internal relay requires a future explicit administrator allowlist.
+The server creates one permission-restricted embedded SQLite file at `GITSSS_DATA_PATH` (default `data/gitsss.db`) with WAL, full synchronous writes, a busy timeout and a versioned schema. Agent jobs and takeover assessments survive process restarts; writes reach SQLite before the in-memory view is updated. Bootstrap tokens, notification secrets/outbox, dashboard previews and audit records are still implementation slices and must move into the same durable boundary before release. Notification API responses and audit targets never include webhook URLs, SMTP passwords or signing secrets. Feishu and WeCom webhooks are restricted to their official HTTPS hosts; an internal relay requires a future explicit administrator allowlist.
 
 Start the local Agent HTTP control plane with an expiring token read from the environment:
 

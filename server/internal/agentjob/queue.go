@@ -14,12 +14,14 @@ import (
 	"time"
 
 	"github.com/neko233-com/gitsss/server/internal/audit"
+	"github.com/neko233-com/gitsss/server/internal/state"
 )
 
 const (
 	maxInputBytes  = 32 << 10
 	maxResultBytes = 256 << 10
 	leaseDuration  = 5 * time.Minute
+	stateNamespace = "agent-jobs"
 )
 
 var (
@@ -64,10 +66,42 @@ type Queue struct {
 	jobs  map[string]*Job
 	order []string
 	audit *audit.Log
+	store *state.Store
 }
 
 func NewQueue(auditLog *audit.Log) *Queue {
 	return &Queue{jobs: map[string]*Job{}, audit: auditLog}
+}
+
+func NewPersistentQueue(auditLog *audit.Log, store *state.Store) (*Queue, error) {
+	if store == nil {
+		return nil, errors.New("Agent job state store is required")
+	}
+	documents, err := store.List(stateNamespace)
+	if err != nil {
+		return nil, err
+	}
+	queue := &Queue{jobs: make(map[string]*Job, len(documents)), audit: auditLog, store: store}
+	loaded := make([]Job, 0, len(documents))
+	for _, document := range documents {
+		var job Job
+		if err := json.Unmarshal(document.Payload, &job); err != nil || document.ID != job.ID || !validPersistedJob(job) {
+			return nil, fmt.Errorf("%w: corrupt persisted Agent job %q", ErrInvalidJob, document.ID)
+		}
+		loaded = append(loaded, job)
+	}
+	sort.Slice(loaded, func(left, right int) bool {
+		if loaded[left].CreatedAt.Equal(loaded[right].CreatedAt) {
+			return loaded[left].ID < loaded[right].ID
+		}
+		return loaded[left].CreatedAt.Before(loaded[right].CreatedAt)
+	})
+	for index := range loaded {
+		job := loaded[index]
+		queue.jobs[job.ID] = &job
+		queue.order = append(queue.order, job.ID)
+	}
+	return queue, nil
 }
 
 func (queue *Queue) Create(actor, requestID string, kind Kind, input json.RawMessage, now time.Time) (Job, error) {
@@ -79,6 +113,10 @@ func (queue *Queue) Create(actor, requestID string, kind Kind, input json.RawMes
 		CreatedAt: now.UTC(), UpdatedAt: now.UTC(),
 	}
 	queue.mu.Lock()
+	if err := queue.persist(job); err != nil {
+		queue.mu.Unlock()
+		return Job{}, err
+	}
 	queue.jobs[job.ID] = &job
 	queue.order = append(queue.order, job.ID)
 	queue.mu.Unlock()
@@ -95,20 +133,25 @@ func (queue *Queue) Claim(agentID, requestID string, now time.Time) (Job, bool, 
 	defer queue.mu.Unlock()
 	for _, id := range queue.order {
 		job := queue.jobs[id]
+		candidate := clone(*job)
 		if job.Status == StatusRunning && !job.LeaseUntil.After(now) {
-			job.Status = StatusQueued
-			job.ClaimedBy = ""
-			job.LeaseUntil = time.Time{}
+			candidate.Status = StatusQueued
+			candidate.ClaimedBy = ""
+			candidate.LeaseUntil = time.Time{}
 		}
-		if job.Status != StatusQueued {
+		if candidate.Status != StatusQueued {
 			continue
 		}
-		job.Status = StatusRunning
-		job.ClaimedBy = agentID
-		job.UpdatedAt = now.UTC()
-		job.LeaseUntil = now.UTC().Add(leaseDuration)
-		queue.record(agentID, "agent.job.claim", job.ID, requestID, "running", now)
-		return clone(*job), true, nil
+		candidate.Status = StatusRunning
+		candidate.ClaimedBy = agentID
+		candidate.UpdatedAt = now.UTC()
+		candidate.LeaseUntil = now.UTC().Add(leaseDuration)
+		if err := queue.persist(candidate); err != nil {
+			return Job{}, false, err
+		}
+		*job = candidate
+		queue.record(agentID, "agent.job.claim", candidate.ID, requestID, "running", now)
+		return clone(candidate), true, nil
 	}
 	return Job{}, false, nil
 }
@@ -132,17 +175,22 @@ func (queue *Queue) Complete(agentID, requestID, jobID string, result json.RawMe
 	if job.Status != StatusRunning {
 		return Job{}, ErrInvalidJob
 	}
-	job.Result = append(json.RawMessage(nil), result...)
-	job.Error = strings.TrimSpace(failure)
-	job.UpdatedAt = now.UTC()
-	job.LeaseUntil = time.Time{}
-	if job.Error == "" {
-		job.Status = StatusSucceeded
+	candidate := clone(*job)
+	candidate.Result = append(json.RawMessage(nil), result...)
+	candidate.Error = strings.TrimSpace(failure)
+	candidate.UpdatedAt = now.UTC()
+	candidate.LeaseUntil = time.Time{}
+	if candidate.Error == "" {
+		candidate.Status = StatusSucceeded
 	} else {
-		job.Status = StatusFailed
+		candidate.Status = StatusFailed
 	}
-	queue.record(agentID, "agent.job.complete", job.ID, requestID, string(job.Status), now)
-	return clone(*job), nil
+	if err := queue.persist(candidate); err != nil {
+		return Job{}, err
+	}
+	*job = candidate
+	queue.record(agentID, "agent.job.complete", candidate.ID, requestID, string(candidate.Status), now)
+	return clone(candidate), nil
 }
 
 func (queue *Queue) Jobs() []Job {
@@ -166,6 +214,39 @@ func validKind(kind Kind) bool {
 	return kind == KindAssessment || kind == KindBackupExport || kind == KindBackupAudit || kind == KindBackupRestore || kind == KindBackupVerify || kind == KindShadowAudit || kind == KindFreezeCheck
 }
 
+func validPersistedJob(job Job) bool {
+	id, err := hex.DecodeString(strings.TrimPrefix(job.ID, "job-"))
+	if !strings.HasPrefix(job.ID, "job-") || err != nil || len(id) != 12 || !validKind(job.Kind) || job.CreatedAt.IsZero() || job.UpdatedAt.Before(job.CreatedAt) {
+		return false
+	}
+	if len(job.Input) == 0 || len(job.Input) > maxInputBytes || !json.Valid(job.Input) || len(job.Result) > maxResultBytes || (len(job.Result) > 0 && !json.Valid(job.Result)) || len(job.Error) > 1024 {
+		return false
+	}
+	switch job.Status {
+	case StatusQueued:
+		return len(job.Result) == 0 && job.Error == "" && job.ClaimedBy == "" && job.LeaseUntil.IsZero()
+	case StatusRunning:
+		return len(job.Result) == 0 && job.Error == "" && strings.TrimSpace(job.ClaimedBy) != "" && !job.LeaseUntil.IsZero()
+	case StatusSucceeded:
+		return len(job.Result) > 0 && job.Error == "" && job.LeaseUntil.IsZero()
+	case StatusFailed:
+		return len(job.Result) == 0 && strings.TrimSpace(job.Error) != "" && job.LeaseUntil.IsZero()
+	default:
+		return false
+	}
+}
+
+func (queue *Queue) persist(job Job) error {
+	if queue.store == nil {
+		return nil
+	}
+	payload, err := json.Marshal(job)
+	if err != nil {
+		return err
+	}
+	return queue.store.Put(stateNamespace, job.ID, payload)
+}
+
 func clone(job Job) Job {
 	job.Input = append(json.RawMessage(nil), job.Input...)
 	job.Result = append(json.RawMessage(nil), job.Result...)
@@ -175,7 +256,7 @@ func clone(job Job) Job {
 func newID() string {
 	value := make([]byte, 12)
 	if _, err := rand.Read(value); err != nil {
-		return fmt.Sprintf("job-%d", time.Now().UnixNano())
+		return fmt.Sprintf("job-%024x", uint64(time.Now().UnixNano()))
 	}
 	return "job-" + hex.EncodeToString(value)
 }

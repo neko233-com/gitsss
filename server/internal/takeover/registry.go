@@ -5,23 +5,48 @@ package takeover
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/neko233-com/gitsss/server/internal/audit"
+	"github.com/neko233-com/gitsss/server/internal/state"
 )
+
+const registryStateNamespace = "takeover-reports"
 
 type Registry struct {
 	mu      sync.RWMutex
 	reports map[string]Report
 	audit   *audit.Log
+	store   *state.Store
 }
 
 func NewRegistry(log *audit.Log) *Registry {
 	return &Registry{reports: make(map[string]Report), audit: log}
+}
+
+func NewPersistentRegistry(log *audit.Log, store *state.Store) (*Registry, error) {
+	if store == nil {
+		return nil, errors.New("takeover state store is required")
+	}
+	documents, err := store.List(registryStateNamespace)
+	if err != nil {
+		return nil, err
+	}
+	registry := &Registry{reports: make(map[string]Report, len(documents)), audit: log, store: store}
+	for _, document := range documents {
+		var report Report
+		if err := json.Unmarshal(document.Payload, &report); err != nil || document.ID != report.ID || !validReport(report) {
+			return nil, fmt.Errorf("invalid persisted takeover assessment %q", document.ID)
+		}
+		registry.reports[report.ID] = report
+	}
+	return registry, nil
 }
 
 func (r *Registry) Submit(actor, requestID string, report Report, now time.Time) (Report, error) {
@@ -29,9 +54,22 @@ func (r *Registry) Submit(actor, requestID string, report Report, now time.Time)
 		return Report{}, errors.New("invalid takeover assessment")
 	}
 	r.mu.Lock()
+	if r.store != nil {
+		payload, err := json.Marshal(report)
+		if err != nil {
+			r.mu.Unlock()
+			return Report{}, err
+		}
+		if err := r.store.Put(registryStateNamespace, report.ID, payload); err != nil {
+			r.mu.Unlock()
+			return Report{}, err
+		}
+	}
 	r.reports[report.ID] = report
 	r.mu.Unlock()
-	r.audit.Append(audit.Entry{Actor: actor, Action: "takeover.assessment.submit", Target: report.ID, RequestID: requestID, At: now.UTC()})
+	if r.audit != nil {
+		r.audit.Append(audit.Entry{Actor: actor, Action: "takeover.assessment.submit", Target: report.ID, RequestID: requestID, At: now.UTC()})
+	}
 	return report, nil
 }
 

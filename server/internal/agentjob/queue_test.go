@@ -5,11 +5,13 @@ package agentjob
 import (
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/neko233-com/gitsss/server/internal/audit"
+	"github.com/neko233-com/gitsss/server/internal/state"
 )
 
 func TestQueueClaimsJobOnceAndCompletesIdempotently(t *testing.T) {
@@ -136,5 +138,63 @@ func TestQueueAcceptsFreezeCheck(t *testing.T) {
 	job, err := queue.Create("admin", "request", KindFreezeCheck, json.RawMessage(`{"config_path":"/etc/gitea/app.ini"}`), time.Now())
 	if err != nil || job.Kind != KindFreezeCheck || job.Status != StatusQueued {
 		t.Fatalf("freeze check job = %#v, %v", job, err)
+	}
+}
+
+func TestPersistentQueueSurvivesRestart(t *testing.T) {
+	now := time.Date(2026, time.July, 14, 12, 0, 0, 0, time.UTC)
+	path := filepath.Join(t.TempDir(), "gitsss.db")
+	store, err := state.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	queue, err := NewPersistentQueue(nil, store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := queue.Create("admin", "create", KindAssessment, json.RawMessage(`{"agent_id":"agent-a"}`), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claimed, ok, err := queue.Claim("agent-a", "claim", now.Add(time.Second))
+	if err != nil || !ok || claimed.ID != created.ID {
+		t.Fatalf("Claim = %#v, %v, %v", claimed, ok, err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	store, err = state.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restarted, err := NewPersistentQueue(nil, store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobs := restarted.Jobs()
+	if len(jobs) != 1 || jobs[0].Status != StatusRunning || jobs[0].ClaimedBy != "agent-a" {
+		t.Fatalf("restarted jobs = %#v", jobs)
+	}
+	completed, err := restarted.Complete("agent-a", "complete", created.ID, json.RawMessage(`{"ok":true}`), "", now.Add(2*time.Second))
+	if err != nil || completed.Status != StatusSucceeded {
+		t.Fatalf("Complete = %#v, %v", completed, err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	store, err = state.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	restarted, err = NewPersistentQueue(nil, store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobs = restarted.Jobs()
+	if len(jobs) != 1 || jobs[0].Status != StatusSucceeded || string(jobs[0].Result) != `{"ok":true}` {
+		t.Fatalf("completed jobs after restart = %#v", jobs)
 	}
 }
