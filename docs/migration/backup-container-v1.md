@@ -36,6 +36,8 @@ tar 的第一项固定为 `manifest.json`。清单包含格式版本、创建时
 
 `backup-audit-restore` 再次把清单中的每个文件与 `<target>/content` 比较，要求全部为 `identical`。对清单中识别出的每个 `.git` 裸仓库，它以参数数组直接调用本机 Git（不经过 shell），执行有超时和输出上限的 `git fsck --full --strict`、`count-objects -v` 和 `show-ref --head -d`，输出对象数、引用数和确定性引用摘要。LFS 对象文件若使用 64 位 OID 作为文件名，则文件名必须等于已经验证的内容 SHA-256。AI Agent 审计还绑定原评估 ID 和容器 SHA-256。任一文件差异、Git 损坏、未分类仓库文件、LFS OID 不一致或 Git 不可用都会令 `ready_for_shadow_mode` 为 false，并使 CLI 以非零状态退出。
 
-线性向导随后用 `takeover.shadow-audit` 重新评估 live 源实例，不写入源或副本。它对 `app.ini` 做原始文件哈希比较（结果不回传哈希或密钥），按资产类型比较文件数与总字节数，并对最多 10,000 个 live bare Git 与恢复副本比较仓库集合及 `show-ref` 确定性摘要；对象数不同但 refs 一致只产生 warning。差异详情限制为 64 条有界记录，完整汇总仍保留。远程数据库没有一致性 dump、SQLite 主文件未进入清单、源配置/资产变化、仓库缺失或 refs 漂移都会阻断影子模式。
+SQLite 导出使用内嵌 online-backup API 读取包含 WAL 在内的一致视图，临时快照通过 `PRAGMA quick_check`、同步到磁盘并设为 `0600` 后，才作为 `data/database-snapshot/gitea.db` 进入加密流；无论成功或失败，临时明文目录都在导出调用结束后删除。它只保证数据库本身的时间点一致性，不能让数据库、Git 仓库和附件在 Gitea 仍可写时形成同一事务，因此最终切换前仍需冻结旧实例。
+
+线性向导随后用 `takeover.shadow-audit` 重新评估 live 源实例，不写入源或副本。它对 `app.ini` 做原始文件哈希比较（结果不回传哈希或密钥），按普通资产类型比较文件数与总字节数，对 SQLite 再做一次 online snapshot 并比较大小与 SHA-256，并对最多 10,000 个 live bare Git 与恢复副本比较仓库集合及 `show-ref` 确定性摘要；对象数不同但 refs 一致只产生 warning。差异详情限制为 64 条有界记录，完整汇总仍保留。远程数据库没有一致性 dump、旧备份没有 SQLite online snapshot、源配置/资产/数据库变化、仓库缺失或 refs 漂移都会阻断影子模式。
 
 下一版本在保持 v1 只读兼容的前提下增加：数据库一致性导出、外部对象存储清单、分卷与断点续传、服务端作业审计、签名清单，以及源实例与隔离副本之间更高层的用户、权限、Issue、PR 和 Actions 差异报告。真正导入仍必须遵循“预览 → 明确确认 → 隔离写入 → 验证 → 可回滚切换”。

@@ -3,6 +3,7 @@
 package backup
 
 import (
+	"database/sql"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,24 +29,36 @@ func TestAuditShadowComparesLiveConfigAssetsAndGitRefs(t *testing.T) {
 	if err := os.Mkdir(repositoriesPath, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	writeTestFile(t, filepath.Join(dataPath, "gitea.db"), "sqlite snapshot")
+	databasePath := filepath.Join(dataPath, "gitea.db")
+	database, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec("CREATE TABLE repository (id INTEGER PRIMARY KEY, name TEXT); INSERT INTO repository(name) VALUES ('game')"); err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
 	repositoryPath := filepath.Join(repositoriesPath, "game.git")
 	runAuditTestGit(t, gitExecutable, "", nil, "init", "--bare", repositoryPath)
 	firstCommit := createShadowTestCommit(t, gitExecutable, repositoryPath, "first")
 	runAuditTestGit(t, gitExecutable, repositoryPath, nil, "update-ref", "refs/heads/main", firstCommit)
 	configPath := filepath.Join(root, "app.ini")
-	writeTestFile(t, configPath, "[server]\nAPP_DATA_PATH = "+filepath.ToSlash(dataPath)+"\n[repository]\nROOT = "+filepath.ToSlash(repositoriesPath)+"\n[database]\nDB_TYPE = sqlite3\nPATH = "+filepath.ToSlash(filepath.Join(dataPath, "gitea.db"))+"\n")
+	writeTestFile(t, configPath, "[server]\nAPP_DATA_PATH = "+filepath.ToSlash(dataPath)+"\n[repository]\nROOT = "+filepath.ToSlash(repositoriesPath)+"\n[database]\nDB_TYPE = sqlite3\nPATH = "+filepath.ToSlash(databasePath)+"\n")
 	options := takeover.Options{AgentID: "shadow-agent", ConfigPath: configPath, WorkPath: root, MaxEntries: 1_000_000}
 	report, err := takeover.Assess(options)
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := BuildPlan(report, time.Now())
+	prepared, err := PreparePlan(report, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer prepared.Close()
 	target := filepath.Join(root, "isolated")
-	verification := materializeShadowTestSnapshot(t, plan, target)
+	verification := materializeShadowTestSnapshot(t, prepared.Plan, target)
 	audit, err := auditShadowVerified(verification, target, options)
 	if err != nil {
 		t.Fatal(err)

@@ -107,13 +107,12 @@ func auditShadowVerified(verification Verification, target string, options takeo
 		audit.addFinding("blocker", "restore.not_ready", restore.Target, "隔离恢复未通过逐文件、Git 或 LFS 完整性审计")
 	}
 	audit.Assets = compareShadowAssets(source.Assets, verification.Manifest)
+	audit.Assets = append(audit.Assets, audit.compareDatabase(source, verification.Manifest))
+	sort.Slice(audit.Assets, func(left, right int) bool { return audit.Assets[left].Kind < audit.Assets[right].Kind })
 	for _, asset := range audit.Assets {
-		if !asset.Matches {
+		if !asset.Matches && asset.Kind != sqliteSnapshotKind {
 			audit.addFinding("blocker", "source.asset_changed", asset.Kind, "源资产清单相对备份快照发生变化")
 		}
-	}
-	if source.Database.Type != "sqlite3" || !manifestHasKind(verification.Manifest, "database") {
-		audit.addFinding("blocker", "database.snapshot_unavailable", source.Database.Type, "当前版本尚未生成远程数据库一致性快照，不能声称影子数据完整")
 	}
 	if err := audit.compareRepositories(source, restore); err != nil {
 		return ShadowAudit{}, err
@@ -207,7 +206,7 @@ func compareShadowAssets(assets []takeover.Asset, manifest Manifest) []ShadowAss
 	}
 	snapshot := make(map[string]aggregate)
 	for _, entry := range manifest.Entries {
-		if entry.Kind == "config" {
+		if entry.Kind == "config" || entry.Kind == sqliteSnapshotKind || entry.Kind == "database" {
 			continue
 		}
 		value := snapshot[entry.Kind]
@@ -218,6 +217,9 @@ func compareShadowAssets(assets []takeover.Asset, manifest Manifest) []ShadowAss
 	comparisons := make([]ShadowAssetComparison, 0, len(assets)+len(snapshot))
 	seen := make(map[string]struct{}, len(assets))
 	for _, asset := range assets {
+		if asset.Kind == "database" {
+			continue
+		}
 		value := snapshot[asset.Kind]
 		comparison := ShadowAssetComparison{
 			Kind: asset.Kind, SourceFiles: asset.Files, SnapshotFiles: value.files,
@@ -238,6 +240,49 @@ func compareShadowAssets(assets []takeover.Asset, manifest Manifest) []ShadowAss
 	}
 	sort.Slice(comparisons, func(left, right int) bool { return comparisons[left].Kind < comparisons[right].Kind })
 	return comparisons
+}
+
+func (audit *ShadowAudit) compareDatabase(source takeover.Report, manifest Manifest) ShadowAssetComparison {
+	comparison := ShadowAssetComparison{Kind: sqliteSnapshotKind}
+	if source.Database.Type != "sqlite3" {
+		audit.addFinding("blocker", "database.snapshot_unavailable", source.Database.Type, "当前版本尚未生成远程数据库一致性快照，不能声称影子数据完整")
+		return comparison
+	}
+	entry, found := manifestEntryByKind(manifest, sqliteSnapshotKind)
+	if !found {
+		audit.addFinding("blocker", "database.snapshot_legacy", "sqlite3", "备份未包含 SQLite 在线一致性快照，需要重新导出")
+		return comparison
+	}
+	comparison.SnapshotFiles = 1
+	comparison.SnapshotBytes = entry.Size
+	database, found := shadowAsset(source.Assets, "database")
+	if !found || !database.Exists || !database.Readable || database.Files != 1 {
+		audit.addFinding("blocker", "database.source_unavailable", "sqlite3", "无法读取源 SQLite 数据库")
+		return comparison
+	}
+	temporaryDirectory, err := os.MkdirTemp("", "gitsss-shadow-sqlite-")
+	if err != nil {
+		audit.addFinding("blocker", "database.snapshot_failed", "sqlite3", "无法创建 SQLite 影子快照")
+		return comparison
+	}
+	defer os.RemoveAll(temporaryDirectory)
+	snapshotPath := filepath.Join(temporaryDirectory, "gitea.db")
+	if err := snapshotSQLite(database.Path, snapshotPath); err != nil {
+		audit.addFinding("blocker", "database.snapshot_failed", "sqlite3", "无法创建 SQLite 影子快照")
+		return comparison
+	}
+	info, digest, err := hashFile(snapshotPath)
+	if err != nil {
+		audit.addFinding("blocker", "database.snapshot_failed", "sqlite3", "无法校验 SQLite 影子快照")
+		return comparison
+	}
+	comparison.SourceFiles = 1
+	comparison.SourceBytes = info.Size()
+	comparison.Matches = info.Size() == entry.Size && digest == entry.SHA256
+	if !comparison.Matches {
+		audit.addFinding("blocker", "database.source_changed", "sqlite3", "源 SQLite 数据库相对备份快照发生变化")
+	}
+	return comparison
 }
 
 func discoverShadowRepositories(root string) ([]string, error) {
@@ -294,13 +339,13 @@ func shadowConfigMatches(configPath string, manifest Manifest) bool {
 	return false
 }
 
-func manifestHasKind(manifest Manifest, kind string) bool {
+func manifestEntryByKind(manifest Manifest, kind string) (Entry, bool) {
 	for _, entry := range manifest.Entries {
 		if entry.Kind == kind {
-			return true
+			return entry, true
 		}
 	}
-	return false
+	return Entry{}, false
 }
 
 func shadowAsset(assets []takeover.Asset, kind string) (takeover.Asset, bool) {

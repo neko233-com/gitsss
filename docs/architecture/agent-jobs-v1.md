@@ -29,7 +29,9 @@ v1 白名单仅包含 `takeover.assess`、`backup.export`、`backup.restore-isol
 
 `backup.audit-restore` 继承同一评估 ID、容器 SHA-256 和隔离目标，任务本身只读。成功回传只表示恢复内容审计已执行；只有逐文件清单全部一致、所有 Git 仓库严格校验通过且 LFS OID 无异常时，线性向导才允许下发 `takeover.shadow-audit`。
 
-`takeover.shadow-audit` 再次读取 live `app.ini`、资产清单和 bare Git refs，并与已确认容器及隔离恢复逐项比较。返回内容分离配置、恢复、资产、仓库汇总、最多 64 条有界仓库差异和结构化 blocker/warning；完整差异计数始终保留。只有配置原始文件未变化、恢复审计通过、资产文件数/字节数未漂移、源/恢复仓库集合及 refs 指纹完全一致、且 SQLite 主数据库已进入备份清单时，`ready_for_shadow_mode` 才为 true。MySQL、PostgreSQL、MSSQL 在一致性 dump 适配器完成前必须返回 `database.snapshot_unavailable` blocker。
+`backup.export` 对 SQLite 不再复制可能遗漏 WAL 的主文件，而是用内嵌 SQLite online-backup API 生成权限为 `0600` 的临时一致性快照，通过 `quick_check` 后才把 `database-snapshot` 写入加密容器；临时目录在导出结束后删除。该数据库快照与其余 Gitea 文件在停服前仍不是跨资源原子快照，因此最终切换必须保留冻结窗口。
+
+`takeover.shadow-audit` 再次读取 live `app.ini`、资产清单和 bare Git refs，并与已确认容器及隔离恢复逐项比较。SQLite 会再次执行 online backup，并把快照大小与 SHA-256 和容器清单比较；旧式直接复制数据库的备份会被要求重新导出。返回内容分离配置、恢复、资产、仓库汇总、最多 64 条有界仓库差异和结构化 blocker/warning；完整差异计数始终保留。只有配置原始文件未变化、恢复审计通过、普通资产文件数/字节数未漂移、SQLite 快照未变化、源/恢复仓库集合及 refs 指纹完全一致时，`ready_for_shadow_mode` 才为 true。MySQL、PostgreSQL、MSSQL 在一致性 dump 适配器完成前必须返回 `database.snapshot_unavailable` blocker。
 
 ## HTTP 接口
 

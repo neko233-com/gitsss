@@ -172,11 +172,11 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 		if input.ExpectedAssessmentID == "" || report.ID != input.ExpectedAssessmentID {
 			return nil, errors.New("backup confirmation does not match the current assessment")
 		}
-		plan, err := backup.BuildPlan(report, time.Now())
+		prepared, err := backup.PreparePlan(report, time.Now())
 		if err != nil {
 			return nil, err
 		}
-		if err := backup.Export(input.OutputPath, os.Getenv(input.PassphraseEnv), plan); err != nil {
+		if err := backup.ExportPrepared(input.OutputPath, os.Getenv(input.PassphraseEnv), prepared); err != nil {
 			return nil, err
 		}
 		containerBytes, containerDigest, err := hashAgentFile(input.OutputPath)
@@ -184,10 +184,10 @@ func executeAgentJob(job agentjob.Job, agentID string) (json.RawMessage, error) 
 			return nil, err
 		}
 		result := agentjob.BackupExportResult{
-			AssessmentID: report.ID, OutputPath: input.OutputPath, Files: len(plan.Manifest.Entries),
+			AssessmentID: report.ID, OutputPath: input.OutputPath, Files: len(prepared.Manifest.Entries),
 			ContainerBytes: containerBytes, ContainerSHA256: containerDigest,
 		}
-		for _, entry := range plan.Manifest.Entries {
+		for _, entry := range prepared.Manifest.Entries {
 			result.SourceBytes += entry.Size
 		}
 		return json.Marshal(result)
@@ -530,20 +530,20 @@ func backupExport(args []string) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	plan, err := backup.BuildPlan(report, time.Now())
+	prepared, err := backup.PreparePlan(report, time.Now())
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if err := backup.Export(*outputPath, passphrase, plan); err != nil {
+	if err := backup.ExportPrepared(*outputPath, passphrase, prepared); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	var bytes int64
-	for _, entry := range plan.Manifest.Entries {
+	for _, entry := range prepared.Manifest.Entries {
 		bytes += entry.Size
 	}
-	fmt.Printf("backup exported: %s (%d files, %d bytes, assessment %s)\n", *outputPath, len(plan.Manifest.Entries), bytes, report.ID)
+	fmt.Printf("backup exported: %s (%d files, %d bytes, assessment %s)\n", *outputPath, len(prepared.Manifest.Entries), bytes, report.ID)
 }
 
 func backupVerify(args []string) {
