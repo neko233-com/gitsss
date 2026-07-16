@@ -4,9 +4,14 @@
 package webtheme
 
 import (
+	"path/filepath"
 	"testing"
 
+	"github.com/neko233-com/gitsss/modules/setting"
+	"github.com/neko233-com/gitsss/modules/test"
+
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseThemeMetaInfo(t *testing.T) {
@@ -40,4 +45,17 @@ gitea-theme-meta-info {
 	assert.Equal(t, map[string]string{"--k1": "v1"}, m)
 	m = parseThemeMetaInfoToMap(`gitea-theme-meta-info{--k1:"v1";--k2:"v2"}`)
 	assert.Equal(t, map[string]string{"--k1": "v1", "--k2": "v2"}, m)
+}
+
+func TestLoadGitSSSThemeFromAssets(t *testing.T) {
+	staticRootPath, err := filepath.Abs("../..")
+	require.NoError(t, err)
+	defer test.MockVariableValue(&setting.StaticRootPath, staticRootPath)()
+
+	themeList, themeMap := loadThemesFromAssets(false)
+
+	assert.NotEmpty(t, themeList)
+	theme, ok := themeMap["gitsss-light"]
+	require.True(t, ok)
+	assert.Equal(t, "gitsss-light", theme.InternalName)
 }
