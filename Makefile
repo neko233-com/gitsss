@@ -133,7 +133,7 @@ TAGS_EVIDENCE := $(MAKE_EVIDENCE_DIR)/tags
 
 TEST_TAGS ?= $(TAGS_SPLIT) sqlite sqlite_unlock_notify
 
-TAR_EXCLUDES := .git data indexers queues log node_modules $(EXECUTABLE) $(DIST) $(MAKE_EVIDENCE_DIR) $(AIR_TMP_DIR)
+TAR_EXCLUDES := .git data indexers queues log node_modules .pnpm-store $(EXECUTABLE) $(DIST) $(MAKE_EVIDENCE_DIR) $(AIR_TMP_DIR)
 
 GO_DIRS := build cmd models modules routers services tests tools
 WEB_DIRS := web_src/js web_src/css
