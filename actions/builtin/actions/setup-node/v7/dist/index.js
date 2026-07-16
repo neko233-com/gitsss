@@ -1,6 +1,3 @@
-// Copyright 2026 The gitsss Authors. All rights reserved.
-// SPDX-License-Identifier: MIT
-
 'use strict';
 
 const childProcess = require('node:child_process');
