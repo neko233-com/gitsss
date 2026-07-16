@@ -14,10 +14,13 @@ func volumeStats(path string) (VolumeStats, error) {
 	if err := unix.Statfs(path, &stats); err != nil {
 		return VolumeStats{}, err
 	}
+	if stats.Bsize <= 0 || stats.Blocks < 0 || stats.Bavail < 0 {
+		return VolumeStats{}, errors.New("invalid volume statistics")
+	}
 	blockSize := uint64(stats.Bsize)
-	blocks := stats.Blocks
-	availableBlocks := stats.Bavail
-	if blockSize == 0 || blocks > math.MaxInt64/blockSize || availableBlocks > math.MaxInt64/blockSize {
+	blocks := uint64(stats.Blocks)
+	availableBlocks := uint64(stats.Bavail)
+	if blocks > math.MaxInt64/blockSize || availableBlocks > math.MaxInt64/blockSize {
 		return VolumeStats{}, errors.New("volume statistics overflow")
 	}
 	return VolumeStats{
