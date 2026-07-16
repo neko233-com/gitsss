@@ -73,7 +73,9 @@ Date: 2026-07-16
 
 - All gitsss test containers, volumes, networks, source images, gate images,
   and the temporary arm64 tag were removed.
-- The only retained gitsss image tag is `gitsss/gitsss:dev`.
+- Production installation defaults to the single image repository
+  `gitsss/gitsss:latest`; formal releases also carry their immutable version
+  tag in the same repository.
 - Mac mini M4 offline transfer, startup, migration rehearsal, cutover, backup,
   and rollback commands are documented under `docs/operations/`.
 

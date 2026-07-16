@@ -4,7 +4,7 @@ param(
     [int]$Port = 3000,
     [string]$RootUrl = "",
     [string]$JobInstanceUrl = "",
-    [string]$Image = "gitsss/gitsss:dev",
+    [string]$Image = "gitsss/gitsss:latest",
     [string]$ImageArchive = "",
     [string]$DataVolume = "gitsss-data",
     [string]$InstallDir = (Join-Path (Get-Location) "gitsss-install"),
