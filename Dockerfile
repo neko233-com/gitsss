@@ -1,7 +1,8 @@
 # Build frontend on the native platform to avoid QEMU-related issues with nodejs ecosystem.
 FROM --platform=$BUILDPLATFORM docker.io/library/node:24-bookworm-slim AS frontend-build
 ARG NPM_REGISTRY=https://registry.npmjs.org
-RUN apt-get update && apt-get install -y --no-install-recommends git make && \
+RUN apt-get -o Acquire::Retries=5 update && \
+    apt-get -o Acquire::Retries=5 install -y --no-install-recommends git make && \
     corepack enable && \
     COREPACK_NPM_REGISTRY="$NPM_REGISTRY" corepack prepare pnpm@10.33.0 --activate && \
     rm -rf /var/lib/apt/lists/*
@@ -24,12 +25,13 @@ FROM docker.io/library/golang:1.26-bookworm AS build-env
 
 ARG GITSSS_VERSION=development
 ARG TAGS="sqlite sqlite_unlock_notify"
-ARG GOPROXY=https://proxy.golang.org,direct
+ARG GOPROXY=https://goproxy.cn|https://proxy.golang.org|direct
 ENV TAGS="bindata timetzdata $TAGS"
 ARG CGO_EXTRA_CFLAGS
 
 # Build deps
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential git && \
+RUN apt-get -o Acquire::Retries=5 update && \
+    apt-get -o Acquire::Retries=5 install -y --no-install-recommends build-essential git && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR ${GOPATH}/src/github.com/neko233-com/gitsss
@@ -38,8 +40,8 @@ COPY packages/actions-proto-go/go.mod packages/actions-proto-go/go.sum ./package
 COPY packages/migration-sdk/go.mod packages/migration-sdk/go.sum ./packages/migration-sdk/
 COPY tools/gitsss-vet/go.mod tools/gitsss-vet/go.sum ./tools/gitsss-vet/
 COPY runner/go.mod runner/go.sum ./runner/
-RUN go mod download
-RUN cd runner && go mod download
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+RUN --mount=type=cache,target=/go/pkg/mod cd runner && go mod download
 # Use COPY instead of bind mount as read-only one breaks makefile state tracking and read-write one needs binary to be moved as it's discarded.
 # ".git" directory is mounted separately later only for version data extraction.
 COPY --exclude=.git/ . .
@@ -85,7 +87,8 @@ RUN mirror="$UBUNTU_MIRROR" && \
         -e "s|http://ports.ubuntu.com/ubuntu-ports/|${mirror%/}/|g" \
         /etc/apt/sources.list.d/ubuntu.sources; \
     fi && \
-    apt-get update && apt-get install -y --no-install-recommends \
+    apt-get -o Acquire::Retries=5 update && \
+    apt-get -o Acquire::Retries=5 install -y --no-install-recommends \
     build-essential \
     ca-certificates \
     curl \
