@@ -7,5 +7,48 @@ Compatibility code reads existing Gitea configuration and data formats solely
 to support administrator-controlled migration. gitsss is not affiliated with
 or endorsed by the Gitea project.
 
+Platform baseline: Gitea v1.26.2, commit
+2c749ce548b1da0a52835861a87b888e67842d29. The source was copied into this
+repository and is maintained under the gitsss module; it is not consumed as a
+Gitea application library. Upstream automation directories were not imported.
+
+Actions runner baseline: Gitea Runner v1.0.0, commit
+594c9ade7cccf7be6cd0f1cd18ae8d28bba878c2. Its MIT-licensed source and
+license are retained under runner/ and maintained as the independent
+github.com/neko233-com/gitsss/runner module. The runner is an internal gitsss
+service and is not published as a compatibility command.
+The server workflow parser reuses this same repository-local act source; no
+external Gitea act module or duplicate execution core is linked.
+
+Actions protocol baseline: actions-proto-go v0.4.1. Its generated Connect and
+Protocol Buffers source and MIT license are retained under
+packages/actions-proto-go and maintained as the independent
+github.com/neko233-com/gitsss/packages/actions-proto-go module.
+
+Migration API baseline: Gitea SDK v0.24.1. Its MIT-licensed source is retained
+under packages/migration-sdk and maintained as the independent
+github.com/neko233-com/gitsss/packages/migration-sdk module. It is used only to
+read administrator-selected Gitea migration sources.
+
+Static analysis baseline: gitea-vet v0.2.3. Its MIT-licensed source is retained
+under tools/gitsss-vet, adapted to gitsss module boundaries, and maintained as
+github.com/neko233-com/gitsss/tools/gitsss-vet.
+
+The single-image Actions bundle includes actions/checkout v4.3.1 at commit
+34e114876b0b11c390a56381ad16ebd13914f8d5. Its MIT license and published
+runtime files are retained under actions/builtin/actions/checkout/v4.
+
+The bundle also includes gitsss-owned MIT compatibility actions for
+`actions/setup-node` v4-v7 and `actions/setup-go` v4-v6. They select the
+Node.js 24 and Go 1.26 toolchains embedded in the image, fail closed for
+unavailable versions, and never download toolchains at workflow runtime.
+
+The bundle retains the published MIT runtime files for actions/cache v6 at
+commit 55cc8345863c7cc4c66a329aec7e433d2d1c52a9,
+actions/upload-artifact v7 at commit
+043fb46d1a93c77aae656e7c1c64a875d1fc6a0a, and actions/download-artifact v8
+at commit 3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c. Supported older major
+references are served by these immutable Node.js 24 copies.
+
 The retained upstream copyright notices in LICENSE are legal attribution only
 and are not product branding.

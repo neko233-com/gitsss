@@ -1,0 +1,58 @@
+#!/bin/bash
+
+if [ ! -d /data/git/.ssh ]; then
+    mkdir -p /data/git/.ssh
+fi
+
+# SSH rejects keys with loose permissions.
+chmod 700 /data/git/.ssh
+if [ -f /data/git/.ssh/authorized_keys ]; then
+    chmod 600 /data/git/.ssh/authorized_keys
+fi
+
+if [ ! -f /data/git/.ssh/environment ]; then
+    printf 'GITSSS_CUSTOM=%s\nGITEA_CUSTOM=%s\n' "$GITSSS_CUSTOM" "$GITEA_CUSTOM" >| /data/git/.ssh/environment
+    chmod 600 /data/git/.ssh/environment
+fi
+
+if [ ! -f ${GITSSS_CUSTOM}/conf/app.ini ]; then
+    mkdir -p ${GITSSS_CUSTOM}/conf
+
+    if [ -n "$SECRET_KEY" ] && [ -z "$INSTALL_LOCK" ]; then
+        INSTALL_LOCK=true
+    fi
+
+    APP_NAME=${APP_NAME:-"gitsss"} \
+    RUN_MODE=${RUN_MODE:-"prod"} \
+    DOMAIN=${DOMAIN:-"localhost"} \
+    SSH_DOMAIN=${SSH_DOMAIN:-"localhost"} \
+    HTTP_PORT=${HTTP_PORT:-"3000"} \
+    ROOT_URL=${ROOT_URL:-""} \
+    DISABLE_SSH=${DISABLE_SSH:-"false"} \
+    SSH_PORT=${SSH_PORT:-"22"} \
+    SSH_LISTEN_PORT=${SSH_LISTEN_PORT:-"${SSH_PORT}"} \
+    LFS_START_SERVER=${LFS_START_SERVER:-"false"} \
+    DB_TYPE=${DB_TYPE:-"sqlite3"} \
+    DB_HOST=${DB_HOST:-"localhost:3306"} \
+    DB_NAME=${DB_NAME:-"gitsss"} \
+    DB_USER=${DB_USER:-"root"} \
+    DB_PASSWD=${DB_PASSWD:-""} \
+    INSTALL_LOCK=${INSTALL_LOCK:-"true"} \
+    DISABLE_REGISTRATION=${DISABLE_REGISTRATION:-"false"} \
+    REQUIRE_SIGNIN_VIEW=${REQUIRE_SIGNIN_VIEW:-"false"} \
+    SECRET_KEY=${SECRET_KEY:-""} \
+    GITSSS_DATA_ROOT=${GITSSS_CUSTOM} \
+    envsubst < /etc/templates/app.ini > ${GITSSS_CUSTOM}/conf/app.ini
+
+    chown ${USER}:git ${GITSSS_CUSTOM}/conf/app.ini
+fi
+
+# GITSSS__ is primary; GITEA__ remains data-migration compatibility only.
+environment-to-ini --config ${GITSSS_CUSTOM}/conf/app.ini
+
+for folder in "${GITSSS_CUSTOM}" /app/gitsss /data/git; do
+    if ! [[ $(ls -ld "$folder" | awk '{print $3}') = ${USER} ]]; then
+        chown -R ${USER}:git "$folder"
+    fi
+done
+chmod 0755 "${GITSSS_CUSTOM}" /app/gitsss /data/git

@@ -1,0 +1,16 @@
+// Copyright 2026 The Gitea Authors. All rights reserved.
+// SPDX-License-Identifier: MIT
+
+package repo
+
+import (
+	"context"
+
+	"github.com/neko233-com/gitsss/models/unit"
+	"github.com/neko233-com/gitsss/modules/util"
+)
+
+func (repo *Repository) GetPullRequestTargetBranch(ctx context.Context) string {
+	unitPRConfig := repo.MustGetUnit(ctx, unit.TypePullRequests).PullRequestsConfig()
+	return util.IfZero(unitPRConfig.DefaultTargetBranch, repo.DefaultBranch)
+}

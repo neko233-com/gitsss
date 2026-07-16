@@ -1,0 +1,222 @@
+// Copyright 2019 The Gitea Authors. All rights reserved.
+// Copyright 2018 Jonas Franz. All rights reserved.
+// SPDX-License-Identifier: MIT
+
+package migrations
+
+import (
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/neko233-com/gitsss/models/db"
+	issues_model "github.com/neko233-com/gitsss/models/issues"
+	repo_model "github.com/neko233-com/gitsss/models/repo"
+	"github.com/neko233-com/gitsss/models/unittest"
+	user_model "github.com/neko233-com/gitsss/models/user"
+	"github.com/neko233-com/gitsss/modules/graceful"
+	base "github.com/neko233-com/gitsss/modules/migration"
+	"github.com/neko233-com/gitsss/modules/optional"
+	"github.com/neko233-com/gitsss/modules/structs"
+	repo_service "github.com/neko233-com/gitsss/services/repository"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestGiteaUploadRepo(t *testing.T) {
+	// FIXME: Since no accesskey or user/password will trigger rate limit of github, just skip
+	t.Skip()
+
+	unittest.PrepareTestEnv(t)
+
+	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
+
+	var (
+		ctx        = t.Context()
+		downloader = NewGithubDownloaderV3(ctx, "https://github.com", "", "", "", "go-xorm", "builder")
+		repoName   = "builder-" + time.Now().Format("2006-01-02-15-04-05")
+		uploader   = NewGiteaLocalUploader(graceful.GetManager().HammerContext(), user, user.Name, repoName)
+	)
+
+	err := migrateRepository(t.Context(), user, downloader, uploader, base.MigrateOptions{
+		CloneAddr:    "https://github.com/go-xorm/builder",
+		RepoName:     repoName,
+		AuthUsername: "",
+
+		Wiki:         true,
+		Issues:       true,
+		Milestones:   true,
+		Labels:       true,
+		Releases:     true,
+		Comments:     true,
+		PullRequests: true,
+		Private:      true,
+		Mirror:       false,
+	}, nil)
+	assert.NoError(t, err)
+
+	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{OwnerID: user.ID, Name: repoName})
+	assert.True(t, repo_service.HasWiki(ctx, repo))
+	assert.Equal(t, repo_model.RepositoryReady, repo.Status)
+
+	milestones, err := db.Find[issues_model.Milestone](t.Context(), issues_model.FindMilestoneOptions{
+		RepoID:   repo.ID,
+		IsClosed: optional.Some(false),
+	})
+	assert.NoError(t, err)
+	assert.Len(t, milestones, 1)
+
+	milestones, err = db.Find[issues_model.Milestone](t.Context(), issues_model.FindMilestoneOptions{
+		RepoID:   repo.ID,
+		IsClosed: optional.Some(true),
+	})
+	assert.NoError(t, err)
+	assert.Empty(t, milestones)
+
+	labels, err := issues_model.GetLabelsByRepoID(ctx, repo.ID, "", db.ListOptions{})
+	assert.NoError(t, err)
+	assert.Len(t, labels, 12)
+
+	releases, err := db.Find[repo_model.Release](t.Context(), repo_model.FindReleasesOptions{
+		ListOptions: db.ListOptions{
+			PageSize: 10,
+			Page:     0,
+		},
+		IncludeTags: true,
+		RepoID:      repo.ID,
+	})
+	assert.NoError(t, err)
+	assert.Len(t, releases, 8)
+
+	releases, err = db.Find[repo_model.Release](t.Context(), repo_model.FindReleasesOptions{
+		ListOptions: db.ListOptions{
+			PageSize: 10,
+			Page:     0,
+		},
+		IncludeTags: false,
+		RepoID:      repo.ID,
+	})
+	assert.NoError(t, err)
+	assert.Len(t, releases, 1)
+
+	issues, err := issues_model.Issues(t.Context(), &issues_model.IssuesOptions{
+		RepoIDs:  []int64{repo.ID},
+		IsPull:   optional.Some(false),
+		SortType: "oldest",
+	})
+	assert.NoError(t, err)
+	assert.Len(t, issues, 15)
+	assert.NoError(t, issues[0].LoadDiscussComments(t.Context()))
+	assert.Empty(t, issues[0].Comments)
+
+	pulls, _, err := issues_model.PullRequests(t.Context(), repo.ID, &issues_model.PullRequestsOptions{
+		SortType: "oldest",
+	})
+	assert.NoError(t, err)
+	assert.Len(t, pulls, 30)
+	assert.NoError(t, pulls[0].LoadIssue(t.Context()))
+	assert.NoError(t, pulls[0].Issue.LoadDiscussComments(t.Context()))
+	assert.Len(t, pulls[0].Issue.Comments, 2)
+}
+
+func TestGiteaUploadRemapLocalUser(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	doer := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
+	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+
+	ctx := t.Context()
+	repoName := "migrated"
+	uploader := NewGiteaLocalUploader(ctx, doer, doer.Name, repoName)
+	// call remapLocalUser
+	uploader.sameApp = true
+
+	externalID := int64(1234567)
+	externalName := "username"
+	source := base.Release{
+		PublisherID:   externalID,
+		PublisherName: externalName,
+	}
+
+	//
+	// The externalID does not match any existing user, everything
+	// belongs to the doer
+	//
+	target := repo_model.Release{}
+	uploader.userMap = make(map[int64]int64)
+	err := uploader.remapUser(ctx, &source, &target)
+	assert.NoError(t, err)
+	assert.Equal(t, doer.ID, target.GetUserID())
+
+	//
+	// The externalID matches a known user but the name does not match,
+	// everything belongs to the doer
+	//
+	source.PublisherID = user.ID
+	target = repo_model.Release{}
+	uploader.userMap = make(map[int64]int64)
+	err = uploader.remapUser(ctx, &source, &target)
+	assert.NoError(t, err)
+	assert.Equal(t, doer.ID, target.GetUserID())
+
+	//
+	// The externalID and externalName match an existing user, everything
+	// belongs to the existing user
+	//
+	source.PublisherName = user.Name
+	target = repo_model.Release{}
+	uploader.userMap = make(map[int64]int64)
+	err = uploader.remapUser(ctx, &source, &target)
+	assert.NoError(t, err)
+	assert.Equal(t, user.ID, target.GetUserID())
+}
+
+func TestGiteaUploadRemapExternalUser(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	doer := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
+	ctx := t.Context()
+	repoName := "migrated"
+	uploader := NewGiteaLocalUploader(ctx, doer, doer.Name, repoName)
+	uploader.gitServiceType = structs.GiteaService
+	// call remapExternalUser
+	uploader.sameApp = false
+
+	externalID := int64(1234567)
+	externalName := "username"
+	source := base.Release{
+		PublisherID:   externalID,
+		PublisherName: externalName,
+	}
+
+	//
+	// When there is no user linked to the external ID, the migrated data is authored
+	// by the doer
+	//
+	uploader.userMap = make(map[int64]int64)
+	target := repo_model.Release{}
+	err := uploader.remapUser(ctx, &source, &target)
+	assert.NoError(t, err)
+	assert.Equal(t, doer.ID, target.GetUserID())
+
+	//
+	// Link the external ID to an existing user
+	//
+	linkedUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+	externalLoginUser := &user_model.ExternalLoginUser{
+		ExternalID:    strconv.FormatInt(externalID, 10),
+		UserID:        linkedUser.ID,
+		LoginSourceID: 0,
+		Provider:      structs.GiteaService.Name(),
+	}
+	err = user_model.LinkExternalToUser(t.Context(), linkedUser, externalLoginUser)
+	assert.NoError(t, err)
+
+	//
+	// When a user is linked to the external ID, it becomes the author of
+	// the migrated data
+	//
+	uploader.userMap = make(map[int64]int64)
+	target = repo_model.Release{}
+	err = uploader.remapUser(ctx, &source, &target)
+	assert.NoError(t, err)
+	assert.Equal(t, linkedUser.ID, target.GetUserID())
+}

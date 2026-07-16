@@ -1,0 +1,69 @@
+#!/bin/bash
+set -eu
+
+case "${GITSSS_BUILTIN_RUNNER_ENABLED:-true}" in
+    0|false|FALSE|no|NO)
+        echo "gitsss built-in Actions runner disabled"
+        exec sleep infinity
+        ;;
+esac
+
+runner_data="${GITSSS_CUSTOM}/actions"
+runner_state=${runner_data}/.runner
+runner_config=${runner_data}/runner.yaml
+runner_bin=/app/gitsss/internal/runner
+
+mkdir -p "${runner_data}/cache" "${runner_data}/work"
+if [ ! -S /var/run/docker.sock ]; then
+    echo "gitsss Actions requires /var/run/docker.sock"
+    exec sleep infinity
+fi
+
+# A machine or runner restart can interrupt cleanup after Docker created a job
+# container. Remove only gitsss-owned task resources before accepting new work.
+for container_id in $(docker ps -aq --filter "name=^/GITEA-ACTIONS-TASK-"); do
+    docker rm -f "${container_id}" >/dev/null
+done
+for network_name in $(docker network ls --format '{{.Name}}' --filter "name=^GITEA-ACTIONS-TASK-"); do
+    if [ "$(docker network inspect "${network_name}" --format '{{len .Containers}}')" = "0" ]; then
+        docker network rm "${network_name}" >/dev/null
+    fi
+done
+for volume_name in $(docker volume ls --format '{{.Name}}' --filter "name=^GITEA-ACTIONS-TASK-"); do
+    docker volume rm "${volume_name}" >/dev/null
+done
+
+docker_gid="$(stat -c '%g' /var/run/docker.sock)"
+docker_group="$(getent group "${docker_gid}" | cut -d: -f1 || true)"
+if [ -z "${docker_group}" ]; then
+    docker_group=gitsss-docker
+    groupadd --gid "${docker_gid}" "${docker_group}"
+fi
+usermod -aG "${docker_group}" "${USER}"
+GITSSS_RUNNER_DATA="${runner_data}" envsubst < /etc/gitsss/runner.yaml > "${runner_config}"
+chown -R "${USER}:git" "${runner_data}"
+
+echo "Waiting for gitsss Actions API..."
+until curl --fail --silent --show-error http://127.0.0.1:3000/api/healthz >/dev/null; do
+    sleep 2
+done
+
+if [ ! -s "${runner_state}" ]; then
+    echo "Waiting for gitsss to initialize the built-in Actions runner..."
+    while [ ! -s "${runner_state}" ]; do
+        if token="$(gosu "${USER}" env HOME=/data/git /usr/local/bin/gitsss actions generate-runner-token 2>/tmp/gitsss-runner-token.log)" && [ -n "${token}" ]; then
+            if gosu "${USER}" env HOME=/data/git "${runner_bin}" --config "${runner_config}" register \
+                --instance http://127.0.0.1:3000 \
+                --token "${token}" \
+                --name gitsss-builtin \
+                --no-interactive; then
+                break
+            fi
+        fi
+        unset token
+        sleep 3
+    done
+fi
+
+unset token
+exec gosu "${USER}" env HOME=/data/git "${runner_bin}" --config "${runner_config}" daemon

@@ -1,0 +1,32 @@
+name: publish-express233
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify isolated Docker
+        run: |
+          docker version
+          test "$(docker image ls -q | wc -l)" -eq 0
+      - name: Build release image
+        run: docker build -t publish-express233-test:${{ github.run_number }} .
+      - name: Verify release image
+        run: |
+          test "$(docker image inspect --format '{{index .Config.Labels "com.gitsss.publish"}}' publish-express233-test:${{ github.run_number }})" = "ok"
+          container_id="$(docker create --entrypoint /publish-message publish-express233-test:${{ github.run_number }})"
+          docker cp "${container_id}:/publish-message" /tmp/publish-message
+          docker rm "${container_id}"
+          test "$(cat /tmp/publish-message)" = "gitsss publish ok"
+          mkdir -p dist
+          printf 'run=%s\nsha=%s\n' "${{ github.run_number }}" "${{ github.sha }}" > dist/publish.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: publish-express233
+          path: dist/publish.txt

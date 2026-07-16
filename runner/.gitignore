@@ -1,0 +1,13 @@
+/gitea-runner
+.env
+.runner
+coverage.txt
+/config.yaml
+
+# Jetbrains
+.idea
+# MS VSCode
+.vscode
+__debug_bin
+# gorelease binary folder
+dist
