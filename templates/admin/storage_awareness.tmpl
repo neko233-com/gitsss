@@ -1,0 +1,53 @@
+{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin storage-awareness")}}
+<div class="admin-setting-content">
+	<h4 class="ui top attached header">{{ctx.Locale.Tr "admin.storage_awareness.title"}}</h4>
+	<div class="ui attached segment">
+		{{$snapshot := .StorageSnapshot}}
+		<div class="ui four statistics">
+			<div class="statistic"><div class="value">{{FileSize $snapshot.CapacityBytes}}</div><div class="label">{{ctx.Locale.Tr "admin.storage_awareness.capacity"}}</div></div>
+			<div class="statistic"><div class="value">{{FileSize $snapshot.UsedBytes}}</div><div class="label">{{ctx.Locale.Tr "admin.storage_awareness.used"}}</div></div>
+			<div class="statistic"><div class="value">{{FileSize $snapshot.AvailableBytes}}</div><div class="label">{{ctx.Locale.Tr "admin.storage_awareness.available"}}</div></div>
+			<div class="statistic"><div class="value">{{FileSize $snapshot.ReservedBytes}}</div><div class="label">{{ctx.Locale.Tr "admin.storage_awareness.reserve"}}</div></div>
+		</div>
+		{{if $snapshot.WriteProtected}}
+			<div class="ui negative message">{{ctx.Locale.Tr "admin.storage_awareness.protected"}}</div>
+		{{else if $snapshot.Warning}}
+			<div class="ui warning message">{{ctx.Locale.Tr "admin.storage_awareness.warning"}}</div>
+		{{else}}
+			<div class="ui positive message">{{ctx.Locale.Tr "admin.storage_awareness.healthy"}}</div>
+		{{end}}
+	</div>
+	<h4 class="ui top attached header">{{ctx.Locale.Tr "admin.storage_awareness.inventory"}}</h4>
+	<table class="ui attached table">
+		<thead><tr><th>{{ctx.Locale.Tr "admin.storage_awareness.category"}}</th><th>{{ctx.Locale.Tr "admin.storage_awareness.files"}}</th><th>{{ctx.Locale.Tr "admin.storage_awareness.bytes"}}</th></tr></thead>
+		<tbody>{{range .StorageSnapshot.Usage}}<tr><td>{{.Category}}</td><td>{{.Files}}</td><td>{{FileSize .Bytes}}</td></tr>{{end}}</tbody>
+	</table>
+	<h4 class="ui top attached header">{{ctx.Locale.Tr "admin.storage_awareness.repositories"}}</h4>
+	<table class="ui attached table">
+		<thead><tr><th>{{ctx.Locale.Tr "admin.storage_awareness.repository"}}</th><th>Git</th><th>LFS</th><th>{{ctx.Locale.Tr "admin.storage_awareness.bytes"}}</th></tr></thead>
+		<tbody>{{range .RepositoryUsages}}<tr><td><a href="{{AppSubUrl}}/{{.FullName}}">{{.FullName}}</a></td><td>{{FileSize .GitBytes}}</td><td>{{FileSize .LFSBytes}}</td><td>{{FileSize .TotalBytes}}</td></tr>{{end}}</tbody>
+	</table>
+	<h4 class="ui top attached header">{{ctx.Locale.Tr "admin.storage_awareness.garbage"}}</h4>
+	<div class="ui attached segment">
+		<p>{{ctx.Locale.Tr "admin.storage_awareness.garbage_help"}}</p>
+		<form method="post" action="{{AppSubUrl}}/-/admin/storage/scan">
+			<button class="ui primary button" type="submit">{{ctx.Locale.Tr "admin.storage_awareness.scan"}}</button>
+		</form>
+	</div>
+	{{if .GarbageReport.Token}}
+		<table class="ui attached table">
+			<thead><tr><th>{{ctx.Locale.Tr "admin.storage_awareness.category"}}</th><th>{{ctx.Locale.Tr "admin.storage_awareness.path"}}</th><th>{{ctx.Locale.Tr "admin.storage_awareness.files"}}</th><th>{{ctx.Locale.Tr "admin.storage_awareness.bytes"}}</th></tr></thead>
+			<tbody>{{range .GarbageReport.Candidates}}<tr><td>{{.Kind}}</td><td><code>{{.Path}}</code></td><td>{{.Files}}</td><td>{{FileSize .Bytes}}</td></tr>{{else}}<tr><td colspan="4">{{ctx.Locale.Tr "admin.storage_awareness.no_garbage"}}</td></tr>{{end}}</tbody>
+		</table>
+		{{if .GarbageReport.Candidates}}
+			<div class="ui attached segment">
+				<form method="post" action="{{AppSubUrl}}/-/admin/storage/clean">
+					<input type="hidden" name="scan_token" value="{{.GarbageReport.Token}}">
+					<div class="ui checkbox"><input type="checkbox" name="confirm" value="yes" id="confirm-storage-clean"><label for="confirm-storage-clean">{{ctx.Locale.Tr "admin.storage_awareness.confirm"}}</label></div>
+					<button class="ui negative button tw-ml-2" type="submit">{{ctx.Locale.Tr "admin.storage_awareness.clean"}}</button>
+				</form>
+			</div>
+		{{end}}
+	{{end}}
+</div>
+{{template "admin/layout_footer" .}}

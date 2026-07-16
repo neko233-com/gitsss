@@ -1,0 +1,59 @@
+# Offline production policy
+
+gitsss starts and serves repositories without contacting an external update,
+runner, or Action service.
+
+## Update manifests
+
+The inherited external Gitea update endpoint is removed. The update checker is
+disabled by default and its endpoint is empty, including when gitsss takes over
+a Gitea configuration that enabled the old checker without declaring an
+endpoint.
+
+An administrator may explicitly point the checker at a company-controlled
+manifest server:
+
+```ini
+[cron.update_checker]
+ENABLED = true
+HTTP_ENDPOINT = http://updates.intranet.example/gitsss/version.json
+```
+
+Requests have a 10-second timeout, reject non-success responses, limit the
+manifest to 1 MiB, and require `latest.version`. Leaving `HTTP_ENDPOINT` empty
+performs no network request even if the task is enabled.
+
+## Actions
+
+The embedded runner resolves the supported Actions from the image. Unknown
+remote Actions fail closed. Node.js, Go, npm, pnpm, checkout, cache, and artifact
+runtimes are shipped in the same Ubuntu 24.04 image. Git LFS is also installed
+for HTTP migration and normal repository use. Server startup and supported
+workflow execution do not require an external package or Action registry.
+
+Image builds accept `NPM_REGISTRY`, `GOPROXY`, `UBUNTU_MIRROR`, and
+`UBUNTU_PORTS_MIRROR` build arguments. Point them at company-controlled mirrors
+when release builders cannot access public registries. `UBUNTU_MIRROR` serves
+amd64 packages and `UBUNTU_PORTS_MIRROR` serves arm64 packages. These settings
+affect build dependency acquisition only; they are not configured in runtime.
+
+The built-in runner uses the host Docker socket only to create job containers.
+The socket is not mounted into jobs. Each job starts a private Docker daemon,
+so repositories do not share Docker images, containers, networks, or volumes.
+The runner removes interrupted `GITEA-ACTIONS-TASK-*` resources on startup.
+
+Storage awareness is available at `/-/admin/storage`. It reports volume
+health, classified storage, and Git/LFS bytes per repository. Manual cleanup
+uses a short-lived scan token and explicit confirmation. It only deletes
+expired entries below managed temp, Actions work, and Actions cache roots.
+Repositories, LFS objects, databases, and unknown paths are excluded.
+
+## Releases
+
+Local release targets produce only `gitsss-*` binary, source, compressed, and
+checksum filenames. The cross-build tool is pinned, and the Go toolchain line is
+fixed to Go 1.26. The removed legacy upgrade helper cannot download or install a
+Gitea binary.
+
+No release is published until local multi-platform, checksum, configured
+signature, migration, backup, and rollback gates have passed.

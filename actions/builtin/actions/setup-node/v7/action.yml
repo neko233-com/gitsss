@@ -1,0 +1,21 @@
+name: gitsss offline setup-node
+description: Selects the Node.js runtime embedded in the gitsss single image.
+inputs:
+  node-version:
+    description: Node.js version. The offline image currently provides Node.js 24.
+    required: false
+  node-version-file:
+    description: File containing a Node.js version or a package.json engines declaration.
+    required: false
+  cache:
+    description: Accepted for workflow compatibility; use actions/cache for explicit caching.
+    required: false
+  package-manager-cache:
+    description: Accepted for workflow compatibility.
+    required: false
+outputs:
+  node-version:
+    description: Selected embedded Node.js version.
+runs:
+  using: node24
+  main: dist/index.js

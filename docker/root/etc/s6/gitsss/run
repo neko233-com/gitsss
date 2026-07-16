@@ -1,0 +1,6 @@
+#!/bin/bash
+[[ -f ./setup ]] && source ./setup
+
+pushd /app/gitsss >/dev/null
+exec gosu $USER /usr/local/bin/gitsss web
+popd

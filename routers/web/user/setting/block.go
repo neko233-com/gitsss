@@ -1,0 +1,38 @@
+// Copyright 2024 The Gitea Authors. All rights reserved.
+// SPDX-License-Identifier: MIT
+
+package setting
+
+import (
+	"net/http"
+
+	"github.com/neko233-com/gitsss/modules/setting"
+	"github.com/neko233-com/gitsss/modules/templates"
+	shared_user "github.com/neko233-com/gitsss/routers/web/shared/user"
+	"github.com/neko233-com/gitsss/services/context"
+)
+
+const (
+	tplSettingsBlockedUsers templates.TplName = "user/settings/blocked_users"
+)
+
+func BlockedUsers(ctx *context.Context) {
+	ctx.Data["Title"] = ctx.Tr("user.block.list")
+	ctx.Data["PageIsSettingsBlockedUsers"] = true
+
+	shared_user.BlockedUsers(ctx, ctx.Doer)
+	if ctx.Written() {
+		return
+	}
+
+	ctx.HTML(http.StatusOK, tplSettingsBlockedUsers)
+}
+
+func BlockedUsersPost(ctx *context.Context) {
+	shared_user.BlockedUsersPost(ctx, ctx.Doer)
+	if ctx.Written() {
+		return
+	}
+
+	ctx.Redirect(setting.AppSubURL + "/user/settings/blocked_users")
+}

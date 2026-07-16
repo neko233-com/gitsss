@@ -1,0 +1,40 @@
+log:
+  level: info
+
+runner:
+  file: $GITSSS_RUNNER_DATA/.runner
+  offline: true
+  capacity: 1
+  timeout: 3h
+  shutdown_timeout: 30s
+  fetch_timeout: 5s
+  fetch_interval: 2s
+  fetch_interval_max: 5s
+  job_instance_url: $GITSSS_ACTIONS_JOB_INSTANCE_URL
+  labels:
+    - "self-hosted:docker://$GITSSS_ACTIONS_JOB_IMAGE"
+    - "ubuntu-latest:docker://$GITSSS_ACTIONS_JOB_IMAGE"
+    - "ubuntu-24.04:docker://$GITSSS_ACTIONS_JOB_IMAGE"
+
+cache:
+  enabled: true
+  dir: $GITSSS_RUNNER_DATA/cache
+  host: host.docker.internal
+  port: 8088
+
+container:
+  docker_host: unix:///var/run/docker.sock
+  force_pull: false
+  force_rebuild: false
+  require_docker: true
+  docker_timeout: 30s
+  privileged: true
+  isolated_docker: true
+  bind_workdir: false
+  options: $GITSSS_ACTIONS_CONTAINER_OPTIONS
+
+host:
+  workdir_parent: $GITSSS_RUNNER_DATA/work
+
+metrics:
+  enabled: false

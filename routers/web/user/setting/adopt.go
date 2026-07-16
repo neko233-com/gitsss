@@ -1,0 +1,60 @@
+// Copyright 2020 The Gitea Authors. All rights reserved.
+// SPDX-License-Identifier: MIT
+
+package setting
+
+import (
+	repo_model "github.com/neko233-com/gitsss/models/repo"
+	"github.com/neko233-com/gitsss/modules/gitrepo"
+	"github.com/neko233-com/gitsss/modules/setting"
+	"github.com/neko233-com/gitsss/services/context"
+	repo_service "github.com/neko233-com/gitsss/services/repository"
+)
+
+// AdoptOrDeleteRepository adopts or deletes a repository
+func AdoptOrDeleteRepository(ctx *context.Context) {
+	ctx.Data["Title"] = ctx.Tr("settings.adopt")
+	ctx.Data["PageIsSettingsRepos"] = true
+	allowAdopt := ctx.IsUserSiteAdmin() || setting.Repository.AllowAdoptionOfUnadoptedRepositories
+	ctx.Data["allowAdopt"] = allowAdopt
+	allowDelete := ctx.IsUserSiteAdmin() || setting.Repository.AllowDeleteOfUnadoptedRepositories
+	ctx.Data["allowDelete"] = allowDelete
+
+	dir := ctx.FormString("id")
+	action := ctx.FormString("action")
+
+	ctxUser := ctx.Doer
+
+	// check not a repo
+	has, err := repo_model.IsRepositoryModelExist(ctx, ctxUser, dir)
+	if err != nil {
+		ctx.ServerError("IsRepositoryExist", err)
+		return
+	}
+
+	exist, err := gitrepo.IsRepositoryExist(ctx, repo_model.StorageRepo(repo_model.RelativePath(ctxUser.Name, dir)))
+	if err != nil {
+		ctx.ServerError("IsDir", err)
+		return
+	}
+	if has || !exist {
+		// Fallthrough to failure mode
+	} else if action == "adopt" && allowAdopt {
+		if _, err := repo_service.AdoptRepository(ctx, ctxUser, ctxUser, repo_service.CreateRepoOptions{
+			Name:      dir,
+			IsPrivate: true,
+		}); err != nil {
+			ctx.ServerError("repository.AdoptRepository", err)
+			return
+		}
+		ctx.Flash.Success(ctx.Tr("repo.adopt_preexisting_success", dir))
+	} else if action == "delete" && allowDelete {
+		if err := repo_service.DeleteUnadoptedRepository(ctx, ctxUser, ctxUser, dir); err != nil {
+			ctx.ServerError("repository.AdoptRepository", err)
+			return
+		}
+		ctx.Flash.Success(ctx.Tr("repo.delete_preexisting_success", dir))
+	}
+
+	ctx.Redirect(setting.AppSubURL + "/user/settings/repos")
+}

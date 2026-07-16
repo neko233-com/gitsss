@@ -1,0 +1,24 @@
+name: gitsss offline setup-go
+description: Selects the Go toolchain embedded in the gitsss single image.
+inputs:
+  go-version:
+    description: Go version. The offline image currently provides Go 1.26.
+    required: false
+  go-version-file:
+    description: Path to go.mod, go.work, .go-version, or .tool-versions.
+    required: false
+  cache:
+    description: Accepted for workflow compatibility; use actions/cache for explicit caching.
+    required: false
+  cache-dependency-path:
+    description: Accepted for workflow compatibility.
+    required: false
+  check-latest:
+    description: Accepted for workflow compatibility; the embedded version is always selected.
+    required: false
+outputs:
+  go-version:
+    description: Selected embedded Go version.
+runs:
+  using: node24
+  main: dist/index.js

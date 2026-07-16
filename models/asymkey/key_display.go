@@ -1,0 +1,37 @@
+// Copyright 2025 The Gitea Authors. All rights reserved.
+// SPDX-License-Identifier: MIT
+
+package asymkey
+
+import (
+	"os"
+
+	"github.com/neko233-com/gitsss/modules/git"
+	"github.com/neko233-com/gitsss/modules/log"
+	"github.com/neko233-com/gitsss/modules/setting"
+)
+
+func GetDisplaySigningKey(key *git.SigningKey) string {
+	if key == nil || key.Format == "" {
+		return ""
+	}
+
+	switch key.Format {
+	case git.SigningKeyFormatOpenPGP:
+		return key.KeyID
+	case git.SigningKeyFormatSSH:
+		content, err := os.ReadFile(key.KeyID)
+		if err != nil {
+			log.Error("Unable to read SSH key %s: %v", key.KeyID, err)
+			return "(Unable to read SSH key)"
+		}
+		display, err := CalcFingerprint(string(content))
+		if err != nil {
+			log.Error("Unable to calculate fingerprint for SSH key %s: %v", key.KeyID, err)
+			return "(Unable to calculate fingerprint for SSH key)"
+		}
+		return display
+	}
+	setting.PanicInDevOrTesting("Unknown signing key format: %s", key.Format)
+	return "(Unknown key format)"
+}
