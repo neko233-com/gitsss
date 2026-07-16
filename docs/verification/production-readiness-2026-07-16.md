@@ -29,6 +29,8 @@ Date: 2026-07-16
 
 - One Ubuntu 24.04 image contains the server, Actions runner, supported
   Actions, Git LFS, Node.js, pnpm, Go, and build tools.
+- Production Linux hosts are limited to Ubuntu 24.04 LTS and Debian-family
+  systems. Formal images cover `linux/amd64` and `linux/arm64`.
 - Supported Actions resolve from `/app/gitsss/builtin-actions`; unknown remote
   Actions fail closed.
 - Update checking is disabled by default and has no external endpoint.
@@ -62,17 +64,36 @@ Date: 2026-07-16
 - Frontend lint, Vue type checking, 35 Vitest files, and 92 tests passed.
 - Markdown lint passed for root and verification/operations documentation.
 - Final `linux/amd64` image:
-  `sha256:c0669bd180e9fead3c1760c916e06b0a38cf1bdf2c82e7ec8e11aecb8ebe9d42`.
-- Final-source `linux/arm64` image built and ran under emulation; HTTP health
-  returned 200 and the embedded runner registered as arm64/Linux.
-- The in-app browser verified public and authenticated UI, gitsss branding and
-  skin, Gitea-compatible navigation/dashboard layout, and an empty browser
-  warning/error console.
+  `sha256:9798abea88f05dba5394820ec692b7a08573f0ce217477c0fcd013bda812b845`.
+- Final `linux/arm64` image:
+  `sha256:cf555d3b670734901abd1313d748d2450013ed65cc8f21a9f2cd3e937f2c79ff`.
+- Both image architectures started successfully, returned HTTP health 200,
+  served all eight linked login-page assets with HTTP 200, and logged no theme
+  loading errors.
+- The source archive built and ran with container networking disabled,
+  `GOPROXY=off`, and `-mod=vendor`.
+- Preliminary browser smoke verified public and authenticated GitSSS pages.
+  The requested deep Gitea/GitSSS visual and interaction comparison remains a
+  release gate.
+
+## Release artifacts
+
+- Raw and XZ-compressed binaries exist for macOS amd64/arm64, Linux
+  amd64/arm64, and Windows 386/amd64/arm64.
+- Windows also has amd64/arm64/386 Go-Git variants.
+- Offline image archives exist for Linux amd64 and arm64.
+- Shell and PowerShell installer bundles and the vendored source archive are
+  present.
+- All 25 release payloads have matching SHA-256 files, and every checksum
+  verification passed.
 
 ## Cleanup and handoff
 
-- All gitsss test containers, volumes, networks, source images, gate images,
-  and the temporary arm64 tag were removed.
+- All GitSSS test containers, workflow containers, test/cache volumes,
+  networks, source images, gate images, the temporary arm64 tag, and the xgo
+  builder image were removed.
+- Only `gitsss/gitsss:1.0.0` and `gitsss/gitsss:latest` remain; both point to
+  the final amd64 image.
 - Production installation defaults to the single image repository
   `gitsss/gitsss:latest`; formal releases also carry their immutable version
   tag in the same repository.
@@ -97,7 +118,7 @@ Date: 2026-07-16
   and revalidation flow against an expired managed temporary file.
 - Final cleanup left zero verification/task containers, networks, and volumes.
 - Final amd64 image:
-  `sha256:a3c82c452519de1de0d3dc94cacca36a8efdee8c5ab328e862941b77d144b604`.
+  `sha256:9798abea88f05dba5394820ec692b7a08573f0ce217477c0fcd013bda812b845`.
 
 ## Actions compatibility
 
@@ -110,3 +131,12 @@ Date: 2026-07-16
   name to the only supported command, `gitsss`.
 - Detailed scope and evidence are recorded in
   `docs/verification/actions-compatibility-2026-07-16.md`.
+
+## Outstanding release gates
+
+- Use the in-app browser to compare Gitea and GitSSS page layouts and
+  interactions with the same account. Create `test-gitsss-repo` only when the
+  name is absent, exercise the repository and Actions UI, and delete only the
+  repository created by the acceptance run.
+- Restore GitHub authentication, push the branch and release tag, then upload
+  the locally built artifacts without GitHub Actions.
