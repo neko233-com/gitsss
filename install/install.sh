@@ -5,7 +5,7 @@ set -euo pipefail
 port=3000
 root_url=
 job_instance_url=
-image=gitsss/gitsss:dev
+image=gitsss/gitsss:latest
 image_archive=
 data_volume=gitsss-data
 install_dir="${PWD}/gitsss-install"

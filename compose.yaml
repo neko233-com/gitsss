@@ -1,6 +1,6 @@
 services:
   gitsss:
-    image: ${GITSSS_IMAGE:-gitsss/gitsss:dev}
+    image: ${GITSSS_IMAGE:-gitsss/gitsss:latest}
     container_name: gitsss
     restart: unless-stopped
     environment:
@@ -13,7 +13,7 @@ services:
       GITSSS__server__SSH_LISTEN_PORT: 22
       GITSSS__security__INSTALL_LOCK: "true"
       GITSSS__cron.update_checker__ENABLED: "false"
-      GITSSS_ACTIONS_JOB_IMAGE: ${GITSSS_ACTIONS_JOB_IMAGE:-gitsss/gitsss:dev}
+      GITSSS_ACTIONS_JOB_IMAGE: ${GITSSS_ACTIONS_JOB_IMAGE:-gitsss/gitsss:latest}
       GITSSS_ACTIONS_JOB_INSTANCE_URL: ${GITSSS_ACTIONS_JOB_INSTANCE_URL:-http://host.docker.internal:3000}
       GITSSS_ACTIONS_CONTAINER_OPTIONS: ${GITSSS_ACTIONS_CONTAINER_OPTIONS:---cpus=4 --memory=8g --pids-limit=2048}
     ports:
