@@ -116,6 +116,12 @@ tasks:
       - task: make
         vars: {TARGET: release-check}
 
+  release:sources:
+    desc: Build the versioned source archive
+    cmds:
+      - task: make
+        vars: {TARGET: release-sources}
+
   make:
     internal: true
     requires:
