@@ -13,6 +13,7 @@ import {initRepoProjectsView} from './features/repo-projects.ts';
 import {initTableSort} from './features/tablesort.ts';
 import {initAdminUserListSearchForm} from './features/admin/users.ts';
 import {initAdminConfigs} from './features/admin/config.ts';
+import {initAdminStorageAwareness} from './features/admin/storage-awareness.ts';
 import {initMarkupAnchors} from './markup/anchors.ts';
 import {initNotificationCount} from './features/notification.ts';
 import {initRepoIssueContentHistory} from './features/repo-issue-content.ts';
@@ -111,6 +112,7 @@ const initPerformanceTracer = callInitFunctions([
   initAdminCommon,
   initAdminUserListSearchForm,
   initAdminConfigs,
+  initAdminStorageAwareness,
   initAdminSelfCheck,
 
   initDashboardRepoList,
