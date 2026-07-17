@@ -48,16 +48,19 @@ PowerShell：
 先查看统一入口：
 
 ```sh
-make help
+task help
 ```
+
+Taskfile 通过本地 `gitsss/gitsss:latest` 容器执行兼容 Makefile 目标，因而
+开发主机只需要安装 [Task](https://taskfile.dev/) 和 Docker。
 
 常用检查：
 
 ```sh
-make fmt
-make lint-go
-make lint-js
-make test
+task fmt
+task lint:go
+task lint:js
+task test
 ```
 
 项目不使用 GitHub Actions。格式化、静态检查、测试、竞态检查、镜像验证、跨平台打包和发布验证均在本地完成。
