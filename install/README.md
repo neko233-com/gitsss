@@ -26,6 +26,11 @@ Re-run the same command with port `3000` after migration validation. Keep `Insta
 
 Installers never pull images. Load an offline archive or pre-load the configured image first.
 
+An empty data volume receives the `root` administrator with initial password
+`root`; the account must change its password at first login. Override it with
+`-InitialAdminUser` / `-InitialAdminPassword` in PowerShell or
+`--initial-admin-user` / `--initial-admin-password` in the shell installer.
+
 By default the installer enables silent autostart after Docker is available:
 
 - Windows registers the hidden `GitSSS Background` task at user logon. When

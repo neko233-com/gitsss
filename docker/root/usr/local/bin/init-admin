@@ -1,0 +1,28 @@
+#!/bin/bash
+
+set -euo pipefail
+
+if [ "${GITSSS_CREATE_DEFAULT_ADMIN:-true}" = "false" ]; then
+    exit 0
+fi
+
+if ! users=$(gosu "$USER" /usr/local/bin/gitsss admin user list 2>/dev/null); then
+    exit 1
+fi
+
+user_count=$(printf '%s\n' "$users" | awk 'NR > 1 && NF {count++} END {print count + 0}')
+if [ "$user_count" -ne 0 ]; then
+    exit 0
+fi
+
+admin_user=${GITSSS_INITIAL_ADMIN_USER:-root}
+admin_password=${GITSSS_INITIAL_ADMIN_PASSWORD:-root}
+admin_email=${GITSSS_INITIAL_ADMIN_EMAIL:-root@localhost.invalid}
+must_change_password=${GITSSS_INITIAL_ADMIN_MUST_CHANGE_PASSWORD:-true}
+
+gosu "$USER" /usr/local/bin/gitsss admin user create \
+    --username "$admin_user" \
+    --password "$admin_password" \
+    --email "$admin_email" \
+    --admin \
+    --must-change-password="$must_change_password"
