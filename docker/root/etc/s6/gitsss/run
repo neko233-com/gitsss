@@ -1,6 +1,27 @@
 #!/bin/bash
+set -euo pipefail
+
 [[ -f ./setup ]] && source ./setup
 
 pushd /app/gitsss >/dev/null
-exec gosu $USER /usr/local/bin/gitsss web
-popd
+gosu "$USER" /usr/local/bin/gitsss web &
+web_pid=$!
+
+trap 'kill -TERM "$web_pid" 2>/dev/null || true; wait "$web_pid"; exit' INT TERM
+
+for _ in $(seq 1 60); do
+    if /usr/local/bin/init-admin; then
+        wait "$web_pid"
+        exit $?
+    fi
+    if ! kill -0 "$web_pid" 2>/dev/null; then
+        wait "$web_pid"
+        exit $?
+    fi
+    sleep 1
+done
+
+echo "GitSSS database did not become ready for default administrator initialization." >&2
+kill -TERM "$web_pid"
+wait "$web_pid"
+exit 1

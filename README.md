@@ -43,6 +43,12 @@ PowerShell：
 启动器），Linux 使用 systemd，macOS 使用 launchd；日志位于安装目录的
 `logs/`。使用 `-NoAutostart` 或 `--no-autostart` 可禁用。
 
+首次启动空数据卷会创建站点管理员 `root`，初始密码为 `root`，并强制
+首次登录修改密码。安装器可通过 `-InitialAdminUser` /
+`-InitialAdminPassword` 或 `--initial-admin-user` /
+`--initial-admin-password` 覆盖这组初始化凭据。默认账号要求全站最小
+密码长度为 `4`。
+
 ## 开发与验证
 
 先查看统一入口：

@@ -826,7 +826,7 @@ generate-manpage: ## generate manpage
 
 .PHONY: docker
 docker:
-	docker build --disable-content-trust=false -t $(DOCKER_REF) .
+	docker build -t $(DOCKER_REF) .
 # support also build args docker build --build-arg GITSSS_VERSION=v1.2.3 --build-arg TAGS="bindata sqlite sqlite_unlock_notify"  .
 
 # Disable parallel execution because it would break some targets that don't

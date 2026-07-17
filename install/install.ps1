@@ -8,13 +8,15 @@ param(
     [string]$ImageArchive = "",
     [string]$DataVolume = "gitsss-data",
     [string]$InstallDir = (Join-Path (Get-Location) "gitsss-install"),
+    [string]$InitialAdminUser = "root",
+    [string]$InitialAdminPassword = "root",
     [switch]$NoStart,
     [switch]$NoAutostart
 )
 
 $ErrorActionPreference = "Stop"
 
-foreach ($value in @($RootUrl, $JobInstanceUrl, $Image, $DataVolume, $InstallDir)) {
+foreach ($value in @($RootUrl, $JobInstanceUrl, $Image, $DataVolume, $InstallDir, $InitialAdminUser, $InitialAdminPassword)) {
     if ($value.Contains("`n") -or $value.Contains("`r")) {
         throw "Configuration values cannot contain newlines"
     }
@@ -63,6 +65,7 @@ if (-not $JobInstanceUrl) {
 }
 
 $resolvedInstallDir = [System.IO.Path]::GetFullPath($InstallDir)
+$sourceProjectDir = [System.IO.Path]::GetFullPath((Split-Path $sourceCompose -Parent))
 New-Item -ItemType Directory -Force -Path $resolvedInstallDir | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $resolvedInstallDir "logs") | Out-Null
 Copy-Item -LiteralPath $sourceCompose -Destination (Join-Path $resolvedInstallDir "compose.yaml") -Force
@@ -78,6 +81,9 @@ $envContent = @(
     "GITSSS_ROOT_URL=$RootUrl"
     "GITSSS_ACTIONS_JOB_INSTANCE_URL=$JobInstanceUrl"
     "GITSSS_DATA_VOLUME=$DataVolume"
+    "GITSSS_INITIAL_ADMIN_USER=$InitialAdminUser"
+    "GITSSS_INITIAL_ADMIN_PASSWORD=$InitialAdminPassword"
+    "GITSSS_MIN_PASSWORD_LENGTH=4"
 ) -join [Environment]::NewLine
 
 try {
@@ -88,6 +94,12 @@ try {
 }
 
 if (-not $NoStart) {
+    if (-not [string]::Equals($sourceProjectDir, $resolvedInstallDir, [System.StringComparison]::OrdinalIgnoreCase)) {
+        docker compose --project-directory $sourceProjectDir down --remove-orphans
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to stop the source GitSSS project before migration"
+        }
+    }
     docker compose --project-directory $resolvedInstallDir up --detach --force-recreate --pull never
     if ($LASTEXITCODE -ne 0) {
         throw "gitsss startup failed"

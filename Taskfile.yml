@@ -2,6 +2,8 @@ version: '3'
 
 vars:
   BUILD_IMAGE: '{{default "gitsss/gitsss:latest" .BUILD_IMAGE}}'
+  DOCKER_IMAGE: '{{default "gitsss/gitsss" .DOCKER_IMAGE}}'
+  DOCKER_TAG: '{{default "latest" .DOCKER_TAG}}'
 
 tasks:
   default:
@@ -101,8 +103,7 @@ tasks:
   docker:
     desc: Build the local Docker image
     cmds:
-      - task: make
-        vars: {TARGET: docker}
+      - docker build -t "{{.DOCKER_IMAGE}}:{{.DOCKER_TAG}}" .
 
   release:
     desc: Build local release artifacts

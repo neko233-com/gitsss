@@ -18,7 +18,7 @@ fi
 if [ ! -f ${GITSSS_CUSTOM}/conf/app.ini ]; then
     mkdir -p ${GITSSS_CUSTOM}/conf
 
-    if [ -n "$SECRET_KEY" ] && [ -z "$INSTALL_LOCK" ]; then
+    if [ -n "${SECRET_KEY:-}" ] && [ -z "${INSTALL_LOCK:-}" ]; then
         INSTALL_LOCK=true
     fi
 

@@ -9,13 +9,16 @@ image=gitsss/gitsss:latest
 image_archive=
 data_volume=gitsss-data
 install_dir="${PWD}/gitsss-install"
+initial_admin_user=root
+initial_admin_password=root
 no_start=false
 no_autostart=false
 
 usage() {
   echo "Usage: install.sh [--port PORT] [--root-url URL] [--job-instance-url URL]"
   echo "                  [--image IMAGE] [--image-archive FILE] [--data-volume NAME]"
-  echo "                  [--install-dir DIR] [--no-start] [--no-autostart]"
+  echo "                  [--install-dir DIR] [--initial-admin-user USER]"
+  echo "                  [--initial-admin-password PASSWORD] [--no-start] [--no-autostart]"
 }
 
 while (($#)); do
@@ -48,6 +51,14 @@ while (($#)); do
       install_dir=$2
       shift 2
       ;;
+    --initial-admin-user)
+      initial_admin_user=$2
+      shift 2
+      ;;
+    --initial-admin-password)
+      initial_admin_password=$2
+      shift 2
+      ;;
     --no-start)
       no_start=true
       shift
@@ -73,7 +84,7 @@ if ! [[ "$port" =~ ^[0-9]+$ ]] || ((port < 1 || port > 65535)); then
   exit 2
 fi
 
-for value in "$root_url" "$job_instance_url" "$image" "$data_volume" "$install_dir"; do
+for value in "$root_url" "$job_instance_url" "$image" "$data_volume" "$install_dir" "$initial_admin_user" "$initial_admin_password"; do
   if [[ "$value" == *$'\n'* || "$value" == *$'\r'* ]]; then
     echo "Configuration values cannot contain newlines" >&2
     exit 2
@@ -125,6 +136,8 @@ docker image inspect "$image" >/dev/null 2>&1 || {
 
 mkdir -p "$install_dir"
 mkdir -p "${install_dir}/logs"
+install_dir=$(cd -- "$install_dir" && pwd)
+source_project_dir=$(cd -- "${script_dir}/.." && pwd)
 cp "$source_compose" "${install_dir}/compose.yaml"
 cp "$source_start_script" "${install_dir}/start.sh"
 chmod 0755 "${install_dir}/start.sh"
@@ -137,11 +150,17 @@ GITSSS_HTTP_PORT=$port
 GITSSS_ROOT_URL=$root_url
 GITSSS_ACTIONS_JOB_INSTANCE_URL=$job_instance_url
 GITSSS_DATA_VOLUME=$data_volume
+GITSSS_INITIAL_ADMIN_USER=$initial_admin_user
+GITSSS_INITIAL_ADMIN_PASSWORD=$initial_admin_password
+GITSSS_MIN_PASSWORD_LENGTH=4
 EOF
 mv "$env_tmp" "${install_dir}/.env"
 trap - EXIT
 
 if [[ "$no_start" == false ]]; then
+  if [[ "$source_project_dir" != "$install_dir" ]]; then
+    docker compose --project-directory "$source_project_dir" down --remove-orphans
+  fi
   docker compose --project-directory "$install_dir" up --detach --force-recreate --pull never
 fi
 
