@@ -25,3 +25,15 @@ PowerShell:
 Re-run the same command with port `3000` after migration validation. Keep `InstallDir` and `DataVolume` unchanged. Docker recreates the container and retains all data.
 
 Installers never pull images. Load an offline archive or pre-load the configured image first.
+
+By default the installer enables silent autostart after Docker is available:
+
+- Windows registers the hidden `GitSSS Background` task at user logon. When
+  local task registration is prohibited, it uses a hidden `wscript` launcher
+  in the current user's Startup folder instead.
+- Linux installs and enables `gitsss.service` in systemd.
+- macOS installs a user `launchd` agent.
+
+All background startup output is written below `INSTALL_DIR/logs`; no command
+window is opened. Use `-NoAutostart` in PowerShell or `--no-autostart` in the
+shell installer to opt out.
