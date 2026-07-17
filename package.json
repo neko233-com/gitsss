@@ -48,6 +48,7 @@
     "dayjs": "1.11.20",
     "dropzone": "6.0.0-beta.2",
     "easymde": "2.20.0",
+    "echarts": "6.0.0",
     "esbuild": "0.27.4",
     "htmx.org": "2.0.8",
     "idiomorph": "0.7.4",
