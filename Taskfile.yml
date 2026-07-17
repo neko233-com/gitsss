@@ -1,0 +1,124 @@
+version: '3'
+
+vars:
+  BUILD_IMAGE: '{{default "gitsss/gitsss:latest" .BUILD_IMAGE}}'
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task: help
+
+  help:
+    desc: List Taskfile commands
+    cmds:
+      - task --list --sort none
+
+  fmt:
+    desc: Format Go and template files
+    cmds:
+      - task: make
+        vars: {TARGET: fmt}
+
+  fmt:check:
+    desc: Verify Go and template formatting
+    cmds:
+      - task: make
+        vars: {TARGET: fmt-check}
+
+  lint:
+    desc: Run all linters
+    cmds:
+      - task: make
+        vars: {TARGET: lint}
+
+  lint:go:
+    desc: Lint Go files
+    cmds:
+      - task: make
+        vars: {TARGET: lint-go}
+
+  lint:js:
+    desc: Lint TypeScript and Vue files
+    cmds:
+      - task: make
+        vars: {TARGET: lint-js}
+
+  lint:css:
+    desc: Lint CSS and Vue styles
+    cmds:
+      - task: make
+        vars: {TARGET: lint-css}
+
+  lint:md:
+    desc: Lint Markdown files
+    cmds:
+      - task: make
+        vars: {TARGET: lint-md}
+
+  tidy:
+    desc: Tidy Go modules and regenerate license metadata
+    cmds:
+      - task: make
+        vars: {TARGET: tidy}
+
+  build:
+    desc: Build frontend and backend
+    cmds:
+      - task: make
+        vars: {TARGET: build}
+
+  test:
+    desc: Run frontend and backend tests
+    cmds:
+      - task: make
+        vars: {TARGET: test}
+
+  test:go:
+    desc: Run backend tests
+    cmds:
+      - task: make
+        vars: {TARGET: test-backend}
+
+  test:js:
+    desc: Run frontend tests
+    cmds:
+      - task: make
+        vars: {TARGET: test-frontend}
+
+  test:e2e:
+    desc: Run Playwright end-to-end tests
+    cmds:
+      - task: make
+        vars: {TARGET: test-e2e}
+
+  check:
+    desc: Run consistency checks
+    cmds:
+      - task: make
+        vars: {TARGET: checks}
+
+  docker:
+    desc: Build the local Docker image
+    cmds:
+      - task: make
+        vars: {TARGET: docker}
+
+  release:
+    desc: Build local release artifacts
+    cmds:
+      - task: make
+        vars: {TARGET: release}
+
+  release:check:
+    desc: Generate release checksums
+    cmds:
+      - task: make
+        vars: {TARGET: release-check}
+
+  make:
+    internal: true
+    requires:
+      vars: [TARGET]
+    cmds:
+      - docker run --rm --entrypoint /bin/bash --volume "{{.TASKFILE_DIR}}:/src" --workdir /src --env TAGS --env RACE_ENABLED --env GOTESTFLAGS --env GITEA_TEST_E2E_FLAGS --env VERSION --env DOCKER_IMAGE --env DOCKER_TAG "{{.BUILD_IMAGE}}" -lc "make {{.TARGET}}"
