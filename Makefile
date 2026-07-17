@@ -697,7 +697,7 @@ release-copy: | $(DIST_DIRS)
 
 .PHONY: release-check
 release-check: | $(DIST_DIRS)
-	cd $(DIST)/release/; for file in `find . -type f -name "*"`; do echo "checksumming $${file}" && $(SHASUM) `echo $${file} | sed 's/^..//'` > $${file}.sha256; done;
+	cd $(DIST)/release/; for file in `find . -type f ! -name "*.sha256"`; do echo "checksumming $${file}" && $(SHASUM) `echo $${file} | sed 's/^..//'` > $${file}.sha256; done;
 
 .PHONY: release-compress
 release-compress: | $(DIST_DIRS)

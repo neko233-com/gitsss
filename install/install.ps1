@@ -8,12 +8,13 @@ param(
     [string]$ImageArchive = "",
     [string]$DataVolume = "gitsss-data",
     [string]$InstallDir = (Join-Path (Get-Location) "gitsss-install"),
-    [switch]$NoStart
+    [switch]$NoStart,
+    [switch]$NoAutostart
 )
 
 $ErrorActionPreference = "Stop"
 
-foreach ($value in @($RootUrl, $JobInstanceUrl, $Image, $DataVolume)) {
+foreach ($value in @($RootUrl, $JobInstanceUrl, $Image, $DataVolume, $InstallDir)) {
     if ($value.Contains("`n") -or $value.Contains("`r")) {
         throw "Configuration values cannot contain newlines"
     }
@@ -30,6 +31,10 @@ if ($LASTEXITCODE -ne 0) {
 $sourceCompose = Join-Path (Split-Path $PSScriptRoot -Parent) "compose.yaml"
 if (-not (Test-Path -LiteralPath $sourceCompose -PathType Leaf)) {
     throw "compose.yaml not found beside installer"
+}
+$sourceStartScript = Join-Path $PSScriptRoot "start.ps1"
+if (-not (Test-Path -LiteralPath $sourceStartScript -PathType Leaf)) {
+    throw "start.ps1 not found beside installer"
 }
 
 if ($ImageArchive) {
@@ -59,7 +64,10 @@ if (-not $JobInstanceUrl) {
 
 $resolvedInstallDir = [System.IO.Path]::GetFullPath($InstallDir)
 New-Item -ItemType Directory -Force -Path $resolvedInstallDir | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $resolvedInstallDir "logs") | Out-Null
 Copy-Item -LiteralPath $sourceCompose -Destination (Join-Path $resolvedInstallDir "compose.yaml") -Force
+$installedStartScript = Join-Path $resolvedInstallDir "start.ps1"
+Copy-Item -LiteralPath $sourceStartScript -Destination $installedStartScript -Force
 
 $envPath = Join-Path $resolvedInstallDir ".env"
 $envTempPath = Join-Path $resolvedInstallDir (".env." + [System.Guid]::NewGuid().ToString("N"))
@@ -86,7 +94,34 @@ if (-not $NoStart) {
     }
 }
 
+$taskName = "GitSSS Background"
+$startupVbsPath = Join-Path ([Environment]::GetFolderPath("Startup")) "GitSSS Background.vbs"
+$autostartMode = $null
+if ($NoAutostart) {
+    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $startupVbsPath -Force -ErrorAction SilentlyContinue
+} elseif (-not $NoStart) {
+    $powershellPath = (Get-Command powershell.exe -ErrorAction Stop).Source
+    $taskArgument = '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -InstallDir "{1}"' -f $installedStartScript, $resolvedInstallDir
+    $taskAction = New-ScheduledTaskAction -Execute $powershellPath -Argument $taskArgument
+    $taskTrigger = New-ScheduledTaskTrigger -AtLogOn
+    $taskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Hidden -MultipleInstances IgnoreNew
+    try {
+        Register-ScheduledTask -TaskName $taskName -Action $taskAction -Trigger $taskTrigger -Settings $taskSettings -Description "Starts GitSSS silently after Docker Desktop is available." -Force -ErrorAction Stop | Out-Null
+        Remove-Item -LiteralPath $startupVbsPath -Force -ErrorAction SilentlyContinue
+        $autostartMode = "Windows Task Scheduler task '$taskName' (hidden, at logon)"
+    } catch {
+        $startupCommand = '"{0}" {1}' -f $powershellPath, $taskArgument
+        $startupVbs = 'CreateObject("WScript.Shell").Run "' + $startupCommand.Replace('"', '""') + '", 0, False'
+        [System.IO.File]::WriteAllText($startupVbsPath, $startupVbs + [Environment]::NewLine)
+        $autostartMode = "hidden WScript launcher in the current user's Startup folder"
+    }
+}
+
 Write-Host "Installed: $resolvedInstallDir"
 Write-Host "URL: $RootUrl"
+if ($autostartMode) {
+    Write-Host "Autostart: $autostartMode"
+}
 Write-Host "Switch port without data migration:"
 Write-Host "  .\install.ps1 -InstallDir `"$resolvedInstallDir`" -DataVolume `"$DataVolume`" -Port 3000 -RootUrl `"http://localhost:3000/`""

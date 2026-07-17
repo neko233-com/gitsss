@@ -39,6 +39,10 @@ Date: 2026-07-16
 - Shell and PowerShell installers load an offline image archive, never pull
   implicitly, and support changing the host HTTP port while retaining the same
   data volume and internal port 3000.
+- Installers configure silent background startup after Docker is ready: a
+  hidden Windows task (with a hidden `wscript` Startup-folder fallback), a
+  systemd unit on Linux, and a launchd agent on macOS. Background output is
+  written below the installation directory's `logs/` directory.
 - PowerShell installation started on host port 3001, returned HTTP health 200,
   then recreated on port 3000 with the same named volume. A persisted marker
   remained intact after the switch.
@@ -72,9 +76,17 @@ Date: 2026-07-16
   loading errors.
 - The source archive built and ran with container networking disabled,
   `GOPROXY=off`, and `-mod=vendor`.
-- Preliminary browser smoke verified public and authenticated GitSSS pages.
-  The requested deep Gitea/GitSSS visual and interaction comparison remains a
-  release gate.
+- Browser acceptance created the public Gitea source repository
+  `acceptance-admin/test-gitsss-repo` with an initialized README, then migrated
+  it through the GitSSS Gitea migration UI. Both `main` refs resolve to
+  `72ec7fd00ee2e7024868e6fd1d76c13131e5ac0e`; GitSSS renders the repository,
+  README, branch/commit counts, and empty Actions page without fresh console
+  warnings or errors. The local-network migration allowance was present only
+  on the disposable GitSSS acceptance container.
+- On the Windows acceptance host, `C:\gitsss` starts `gitsss/gitsss:latest`
+  in the background with `restart: unless-stopped`; HTTP health returned 200.
+  Local task registration was policy-blocked, so the installer selected its
+  hidden `wscript` Startup-folder fallback and verified its background log.
 
 ## Release artifacts
 
@@ -86,6 +98,8 @@ Date: 2026-07-16
   present.
 - All 25 release payloads have matching SHA-256 files, and every checksum
   verification passed.
+- The release checksum target is idempotent and excludes existing checksum
+  files, preventing nested `.sha256.sha256` artifacts on repeat verification.
 
 ## Cleanup and handoff
 
@@ -134,9 +148,5 @@ Date: 2026-07-16
 
 ## Outstanding release gates
 
-- Use the in-app browser to compare Gitea and GitSSS page layouts and
-  interactions with the same account. Create `test-gitsss-repo` only when the
-  name is absent, exercise the repository and Actions UI, and delete only the
-  repository created by the acceptance run.
 - Restore GitHub authentication, push the branch and release tag, then upload
   the locally built artifacts without GitHub Actions.
