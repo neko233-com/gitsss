@@ -146,7 +146,9 @@ Date: 2026-07-16
 - Detailed scope and evidence are recorded in
   `docs/verification/actions-compatibility-2026-07-16.md`.
 
-## Outstanding release gates
+## Release execution
 
-- Restore GitHub authentication, push the branch and release tag, then upload
-  the locally built artifacts without GitHub Actions.
+- GitHub Actions remains absent and is not a release gate.
+- Multi-platform artifacts are rebuilt from the final tagged commit.
+- Publishing uses the authenticated `gh` client only after local checks,
+  checksums, migration, backup, rollback, and image smoke tests pass.

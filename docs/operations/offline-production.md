@@ -56,5 +56,11 @@ checksum filenames. The cross-build tool is pinned, and the Go toolchain line is
 fixed to Go 1.26. The removed legacy upgrade helper cannot download or install a
 Gitea binary.
 
+Run `task release` on the release host. The host must provide Docker, Go,
+Make, and Task. Cross-compilation runs from the host so Docker-based xgo
+builders can mount the working tree on Linux, macOS, and Windows. Dependency
+downloads are build-time only; published binaries, image archives, and
+installers remain self-contained for offline deployment.
+
 No release is published until local multi-platform, checksum, configured
 signature, migration, backup, and rollback gates have passed.
