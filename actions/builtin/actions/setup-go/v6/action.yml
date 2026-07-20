@@ -2,7 +2,7 @@ name: gitsss offline setup-go
 description: Selects the Go toolchain embedded in the gitsss single image.
 inputs:
   go-version:
-    description: Go version. The offline image currently provides Go 1.26.
+    description: Go version. The offline image provides Go 1.25 and 1.26.
     required: false
   go-version-file:
     description: Path to go.mod, go.work, .go-version, or .tool-versions.

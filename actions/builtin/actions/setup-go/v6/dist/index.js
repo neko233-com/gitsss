@@ -35,17 +35,25 @@ function requestedMinor(version) {
 
 try {
   const requested = requestedVersion();
-  if (requestedMinor(requested) !== '1.26') {
-    throw new Error(`gitsss offline image provides Go 1.26; requested ${requested || 'an unknown version'}`);
+  const minor = requestedMinor(requested);
+  const toolchains = {
+    '1.25': '/opt/gitsss/toolchains/go1.25.5',
+    '1.26': '/usr/local/go',
+  };
+  const goroot = toolchains[minor];
+  if (!goroot) throw new Error(`gitsss offline image provides Go 1.25 and 1.26; requested ${requested || 'an unknown version'}`);
+
+  const goBinary = path.join(goroot, 'bin', 'go');
+  const output = childProcess.execFileSync(goBinary, ['version'], {encoding: 'utf8'}).trim();
+  const match = output.match(/\bgo(1\.\d+(?:\.\d+)?)\b/);
+  if (!match) throw new Error(`embedded Go runtime is invalid: ${output}`);
+  if (/^\d+\.\d+\.\d+$/.test(requested) && match[1] !== requested) {
+    throw new Error(`gitsss offline image provides Go ${match[1]}; requested exact version ${requested}`);
   }
 
-  const output = childProcess.execFileSync('/usr/local/go/bin/go', ['version'], {encoding: 'utf8'}).trim();
-  const match = output.match(/\bgo(1\.26(?:\.\d+)?)\b/);
-  if (!match) throw new Error(`embedded Go runtime is invalid: ${output}`);
-
   const home = process.env.HOME || '/data/git';
-  appendCommand(process.env.GITHUB_PATH, '/usr/local/go/bin');
-  appendCommand(process.env.GITHUB_ENV, 'GOROOT=/usr/local/go');
+  appendCommand(process.env.GITHUB_PATH, path.join(goroot, 'bin'));
+  appendCommand(process.env.GITHUB_ENV, `GOROOT=${goroot}`);
   appendCommand(process.env.GITHUB_ENV, `GOPATH=${path.join(home, 'go')}`);
   appendCommand(process.env.GITHUB_ENV, 'GOTOOLCHAIN=local');
   appendCommand(process.env.GITHUB_OUTPUT, `go-version=${match[1]}`);

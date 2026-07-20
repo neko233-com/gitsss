@@ -70,6 +70,8 @@ RUN chmod 755 /tmp/local/usr/bin/entrypoint \
               /go/src/github.com/neko233-com/gitsss/gitsss \
               /go/src/github.com/neko233-com/gitsss/gitsss-runner
 
+FROM docker.io/library/golang:1.25.5-bookworm AS go-1-25-runtime
+
 FROM docker.io/library/ubuntu:24.04 AS gitsss
 
 EXPOSE 22 3000
@@ -116,6 +118,7 @@ COPY --from=build-env /go/src/github.com/neko233-com/gitsss/gitsss /app/gitsss/g
 COPY --from=build-env /go/src/github.com/neko233-com/gitsss/gitsss-runner /app/gitsss/internal/runner
 COPY --from=build-env /go/src/github.com/neko233-com/gitsss/actions/builtin /app/gitsss/builtin-actions
 COPY --from=build-env /usr/local/go /usr/local/go
+COPY --from=go-1-25-runtime /usr/local/go /opt/gitsss/toolchains/go1.25.5
 COPY --from=node-runtime /usr/local/lib/node_modules /usr/local/lib/node_modules
 COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-runtime /opt/corepack /opt/corepack
