@@ -26,10 +26,11 @@ performs no network request even if the task is enabled.
 ## Actions
 
 The embedded runner resolves the supported Actions from the image. Unknown
-remote Actions fail closed. Node.js, Go, npm, pnpm, checkout, cache, and artifact
-runtimes are shipped in the same Ubuntu 24.04 image. Git LFS is also installed
-for HTTP migration and normal repository use. Server startup and supported
-workflow execution do not require an external package or Action registry.
+remote Actions fail closed. Node.js, Go 1.25.5, Go 1.26.5, npm, pnpm, checkout,
+cache, and artifact runtimes are shipped in the same Ubuntu 24.04 image. Git
+LFS is also installed for HTTP migration and normal repository use. Server
+startup and supported workflow execution do not require an external package or
+Action registry.
 
 Image builds accept `NPM_REGISTRY`, `GOPROXY`, `UBUNTU_MIRROR`, and
 `UBUNTU_PORTS_MIRROR` build arguments. Point them at company-controlled mirrors

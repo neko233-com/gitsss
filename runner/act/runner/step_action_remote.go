@@ -71,7 +71,7 @@ var builtinActionDefinitions = map[string]builtinActionDefinition{
 	},
 	"setup-go": {
 		directory: "v6",
-		revision:  "gitsss-20260716-1",
+		revision:  "gitsss-20260720-2",
 		refs: []string{
 			"v4", "v5", "v6",
 			"7b8cf10d4e4a01d4992d18a89f4d7dc5a3e6d6f4",
