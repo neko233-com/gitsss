@@ -108,7 +108,7 @@ tasks:
   release:
     desc: Build local release artifacts
     cmds:
-      - task: make
+      - task: make:docker
         vars: {TARGET: release}
 
   release:check:
@@ -128,11 +128,18 @@ tasks:
     requires:
       vars: [TARGET]
     cmds:
-      - docker run --rm --entrypoint /bin/bash --volume "{{.TASKFILE_DIR}}:/src" --volume gitsss-task-node-modules:/src/node_modules --volume gitsss-task-pnpm-store:/root/.local/share/pnpm/store --volume gitsss-task-go-mod:/go/pkg/mod --volume gitsss-task-go-build:/root/.cache/go-build --workdir /src --env npm_config_registry --env TAGS --env RACE_ENABLED --env GOTESTFLAGS --env GITEA_TEST_E2E_FLAGS --env VERSION --env DOCKER_IMAGE --env DOCKER_TAG "{{.BUILD_IMAGE}}" -lc "make {{.TARGET}}"
+      - docker run --rm --entrypoint /bin/bash --volume "{{.TASKFILE_DIR}}:/src" --volume gitsss-task-node-modules:/src/node_modules --volume gitsss-task-pnpm-store:/root/.local/share/pnpm/store --volume gitsss-task-go-mod:/go/pkg/mod --volume gitsss-task-go-build:/root/.cache/go-build --workdir /src --env npm_config_registry --env TAGS --env RACE_ENABLED --env GOTESTFLAGS --env GITEA_TEST_E2E_FLAGS --env VERSION --env GITSSS_VERSION --env DOCKER_IMAGE --env DOCKER_TAG "{{.BUILD_IMAGE}}" -lc "make {{.TARGET}}"
+
+  make:docker:
+    internal: true
+    requires:
+      vars: [TARGET]
+    cmds:
+      - docker run --rm --entrypoint /bin/bash --volume "{{.TASKFILE_DIR}}:/src" --volume /var/run/docker.sock:/var/run/docker.sock --volume gitsss-task-node-modules:/src/node_modules --volume gitsss-task-pnpm-store:/root/.local/share/pnpm/store --volume gitsss-task-go-mod:/go/pkg/mod --volume gitsss-task-go-build:/root/.cache/go-build --workdir /src --env npm_config_registry --env TAGS --env RACE_ENABLED --env GOTESTFLAGS --env GITEA_TEST_E2E_FLAGS --env VERSION --env GITSSS_VERSION --env DOCKER_IMAGE --env DOCKER_TAG "{{.BUILD_IMAGE}}" -lc "make {{.TARGET}}"
 
   make:unprivileged:
     internal: true
     requires:
       vars: [TARGET]
     cmds:
-      - docker run --rm --user git --entrypoint /bin/bash --volume "{{.TASKFILE_DIR}}:/src" --workdir /src --env HOME=/tmp/git-home --env GOPATH=/tmp/go --env GOCACHE=/tmp/go-build --env GITSSS_CUSTOM= --env GIT_CONFIG_COUNT=1 --env GIT_CONFIG_KEY_0=safe.directory --env GIT_CONFIG_VALUE_0=/src --env TAGS --env RACE_ENABLED --env GOTESTFLAGS --env GITEA_TEST_E2E_FLAGS --env VERSION --env DOCKER_IMAGE --env DOCKER_TAG "{{.BUILD_IMAGE}}" -lc "mkdir -p /tmp/git-home && git config --global --add safe.directory /src && make {{.TARGET}}"
+      - docker run --rm --user git --entrypoint /bin/bash --volume "{{.TASKFILE_DIR}}:/src" --workdir /src --env HOME=/tmp/git-home --env GOPATH=/tmp/go --env GOCACHE=/tmp/go-build --env GITSSS_CUSTOM= --env GIT_CONFIG_COUNT=1 --env GIT_CONFIG_KEY_0=safe.directory --env GIT_CONFIG_VALUE_0=/src --env TAGS --env RACE_ENABLED --env GOTESTFLAGS --env GITEA_TEST_E2E_FLAGS --env VERSION --env GITSSS_VERSION --env DOCKER_IMAGE --env DOCKER_TAG "{{.BUILD_IMAGE}}" -lc "mkdir -p /tmp/git-home && git config --global --add safe.directory /src && make {{.TARGET}}"
