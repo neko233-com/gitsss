@@ -11,6 +11,7 @@ services:
       GITSSS__server__LFS_START_SERVER: "true"
       GITSSS__server__SSH_PORT: ${GITSSS_SSH_PORT:-2222}
       GITSSS__server__SSH_LISTEN_PORT: 22
+      GITSSS__repository__ALLOW_FORK_INTO_SAME_OWNER: ${GITSSS_ALLOW_FORK_INTO_SAME_OWNER:-true}
       GITSSS__security__INSTALL_LOCK: "true"
       GITSSS__security__MIN_PASSWORD_LENGTH: ${GITSSS_MIN_PASSWORD_LENGTH:-4}
       GITSSS__cron.update_checker__ENABLED: "false"
