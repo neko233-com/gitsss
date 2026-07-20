@@ -137,7 +137,6 @@ docker image inspect "$image" >/dev/null 2>&1 || {
 mkdir -p "$install_dir"
 mkdir -p "${install_dir}/logs"
 install_dir=$(cd -- "$install_dir" && pwd)
-source_project_dir=$(cd -- "${script_dir}/.." && pwd)
 cp "$source_compose" "${install_dir}/compose.yaml"
 cp "$source_start_script" "${install_dir}/start.sh"
 chmod 0755 "${install_dir}/start.sh"
@@ -158,9 +157,6 @@ mv "$env_tmp" "${install_dir}/.env"
 trap - EXIT
 
 if [[ "$no_start" == false ]]; then
-  if [[ "$source_project_dir" != "$install_dir" ]]; then
-    docker compose --project-directory "$source_project_dir" down --remove-orphans
-  fi
   docker compose --project-directory "$install_dir" up --detach --force-recreate --pull never
 fi
 
