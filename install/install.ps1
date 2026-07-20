@@ -65,7 +65,6 @@ if (-not $JobInstanceUrl) {
 }
 
 $resolvedInstallDir = [System.IO.Path]::GetFullPath($InstallDir)
-$sourceProjectDir = [System.IO.Path]::GetFullPath((Split-Path $sourceCompose -Parent))
 New-Item -ItemType Directory -Force -Path $resolvedInstallDir | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $resolvedInstallDir "logs") | Out-Null
 Copy-Item -LiteralPath $sourceCompose -Destination (Join-Path $resolvedInstallDir "compose.yaml") -Force
@@ -94,12 +93,6 @@ try {
 }
 
 if (-not $NoStart) {
-    if (-not [string]::Equals($sourceProjectDir, $resolvedInstallDir, [System.StringComparison]::OrdinalIgnoreCase)) {
-        docker compose --project-directory $sourceProjectDir down --remove-orphans
-        if ($LASTEXITCODE -ne 0) {
-            throw "Failed to stop the source GitSSS project before migration"
-        }
-    }
     docker compose --project-directory $resolvedInstallDir up --detach --force-recreate --pull never
     if ($LASTEXITCODE -ne 0) {
         throw "gitsss startup failed"
