@@ -108,8 +108,7 @@ tasks:
   release:
     desc: Build local release artifacts
     cmds:
-      - task: make:docker
-        vars: {TARGET: release}
+      - make release
 
   release:check:
     desc: Generate release checksums
@@ -129,13 +128,6 @@ tasks:
       vars: [TARGET]
     cmds:
       - docker run --rm --entrypoint /bin/bash --volume "{{.TASKFILE_DIR}}:/src" --volume gitsss-task-node-modules:/src/node_modules --volume gitsss-task-pnpm-store:/root/.local/share/pnpm/store --volume gitsss-task-go-mod:/go/pkg/mod --volume gitsss-task-go-build:/root/.cache/go-build --workdir /src --env npm_config_registry --env TAGS --env RACE_ENABLED --env GOTESTFLAGS --env GITEA_TEST_E2E_FLAGS --env VERSION --env GITSSS_VERSION --env DOCKER_IMAGE --env DOCKER_TAG "{{.BUILD_IMAGE}}" -lc "make {{.TARGET}}"
-
-  make:docker:
-    internal: true
-    requires:
-      vars: [TARGET]
-    cmds:
-      - docker run --rm --entrypoint /bin/bash --volume "{{.TASKFILE_DIR}}:/src" --volume /var/run/docker.sock:/var/run/docker.sock --volume gitsss-task-node-modules:/src/node_modules --volume gitsss-task-pnpm-store:/root/.local/share/pnpm/store --volume gitsss-task-go-mod:/go/pkg/mod --volume gitsss-task-go-build:/root/.cache/go-build --workdir /src --env npm_config_registry --env TAGS --env RACE_ENABLED --env GOTESTFLAGS --env GITEA_TEST_E2E_FLAGS --env VERSION --env GITSSS_VERSION --env DOCKER_IMAGE --env DOCKER_TAG "{{.BUILD_IMAGE}}" -lc "make {{.TARGET}}"
 
   make:unprivileged:
     internal: true
