@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>配置参考 - gitsss</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="header">
+    <a class="header-logo" href="index.html"><span>git</span>sss</a>
+    <nav class="header-nav">
+      <a href="getting-started.html">快速开始</a>
+      <a href="configuration.html">配置</a>
+      <a href="migration.html">迁移</a>
+      <a href="actions.html">Actions</a>
+      <a href="development.html">开发</a>
+      <a href="https://github.com/neko233-com/gitsss">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-heading">入门</div>
+        <a href="index.html">文档首页</a>
+        <a href="getting-started.html">快速开始</a>
+        <a href="configuration.html" class="active">配置参考</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">部署</div>
+        <a href="migration.html">从 Gitea 迁移</a>
+        <a href="actions.html">离线 Actions</a>
+        <a href="operations.html">运维指南</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">开发</div>
+        <a href="development.html">开发指南</a>
+        <a href="architecture.html">架构设计</a>
+      </div>
+    </aside>
+
+    <main class="content">
+      <h1>配置参考</h1>
+      <p class="subtitle">gitsss 全部可配置项说明</p>
+
+      <h2>安装器参数</h2>
+      <p>安装脚本支持以下参数，所有配置项均有合理默认值。</p>
+
+      <h3>Shell (install.sh)</h3>
+      <table>
+        <thead><tr><th>参数</th><th>默认值</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>--port</code></td><td><code>3000</code></td><td>HTTP 端口</td></tr>
+          <tr><td><code>--root-url</code></td><td><code>http://localhost:{port}/</code></td><td>站点根 URL</td></tr>
+          <tr><td><code>--job-instance-url</code></td><td><code>http://host.docker.internal:{port}</code></td><td>Actions Runner 回调地址</td></tr>
+          <tr><td><code>--image</code></td><td><code>gitsss/gitsss:latest</code></td><td>Docker 镜像名</td></tr>
+          <tr><td><code>--image-archive</code></td><td>空</td><td>离线镜像 tar 路径</td></tr>
+          <tr><td><code>--data-volume</code></td><td><code>gitsss-data</code></td><td>Docker 数据卷名</td></tr>
+          <tr><td><code>--install-dir</code></td><td><code>./gitsss-install</code></td><td>安装目录</td></tr>
+          <tr><td><code>--initial-admin-user</code></td><td><code>root</code></td><td>初始管理员用户名</td></tr>
+          <tr><td><code>--initial-admin-password</code></td><td><code>root</code></td><td>初始管理员密码</td></tr>
+          <tr><td><code>--no-start</code></td><td>false</td><td>安装后不启动服务</td></tr>
+          <tr><td><code>--no-autostart</code></td><td>false</td><td>不配置开机自动启动</td></tr>
+        </tbody>
+      </table>
+
+      <h3>PowerShell (install.ps1)</h3>
+      <table>
+        <thead><tr><th>参数</th><th>默认值</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>-Port</code></td><td><code>3000</code></td><td>HTTP 端口</td></tr>
+          <tr><td><code>-RootUrl</code></td><td><code>http://localhost:{port}/</code></td><td>站点根 URL</td></tr>
+          <tr><td><code>-JobInstanceUrl</code></td><td><code>http://host.docker.internal:{port}</code></td><td>Actions Runner 回调地址</td></tr>
+          <tr><td><code>-Image</code></td><td><code>gitsss/gitsss:latest</code></td><td>Docker 镜像名</td></tr>
+          <tr><td><code>-ImageArchive</code></td><td>空</td><td>离线镜像 tar 路径</td></tr>
+          <tr><td><code>-DataVolume</code></td><td><code>gitsss-data</code></td><td>Docker 数据卷名</td></tr>
+          <tr><td><code>-InstallDir</code></td><td><code>.\gitsss-install</code></td><td>安装目录</td></tr>
+          <tr><td><code>-InitialAdminUser</code></td><td><code>root</code></td><td>初始管理员用户名</td></tr>
+          <tr><td><code>-InitialAdminPassword</code></td><td><code>root</code></td><td>初始管理员密码</td></tr>
+          <tr><td><code>-NoStart</code></td><td>false</td><td>安装后不启动服务</td></tr>
+          <tr><td><code>-NoAutostart</code></td><td>false</td><td>不配置开机自动启动</td></tr>
+        </tbody>
+      </table>
+
+      <h2>环境变量</h2>
+      <p>安装器生成 <code>.env</code> 文件，也可通过 Docker Compose 环境变量直接配置。</p>
+
+      <table>
+        <thead><tr><th>变量</th><th>默认值</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>GITSSS_IMAGE</code></td><td><code>gitsss/gitsss:latest</code></td><td>服务端镜像</td></tr>
+          <tr><td><code>GITSSS_ACTIONS_JOB_IMAGE</code></td><td><code>gitsss/gitsss:latest</code></td><td>Actions Job 镜像</td></tr>
+          <tr><td><code>GITSSS_HTTP_PORT</code></td><td><code>3000</code></td><td>容器内 HTTP 端口</td></tr>
+          <tr><td><code>GITSSS_HTTP_BIND</code></td><td><code>0.0.0.0</code></td><td>HTTP 绑定地址</td></tr>
+          <tr><td><code>GITSSS_ROOT_URL</code></td><td><code>http://localhost:3000/</code></td><td>站点根 URL</td></tr>
+          <tr><td><code>GITSSS_SSH_PORT</code></td><td><code>2222</code></td><td>宿主机 SSH 端口</td></tr>
+          <tr><td><code>GITSSS_SSH_BIND</code></td><td><code>0.0.0.0</code></td><td>SSH 绑定地址</td></tr>
+          <tr><td><code>GITSSS_DATA_VOLUME</code></td><td><code>gitsss-data</code></td><td>Docker 数据卷名</td></tr>
+          <tr><td><code>GITSSS_UID</code></td><td><code>1000</code></td><td>容器内用户 UID</td></tr>
+          <tr><td><code>GITSSS_GID</code></td><td><code>1000</code></td><td>容器内用户 GID</td></tr>
+          <tr><td><code>GITSSS_MIN_PASSWORD_LENGTH</code></td><td><code>4</code></td><td>全站最小密码长度</td></tr>
+          <tr><td><code>GITSSS_INITIAL_ADMIN_USER</code></td><td><code>root</code></td><td>初始管理员用户名</td></tr>
+          <tr><td><code>GITSSS_INITIAL_ADMIN_PASSWORD</code></td><td><code>root</code></td><td>初始管理员密码</td></tr>
+          <tr><td><code>GITSSS_INITIAL_ADMIN_EMAIL</code></td><td><code>root@localhost.invalid</code></td><td>初始管理员邮箱</td></tr>
+          <tr><td><code>GITSSS_ACTIONS_JOB_INSTANCE_URL</code></td><td><code>http://host.docker.internal:3000</code></td><td>Runner 回调地址</td></tr>
+          <tr><td><code>GITSSS_ACTIONS_CONTAINER_OPTIONS</code></td><td><code>--cpus=4 --memory=8g --pids-limit=2048</code></td><td>Actions 容器资源限制</td></tr>
+        </tbody>
+      </table>
+
+      <h2>自动启动</h2>
+      <table>
+        <thead><tr><th>平台</th><th>机制</th><th>日志位置</th></tr></thead>
+        <tbody>
+          <tr><td>Windows</td><td>隐藏计划任务（回退 <code>wscript</code> 启动器）</td><td><code>{install-dir}\logs\</code></td></tr>
+          <tr><td>Linux</td><td>systemd unit</td><td><code>{install-dir}/logs/</code></td></tr>
+          <tr><td>macOS</td><td>launchd plist</td><td><code>{install-dir}/logs/</code></td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-tip">
+        <span class="callout-label">提示</span>
+        <p>使用 <code>--no-autostart</code>（Shell）或 <code>-NoAutostart</code>（PowerShell）可禁用自动启动。</p>
+      </div>
+
+      <h2>端口说明</h2>
+      <table>
+        <thead><tr><th>端口</th><th>用途</th><th>绑定</th></tr></thead>
+        <tbody>
+          <tr><td><code>3000</code></td><td>Web 界面、API、HTTP Git</td><td><code>0.0.0.0</code></td></tr>
+          <tr><td><code>2222</code></td><td>SSH Git</td><td><code>0.0.0.0</code></td></tr>
+          <tr><td><code>8088</code></td><td>Actions Runner 内部通信</td><td><code>127.0.0.1</code>（仅本机）</td></tr>
+        </tbody>
+      </table>
+
+      <h2>自定义更新检查</h2>
+      <p>默认关闭。如需启用，指向公司内部更新服务器：</p>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code>[cron.update_checker]
+ENABLED = true
+HTTP_ENDPOINT = http://updates.intranet.example/gitsss/version.json</code></pre>
+      </div>
+      <p>请求超时 10 秒，响应上限 1 MiB，必须包含 <code>latest.version</code> 字段。</p>
+
+      <script>
+      function copyCode(btn) {
+        const code = btn.parentElement.querySelector('code');
+        navigator.clipboard.writeText(code.textContent);
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 1500);
+      }
+      </script>
+    </main>
+  </div>
+</body>
+</html>

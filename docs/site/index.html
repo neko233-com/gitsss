@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>gitsss 文档</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="header">
+    <a class="header-logo" href="index.html"><span>git</span>sss</a>
+    <nav class="header-nav">
+      <a href="getting-started.html">快速开始</a>
+      <a href="configuration.html">配置</a>
+      <a href="migration.html">迁移</a>
+      <a href="actions.html">Actions</a>
+      <a href="development.html">开发</a>
+      <a href="https://github.com/neko233-com/gitsss">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-heading">入门</div>
+        <a href="index.html" class="active">文档首页</a>
+        <a href="getting-started.html">快速开始</a>
+        <a href="configuration.html">配置参考</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">部署</div>
+        <a href="migration.html">从 Gitea 迁移</a>
+        <a href="actions.html">离线 Actions</a>
+        <a href="operations.html">运维指南</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">开发</div>
+        <a href="development.html">开发指南</a>
+        <a href="architecture.html">架构设计</a>
+      </div>
+    </aside>
+
+    <main class="content">
+      <h1>gitsss 文档</h1>
+      <p class="subtitle">面向研发团队内网的自维护 Git 协作平台</p>
+
+      <div class="callout callout-tip">
+        <span class="callout-label">快速开始</span>
+        <p>默认端口 <code>3000</code>，管理员账号 <code>root</code>，密码 <code>root</code>（首次登录强制修改）。查看 <a href="getting-started.html">安装指南</a>。</p>
+      </div>
+
+      <h2>什么是 gitsss</h2>
+      <p>gitsss 基于 Gitea v1.26.2，面向公司内网场景深度定制。完全离线运行，不依赖外部服务。唯一公开命令为 <code>gitsss</code>。</p>
+
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-icon">&#x1F512;</div>
+          <h3>完全离线</h3>
+          <p>服务端 + Actions Runner + Node.js + Go + Git LFS + Docker 打包在一个镜像中，无需公网</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">&#x1F500;</div>
+          <h3>Gitea 兼容</h3>
+          <p>仓库、组织、Issue、PR、项目、Packages、Release、Actions、API 均保留 Gitea 行为</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">&#x1F4E2;</div>
+          <h3>飞书通知</h3>
+          <p>内置飞书签名通知 + 自定义通知模板，适合企业内部协作</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">&#x2705;</div>
+          <h3>GitLab 增强</h3>
+          <p>Approval Rules、Protected Branches、Scoped Labels、CODEOWNERS、Artifacts</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">&#x26A1;</div>
+          <h3>离线 Actions</h3>
+          <p>内置 checkout、cache、setup-node、setup-go 等常用 Action，未知 Action 明确失败</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">&#x1F5A5;</div>
+          <h3>跨平台</h3>
+          <p>linux/amd64、linux/arm64、macOS arm64（Mac mini M4）、Windows</p>
+        </div>
+      </div>
+
+      <h2>默认配置一览</h2>
+      <table>
+        <thead><tr><th>配置项</th><th>默认值</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>HTTP 端口</td><td><code>3000</code></td><td>Web 界面和 API</td></tr>
+          <tr><td>SSH 端口</td><td><code>2222</code></td><td>Git SSH 协议</td></tr>
+          <tr><td>管理员账号</td><td><code>root</code></td><td>首次登录强制修改密码</td></tr>
+          <tr><td>管理员密码</td><td><code>root</code></td><td>可通过安装器参数覆盖</td></tr>
+          <tr><td>最小密码长度</td><td><code>4</code></td><td>全站密码策略</td></tr>
+          <tr><td>Docker 镜像</td><td><code>gitsss/gitsss:latest</code></td><td>单一镜像包含全部组件</td></tr>
+          <tr><td>数据卷</td><td><code>gitsss-data</code></td><td>持久化存储</td></tr>
+        </tbody>
+      </table>
+
+      <h2>安装方式</h2>
+      <p>选择你的平台，一条命令完成安装：</p>
+
+      <h3>Linux / macOS</h3>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code>./install/install.sh \
+  --image-archive ./gitsss-image.tar \
+  --install-dir /opt/gitsss \
+  --port 3000 \
+  --root-url http://git.example.internal:3000/</code></pre>
+      </div>
+
+      <h3>Windows (PowerShell)</h3>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code>.\install\install.ps1 `
+  -ImageArchive .\gitsss-image.tar `
+  -InstallDir C:\gitsss `
+  -Port 3000 `
+  -RootUrl http://git.example.internal:3000/</code></pre>
+      </div>
+
+      <h2>文档导航</h2>
+      <table>
+        <thead><tr><th>页面</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><a href="getting-started.html">快速开始</a></td><td>安装、首次启动、验证</td></tr>
+          <tr><td><a href="configuration.html">配置参考</a></td><td>环境变量、端口、凭据、自动启动</td></tr>
+          <tr><td><a href="migration.html">从 Gitea 迁移</a></td><td>HTTP 导入、Volume 接管、切换端口</td></tr>
+          <tr><td><a href="actions.html">离线 Actions</a></td><td>Runner、内置 Action、自定义工作流</td></tr>
+          <tr><td><a href="operations.html">运维指南</a></td><td>离线策略、Mac mini M4 部署、存储管理</td></tr>
+          <tr><td><a href="development.html">开发指南</a></td><td>Task 命令、代码规范、测试</td></tr>
+          <tr><td><a href="architecture.html">架构设计</a></td><td>上游基线、导入边界、兼容性规则</td></tr>
+        </tbody>
+      </table>
+
+      <hr>
+      <p style="font-size:14px; color:var(--color-fg-muted);">gitsss is licensed under <a href="https://github.com/neko233-com/gitsss/blob/main/LICENSE">MIT</a>.</p>
+    </main>
+  </div>
+
+  <script>
+  function copyCode(btn) {
+    const code = btn.parentElement.querySelector('code');
+    navigator.clipboard.writeText(code.textContent);
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  }
+  </script>
+</body>
+</html>

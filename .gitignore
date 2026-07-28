@@ -112,12 +112,16 @@ prime/
 
 # Ignore AI/LLM instruction files
 /.claude/
+/.mimocode/
+/.agents/
+/.codex/
 /.cursorrules
 /.cursor/
 /.goosehints
 /.windsurfrules
 /.github/copilot-instructions.md
 /llms.txt
+/.workbuddy/
 
 # Ignore worktrees when working on multiple branches
 .worktrees/
