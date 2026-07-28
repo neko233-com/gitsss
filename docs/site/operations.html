@@ -37,6 +37,8 @@
         <div class="sidebar-heading">开发</div>
         <a href="development.html">开发指南</a>
         <a href="architecture.html">架构设计</a>
+        <a href="extensions.html">扩展功能</a>
+        <a href="agents.html">Agent 协作</a>
       </div>
     </aside>
 
@@ -47,7 +49,47 @@
       <h2>离线生产策略</h2>
       <p>gitsss 启动和运行完全不需要外部网络。更新检查器默认关闭，Actions Runner 不会下载未知远程 Action。</p>
 
-      <h3>更新检查</h3>
+      <h2>更新</h2>
+      <p>更新时必须保留原安装目录与 Docker 数据卷。获取新的离线镜像包后，用原来的端口、根 URL、安装目录和数据卷重跑安装器；安装器加载镜像、更新安装目录文件并重建容器，不会删除现有数据。</p>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code># PowerShell
+.\install\install.ps1 -ImageArchive .\gitsss-image-new.tar -InstallDir C:\gitsss -DataVolume gitsss-data -Port 3000 -RootUrl http://gitsss.intranet:3000/
+
+# Linux / macOS
+./install/install.sh --image-archive ./gitsss-image-new.tar --install-dir /opt/gitsss --data-volume gitsss-data --port 3000 --root-url http://gitsss.intranet:3000/</code></pre>
+      </div>
+      <div class="callout callout-warning">
+        <span class="callout-label">凭据</span>
+        <p>已有数据卷更新时不要重新传入初始管理员凭据；已有账户和密码不会被重置。</p>
+      </div>
+
+      <h2>卸载</h2>
+      <p>先停止并移除容器。以下命令保留数据卷，可用于重新安装或恢复；删除数据卷会永久删除仓库、用户、Issue 和 Actions 数据。</p>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code># 所有平台：停止服务，保留数据
+docker compose --project-directory INSTALL_DIR down
+
+# Windows：移除自动启动项
+Unregister-ScheduledTask -TaskName 'GitSSS Background' -Confirm:$false -ErrorAction SilentlyContinue
+Remove-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\GitSSS Background.vbs" -Force -ErrorAction SilentlyContinue
+
+# Linux：禁用自动启动
+sudo systemctl disable --now gitsss.service
+sudo rm /etc/systemd/system/gitsss.service
+sudo systemctl daemon-reload
+
+# macOS：移除用户级自动启动
+launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.gitsss.autostart.plist"
+rm -f "$HOME/Library/LaunchAgents/com.gitsss.autostart.plist"</code></pre>
+      </div>
+      <div class="callout callout-danger">
+        <span class="callout-label">不可恢复</span>
+        <p>确认备份可用后，才可执行 <code>docker volume rm gitsss-data</code>。非默认数据卷请替换为实际名称。</p>
+      </div>
+
+      <h2>更新检查</h2>
       <p>如需启用公司内部更新检查，配置 <code>app.ini</code>：</p>
       <div class="code-block">
         <button class="copy-btn" onclick="copyCode(this)">Copy</button>

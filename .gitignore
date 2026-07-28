@@ -37,6 +37,7 @@ _cgo_export.*
 _testmain.go
 
 *.exe
+/gitsss.exe~
 *.test
 *.prof
 *.tsbuildinfo
@@ -88,6 +89,11 @@ cpu.out
 /vendor
 /VERSION
 /.air
+
+# Local visual experiments
+/gitsss-deep-theme-v2.png
+/gitsss-deep-theme.png
+/gitsss-theme-final.png
 
 
 # Snapcraft

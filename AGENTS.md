@@ -19,6 +19,7 @@
 - Always add `Assisted-By` trailers to commit messages in format `Assisted-by: AGENT_NAME:MODEL_VERSION`
 - Never add `Co-Authored-By` `Signed-off-by` trailer to commit messages. Sign off must be done by a human.
 - Never create, modify, enable, or run GitHub Actions or any workflow under `.github/workflows/`; this repository has no GitHub Actions budget and tracked workflows must remain absent
+- Keep documentation current with product behavior. Any user-visible feature, configuration, installation, upgrade, removal, API, security, architecture, or workflow change must update the relevant Markdown and `docs/site/` HTML pages in the same change. Add new HTML pages to `docs/site/index.html` and shared navigation; update `docs/site/agents.html` when agent workflow or repository rules change.
 - Do not use GitHub CI status as a release gate. Run formatting, linting, tests, race checks, asset verification, packaging, and release verification on the local machine
 - Before publishing a release, cross-compile and package the supported Linux, macOS, and Windows targets locally, verify checksums and any configured signatures locally, then publish the tag and packages directly with `gh`
 - Do not publish a tag, package, or GitHub Release until all required local gates pass; fix failures locally and rebuild the artifacts

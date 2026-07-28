@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>扩展功能 - gitsss</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="header">
+    <a class="header-logo" href="index.html"><span>git</span>sss</a>
+    <nav class="header-nav">
+      <a href="getting-started.html">快速开始</a>
+      <a href="configuration.html">配置</a>
+      <a href="migration.html">迁移</a>
+      <a href="actions.html">Actions</a>
+      <a href="development.html">开发</a>
+      <a href="https://github.com/neko233-com/gitsss">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-heading">入门</div>
+        <a href="index.html">文档首页</a>
+        <a href="getting-started.html">快速开始</a>
+        <a href="configuration.html">配置参考</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">部署</div>
+        <a href="migration.html">从 Gitea 迁移</a>
+        <a href="actions.html">离线 Actions</a>
+        <a href="operations.html">运维指南</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">开发</div>
+        <a href="development.html">开发指南</a>
+        <a href="architecture.html">架构设计</a>
+        <a href="extensions.html" class="active">扩展功能</a>
+        <a href="agents.html">Agent 协作</a>
+      </div>
+    </aside>
+
+    <main class="content">
+      <h1>扩展功能</h1>
+      <p class="subtitle">选择正确扩展点，保持 Gitea 兼容、离线运行与可维护文档</p>
+
+      <div class="callout callout-note">
+        <span class="callout-label">扩展模型</span>
+        <p>gitsss 没有运行时插件市场。产品能力以受版本控制的源代码、配置和内置 Actions 扩展；这使离线交付、审计与升级边界保持确定。</p>
+      </div>
+
+      <h2>先选扩展边界</h2>
+      <table>
+        <thead><tr><th>目标</th><th>首选位置</th><th>同时更新</th></tr></thead>
+        <tbody>
+          <tr><td>新的业务领域或可复用能力</td><td><code>models/</code>、<code>services/</code>、<code>modules/</code></td><td>测试、架构与功能文档</td></tr>
+          <tr><td>HTTP 页面、表单或 API</td><td><code>routers/</code>、<code>templates/</code>、<code>web_src/</code></td><td>用户指南、权限与 API 说明</td></tr>
+          <tr><td>默认值或部署行为</td><td><code>options/</code>、<code>compose.yaml</code>、<code>install/</code></td><td>配置、快速开始、运维文档</td></tr>
+          <tr><td>离线 CI 能力</td><td><code>actions/</code>、<code>runner/</code></td><td>Actions 支持矩阵、示例工作流</td></tr>
+          <tr><td>主题或界面样式</td><td><code>web_src/</code>、<code>templates/</code></td><td>用户可见行为与截图/视觉验证</td></tr>
+        </tbody>
+      </table>
+
+      <h2>实现路径</h2>
+      <ol>
+        <li>在 <a href="architecture.html">架构设计</a>中确认产品边界和兼容性约束。</li>
+        <li>搜索相邻领域已有的 model、service、router、template 和前端实现；复用现有权限、审计、错误处理与配置模式。</li>
+        <li>将领域逻辑放在 service/module 层；router 仅负责 HTTP 编排，template 与前端仅负责展示和交互。</li>
+        <li>为新配置提供安全默认值、安装器参数或明确的 <code>app.ini</code> 说明；不得让运行时隐式访问公网。</li>
+        <li>增加可隔离的单元测试；再按变更范围运行格式化、静态检查与必要集成/E2E 验证。</li>
+      </ol>
+
+      <h2>数据与兼容性</h2>
+      <p>数据模型变更必须增量、可迁移，并保护既有 Gitea 数据语义。不得破坏数据库 ID、密码哈希、仓库路径、LFS 对象、SSH 密钥、Token、Actions 数据或 <code>app.ini</code> 行为。</p>
+      <div class="callout callout-warning">
+        <span class="callout-label">升级边界</span>
+        <p>涉及 schema、存储、认证、权限、Git 协议或 Actions 的变更，先写迁移/回滚方案，再开始实现。验证必须覆盖已有数据与新数据。</p>
+      </div>
+
+      <h2>离线 Actions 扩展</h2>
+      <p>仅将经过审查的 Action 与所需运行时随产品镜像交付。未知远程 Action 必须显式失败，不能在工作流运行时下载代码或镜像。</p>
+      <ul>
+        <li>把内置 Action、入口脚本和依赖纳入 <code>actions/</code> 与镜像构建输入。</li>
+        <li>在 <a href="actions.html">离线 Actions</a>页面新增支持范围、输入/输出、示例和限制。</li>
+        <li>验证 Job 容器隔离、缓存、产物和失败提示；不要扩大 Docker socket 暴露范围。</li>
+      </ul>
+
+      <h2>扩展验收清单</h2>
+      <ul>
+        <li>产品边界、权限、数据兼容和离线行为已评审。</li>
+        <li>默认配置安全，安装、更新、卸载路径已考虑。</li>
+        <li>对应的单元/集成/E2E 测试与本地验证已执行。</li>
+        <li>相关 Markdown、HTML 用户文档、导航与 <code>AGENTS.md</code> 已同步更新。</li>
+      </ul>
+
+      <p>执行命令与提交规则见 <a href="development.html">开发指南</a>；人类与自动化协作者的交接规则见 <a href="agents.html">Agent 协作</a>。</p>
+    </main>
+  </div>
+</body>
+</html>
