@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>离线 Actions - gitsss</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="header">
+    <a class="header-logo" href="index.html"><span>git</span>sss</a>
+    <nav class="header-nav">
+      <a href="getting-started.html">快速开始</a>
+      <a href="configuration.html">配置</a>
+      <a href="migration.html">迁移</a>
+      <a href="actions.html">Actions</a>
+      <a href="development.html">开发</a>
+      <a href="https://github.com/neko233-com/gitsss">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-heading">入门</div>
+        <a href="index.html">文档首页</a>
+        <a href="getting-started.html">快速开始</a>
+        <a href="configuration.html">配置参考</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">部署</div>
+        <a href="migration.html">从 Gitea 迁移</a>
+        <a href="actions.html" class="active">离线 Actions</a>
+        <a href="operations.html">运维指南</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">开发</div>
+        <a href="development.html">开发指南</a>
+        <a href="architecture.html">架构设计</a>
+      </div>
+    </aside>
+
+    <main class="content">
+      <h1>离线 Actions</h1>
+      <p class="subtitle">内置 CI/CD，无需公网访问</p>
+
+      <h2>概述</h2>
+      <p>gitsss 将服务端、内置 Runner、Node.js、Go、Git LFS、Docker 和常用 Action 打包在一个 Ubuntu 24.04 镜像中。启动后无需任何外部依赖即可运行 CI/CD 工作流。</p>
+
+      <div class="callout callout-note">
+        <span class="callout-label">安全策略</span>
+        <p>未知远程 Action 在离线模式下会明确失败，不会尝试访问公网。仓库任务运行在独立容器内，每个任务使用私有 Docker daemon，不能访问宿主 Docker socket。</p>
+      </div>
+
+      <h2>内置 Action</h2>
+      <table>
+        <thead><tr><th>Action</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td><code>actions/checkout</code></td><td>检出仓库代码</td></tr>
+          <tr><td><code>actions/cache</code></td><td>缓存依赖（pnpm、npm、Go modules 等）</td></tr>
+          <tr><td><code>actions/upload-artifact</code></td><td>上传构建产物</td></tr>
+          <tr><td><code>actions/download-artifact</code></td><td>下载构建产物</td></tr>
+          <tr><td><code>actions/setup-node</code></td><td>配置 Node.js 环境</td></tr>
+          <tr><td><code>actions/setup-go</code></td><td>配置 Go 环境</td></tr>
+        </tbody>
+      </table>
+
+      <h2>内置运行时</h2>
+      <table>
+        <thead><tr><th>运行时</th><th>版本</th></tr></thead>
+        <tbody>
+          <tr><td>Node.js</td><td>LTS</td></tr>
+          <tr><td>pnpm</td><td>最新</td></tr>
+          <tr><td>Go</td><td>1.25.5 / 1.26.5</td></tr>
+          <tr><td>npm</td><td>随 Node.js</td></tr>
+          <tr><td>Git LFS</td><td>最新</td></tr>
+          <tr><td>Docker</td><td>最新</td></tr>
+        </tbody>
+      </table>
+
+      <h2>编写工作流</h2>
+      <p>在仓库根目录创建 <code>.gitea/workflows/</code> 目录，添加 YAML 工作流文件：</p>
+
+      <h3>Node.js 项目示例</h3>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code># .gitea/workflows/ci.yaml
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test</code></pre>
+      </div>
+
+      <h3>Go 项目示例</h3>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code># .gitea/workflows/ci.yaml
+name: CI
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - run: go build ./...
+      - run: go test -race ./...</code></pre>
+      </div>
+
+      <h3>多阶段构建示例</h3>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code># .gitea/workflows/release.yaml
+name: Release
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - run: go build -o dist/app ./cmd/app
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - run: go test ./...</code></pre>
+      </div>
+
+      <h2>容器隔离</h2>
+      <p>每个 Actions Job 运行在独立容器中，具有以下安全特性：</p>
+      <ul>
+        <li>独立的 Docker daemon — 不共享镜像、容器、网络或卷</li>
+        <li>不能访问宿主 Docker socket</li>
+        <li>资源限制：默认 4 CPU、8GB 内存、2048 PID</li>
+        <li>中断的任务资源在 Runner 启动时自动清理</li>
+      </ul>
+
+      <p>可通过环境变量调整资源限制：</p>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code>GITSSS_ACTIONS_CONTAINER_OPTIONS=--cpus=8 --memory=16g --pids-limit=4096</code></pre>
+      </div>
+
+      <h2>缓存与产物</h2>
+      <p>Actions 缓存和产物存储在 gitsss 数据卷中，重启后保留。可通过 Web 管理界面或 API 管理。</p>
+
+      <h2>故障排查</h2>
+      <table>
+        <thead><tr><th>问题</th><th>原因</th><th>解决</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Action 下载失败</td>
+            <td>未知远程 Action</td>
+            <td>使用内置 Action 或自行构建离线 Action</td>
+          </tr>
+          <tr>
+            <td>Job 容器启动失败</td>
+            <td>Docker 资源不足</td>
+            <td>检查磁盘空间和 Docker daemon 状态</td>
+          </tr>
+          <tr>
+            <td>Runner 无法连接</td>
+            <td>端口 8088 不通</td>
+            <td>确认 <code>127.0.0.1:8088</code> 可访问</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <script>
+      function copyCode(btn) {
+        const code = btn.parentElement.querySelector('code');
+        navigator.clipboard.writeText(code.textContent);
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 1500);
+      }
+      </script>
+    </main>
+  </div>
+</body>
+</html>

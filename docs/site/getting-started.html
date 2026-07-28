@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>快速开始 - gitsss</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="header">
+    <a class="header-logo" href="index.html"><span>git</span>sss</a>
+    <nav class="header-nav">
+      <a href="getting-started.html">快速开始</a>
+      <a href="configuration.html">配置</a>
+      <a href="migration.html">迁移</a>
+      <a href="actions.html">Actions</a>
+      <a href="development.html">开发</a>
+      <a href="https://github.com/neko233-com/gitsss">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-heading">入门</div>
+        <a href="index.html">文档首页</a>
+        <a href="getting-started.html" class="active">快速开始</a>
+        <a href="configuration.html">配置参考</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">部署</div>
+        <a href="migration.html">从 Gitea 迁移</a>
+        <a href="actions.html">离线 Actions</a>
+        <a href="operations.html">运维指南</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">开发</div>
+        <a href="development.html">开发指南</a>
+        <a href="architecture.html">架构设计</a>
+      </div>
+    </aside>
+
+    <main class="content">
+      <h1>快速开始</h1>
+      <p class="subtitle">5 分钟完成 gitsss 安装和首次启动</p>
+
+      <h2>前置条件</h2>
+      <ul>
+        <li><strong>Docker</strong> — 需要 Docker Engine 和 Docker Compose v2</li>
+        <li><strong>镜像文件</strong> — <code>gitsss-image.tar</code>（离线镜像包，从发布页获取）</li>
+        <li><strong>磁盘空间</strong> — 建议至少 10 GB 可用空间</li>
+      </ul>
+
+      <div class="callout callout-note">
+        <span class="callout-label">说明</span>
+        <p>安装器不会从公网拉取任何镜像，适合纯内网环境部署。</p>
+      </div>
+
+      <h2>Step 1: 安装</h2>
+      <p>将镜像包和安装脚本复制到目标服务器，然后执行：</p>
+
+      <h3>Linux / macOS</h3>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code>./install/install.sh \
+  --image-archive ./gitsss-image.tar \
+  --install-dir /opt/gitsss \
+  --port 3000 \
+  --root-url http://192.168.110.42:3000/</code></pre>
+      </div>
+
+      <h3>Windows (PowerShell)</h3>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code>.\install\install.ps1 `
+  -ImageArchive .\gitsss-image.tar `
+  -InstallDir C:\gitsss `
+  -Port 3000 `
+  -RootUrl http://192.168.110.42:3000/</code></pre>
+      </div>
+
+      <p>安装器会自动完成以下操作：</p>
+      <ol>
+        <li>加载 Docker 镜像</li>
+        <li>创建安装目录和日志目录</li>
+        <li>生成 <code>.env</code> 和 <code>compose.yaml</code></li>
+        <li>配置自动启动（systemd / launchd / 计划任务）</li>
+        <li>启动 gitsss 容器</li>
+      </ol>
+
+      <h2>Step 2: 验证服务</h2>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code># 检查健康状态
+curl --fail http://localhost:3000/api/healthz
+
+# 检查容器状态
+docker ps --filter name=gitsss</code></pre>
+      </div>
+
+      <p>浏览器访问 <code>http://&lt;你的IP&gt;:3000</code>，使用以下凭据登录：</p>
+      <table>
+        <thead><tr><th>字段</th><th>值</th></tr></thead>
+        <tbody>
+          <tr><td>用户名</td><td><code>root</code></td></tr>
+          <tr><td>密码</td><td><code>root</code></td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-warning">
+        <span class="callout-label">安全提示</span>
+        <p>首次登录后系统会强制要求修改密码。请立即设置一个强密码。</p>
+      </div>
+
+      <h2>Step 3: 创建第一个仓库</h2>
+      <ol>
+        <li>登录后点击右上角 <strong>+</strong> 按钮</li>
+        <li>选择 <strong>New Repository</strong></li>
+        <li>填写仓库名称，选择可见性</li>
+        <li>点击 <strong>Create Repository</strong></li>
+      </ol>
+
+      <h2>Step 4: 推送代码</h2>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code># 初始化本地仓库
+git init
+git add .
+git commit -m "initial commit"
+
+# 添加远程（使用 HTTP）
+git remote add origin http://192.168.110.42:3000/root/my-project.git
+git push -u origin main</code></pre>
+      </div>
+
+      <h2>Step 5: 配置 SSH 访问（可选）</h2>
+      <p>SSH 默认端口为 <code>2222</code>。在 Web 界面的 <strong>Settings → SSH Keys</strong> 中添加公钥后：</p>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code># SSH 克隆
+git clone ssh://git@192.168.110.42:2222/root/my-project.git
+
+# 或配置 ~/.ssh/config 简化
+Host gitsss
+  HostName 192.168.110.42
+  Port 2222
+  User git</code></pre>
+      </div>
+
+      <h2>常用端口</h2>
+      <table>
+        <thead><tr><th>服务</th><th>端口</th><th>协议</th></tr></thead>
+        <tbody>
+          <tr><td>Web / API</td><td><code>3000</code></td><td>HTTP</td></tr>
+          <tr><td>SSH Git</td><td><code>2222</code></td><td>SSH</td></tr>
+          <tr><td>内部 Runner</td><td><code>8088</code></td><td>HTTP（仅 localhost）</td></tr>
+        </tbody>
+      </table>
+
+      <h2>下一步</h2>
+      <div class="card-grid">
+        <div class="card">
+          <h3><a href="configuration.html">配置参考</a></h3>
+          <p>自定义端口、域名、邮件、通知等配置</p>
+        </div>
+        <div class="card">
+          <h3><a href="migration.html">从 Gitea 迁移</a></h3>
+          <p>导入现有 Gitea 的账号、仓库和权限</p>
+        </div>
+        <div class="card">
+          <h3><a href="actions.html">配置 Actions</a></h3>
+          <p>使用离线 CI/CD 运行测试和构建</p>
+        </div>
+      </div>
+
+      <script>
+      function copyCode(btn) {
+        const code = btn.parentElement.querySelector('code');
+        navigator.clipboard.writeText(code.textContent);
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 1500);
+      }
+      </script>
+    </main>
+  </div>
+</body>
+</html>

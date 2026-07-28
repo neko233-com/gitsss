@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>从 Gitea 迁移 - gitsss</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="header">
+    <a class="header-logo" href="index.html"><span>git</span>sss</a>
+    <nav class="header-nav">
+      <a href="getting-started.html">快速开始</a>
+      <a href="configuration.html">配置</a>
+      <a href="migration.html">迁移</a>
+      <a href="actions.html">Actions</a>
+      <a href="development.html">开发</a>
+      <a href="https://github.com/neko233-com/gitsss">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-heading">入门</div>
+        <a href="index.html">文档首页</a>
+        <a href="getting-started.html">快速开始</a>
+        <a href="configuration.html">配置参考</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">部署</div>
+        <a href="migration.html" class="active">从 Gitea 迁移</a>
+        <a href="actions.html">离线 Actions</a>
+        <a href="operations.html">运维指南</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">开发</div>
+        <a href="development.html">开发指南</a>
+        <a href="architecture.html">架构设计</a>
+      </div>
+    </aside>
+
+    <main class="content">
+      <h1>从 Gitea 迁移</h1>
+      <p class="subtitle">两种迁移方式：HTTP 导入（推荐）和 Volume 接管</p>
+
+      <h2>方式一：HTTP 导入（推荐）</h2>
+      <p><code>gitsss import-gitea-http</code> 通过 Gitea HTTP API 和 Git HTTP 导入账号、仓库和权限。不需要 SSH、源服务器文件系统或 Docker Volume 访问权限。</p>
+
+      <div class="callout callout-note">
+        <span class="callout-label">安全性</span>
+        <p>源 Gitea 保持运行且不被修改。导入使用只读 GET 操作，Dry-run 为默认行为。</p>
+      </div>
+
+      <h3>导入范围</h3>
+      <table>
+        <thead><tr><th>导入</th><th>不导入</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>
+              <ul>
+                <li>所有账号及账号状态</li>
+                <li>组织、团队、RBAC 权限</li>
+                <li>仓库元数据、分支、标签</li>
+                <li>完整 Git 对象和 LFS 对象</li>
+                <li>公共组织成员关系</li>
+                <li>直接协作者权限</li>
+              </ul>
+            </td>
+            <td>
+              <ul>
+                <li>Issue、PR、Wiki</li>
+                <li>Releases、Packages</li>
+                <li>Webhooks、Secrets</li>
+                <li>SSH 密钥、TOTP</li>
+                <li>密码哈希、OAuth</li>
+                <li>Access Tokens</li>
+              </ul>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-warning">
+        <span class="callout-label">注意</span>
+        <p>HTTP 无法导出密码哈希、TOTP 密钥、API Token 或 SSH 私钥。导入的本地用户会收到随机临时密码，首次登录强制修改。</p>
+      </div>
+
+      <h3>Step 1: 准备 Token</h3>
+      <p>在源 Gitea 创建站点管理员 Token（需要全部仓库的读取权限），保存到文件：</p>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code># 将 token 保存到文件并设置权限
+echo "your-source-token" > source.token
+chmod 600 source.token
+
+echo "your-target-token" > target.token
+chmod 600 target.token</code></pre>
+      </div>
+
+      <h3>Step 2: 演练（Dry-run）</h3>
+      <p>先在临时端口启动 gitsss，执行 dry-run 验证导入计划：</p>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code>gitsss import-gitea-http \
+  --source-url http://192.168.110.42:3000 \
+  --source-token-file source.token \
+  --target-url http://127.0.0.1:3001 \
+  --target-token-file target.token \
+  --repo poke-game/data-collect-server-go \
+  --repo poke-game/config233-editor-server</code></pre>
+      </div>
+      <p>审查 JSON 计划，确认只包含预期的账号、组织/RBAC 和仓库。</p>
+
+      <h3>Step 3: 执行导入</h3>
+      <p>确认无误后，使用 <code>--apply</code> 执行实际导入：</p>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code>gitsss import-gitea-http \
+  --source-url http://192.168.110.42:3000 \
+  --source-token-file source.token \
+  --target-url http://127.0.0.1:3001 \
+  --target-token-file target.token \
+  --repo poke-game/data-collect-server-go \
+  --repo poke-game/config233-editor-server \
+  --timeout 30m \
+  --apply \
+  --credentials-file imported-users.jsonl</code></pre>
+      </div>
+
+      <h3>Step 4: 切换到生产端口</h3>
+      <ol>
+        <li>保留源 Gitea 回滚数据</li>
+        <li>在审批窗口期内停止源 Gitea</li>
+        <li>将 gitsss 端口从临时 <code>3001</code> 改为 <code>3000</code></li>
+        <li>启动 gitsss 并验证 <code>/api/healthz</code>、登录、克隆、推送、LFS、RBAC</li>
+        <li>删除源 Token，安全归档或销毁临时凭据</li>
+      </ol>
+
+      <hr>
+
+      <h2>方式二：Volume 接管</h2>
+      <p>当需要完整保留密码哈希、TOTP、SSH 密钥、Issue 等数据库状态时，使用 Volume 接管。</p>
+
+      <div class="callout callout-danger">
+        <span class="callout-label">警告</span>
+        <p>不要复制正在运行的数据库。必须先停止 Gitea，保留不可变快照和回滚副本。</p>
+      </div>
+
+      <h3>准备候选 Volume</h3>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code>sh contrib/prepare-gitea-takeover.sh \
+  --source-volume gitea-data \
+  --target-volume gitsss-takeover-candidate \
+  --image gitsss/gitsss:VERSION</code></pre>
+      </div>
+
+      <p>该工具会：</p>
+      <ul>
+        <li>拒绝任何正在运行容器挂载的源 Volume</li>
+        <li>仅使用本地 gitsss 镜像，禁用网络</li>
+        <li>以只读方式挂载源 Volume</li>
+        <li>保留数字所有权</li>
+        <li>比较内容和文件系统元数据的 SHA-256</li>
+      </ul>
+
+      <h3>启动 gitsss</h3>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code>export GITSSS_DATA_VOLUME=gitsss-takeover-candidate
+export GITSSS_IMAGE=gitsss/gitsss:VERSION
+docker compose up -d</code></pre>
+      </div>
+
+      <div class="callout callout-danger">
+        <span class="callout-label">重要</span>
+        <p>首次启动 gitsss 时不要指向源 Volume。如果验收失败，停止 gitsss，仅删除候选 Volume，然后重启未修改的 Gitea 源 Volume。</p>
+      </div>
+
+      <hr>
+
+      <h2>验收检查清单</h2>
+      <table>
+        <thead><tr><th>检查项</th><th>HTTP 导入</th><th>Volume 接管</th></tr></thead>
+        <tbody>
+          <tr><td>临时登录强制修改</td><td>&#x2705;</td><td>&#x274C;（保留原密码）</td></tr>
+          <tr><td>账号状态（active/admin/restricted）</td><td>&#x2705;</td><td>&#x2705;</td></tr>
+          <tr><td>组织/团队/权限</td><td>&#x2705;</td><td>&#x2705;</td></tr>
+          <tr><td>Git refs 和对象 ID</td><td>&#x2705;</td><td>&#x2705;</td></tr>
+          <tr><td>LFS 内容</td><td>&#x2705;</td><td>&#x2705;</td></tr>
+          <tr><td>密码哈希和 TOTP</td><td>&#x274C;</td><td>&#x2705;</td></tr>
+          <tr><td>SSH 密钥</td><td>&#x274C;</td><td>&#x2705;</td></tr>
+          <tr><td>Issue / PR / Wiki</td><td>&#x274C;</td><td>&#x2705;</td></tr>
+        </tbody>
+      </table>
+
+      <script>
+      function copyCode(btn) {
+        const code = btn.parentElement.querySelector('code');
+        navigator.clipboard.writeText(code.textContent);
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 1500);
+      }
+      </script>
+    </main>
+  </div>
+</body>
+</html>

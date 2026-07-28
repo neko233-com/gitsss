@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>架构设计 - gitsss</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="header">
+    <a class="header-logo" href="index.html"><span>git</span>sss</a>
+    <nav class="header-nav">
+      <a href="getting-started.html">快速开始</a>
+      <a href="configuration.html">配置</a>
+      <a href="migration.html">迁移</a>
+      <a href="actions.html">Actions</a>
+      <a href="development.html">开发</a>
+      <a href="https://github.com/neko233-com/gitsss">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-heading">入门</div>
+        <a href="index.html">文档首页</a>
+        <a href="getting-started.html">快速开始</a>
+        <a href="configuration.html">配置参考</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">部署</div>
+        <a href="migration.html">从 Gitea 迁移</a>
+        <a href="actions.html">离线 Actions</a>
+        <a href="operations.html">运维指南</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">开发</div>
+        <a href="development.html">开发指南</a>
+        <a href="architecture.html" class="active">架构设计</a>
+      </div>
+    </aside>
+
+    <main class="content">
+      <h1>架构设计</h1>
+      <p class="subtitle">上游基线、产品边界、兼容性规则</p>
+
+      <h2>产品定位</h2>
+      <p>gitsss 是面向公司内网的自维护 Git 协作平台。代码基线复制自 Gitea v1.26.2，运行时不依赖 Gitea 应用库。唯一公开命令为 <code>gitsss</code>。</p>
+
+      <div class="callout callout-note">
+        <span class="callout-label">核心原则</span>
+        <p>一个服务器、一个 UI 布局、一个产品数据模型。不存在第二个生产入口或界面。</p>
+      </div>
+
+      <h2>上游基线</h2>
+      <table>
+        <thead><tr><th>项目</th><th>值</th></tr></thead>
+        <tbody>
+          <tr><td>上游版本</td><td>Gitea v1.26.2</td></tr>
+          <tr><td>上游 Commit</td><td><code>2c749ce548b1da0a52835861a87b888e67842d29</code></td></tr>
+          <tr><td>上游仓库</td><td><code>https://github.com/go-gitea/gitea</code></td></tr>
+          <tr><td>许可证</td><td>MIT</td></tr>
+          <tr><td>gitsss 模块</td><td><code>github.com/neko233-com/gitsss</code></td></tr>
+        </tbody>
+      </table>
+
+      <p>复制的平台是一等源代码，生产代码不得导入 Gitea 应用模块。普通第三方依赖由 <code>go.mod</code> 和 <code>package.json</code> 管理。</p>
+
+      <h3>Actions Runner</h3>
+      <table>
+        <thead><tr><th>项目</th><th>值</th></tr></thead>
+        <tbody>
+          <tr><td>上游版本</td><td>Gitea Runner v1.0.0</td></tr>
+          <tr><td>上游 Commit</td><td><code>594c9ade7cccf7be6cd0f1cd18ae8d28bba878c2</code></td></tr>
+          <tr><td>本地模块</td><td><code>github.com/neko233-com/gitsss/runner</code></td></tr>
+          <tr><td>位置</td><td><code>runner/</code></td></tr>
+        </tbody>
+      </table>
+
+      <hr>
+
+      <h2>导入边界</h2>
+      <p>以下内容不从上游导入：</p>
+      <ul>
+        <li><code>.git</code>、<code>.github</code>、<code>.gitea</code></li>
+        <li>上游 Agent 指令</li>
+        <li>上游产品 README</li>
+        <li>上游 CI Workflow（不跟踪、不启用）</li>
+      </ul>
+
+      <p>之前的独立 <code>server/</code> 和 React <code>web/</code> 实现在集成以下三个概念后被移除：</p>
+      <ol>
+        <li><strong>Git 存储基础</strong> — 底层存储引擎</li>
+        <li><strong>存储感知</strong> — 容量监控和写入保护</li>
+        <li><strong>运维数据大盘</strong> — 运行状态可视化</li>
+      </ol>
+      <p>这些行为现在以平台原生的 models、services、routers、templates 和前端资产实现。</p>
+
+      <hr>
+
+      <h2>产品边界</h2>
+
+      <h3>保留自 Gitea</h3>
+      <div class="card-grid">
+        <div class="card">
+          <h3>仓库管理</h3>
+          <p>仓库、分支、标签、LFS、Fork</p>
+        </div>
+        <div class="card">
+          <h3>协作</h3>
+          <p>Issue、Pull Request、项目管理</p>
+        </div>
+        <div class="card">
+          <h3>组织</h3>
+          <p>组织、团队、RBAC 权限</p>
+        </div>
+        <div class="card">
+          <h3>CI/CD</h3>
+          <p>Actions、Runner、工作流</p>
+        </div>
+        <div class="card">
+          <h3>包管理</h3>
+          <p>Packages、Releases</p>
+        </div>
+        <div class="card">
+          <h3>管理</h3>
+          <p>管理后台、API、Web UI</p>
+        </div>
+      </div>
+
+      <h3>gitsss 特有</h3>
+      <table>
+        <thead><tr><th>特性</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Git 存储底层</td><td>自定义存储引擎</td></tr>
+          <tr><td>存储感知</td><td>容量监控、写入保护、数据大盘</td></tr>
+          <tr><td>飞书通知</td><td>飞书签名通知 + 自定义模板</td></tr>
+          <tr><td>GitLab 增强</td><td>Approval Rules、Protected Branches、Scoped Labels、CODEOWNERS</td></tr>
+          <tr><td>离线 Actions</td><td>内置 Runner + 常用 Action，未知 Action 明确失败</td></tr>
+          <tr><td>完全离线</td><td>启动和运行不依赖公网</td></tr>
+        </tbody>
+      </table>
+
+      <hr>
+
+      <h2>兼容性规则</h2>
+      <p>以下内容必须保持 Gitea 兼容语义，直到接管验证通过：</p>
+      <ul>
+        <li>数据库 ID</li>
+        <li>密码哈希</li>
+        <li>两因素认证密钥</li>
+        <li>SSH 密钥</li>
+        <li>Access Token</li>
+        <li>仓库路径</li>
+        <li>LFS 对象</li>
+        <li>Actions 数据</li>
+        <li><code>app.ini</code> 配置</li>
+      </ul>
+
+      <div class="callout callout-warning">
+        <span class="callout-label">Schema 规则</span>
+        <p>Schema 变更必须是增量且可逆的，在迁移窗口期内不能破坏兼容性。</p>
+      </div>
+
+      <hr>
+
+      <h2>离线规则</h2>
+      <p>运行时启动、仓库使用、迁移和支持的 Actions 工作流不得需要公网访问。构建输入和捆绑 Action 通过 digest 验证镜像到单个发布镜像中。</p>
+
+      <h2>GitLab 仓库约定</h2>
+      <p>gitsss 在迁移和正常使用中接受常见的 GitLab 仓库约定：</p>
+      <table>
+        <thead><tr><th>文件</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td><code>.gitlab/CODEOWNERS</code></td><td>自动 PR 审查人选择和保护分支审批</td></tr>
+          <tr><td><code>.gitlab/merge_request_templates/Default.md</code></td><td>默认 PR 描述模板</td></tr>
+          <tr><td><code>.gitlab/MERGE_REQUEST_TEMPLATE.md</code></td><td>单个 MR 模板</td></tr>
+          <tr><td><code>.gitlab/issue_templates/*.md</code></td><td>Issue 模板选择器</td></tr>
+          <tr><td><code>.gitlab/ISSUE_TEMPLATE.md</code></td><td>默认新建 Issue 描述</td></tr>
+        </tbody>
+      </table>
+      <p>已有的 <code>CODEOWNERS</code>、<code>docs/CODEOWNERS</code>、<code>.gitea/</code>、<code>.github/</code> 约定继续有效。按文档中的候选顺序使用第一个匹配文件。</p>
+
+      <script>
+      function copyCode(btn) {
+        const code = btn.parentElement.querySelector('code');
+        navigator.clipboard.writeText(code.textContent);
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 1500);
+      }
+      </script>
+    </main>
+  </div>
+</body>
+</html>
