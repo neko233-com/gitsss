@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent 协作 - gitsss</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="header">
+    <a class="header-logo" href="index.html"><span>git</span>sss</a>
+    <nav class="header-nav">
+      <a href="getting-started.html">快速开始</a>
+      <a href="configuration.html">配置</a>
+      <a href="migration.html">迁移</a>
+      <a href="actions.html">Actions</a>
+      <a href="development.html">开发</a>
+      <a href="https://github.com/neko233-com/gitsss">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-heading">入门</div>
+        <a href="index.html">文档首页</a>
+        <a href="getting-started.html">快速开始</a>
+        <a href="configuration.html">配置参考</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">部署</div>
+        <a href="migration.html">从 Gitea 迁移</a>
+        <a href="actions.html">离线 Actions</a>
+        <a href="operations.html">运维指南</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">开发</div>
+        <a href="development.html">开发指南</a>
+        <a href="architecture.html">架构设计</a>
+        <a href="extensions.html">扩展功能</a>
+        <a href="agents.html" class="active">Agent 协作</a>
+      </div>
+    </aside>
+
+    <main class="content">
+      <h1>Agent 协作</h1>
+      <p class="subtitle">人类与自动化协作者共享的工作上下文、变更规则与交接标准</p>
+
+      <div class="callout callout-note">
+        <span class="callout-label">权威规则</span>
+        <p>根目录 <code>AGENTS.md</code> 是仓库执行规则的权威来源。本页解释其工作方式，不能替代或放宽其中的要求；冲突时以 <code>AGENTS.md</code> 为准。</p>
+      </div>
+
+      <h2>开始工作前</h2>
+      <ol>
+        <li>读取根目录 <code>AGENTS.md</code> 与目标目录内更具体的 <code>AGENTS.md</code>（如存在）。</li>
+        <li>执行 <code>task help</code>，确认可用本地开发目标。</li>
+        <li>检查 <code>git status --short --branch</code>；保留与任务无关的已有改动。</li>
+        <li>阅读与任务相邻的实现、测试、配置和文档；不要凭旧上下文推断当前行为。</li>
+      </ol>
+
+      <h2>变更边界</h2>
+      <table>
+        <thead><tr><th>可以直接做</th><th>需要明确授权</th></tr></thead>
+        <tbody>
+          <tr><td>任务范围内的代码、测试、文档、格式化与本地验证</td><td>发布、创建 tag、推送、创建 PR、外部消息或改动生产数据</td></tr>
+          <tr><td>只读检查：分支、日志、配置、测试输出</td><td>删除数据卷、递归删除、覆盖用户未提交文件</td></tr>
+          <tr><td>修复因本次改动暴露的问题</td><td>扩大产品范围、改变兼容性契约或迁移策略</td></tr>
+        </tbody>
+      </table>
+
+      <h2>必须保持的约束</h2>
+      <ul>
+        <li>不创建、修改、启用或运行 <code>.github/workflows/</code> 下任何工作流。</li>
+        <li>不以 GitHub CI 为发布门槛；格式化、lint、测试、竞态、打包和发布验证在本地运行。</li>
+        <li>不 force-push、amend 或 squash，除非明确被要求。</li>
+        <li>提交使用 Conventional Commits，且包含 <code>Assisted-by: AGENT_NAME:MODEL_VERSION</code> trailer；不添加 <code>Co-Authored-By</code> 或 <code>Signed-off-by</code>。</li>
+        <li>保留仍然相关的注释；新注释简短，只解释原因。</li>
+      </ul>
+
+      <h2>实现与验证</h2>
+      <p>遵循 <a href="extensions.html">扩展功能</a>中的分层路径，优先给可独立验证的逻辑写单元测试。按改动范围执行命令：</p>
+      <table>
+        <thead><tr><th>改动</th><th>最低本地验证</th></tr></thead>
+        <tbody>
+          <tr><td>Go</td><td><code>task fmt</code>、<code>task lint:go</code>，以及受影响的 <code>go test -run</code></td></tr>
+          <tr><td>TypeScript</td><td><code>task lint:js</code>，以及受影响的 <code>pnpm exec vitest</code></td></tr>
+          <tr><td>浏览器交互</td><td>受影响的 E2E：<code>GITEA_TEST_E2E_FLAGS='…' task test:e2e</code></td></tr>
+          <tr><td>依赖</td><td>Go 模块变更后执行 <code>task tidy</code></td></tr>
+          <tr><td>HTML/Markdown 文档</td><td>检查本地链接、HTML 结构、无尾随空白和文档事实</td></tr>
+        </tbody>
+      </table>
+
+      <h2>文档是交付物</h2>
+      <p>每次用户可见功能、配置、安装、升级、卸载、API、安全、架构或工作流变更，都必须在同一变更中更新：</p>
+      <ul>
+        <li>对应的 <code>docs/</code> Markdown 原始说明；</li>
+        <li>对应的 <code>docs/site/</code> HTML 页面；</li>
+        <li>新页面的 <a href="index.html">文档首页</a>条目和每页侧边导航；</li>
+        <li>影响协作规则时的本页与根目录 <code>AGENTS.md</code>。</li>
+      </ul>
+      <div class="callout callout-tip">
+        <span class="callout-label">完成定义</span>
+        <p>完成不是“代码已改”。完成意味着行为、测试、运维影响和文档相互一致，下一位人类或 Agent 不需要从代码重新推导使用方式。</p>
+      </div>
+
+      <h2>交接</h2>
+      <p>交接时说明：已改文件和行为、已运行的验证及结果、未运行项目与原因、保留的用户改动，以及需要人工决定的风险。不要把未验证的假设表述为完成。</p>
+    </main>
+  </div>
+</body>
+</html>

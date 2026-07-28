@@ -37,6 +37,8 @@
         <div class="sidebar-heading">开发</div>
         <a href="development.html">开发指南</a>
         <a href="architecture.html">架构设计</a>
+        <a href="extensions.html">扩展功能</a>
+        <a href="agents.html">Agent 协作</a>
       </div>
     </aside>
 
@@ -66,7 +68,9 @@
   --image-archive ./gitsss-image.tar \
   --install-dir /opt/gitsss \
   --port 3000 \
-  --root-url http://git.example.internal:3000/</code></pre>
+  --root-url http://git.example.internal:3000/ \
+  --initial-admin-user root \
+  --initial-admin-password 'change-this-password'</code></pre>
       </div>
 
       <h3>Windows (PowerShell)</h3>
@@ -76,7 +80,9 @@
   -ImageArchive .\gitsss-image.tar `
   -InstallDir C:\gitsss `
   -Port 3000 `
-  -RootUrl http://git.example.internal:3000/</code></pre>
+  -RootUrl http://git.example.internal:3000/ `
+  -InitialAdminUser root `
+  -InitialAdminPassword 'change-this-password'</code></pre>
       </div>
 
       <p>安装器会自动完成以下操作：</p>
@@ -110,6 +116,11 @@ docker ps --filter name=gitsss</code></pre>
       <div class="callout callout-warning">
         <span class="callout-label">安全提示</span>
         <p>首次登录后系统会强制要求修改密码。请立即设置一个强密码。</p>
+      </div>
+
+      <div class="callout callout-tip">
+        <span class="callout-label">更新与卸载</span>
+        <p>更新时复用原安装目录和数据卷并重跑安装器；卸载前先执行 <code>docker compose --project-directory INSTALL_DIR down</code>。完整步骤见 <a href="operations.html">运维指南</a>。</p>
       </div>
 
       <h2>Step 3: 创建第一个仓库</h2>
