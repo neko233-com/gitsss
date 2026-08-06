@@ -51,16 +51,19 @@ async function initFrontendExternalRender() {
   const fileDataEncoding = fileDataElem.getAttribute('data-content-encoding')!;
   const opts = new Options(viewerContainer, fileTreePath, fileDataEncoding, fileDataContent);
 
-  let found = false;
+  let rendered = false;
   for (const name of renderNames) {
     if (!(name in frontendPlugins)) continue;
     const plugin = await frontendPlugins[name]();
-    found = true;
-    if (await plugin.frontendRender(opts)) break;
+    if (await plugin.frontendRender(opts)) {
+      rendered = true;
+      break;
+    }
   }
 
-  if (!found) {
-    viewerContainer.textContent = 'No frontend render plugin found for this file, but backend declares that there must be one, there must be a bug';
+  viewerContainer.classList.remove('is-loading');
+  if (!rendered) {
+    viewerContainer.textContent = 'Preview is unavailable for this asset. Use the raw download or source view.';
   }
 }
 

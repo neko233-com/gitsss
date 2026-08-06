@@ -88,6 +88,21 @@
   width: 100%;
 }
 
+#frontend-render-viewer {
+  width: 100%;
+  min-height: 420px;
+  overflow: hidden;
+  border: 1px solid var(--color-light-border);
+  border-radius: var(--border-radius);
+  background: var(--color-code-bg);
+}
+
+#frontend-render-viewer.is-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .file-view-render-container :last-child {
   border-radius: 0 0 var(--border-radius) var(--border-radius); /* to match the "ui segment" bottom radius */
 }

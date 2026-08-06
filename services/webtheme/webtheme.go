@@ -70,15 +70,25 @@ func (info *ThemeMetaInfo) GetExtraIconName() string {
 
 func parseThemeMetaInfoToMap(cssContent string) map[string]string {
 	/*
-		The theme meta info is stored in the CSS file's variables of `gitea-theme-meta-info` element,
-		which is a privately defined and is only used by backend to extract the meta info.
+		The theme meta info is stored in the CSS file's variables of `gitsss-theme-meta-info` element,
+		which is privately defined and only used by the backend to extract the meta info.
+		The legacy `gitea-theme-meta-info` marker remains accepted for third-party themes.
 		Not using ":root" because it is difficult to parse various ":root" blocks when importing other files,
 		it is difficult to control the overriding, and it's difficult to avoid user's customized overridden styles.
 	*/
 	metaInfoContent := cssContent
-	if pos := strings.LastIndex(metaInfoContent, "gitea-theme-meta-info"); pos >= 0 {
-		metaInfoContent = metaInfoContent[pos:]
+	metaInfoSelector := ""
+	metaInfoPosition := -1
+	for _, selector := range []string{"gitsss-theme-meta-info", "gitea-theme-meta-info"} {
+		if pos := strings.LastIndex(metaInfoContent, selector); pos > metaInfoPosition {
+			metaInfoSelector = selector
+			metaInfoPosition = pos
+		}
 	}
+	if metaInfoPosition < 0 {
+		return nil
+	}
+	metaInfoContent = metaInfoContent[metaInfoPosition:]
 
 	reMetaInfoItem := `
 (
@@ -94,7 +104,7 @@ func parseThemeMetaInfoToMap(cssContent string) map[string]string {
 )
 `
 	reMetaInfoItem = strings.ReplaceAll(reMetaInfoItem, "\n", "")
-	reMetaInfoBlock := `\bgitea-theme-meta-info\s*\{(` + reMetaInfoItem + `+)\}`
+	reMetaInfoBlock := `\b` + regexp.QuoteMeta(metaInfoSelector) + `\s*\{(` + reMetaInfoItem + `+)\}`
 	re := regexp.MustCompile(reMetaInfoBlock)
 	matchedMetaInfoBlock := re.FindAllStringSubmatch(metaInfoContent, -1)
 	if len(matchedMetaInfoBlock) == 0 {

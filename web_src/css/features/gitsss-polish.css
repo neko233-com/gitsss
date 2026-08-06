@@ -1,0 +1,155 @@
+/* Gitsss product polish: restrained Primer-like rhythm with existing Gitea layout primitives. */
+
+.ui.button,
+.ui.input > input,
+.ui.form textarea,
+.ui.form select,
+.ui.menu .item,
+.project-column,
+.issue-card,
+.ui.card {
+  transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+}
+
+.ui.button:hover:not(:disabled):not(.disabled) {
+  transform: translateY(-1px);
+}
+
+.ui.button:active:not(:disabled):not(.disabled) {
+  transform: translateY(0);
+}
+
+.ui.button:focus-visible,
+.ui.input > input:focus,
+.ui.form textarea:focus,
+.ui.form select:focus {
+  box-shadow: 0 0 0 3px var(--color-primary-alpha-30);
+}
+
+.ui.button.is-loading {
+  transform: none;
+  pointer-events: none;
+}
+
+#navbar {
+  box-shadow: 0 1px 0 var(--color-secondary);
+}
+
+.ui.segment,
+.ui.card,
+.admin-setting-content > .ui.attached.segment,
+.admin-setting-content > .ui.attached.header {
+  border-color: var(--color-light-border);
+}
+
+.ui.card:hover,
+.project-column:hover,
+.issue-card:hover {
+  border-color: var(--color-secondary-dark-1);
+  box-shadow: 0 4px 14px var(--color-shadow);
+}
+
+.project-column:hover {
+  transform: translateY(-1px);
+}
+
+.admin-setting-content .ui.menu .item,
+.admin-setting-content .ui.button,
+.project-header .ui.button {
+  min-height: 34px;
+}
+
+.admin-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.admin-quick-action {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 76px;
+  padding: 1rem;
+  border: 1px solid var(--color-light-border);
+  border-radius: var(--border-radius);
+  background: var(--color-menu);
+  color: var(--color-text);
+}
+
+.admin-quick-action:hover,
+.admin-quick-action:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+  box-shadow: 0 4px 14px var(--color-shadow);
+  transform: translateY(-1px);
+}
+
+.admin-quick-action > span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.admin-quick-action small {
+  color: var(--color-text-light-2);
+}
+
+.project-assignee-palette {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.25rem 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-light-border);
+  border-radius: var(--border-radius);
+  background: var(--color-menu);
+}
+
+.project-assignee-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--border-radius-full);
+  background: transparent;
+  cursor: grab;
+}
+
+.project-assignee-chip:hover,
+.project-assignee-chip:focus-visible {
+  border-color: var(--color-primary);
+  background: var(--color-primary-alpha-10);
+}
+
+.project-assignee-chip:active {
+  cursor: grabbing;
+}
+
+.issue-card.project-assignee-drop-target {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui.button,
+  .ui.input > input,
+  .ui.form textarea,
+  .ui.form select,
+  .ui.menu .item,
+  .project-column,
+  .issue-card,
+  .ui.card {
+    transition: none;
+  }
+
+  .ui.button:hover:not(:disabled):not(.disabled),
+  .project-column:hover {
+    transform: none;
+  }
+}
