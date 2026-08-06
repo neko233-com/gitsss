@@ -18,18 +18,27 @@ function writePixel(target: Uint8ClampedArray, index: number, r: number, g: numb
   target[index + 3] = a;
 }
 
-function tgaPixels(bytes: Uint8Array, width: number, height: number, pixelSize: number, imageType: number): Uint8ClampedArray | null {
+function tgaPixels(bytes: Uint8Array, width: number, height: number, pixelSize: number, imageType: number, descriptor: number): Uint8ClampedArray | null {
   if (bytes[1] !== 0 || (imageType !== 2 && imageType !== 10) || (pixelSize !== 24 && pixelSize !== 32)) return null;
   const output = new Uint8ClampedArray(width * height * 4);
   let sourceOffset = 18 + bytes[0];
   let pixelIndex = 0;
+  let lastColor: [number, number, number, number] = [0, 0, 0, 255];
+  const writeSourcePixelAt = (index: number, r: number, g: number, b: number, a: number) => {
+    const sourceX = index % width;
+    const sourceY = Math.floor(index / width);
+    const x = descriptor & 0x10 ? width - sourceX - 1 : sourceX;
+    const y = descriptor & 0x20 ? sourceY : height - sourceY - 1;
+    writePixel(output, (y * width + x) * 4, r, g, b, a);
+  };
   const writeSourcePixel = () => {
     if (sourceOffset + pixelSize / 8 > bytes.length || pixelIndex >= width * height) return false;
     const b = bytes[sourceOffset++];
     const g = bytes[sourceOffset++];
     const r = bytes[sourceOffset++];
     const a = pixelSize === 32 ? bytes[sourceOffset++] : 255;
-    writePixel(output, pixelIndex * 4, r, g, b, a);
+    lastColor = [r, g, b, a];
+    writeSourcePixelAt(pixelIndex, r, g, b, a);
     pixelIndex++;
     return true;
   };
@@ -42,10 +51,9 @@ function tgaPixels(bytes: Uint8Array, width: number, height: number, pixelSize: 
       if (packet & 0x80) {
         const start = sourceOffset;
         if (!writeSourcePixel()) return null;
-        const color = output.slice((pixelIndex - 1) * 4, pixelIndex * 4);
         for (let i = 1; i < count; i++) {
           if (pixelIndex >= width * height) return null;
-          writePixel(output, pixelIndex * 4, color[0], color[1], color[2], color[3]);
+          writeSourcePixelAt(pixelIndex, lastColor[0], lastColor[1], lastColor[2], lastColor[3]);
           pixelIndex++;
         }
         if (sourceOffset === start) return null;
@@ -93,12 +101,13 @@ function ddsPixels(bytes: Uint8Array, width: number, height: number, fourCC: str
       }
       sourceOffset += 8;
       if (fourCC === 'DXT3') {
-        for (let i = 0; i < 8; i++) {
-          const alphaByte = bytes[sourceOffset + i];
-          const x = blockX + (i % 4) * 2;
-          const y = blockY + Math.floor(i / 4);
-          if (x < width && y < height) output[(y * width + x) * 4 + 3] = (alphaByte & 15) * 17;
-          if (x + 1 < width && y < height) output[(y * width + x + 1) * 4 + 3] = (alphaByte >> 4) * 17;
+        for (let row = 0; row < 4; row++) {
+          const alphaBits = read16(bytes, sourceOffset + row * 2);
+          for (let column = 0; column < 4; column++) {
+            const x = blockX + column;
+            const y = blockY + row;
+            if (x < width && y < height) output[(y * width + x) * 4 + 3] = ((alphaBits >> (column * 4)) & 0xf) * 17;
+          }
         }
         sourceOffset += 8;
       } else if (fourCC === 'DXT5') {
@@ -157,7 +166,7 @@ export const frontendRender: FrontendRenderFunc = async (opts): Promise<boolean>
   if (extension === 'tga' && bytes.length >= 18) {
     width = read16(bytes, 12);
     height = read16(bytes, 14);
-    if (width * height <= MAX_PIXELS) pixels = tgaPixels(bytes, width, height, bytes[16], bytes[2]);
+    if (width * height <= MAX_PIXELS) pixels = tgaPixels(bytes, width, height, bytes[16], bytes[2], bytes[17]);
   } else if (extension === 'dds' && bytes.length >= 128 && String.fromCharCode(...bytes.slice(0, 4)) === 'DDS ') {
     width = read32(bytes, 16);
     height = read32(bytes, 12);
