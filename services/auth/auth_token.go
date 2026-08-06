@@ -13,6 +13,7 @@ import (
 	"time"
 
 	auth_model "github.com/neko233-com/gitsss/models/auth"
+	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/timeutil"
 	"github.com/neko233-com/gitsss/modules/util"
@@ -28,7 +29,10 @@ var (
 	ErrAuthTokenInvalidFormat = util.NewInvalidArgumentErrorf("auth token has an invalid format")
 	ErrAuthTokenExpired       = util.NewInvalidArgumentErrorf("auth token has expired")
 	ErrAuthTokenInvalidHash   = util.NewInvalidArgumentErrorf("auth token is invalid")
+	ErrAccountInviteInvalid   = util.NewInvalidArgumentErrorf("account invitation is invalid or expired")
 )
+
+const accountInviteTokenPrefix = "invite_"
 
 func CheckAuthToken(ctx context.Context, value string) (*auth_model.AuthToken, error) {
 	if len(value) == 0 {
@@ -120,4 +124,72 @@ func generateTokenAndHash() (string, string, error) {
 	hashedToken := sha256.Sum256([]byte(token))
 
 	return token, hex.EncodeToString(hashedToken[:]), nil
+}
+
+// CreateAccountInviteToken creates a one-time account setup token.
+func CreateAccountInviteToken(ctx context.Context, ttl time.Duration) (string, time.Time, error) {
+	if ttl <= 0 {
+		return "", time.Time{}, ErrAccountInviteInvalid
+	}
+
+	idSuffix, err := util.CryptoRandomString(16)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	token, hash, err := generateTokenAndHash()
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	expiresUnix := timeutil.TimeStampNow().AddDuration(ttl)
+	t := &auth_model.AuthToken{
+		ID:          accountInviteTokenPrefix + idSuffix,
+		TokenHash:   hash,
+		UserID:      0,
+		ExpiresUnix: expiresUnix,
+	}
+	if err := auth_model.InsertAuthToken(ctx, t); err != nil {
+		return "", time.Time{}, err
+	}
+
+	return t.ID + ":" + token, expiresUnix.AsTime(), nil
+}
+
+// AccountInviteURL returns the public route for an account setup token.
+func AccountInviteURL(token string) string {
+	return setting.AppURL + "account/invite/" + token
+}
+
+// IsAccountInviteToken identifies the account setup token format without validating its secret.
+func IsAccountInviteToken(value string) bool {
+	parts := strings.SplitN(value, ":", 2)
+	return len(parts) == 2 && strings.HasPrefix(parts[0], accountInviteTokenPrefix)
+}
+
+// IsAccountInviteID identifies an invitation record for administration actions.
+func IsAccountInviteID(id string) bool {
+	return strings.HasPrefix(id, accountInviteTokenPrefix)
+}
+
+// ConsumeAccountInviteToken validates and atomically consumes an invitation.
+func ConsumeAccountInviteToken(ctx context.Context, value string) error {
+	if !IsAccountInviteToken(value) {
+		return ErrAccountInviteInvalid
+	}
+
+	parts := strings.SplitN(value, ":", 2)
+	t, err := CheckAuthToken(ctx, value)
+	if err != nil || t == nil || t.UserID != 0 {
+		return ErrAccountInviteInvalid
+	}
+
+	hashedToken := sha256.Sum256([]byte(parts[1]))
+	consumed, err := auth_model.ConsumeAuthTokenByID(ctx, parts[0], hex.EncodeToString(hashedToken[:]))
+	if err != nil {
+		log.Error("consume account invitation: %v", err)
+		return err
+	}
+	if !consumed {
+		return ErrAccountInviteInvalid
+	}
+	return nil
 }

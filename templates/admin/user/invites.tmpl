@@ -1,0 +1,57 @@
+{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin user invites")}}
+<div class="admin-setting-content">
+	<div class="ui top attached header tw-flex tw-items-center tw-justify-between">
+		<span>{{ctx.Locale.Tr "admin.users.account_invites"}}</span>
+		<a class="ui tiny button" href="{{AppSubUrl}}/-/admin/users">{{ctx.Locale.Tr "admin.users"}}</a>
+	</div>
+	<div class="ui attached segment">
+		<p>{{ctx.Locale.Tr "admin.users.account_invites_help"}}</p>
+		<form class="ui form" method="post" action="{{AppSubUrl}}/-/admin/users/invites">
+			<div class="inline fields">
+				<div class="field">
+					<label for="expires_hours">{{ctx.Locale.Tr "admin.users.account_invite_expiry"}}</label>
+					<select id="expires_hours" name="expires_hours">
+						<option value="1" {{if eq .AccountInviteDefaultHours 1}}selected{{end}}>{{ctx.Locale.Tr "tool.hours" 1}}</option>
+						<option value="24" {{if eq .AccountInviteDefaultHours 24}}selected{{end}}>{{ctx.Locale.Tr "tool.hours" 24}}</option>
+						<option value="72" {{if eq .AccountInviteDefaultHours 72}}selected{{end}}>{{ctx.Locale.Tr "tool.hours" 72}}</option>
+						<option value="168" {{if eq .AccountInviteDefaultHours 168}}selected{{end}}>{{ctx.Locale.Tr "tool.days" 7}}</option>
+					</select>
+				</div>
+				<button class="ui primary button" type="submit">{{ctx.Locale.Tr "admin.users.account_invite_generate"}}</button>
+			</div>
+		</form>
+		{{if .AccountInviteLink}}
+			<div class="ui positive message">
+				<div class="header">{{ctx.Locale.Tr "admin.users.account_invite_created"}}</div>
+				<p>{{ctx.Locale.Tr "admin.users.account_invite_created_help" (DateUtils.AbsoluteShort .AccountInviteExpires)}}</p>
+				<div class="ui action input tw-w-full">
+					<input type="text" readonly value="{{.AccountInviteLink}}" aria-label="{{ctx.Locale.Tr "admin.users.account_invite_link"}}">
+					<button class="ui button" type="button" data-global-click="onCopyInviteLink" data-copy-to-clipboard="{{.AccountInviteLink}}">{{ctx.Locale.Tr "copy"}}</button>
+				</div>
+			</div>
+		{{end}}
+	</div>
+
+	<h4 class="ui top attached header">{{ctx.Locale.Tr "admin.users.account_invite_pending"}}</h4>
+	<div class="ui attached segment">
+		{{if .AccountInvites}}
+			<div class="ui relaxed divided list">
+				{{range .AccountInvites}}
+					<div class="item tw-flex tw-items-center tw-justify-between tw-gap-3">
+						<div>
+							<div class="header">{{.ID}}</div>
+							<div class="description">{{ctx.Locale.Tr "admin.users.account_invite_expires" (DateUtils.AbsoluteShort .ExpiresUnix)}}</div>
+						</div>
+						<form method="post" action="{{AppSubUrl}}/-/admin/users/invites/revoke">
+							<input type="hidden" name="id" value="{{.ID}}">
+							<button class="ui tiny negative button" type="submit">{{ctx.Locale.Tr "admin.users.account_invite_revoke"}}</button>
+						</form>
+					</div>
+				{{end}}
+			</div>
+		{{else}}
+			<p class="tw-text-secondary">{{ctx.Locale.Tr "admin.users.account_invite_none"}}</p>
+		{{end}}
+	</div>
+</div>
+{{template "admin/layout_footer" .}}

@@ -28,6 +28,9 @@
 				<a class="{{if .PageIsAdminUsers}}active {{end}}item" href="{{AppSubUrl}}/-/admin/users">
 					{{ctx.Locale.Tr "admin.users"}}
 				</a>
+				<a class="{{if .PageIsAdminUserInvites}}active {{end}}item" href="{{AppSubUrl}}/-/admin/users/invites">
+					{{ctx.Locale.Tr "admin.users.account_invites"}}
+				</a>
 				<a class="{{if .PageIsAdminBadges}}active {{end}}item" href="{{AppSubUrl}}/-/admin/badges">
 					{{ctx.Locale.Tr "admin.badges"}}
 				</a>
