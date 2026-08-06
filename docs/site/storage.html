@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>存储与 Git LFS - gitsss</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="header">
+    <a class="header-logo" href="index.html"><span>git</span>sss</a>
+    <nav class="header-nav">
+      <a href="getting-started.html">快速开始</a>
+      <a href="configuration.html">配置</a>
+      <a href="storage.html" class="active">存储</a>
+      <a href="migration.html">迁移</a>
+      <a href="actions.html">Actions</a>
+      <a href="development.html">开发</a>
+      <a href="https://github.com/neko233-com/gitsss">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-heading">入门</div>
+        <a href="index.html">文档首页</a>
+        <a href="getting-started.html">快速开始</a>
+        <a href="configuration.html">配置参考</a>
+        <a href="storage.html" class="active">存储与 Git LFS</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">部署</div>
+        <a href="migration.html">迁移</a>
+        <a href="actions.html">离线 Actions</a>
+        <a href="operations.html">运维指南</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">开发</div>
+        <a href="development.html">开发指南</a>
+        <a href="architecture.html">架构设计</a>
+        <a href="extensions.html">扩展功能</a>
+        <a href="agents.html">Agent 协作</a>
+      </div>
+    </aside>
+
+    <main class="content">
+      <h1>存储与 Git LFS</h1>
+      <p class="subtitle">面向游戏仓库的大文件、并发访问与可扩展存储基线</p>
+
+      <div class="callout callout-warning">
+        <span class="callout-label">生产原则</span>
+        <p>Gitsss 不改变 Git 对象模型。高频源码走 Git，二进制资产走 Git LFS；不要把游戏构建包、贴图缓存或中间产物直接提交到普通 Git blob。</p>
+      </div>
+
+      <h2>推荐拓扑</h2>
+      <div class="code-block"><pre><code>Git 客户端
+  ├─ Git smart HTTP / SSH → Git 对象存储
+  └─ Git LFS batch API     → LFS 对象存储（对象存储优先）
+
+元数据与权限 → PostgreSQL（生产）
+单机试用     → SQLite + 本地卷（不建议多节点）</code></pre></div>
+      <p>Git 仓库、附件、LFS、包和 Actions 日志使用独立存储配置，可分别迁移到 MinIO/S3 兼容服务或 Azure Blob。多节点部署必须使用共享对象存储，并让所有节点使用同一数据库和密钥。</p>
+
+      <h2>游戏资产策略</h2>
+      <ul>
+        <li>Unity/Unreal 文本资产、脚本和配置：普通 Git，便于差异审查。</li>
+        <li>FBX、GLB/GLTF、OBJ、贴图、音频、视频和构建包：Git LFS；提交前配置 <code>.gitattributes</code>。</li>
+        <li>持续集成缓存与临时构建产物：使用 Actions/外部制品存储，不进入长期 Git 历史。</li>
+        <li>大规模迁移前先做裸仓库备份、LFS 校验和恢复演练；删除历史对象前保留不可变快照。</li>
+      </ul>
+      <p>仓库内的常见可预览格式包括图片、SVG、PDF、音频、视频，以及 3D Viewer 支持的 3DM、3DS、3MF、AMF、BIM、BREP、DAE、FBX、FCSTD、GLB、GLTF、IFC、IGES、STEP、STL、OBJ、OFF、PLY、WRL。无法安全或离线解码的专有格式仍提供原始下载和源码查看，不伪造预览结果。</p>
+      <div class="code-block"><pre><code># .gitattributes
+*.fbx filter=lfs diff=lfs merge=lfs -text
+*.glb filter=lfs diff=lfs merge=lfs -text
+*.gltf filter=lfs diff=lfs merge=lfs -text
+*.png filter=lfs diff=lfs merge=lfs -text
+*.wav filter=lfs diff=lfs merge=lfs -text
+*.mp4 filter=lfs diff=lfs merge=lfs -text</code></pre></div>
+
+      <h2>关键配置</h2>
+      <div class="code-block"><pre><code>[database]
+DB_TYPE = postgres
+HOST = postgres:5432
+NAME = gitsss
+USER = gitsss
+
+[storage]
+STORAGE_TYPE = minio
+MINIO_ENDPOINT = minio:9000
+MINIO_BUCKET = gitsss
+MINIO_USE_SSL = false
+
+[lfs]
+STORAGE_TYPE = minio
+MINIO_BUCKET = gitsss-lfs
+LFS_MAX_FILE_SIZE = 10737418240</code></pre></div>
+      <p>实际密钥使用环境变量或密钥文件注入，不要把访问密钥提交到仓库。对象存储启用版本保护/生命周期策略前，先确认不会删除仍在 Git LFS 引用中的对象。</p>
+
+      <h2>性能与稳定性门禁</h2>
+      <ul>
+        <li>数据库使用 PostgreSQL，并配置连接池、慢查询日志和定期备份。</li>
+        <li>对象存储使用内网低延迟链路，校验上传/下载、断点续传、并发 LFS batch 与失败重试。</li>
+        <li>Git 仓库定期执行维护任务；大规模 GC 前确认没有并发推送，并保留备份。</li>
+        <li>上线前做 clone、fetch、push、LFS checkout、权限拒绝和故障恢复演练。</li>
+      </ul>
+
+      <h2>存储可观测性</h2>
+      <p>管理员可在 <code>/-/admin/storage</code> 查看卷可用空间、仓库 Git/LFS 字节数和待清理对象。任何写保护状态都应先处理底层磁盘或对象存储告警，再恢复写入。</p>
+    </main>
+  </div>
+  <script>
+    function copyCode(button) {
+      const code = button.parentElement.querySelector('code').innerText;
+      navigator.clipboard.writeText(code);
+      button.innerText = 'Copied';
+      setTimeout(() => button.innerText = 'Copy', 1200);
+    }
+  </script>
+</body>
+</html>

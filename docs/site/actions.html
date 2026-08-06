@@ -12,6 +12,7 @@
     <nav class="header-nav">
       <a href="getting-started.html">快速开始</a>
       <a href="configuration.html">配置</a>
+      <a href="storage.html">存储</a>
       <a href="migration.html">迁移</a>
       <a href="actions.html">Actions</a>
       <a href="development.html">开发</a>
@@ -26,6 +27,7 @@
         <a href="index.html">文档首页</a>
         <a href="getting-started.html">快速开始</a>
         <a href="configuration.html">配置参考</a>
+        <a href="storage.html">存储与 Git LFS</a>
       </div>
       <div class="sidebar-section">
         <div class="sidebar-heading">部署</div>
@@ -81,12 +83,12 @@
       </table>
 
       <h2>编写工作流</h2>
-      <p>在仓库根目录创建 <code>.gitea/workflows/</code> 目录，添加 YAML 工作流文件：</p>
+      <p>系统同时识别仓库根目录的 <code>.github/workflows/</code> 与兼容目录 <code>.gitea/workflows/</code>。新项目建议使用前者；现有内网仓库无需迁移目录即可继续运行。</p>
 
       <h3>Node.js 项目示例</h3>
       <div class="code-block">
         <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-        <pre><code># .gitea/workflows/ci.yaml
+        <pre><code># .github/workflows/ci.yaml
 name: CI
 on:
   push:
@@ -109,7 +111,7 @@ jobs:
       <h3>Go 项目示例</h3>
       <div class="code-block">
         <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-        <pre><code># .gitea/workflows/ci.yaml
+        <pre><code># .github/workflows/ci.yaml
 name: CI
 on:
   push:
@@ -130,7 +132,7 @@ jobs:
       <h3>多阶段构建示例</h3>
       <div class="code-block">
         <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-        <pre><code># .gitea/workflows/release.yaml
+        <pre><code># .github/workflows/release.yaml
 name: Release
 on:
   push:

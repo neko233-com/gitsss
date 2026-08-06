@@ -1,6 +1,6 @@
 # gitsss
 
-内网、自托管 Git 协作平台。基于 Gitea `v1.26.2`，以单个离线 Docker 镜像运行，包含仓库、Issue、Pull Request、Actions、Packages、Release 与 Git LFS。
+内网、自托管 Git 协作平台。Gitsss 以单个离线 Docker 镜像运行，包含仓库、Issue、Pull Request、Actions、Packages、Release 与 Git LFS，并保留成熟 Git 服务的兼容语义。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 

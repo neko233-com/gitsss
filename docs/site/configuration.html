@@ -12,6 +12,7 @@
     <nav class="header-nav">
       <a href="getting-started.html">快速开始</a>
       <a href="configuration.html">配置</a>
+      <a href="storage.html">存储</a>
       <a href="migration.html">迁移</a>
       <a href="actions.html">Actions</a>
       <a href="development.html">开发</a>
@@ -26,6 +27,7 @@
         <a href="index.html">文档首页</a>
         <a href="getting-started.html">快速开始</a>
         <a href="configuration.html" class="active">配置参考</a>
+        <a href="storage.html">存储与 Git LFS</a>
       </div>
       <div class="sidebar-section">
         <div class="sidebar-heading">部署</div>
@@ -109,6 +111,13 @@
           <tr><td><code>GITSSS_ACTIONS_CONTAINER_OPTIONS</code></td><td><code>--cpus=4 --memory=8g --pids-limit=2048</code></td><td>Actions 容器资源限制</td></tr>
         </tbody>
       </table>
+
+      <h2>管理员与内网账户邀请</h2>
+      <p>管理员可在 <code>/-/admin/users/invites</code> 生成一次性账户邀请链接，有效期可选 1 小时至 7 天。链接只保存哈希、过期后自动失效，使用时在数据库事务内消费；账户创建失败会回滚消费。</p>
+      <p>邀请开户采用内网友好的最低 6 位密码，不强制复杂度和泄漏库检查。普通登录对账号与来源 IP 记录短期失败退避，只延迟错误响应，不设置账号永久锁定；正确密码不会因为他人猜测而被阻断。</p>
+
+      <h2>API 文档</h2>
+      <p>登录后可从导航的帮助入口打开 <a href="/api/swagger"><code>/api/swagger</code></a>，查看 Swagger UI 和当前实例生成的 OpenAPI JSON。客户端集成应以实例文档为准，并使用 Token、OAuth2 或 Git HTTP 认证。</p>
 
       <h2>自动启动</h2>
       <table>
