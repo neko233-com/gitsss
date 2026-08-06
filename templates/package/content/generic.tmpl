@@ -11,7 +11,7 @@ curl -OJ {{ctx.AppFullLink}}/api/packages/{{$.PackageDescriptor.Owner.Name}}/gen
 				</code></pre></div>
 			</div>
 			<div class="field">
-				<label>{{ctx.Locale.Tr "packages.registry.documentation" "Generic" "https://docs.gitea.com/usage/packages/generic"}}</label>
+				<label>{{ctx.Locale.Tr "packages.registry.documentation" "Generic" (printf "%s/docs/site/storage.html" AppSubUrl)}}</label>
 			</div>
 		</div>
 	</div>
