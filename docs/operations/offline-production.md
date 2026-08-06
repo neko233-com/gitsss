@@ -76,8 +76,8 @@ Repositories, LFS objects, databases, and unknown paths are excluded.
 
 Local release targets produce only `gitsss-*` binary, source, compressed, and
 checksum filenames. The cross-build tool is pinned, and the Go toolchain line is
-fixed to Go 1.26. The removed legacy upgrade helper cannot download or install a
-Gitea binary.
+fixed to Go 1.26. The removed legacy upgrade helper cannot download or install
+an external server binary.
 
 Run `task release` on the release host. The host must provide Docker, Go,
 Make, and Task. Cross-compilation runs from the host so Docker-based xgo

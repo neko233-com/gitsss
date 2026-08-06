@@ -5,6 +5,7 @@ package storage
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -15,35 +16,36 @@ import (
 )
 
 func TestBuildLocalPath(t *testing.T) {
+	rootDir := t.TempDir()
 	kases := []struct {
 		localDir string
 		path     string
 		expected string
 	}{
 		{
-			"/a",
+			rootDir,
 			"0/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
-			"/a/0/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
+			filepath.Join(rootDir, "0", "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14"),
 		},
 		{
-			"/a",
+			rootDir,
 			"../0/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
-			"/a/0/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
+			filepath.Join(rootDir, "0", "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14"),
 		},
 		{
-			"/a",
+			rootDir,
 			"0\\a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
-			"/a/0/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
+			filepath.Join(rootDir, "0", "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14"),
 		},
 		{
-			"/b",
+			rootDir,
 			"a/../0/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
-			"/b/0/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
+			filepath.Join(rootDir, "0", "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14"),
 		},
 		{
-			"/b",
+			rootDir,
 			"a\\..\\0/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
-			"/b/0/a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
+			filepath.Join(rootDir, "0", "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14"),
 		},
 	}
 

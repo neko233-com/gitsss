@@ -33,6 +33,10 @@
 }
 
 @media (min-width: 1440px) {
+  .page-content.repository {
+    padding-left: 248px;
+  }
+
   .repository .repo-primary-nav {
     display: none;
   }
@@ -130,6 +134,10 @@
 }
 
 @media (min-width: 1440px) {
+  body.repo-sidebar-collapsed .page-content.repository {
+    padding-left: 80px;
+  }
+
   body.repo-sidebar-collapsed .repository .repo-sidebar {
     width: 56px;
     padding: 0.5rem;
