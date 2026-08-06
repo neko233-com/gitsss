@@ -96,6 +96,9 @@
 				{{svg "octicon-milestone"}}&nbsp;{{ctx.Locale.Tr "milestones"}}
 			</a>
 			{{end}}
+			<a class="{{if .PageIsViewProjects}}active {{end}}item" href="{{.ContextUser.HomeLink}}/-/projects">
+				{{svg "octicon-project-symlink"}}&nbsp;{{ctx.Locale.Tr "repo.projects.task_board"}}
+			</a>
 			<div class="item">
 				<a class="ui primary basic button" href="{{.ContextUser.HomeLink}}" title="{{ctx.Locale.Tr "home.view_home" .ContextUser.Name}}">
 					{{ctx.Locale.Tr "home.view_home" (.ContextUser.ShortName 20)}}
