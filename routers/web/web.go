@@ -780,6 +780,8 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 
 		m.Group("/users", func() {
 			m.Get("", admin.Users)
+			m.Combo("/invites").Get(admin.AccountInvites).Post(admin.AccountInvitesPost)
+			m.Post("/invites/revoke", admin.RevokeAccountInvite)
 			m.Combo("/new").Get(admin.NewUser).Post(web.Bind(forms.AdminCreateUserForm{}), admin.NewUserPost)
 			m.Get("/{userid}", admin.ViewUser)
 			m.Combo("/{userid}/edit").Get(admin.EditUser).Post(web.Bind(forms.AdminEditUserForm{}), admin.EditUserPost)
@@ -932,6 +934,11 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 		}, context.OrgAssignment(context.OrgAssignmentOptions{}))
 	}, optSignIn)
 	// end "/org": members
+
+	m.Group("/account/invite/{token}", func() {
+		m.Get("", auth.AccountInvite)
+		m.Post("", web.Bind(forms.RegisterForm{}), auth.AccountInvitePost)
+	})
 
 	m.Group("/org", func() {
 		m.Group("", func() {

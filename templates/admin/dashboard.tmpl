@@ -9,9 +9,33 @@
 		{{if .StorageSnapshot.WriteProtected}}<div class="ui negative message">{{ctx.Locale.Tr "admin.storage_awareness.protected"}}</div>{{else if .StorageSnapshot.Warning}}<div class="ui warning message">{{ctx.Locale.Tr "admin.storage_awareness.warning"}}</div>{{end}}
 	</div>
 	{{end}}
+	<div class="admin-quick-actions">
+		<a class="admin-quick-action" href="{{AppSubUrl}}/-/admin/users">
+			{{svg "octicon-people" 22}}
+			<span><strong>{{ctx.Locale.Tr "admin.users"}}</strong><small>{{ctx.Locale.Tr "admin.dashboard.quick_users"}}</small></span>
+		</a>
+		<a class="admin-quick-action" href="{{AppSubUrl}}/-/admin/users/invites">
+			{{svg "octicon-link" 22}}
+			<span><strong>{{ctx.Locale.Tr "admin.users.account_invites"}}</strong><small>{{ctx.Locale.Tr "admin.dashboard.quick_invites"}}</small></span>
+		</a>
+		<a class="admin-quick-action" href="{{AppSubUrl}}/-/admin/orgs">
+			{{svg "octicon-organization" 22}}
+			<span><strong>{{ctx.Locale.Tr "admin.organizations"}}</strong><small>{{ctx.Locale.Tr "admin.dashboard.quick_orgs"}}</small></span>
+		</a>
+		<a class="admin-quick-action" href="{{AppSubUrl}}/-/admin/repos">
+			{{svg "octicon-repo" 22}}
+			<span><strong>{{ctx.Locale.Tr "admin.repositories"}}</strong><small>{{ctx.Locale.Tr "admin.dashboard.quick_repos"}}</small></span>
+		</a>
+		{{if .EnableActions}}
+		<a class="admin-quick-action" href="{{AppSubUrl}}/-/admin/actions/runners">
+			{{svg "octicon-play" 22}}
+			<span><strong>{{ctx.Locale.Tr "actions.runners"}}</strong><small>{{ctx.Locale.Tr "admin.dashboard.quick_runners"}}</small></span>
+		</a>
+		{{end}}
+	</div>
 		{{if .NeedUpdate}}
 			<div class="ui negative message flash-error">
-				<p>{{ctx.Locale.Tr "admin.dashboard.new_version_hint" .RemoteVersion AppVer "https://blog.gitea.com"}}</p>
+				<p>{{ctx.Locale.Tr "admin.dashboard.new_version_hint" .RemoteVersion AppVer "https://github.com/neko233-com/gitsss/releases"}}</p>
 			</div>
 		{{end}}
 		<h4 class="ui top attached header">

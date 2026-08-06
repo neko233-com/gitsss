@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/neko233-com/gitsss/models/auth"
 	"github.com/neko233-com/gitsss/models/db"
@@ -304,6 +305,9 @@ func SignInPost(ctx *context.Context) {
 
 	u, source, err := auth_service.UserSignIn(ctx, form.UserName, form.Password)
 	if err != nil {
+		if delay := auth_service.RecordLoginFailure(ctx, ctx.Cache, form.UserName, ctx.RemoteAddr()); delay > 0 {
+			time.Sleep(delay)
+		}
 		if errors.Is(err, util.ErrNotExist) || errors.Is(err, util.ErrInvalidArgument) {
 			ctx.RenderWithErrDeprecated(ctx.Tr("form.username_password_incorrect"), tplSignIn, &form)
 			log.Warn("Failed authentication attempt for %s from %s: %v", form.UserName, ctx.RemoteAddr(), err)
@@ -328,6 +332,7 @@ func SignInPost(ctx *context.Context) {
 		}
 		return
 	}
+	auth_service.ClearLoginFailures(ctx, ctx.Cache, form.UserName, ctx.RemoteAddr())
 
 	// Now handle 2FA:
 	// First of all if the source can skip local two fa we're done

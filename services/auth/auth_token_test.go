@@ -104,3 +104,21 @@ func TestRegenerateAuthToken(t *testing.T) {
 
 	assert.NoError(t, auth_model.DeleteAuthTokenByID(t.Context(), at.ID))
 }
+
+func TestAccountInviteTokenIsOneTime(t *testing.T) {
+	assert.NoError(t, unittest.PrepareTestDatabase())
+
+	value, expires, err := CreateAccountInviteToken(t.Context(), time.Hour)
+	assert.NoError(t, err)
+	assert.True(t, expires.After(time.Now()))
+	assert.True(t, IsAccountInviteToken(value))
+
+	invite, err := CheckAuthToken(t.Context(), value)
+	assert.NoError(t, err)
+	assert.NotNil(t, invite)
+	assert.EqualValues(t, 0, invite.UserID)
+
+	assert.NoError(t, ConsumeAccountInviteToken(t.Context(), value))
+	assert.ErrorIs(t, ConsumeAccountInviteToken(t.Context(), value), ErrAccountInviteInvalid)
+	assert.NoError(t, auth_model.DeleteAuthTokenByID(t.Context(), invite.ID))
+}

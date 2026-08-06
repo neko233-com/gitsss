@@ -51,4 +51,11 @@ export function initCopyContent() {
       }
     }
   });
+
+  registerGlobalEventFunc('click', 'onCopyInviteLink', async (btn: HTMLElement) => {
+    const link = btn.getAttribute('data-copy-to-clipboard');
+    if (!link) return;
+    const success = await clippie(link);
+    showTemporaryTooltip(btn, success ? i18n.copy_success : i18n.copy_error);
+  });
 }

@@ -54,6 +54,23 @@ func DeleteAuthTokenByID(ctx context.Context, id string) error {
 	return err
 }
 
+// ConsumeAuthTokenByID atomically invalidates a token when its current hash matches.
+func ConsumeAuthTokenByID(ctx context.Context, id, tokenHash string) (bool, error) {
+	count, err := db.GetEngine(ctx).ID(id).
+		Where("token_hash = ? AND expires_unix >= ?", tokenHash, timeutil.TimeStampNow()).
+		Cols("token_hash").Update(&AuthToken{TokenHash: ""})
+	return count == 1, err
+}
+
+// ListAccountInviteTokens returns pending account setup invitations.
+func ListAccountInviteTokens(ctx context.Context) ([]*AuthToken, error) {
+	var tokens []*AuthToken
+	err := db.GetEngine(ctx).
+		Where("user_id = ? AND id LIKE ? AND token_hash <> '' AND expires_unix >= ?", 0, "invite_%", timeutil.TimeStampNow()).
+		Desc("expires_unix").Find(&tokens)
+	return tokens, err
+}
+
 func DeleteAuthTokensByUserID(ctx context.Context, uid int64) error {
 	_, err := db.GetEngine(ctx).Where(builder.Eq{"user_id": uid}).Delete(&AuthToken{})
 	return err

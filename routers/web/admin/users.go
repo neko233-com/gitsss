@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/neko233-com/gitsss/models/auth"
 	"github.com/neko233-com/gitsss/models/db"
@@ -26,6 +27,7 @@ import (
 	"github.com/neko233-com/gitsss/modules/web"
 	"github.com/neko233-com/gitsss/routers/web/explore"
 	user_setting "github.com/neko233-com/gitsss/routers/web/user/setting"
+	auth_service "github.com/neko233-com/gitsss/services/auth"
 	"github.com/neko233-com/gitsss/services/context"
 	"github.com/neko233-com/gitsss/services/forms"
 	"github.com/neko233-com/gitsss/services/mailer"
@@ -33,10 +35,11 @@ import (
 )
 
 const (
-	tplUsers    templates.TplName = "admin/user/list"
-	tplUserNew  templates.TplName = "admin/user/new"
-	tplUserView templates.TplName = "admin/user/view"
-	tplUserEdit templates.TplName = "admin/user/edit"
+	tplUsers       templates.TplName = "admin/user/list"
+	tplUserNew     templates.TplName = "admin/user/new"
+	tplUserView    templates.TplName = "admin/user/view"
+	tplUserEdit    templates.TplName = "admin/user/edit"
+	tplUserInvites templates.TplName = "admin/user/invites"
 )
 
 // UserSearchDefaultAdminSort is the default sort type for admin view
@@ -79,6 +82,60 @@ func Users(ctx *context.Context) {
 		IsProhibitLogin:    optional.ParseBool(statusFilterMap["is_prohibit_login"]),
 		IncludeReserved:    true, // administrator needs to list all accounts include reserved, bot, remote ones
 	}, tplUsers)
+}
+
+func AccountInvites(ctx *context.Context) {
+	ctx.Data["Title"] = ctx.Tr("admin.users.account_invites")
+	ctx.Data["PageIsAdminUsers"] = true
+	ctx.Data["PageIsAdminUserInvites"] = true
+	accountInvites, err := auth.ListAccountInviteTokens(ctx)
+	if err != nil {
+		ctx.ServerError("ListAccountInviteTokens", err)
+		return
+	}
+	ctx.Data["AccountInvites"] = accountInvites
+	ctx.Data["AccountInviteDefaultHours"] = 24
+	ctx.HTML(http.StatusOK, tplUserInvites)
+}
+
+func AccountInvitesPost(ctx *context.Context) {
+	hours := ctx.FormInt("expires_hours")
+	if hours < 1 || hours > 168 {
+		hours = 24
+	}
+
+	token, expires, err := auth_service.CreateAccountInviteToken(ctx, time.Duration(hours)*time.Hour)
+	if err != nil {
+		ctx.ServerError("CreateAccountInviteToken", err)
+		return
+	}
+	accountInvites, err := auth.ListAccountInviteTokens(ctx)
+	if err != nil {
+		ctx.ServerError("ListAccountInviteTokens", err)
+		return
+	}
+	ctx.Data["Title"] = ctx.Tr("admin.users.account_invites")
+	ctx.Data["PageIsAdminUsers"] = true
+	ctx.Data["PageIsAdminUserInvites"] = true
+	ctx.Data["AccountInvites"] = accountInvites
+	ctx.Data["AccountInviteDefaultHours"] = hours
+	ctx.Data["AccountInviteLink"] = auth_service.AccountInviteURL(token)
+	ctx.Data["AccountInviteExpires"] = expires
+	ctx.HTML(http.StatusOK, tplUserInvites)
+}
+
+func RevokeAccountInvite(ctx *context.Context) {
+	id := ctx.FormString("id")
+	if !auth_service.IsAccountInviteID(id) {
+		ctx.HTTPError(http.StatusBadRequest)
+		return
+	}
+	if err := auth.DeleteAuthTokenByID(ctx, id); err != nil {
+		ctx.ServerError("DeleteAccountInvite", err)
+		return
+	}
+	ctx.Flash.Success(ctx.Tr("admin.users.account_invite_revoked"))
+	ctx.Redirect(setting.AppSubURL + "/-/admin/users/invites")
 }
 
 // NewUser render adding a new user page
