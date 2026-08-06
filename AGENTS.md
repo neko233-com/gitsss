@@ -24,3 +24,9 @@
 - Before publishing a release, cross-compile and package the supported Linux, macOS, and Windows targets locally, verify checksums and any configured signatures locally, then publish the tag and packages directly with `gh`
 - Do not publish a tag, package, or GitHub Release until all required local gates pass; fix failures locally and rebuild the artifacts
 - Do not publish per-feature or incremental releases. Complete the full requested product scope and requirement-by-requirement verification first, then create one consolidated tag and package release
+
+## Compatibility baseline
+
+- Treat Git protocol, database schema and migrations, storage paths, Git LFS, API contracts, Actions workflow directories, configuration keys, and environment aliases as compatibility contracts.
+- Keep this file and the platform change surface stable. If a change requires a broad rule or platform update, document its scope, migration and rollback path, and compatibility impact first.
+- Preserve legacy identifiers and paths unless an explicit migration is part of the request; do not silently rename internal compatibility names.

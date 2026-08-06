@@ -12,6 +12,7 @@
     <nav class="header-nav">
       <a href="getting-started.html">快速开始</a>
       <a href="configuration.html">配置</a>
+      <a href="storage.html">存储</a>
       <a href="migration.html">迁移</a>
       <a href="actions.html">Actions</a>
       <a href="development.html">开发</a>
@@ -26,6 +27,7 @@
         <a href="index.html">文档首页</a>
         <a href="getting-started.html">快速开始</a>
         <a href="configuration.html">配置参考</a>
+        <a href="storage.html">存储与 Git LFS</a>
       </div>
       <div class="sidebar-section">
         <div class="sidebar-heading">部署</div>
@@ -77,6 +79,9 @@
         <li>提交使用 Conventional Commits，且包含 <code>Assisted-by: AGENT_NAME:MODEL_VERSION</code> trailer；不添加 <code>Co-Authored-By</code> 或 <code>Signed-off-by</code>。</li>
         <li>保留仍然相关的注释；新注释简短，只解释原因。</li>
       </ul>
+
+      <h2>兼容基线</h2>
+      <p>Git 协议、数据库结构与迁移、存储路径、Git LFS、API、Actions 工作流目录、配置键和环境变量别名都是兼容性契约。保持根目录 <code>AGENTS.md</code> 与平台改动面稳定；若确需扩大规则或平台变更，必须先记录范围、迁移/回滚路径和兼容性影响，并保留旧标识直到明确迁移。</p>
 
       <h2>实现与验证</h2>
       <p>遵循 <a href="extensions.html">扩展功能</a>中的分层路径，优先给可独立验证的逻辑写单元测试。按改动范围执行命令：</p>
