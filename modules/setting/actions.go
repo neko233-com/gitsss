@@ -6,6 +6,7 @@ package setting
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -16,6 +17,9 @@ import (
 var (
 	Actions = struct {
 		Enabled               bool
+		BuiltinRunnerEnabled  bool              `ini:"BUILTIN_RUNNER_ENABLED"`
+		BuiltinRunnerCapacity int               `ini:"BUILTIN_RUNNER_CAPACITY"`
+		BuiltinRunnerLabels   []string          `ini:"BUILTIN_RUNNER_LABELS"`
 		LogStorage            *Storage          // how the created logs should be stored
 		LogRetentionDays      int64             `ini:"LOG_RETENTION_DAYS"`
 		LogCompression        logCompression    `ini:"LOG_COMPRESSION"`
@@ -28,7 +32,14 @@ var (
 		SkipWorkflowStrings   []string          `ini:"SKIP_WORKFLOW_STRINGS"`
 		WorkflowDirs          []string          `ini:"WORKFLOW_DIRS"`
 	}{
-		Enabled:             true,
+		Enabled:               true,
+		BuiltinRunnerEnabled:  true,
+		BuiltinRunnerCapacity: 2,
+		BuiltinRunnerLabels: []string{
+			"self-hosted:host",
+			"ubuntu-latest:host",
+			"ubuntu-24.04:host",
+		},
 		DefaultActionsURL:   defaultActionsURLSelf,
 		SkipWorkflowStrings: []string{"[skip ci]", "[ci skip]", "[no ci]", "[skip actions]", "[actions skip]"},
 		WorkflowDirs:        []string{".gitea/workflows", ".github/workflows"},
@@ -77,6 +88,26 @@ func loadActionsFrom(rootCfg ConfigProvider) error {
 	err := sec.MapTo(&Actions)
 	if err != nil {
 		return fmt.Errorf("failed to map Actions settings: %v", err)
+	}
+	Actions.BuiltinRunnerEnabled = sec.Key("BUILTIN_RUNNER_ENABLED").MustBool(true)
+	Actions.BuiltinRunnerCapacity = sec.Key("BUILTIN_RUNNER_CAPACITY").MustInt(2)
+	if Actions.BuiltinRunnerCapacity <= 0 {
+		Actions.BuiltinRunnerCapacity = 2
+	}
+	Actions.BuiltinRunnerLabels = sec.Key("BUILTIN_RUNNER_LABELS").Strings(",")
+	if len(Actions.BuiltinRunnerLabels) == 0 {
+		Actions.BuiltinRunnerLabels = []string{
+			"self-hosted:host",
+			"ubuntu-latest:host",
+			"ubuntu-24.04:host",
+		}
+	}
+	for i, label := range Actions.BuiltinRunnerLabels {
+		Actions.BuiltinRunnerLabels[i] = strings.TrimSpace(label)
+	}
+	Actions.BuiltinRunnerLabels = slices.DeleteFunc(Actions.BuiltinRunnerLabels, func(label string) bool { return label == "" })
+	if len(Actions.BuiltinRunnerLabels) == 0 {
+		return errors.New("[actions] BUILTIN_RUNNER_LABELS must contain at least one entry")
 	}
 
 	if urls := string(Actions.DefaultActionsURL); urls != defaultActionsURLGitHub && urls != defaultActionsURLSelf {

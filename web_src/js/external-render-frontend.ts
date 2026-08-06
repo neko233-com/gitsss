@@ -7,6 +7,7 @@ type LazyLoadFunc = () => Promise<{frontendRender: FrontendRenderFunc}>;
 // We only need to load the plugins we need.
 const frontendPlugins: Record<string, LazyLoadFunc> = {
   'viewer-3d': () => import('./render/plugins/frontend-viewer-3d.ts'),
+  'game-assets': () => import('./render/plugins/frontend-game-assets.ts'),
   'openapi-swagger': () => import('./render/plugins/frontend-openapi-swagger.ts'),
 };
 

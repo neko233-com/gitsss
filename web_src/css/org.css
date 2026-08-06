@@ -69,3 +69,66 @@
 .org-team-navbar .active.item {
   background: var(--color-box-body) !important;
 }
+
+.org-team-assignment-palette {
+  margin-bottom: 1rem;
+  padding: 0.85rem;
+  border: 1px solid var(--color-secondary);
+  border-radius: 8px;
+  background: var(--color-box-body);
+}
+
+.org-team-assignment-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.org-team-assignment-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.org-team-assignment-member {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--color-secondary);
+  border-radius: 999px;
+  background: var(--color-body);
+  cursor: grab;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.org-team-assignment-member:hover,
+.org-team-assignment-member.is-dragging {
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 12px rgb(31 35 40 / 12%);
+  transform: translateY(-1px);
+}
+
+.org-team-drop-target {
+  margin-bottom: 0.75rem;
+  padding: 0.65rem;
+  border: 1px dashed var(--color-primary);
+  border-radius: 6px;
+  color: var(--color-text-light);
+  text-align: center;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.org-team-drop-target.is-drag-over {
+  background: var(--color-primary-alpha-10);
+  color: var(--color-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .org-team-assignment-member,
+  .org-team-drop-target {
+    transition: none;
+  }
+}

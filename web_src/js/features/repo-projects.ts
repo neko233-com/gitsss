@@ -13,6 +13,49 @@ function updateIssueCount(card: HTMLElement): void {
   const parent = card.parentElement!;
   const count = parent.querySelectorAll('.issue-card').length;
   parent.querySelector('.project-column-issue-count')!.textContent = String(count);
+  updateWipState(parent.closest<HTMLElement>('.project-column')!);
+}
+
+function updateWipState(column: HTMLElement): void {
+  const limit = parseInt(column.getAttribute('data-wip-limit') || '0');
+  const count = column.querySelectorAll('.issue-card').length;
+  const status = column.querySelector<HTMLElement>('.project-column-wip-status')!;
+  if (!limit) {
+    column.classList.remove('project-column-over-wip');
+    status.textContent = '';
+    return;
+  }
+  column.classList.toggle('project-column-over-wip', count > limit);
+  status.textContent = `${count}/${limit}`;
+}
+
+function initProjectWipLimits(): void {
+  const board = document.querySelector<HTMLElement>('#project-board')!;
+  const limits = localUserSettings.getJsonObject<Record<string, number>>('projects-wip-limits', {});
+  for (const column of board.querySelectorAll<HTMLElement>('.project-column')) {
+    const columnID = column.getAttribute('data-id')!;
+    const limit = limits[columnID] || 0;
+    if (limit > 0) column.setAttribute('data-wip-limit', String(limit));
+    updateWipState(column);
+  }
+  queryElems(board, '.project-column-wip-limit-control', (control) => {
+    control.addEventListener('click', () => {
+      const columnID = control.getAttribute('data-wip-column-id')!;
+      const prompt = control.getAttribute('data-wip-prompt')!;
+      const clear = control.getAttribute('data-wip-clear')!;
+      const current = limits[columnID] || 0;
+      const value = window.prompt(`${prompt} (${clear}: 0)`, current ? String(current) : '');
+      if (value === null) return;
+      const limit = parseInt(value, 10);
+      if (limit > 0) limits[columnID] = limit;
+      else delete limits[columnID];
+      localUserSettings.setJsonObject('projects-wip-limits', limits);
+      const column = board.querySelector<HTMLElement>(`.project-column[data-id="${columnID}"]`)!;
+      if (limit > 0) column.setAttribute('data-wip-limit', String(limit));
+      else column.removeAttribute('data-wip-limit');
+      updateWipState(column);
+    });
+  });
 }
 
 async function moveIssue({item, from, to, oldIndex}: SortableEvent): Promise<void> {
@@ -177,6 +220,7 @@ function initRepoProjectToggleFullScreen(elProjectsView: HTMLElement): void {
 export function initRepoProjectsView(): void {
   registerGlobalInitFunc('initRepoProjectsView', (elProjectsView) => {
     initProjectAssignees(elProjectsView);
+    initProjectWipLimits();
     initRepoProjectToggleFullScreen(elProjectsView);
 
     const writableProjectBoard = document.querySelector('#project-board[data-project-board-writable="true"]');

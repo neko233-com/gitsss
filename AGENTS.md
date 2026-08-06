@@ -30,3 +30,8 @@
 - Treat Git protocol, database schema and migrations, storage paths, Git LFS, API contracts, Actions workflow directories, configuration keys, and environment aliases as compatibility contracts.
 - Keep this file and the platform change surface stable. If a change requires a broad rule or platform update, document its scope, migration and rollback path, and compatibility impact first.
 - Preserve legacy identifiers and paths unless an explicit migration is part of the request; do not silently rename internal compatibility names.
+
+## Storage stability freeze
+
+- Do not redesign Git, LFS, local/S3/MinIO storage, database paths, or Actions artifact/log storage without a compatibility report covering migration, rollback, capacity and performance impact.
+- Additive storage drivers and observability are allowed when existing paths, providers, keys and APIs remain unchanged; validate both CGO and pure-Go SQLite builds locally.

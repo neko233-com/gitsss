@@ -97,6 +97,7 @@
 					<div class="ui circular label project-column-issue-count">
 						{{.NumIssues}}
 					</div>
+					<span class="project-column-wip-status" aria-live="polite"></span>
 					<div class="project-column-title-text flex-text-inline gt-ellipsis" {{if .Default}}data-tooltip-content="{{ctx.Locale.Tr "repo.projects.column.default_column_hint"}}"{{end}}>
 						{{if .Default}}{{svg "octicon-star"}} {{end}}{{.Title}}
 					</div>
@@ -128,6 +129,12 @@
 										{{svg "octicon-trash"}} {{ctx.Locale.Tr "repo.projects.column.delete"}}
 									</a>
 								{{end}}
+								<a class="item button project-column-wip-limit-control"
+									data-wip-column-id="{{.ID}}"
+									data-wip-prompt="{{ctx.Locale.Tr "repo.projects.column.wip_limit_prompt"}}"
+									data-wip-clear="{{ctx.Locale.Tr "repo.projects.column.wip_limit_clear"}}">
+									{{svg "octicon-number"}} {{ctx.Locale.Tr "repo.projects.column.wip_limit"}}
+								</a>
 							</div>
 						</div>
 					{{end}}

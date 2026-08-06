@@ -51,6 +51,9 @@
       <h2>概述</h2>
       <p>gitsss 将服务端、内置 Runner、Node.js、Go、Git LFS、Docker 和常用 Action 打包在一个 Ubuntu 24.04 镜像中。启动后无需任何外部依赖即可运行 CI/CD 工作流。</p>
 
+      <h2>管理员 Runner 管理</h2>
+      <p>管理员打开 <code>管理后台 → Actions → Runners</code> 即可看到内置 Runner 的状态、容量和标签。内置 Runner 默认名为 <code>gitsss-builtin</code>，与服务进程同生命周期；现有列表仍支持禁用、编辑和管理外部 Runner。</p>
+
       <div class="callout callout-note">
         <span class="callout-label">安全策略</span>
         <p>未知远程 Action 在离线模式下会明确失败，不会尝试访问公网。仓库任务运行在独立容器内，每个任务使用私有 Docker daemon，不能访问宿主 Docker socket。</p>

@@ -130,7 +130,7 @@
 	</div>
 {{end}}
 	<div class="ui container">
-		<overflow-menu class="ui secondary pointing menu">
+		<overflow-menu class="ui secondary pointing menu repo-primary-nav">
 			{{if not (or .Repository.IsBeingCreated .Repository.IsBroken)}}
 				<div class="overflow-menu-items">
 					{{if .Permission.CanRead ctx.Consts.RepoUnitTypeCode}}
@@ -242,4 +242,40 @@
 		</overflow-menu>
 	</div>
 	<div class="ui tabs divider"></div>
+	{{if not (or .Repository.IsBeingCreated .Repository.IsBroken)}}
+		<aside class="repo-sidebar" aria-label="{{ctx.Locale.Tr "repo.navigation"}}">
+			<div class="repo-sidebar-header">
+				<div class="repo-sidebar-title">{{svg "octicon-repo" 16}}<span class="repo-sidebar-label">{{.Repository.Name}}</span></div>
+				<button class="repo-sidebar-toggle" type="button" data-repo-sidebar-toggle data-expand-title="{{ctx.Locale.Tr "repo.sidebar.expand"}}" aria-expanded="true" title="{{ctx.Locale.Tr "repo.sidebar.collapse"}}">{{svg "octicon-chevron-left" 16}}</button>
+			</div>
+			<nav class="repo-sidebar-nav">
+				{{if .Permission.CanRead ctx.Consts.RepoUnitTypeCode}}
+					<a class="repo-sidebar-link {{if .PageIsViewCode}}active{{end}}" href="{{.RepoLink}}">{{svg "octicon-code" 16}}<span class="repo-sidebar-label">{{ctx.Locale.Tr "repo.code"}}</span></a>
+				{{end}}
+				{{if .Permission.CanRead ctx.Consts.RepoUnitTypeIssues}}
+					<a class="repo-sidebar-link {{if .PageIsIssueList}}active{{end}}" href="{{.RepoLink}}/issues">{{svg "octicon-issue-opened" 16}}<span class="repo-sidebar-label">{{ctx.Locale.Tr "repo.issues"}}</span></a>
+				{{end}}
+				{{if and .Repository.CanEnablePulls (.Permission.CanRead ctx.Consts.RepoUnitTypePullRequests)}}
+					<a class="repo-sidebar-link {{if .PageIsPullList}}active{{end}}" href="{{.RepoLink}}/pulls">{{svg "octicon-git-pull-request" 16}}<span class="repo-sidebar-label">{{ctx.Locale.Tr "repo.pulls"}}</span></a>
+				{{end}}
+				{{if and .EnableActions (.Permission.CanRead ctx.Consts.RepoUnitTypeActions)}}
+					<a class="repo-sidebar-link {{if .PageIsActions}}active{{end}}" href="{{.RepoLink}}/actions">{{svg "octicon-play" 16}}<span class="repo-sidebar-label">{{ctx.Locale.Tr "actions.actions"}}</span></a>
+				{{end}}
+				{{if .Permission.CanRead ctx.Consts.RepoUnitTypeProjects}}
+					<a class="repo-sidebar-link {{if .IsProjectsPage}}active{{end}}" href="{{.RepoLink}}/projects">{{svg "octicon-project" 16}}<span class="repo-sidebar-label">{{ctx.Locale.Tr "repo.projects"}}</span></a>
+				{{end}}
+				{{if .Permission.CanRead ctx.Consts.RepoUnitTypeReleases}}
+					<a class="repo-sidebar-link {{if or .PageIsReleaseList .PageIsTagList}}active{{end}}" href="{{.RepoLink}}/releases">{{svg "octicon-tag" 16}}<span class="repo-sidebar-label">{{ctx.Locale.Tr "repo.releases"}}</span></a>
+				{{end}}
+				{{if .Permission.CanRead ctx.Consts.RepoUnitTypeWiki}}
+					<a class="repo-sidebar-link {{if .PageIsWiki}}active{{end}}" href="{{.RepoLink}}/wiki">{{svg "octicon-book" 16}}<span class="repo-sidebar-label">{{ctx.Locale.Tr "repo.wiki"}}</span></a>
+				{{end}}
+				<a class="repo-sidebar-link {{if .PageIsActivity}}active{{end}}" href="{{.RepoLink}}/activity">{{svg "octicon-pulse" 16}}<span class="repo-sidebar-label">{{ctx.Locale.Tr "repo.activity"}}</span></a>
+				{{if .Permission.IsAdmin}}
+					<div class="repo-sidebar-divider"></div>
+					<a class="repo-sidebar-link {{if .PageIsRepoSettings}}active{{end}}" href="{{.RepoLink}}/settings">{{svg "octicon-tools" 16}}<span class="repo-sidebar-label">{{ctx.Locale.Tr "repo.settings"}}</span></a>
+				{{end}}
+			</nav>
+		</aside>
+	{{end}}
 </div>

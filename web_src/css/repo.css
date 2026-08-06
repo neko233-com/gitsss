@@ -8,6 +8,48 @@
   min-width: 40% !important;
 }
 
+.game-asset-preview {
+  display: flex;
+  min-height: 260px;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: repeating-conic-gradient(var(--color-secondary) 0% 25%, var(--color-box-body) 0% 50%) 50% / 20px 20px;
+}
+
+.game-asset-preview-canvas {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  image-rendering: auto;
+  box-shadow: 0 8px 24px rgb(31 35 40 / 18%);
+}
+
+.game-asset-preview-card {
+  max-width: 38rem;
+  padding: 1.25rem;
+  border: 1px solid var(--color-secondary);
+  border-radius: 8px;
+  background: var(--color-box-body);
+  text-align: center;
+}
+
+.project-column-wip-status {
+  margin-left: 0.4rem;
+  color: var(--color-text-light-2);
+  font-size: 0.8rem;
+}
+
+.project-column-over-wip .project-column-wip-status {
+  color: var(--color-danger);
+  font-weight: var(--font-weight-semibold);
+}
+
+.project-column-over-wip .ui.cards {
+  outline: 2px solid var(--color-danger);
+  outline-offset: 3px;
+}
+
 .issue-content {
   display: flex;
   align-items: flex-start;

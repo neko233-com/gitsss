@@ -1,6 +1,17 @@
 {{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin actions")}}
 	<div class="admin-setting-content">
 	{{if eq .PageType "runners"}}
+		<div class="ui segment admin-builtin-runner-card">
+			<div class="ui header">{{ctx.Locale.Tr "actions.runners.builtin.title"}}</div>
+			<p class="muted">{{ctx.Locale.Tr "actions.runners.builtin.description"}}</p>
+			<div class="admin-builtin-runner-meta">
+				<span class="ui {{if .BuiltinRunnerEnabled}}green{{else}}grey{{end}} label">
+					{{if .BuiltinRunnerEnabled}}{{ctx.Locale.Tr "actions.runners.builtin.enabled"}}{{else}}{{ctx.Locale.Tr "actions.runners.builtin.disabled"}}{{end}}
+				</span>
+				<span>{{ctx.Locale.Tr "actions.runners.builtin.capacity"}}: {{.BuiltinRunnerCapacity}}</span>
+				<span>{{ctx.Locale.Tr "actions.runners.builtin.labels"}}: {{StringUtils.Join .BuiltinRunnerLabels ", "}}</span>
+			</div>
+		</div>
 		{{template "shared/actions/runner_list" .}}
 	{{end}}
 	{{if eq .PageType "variables"}}
