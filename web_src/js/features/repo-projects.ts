@@ -7,6 +7,7 @@ import type {SortableEvent} from 'sortablejs';
 import {toggleFullScreen} from '../utils.ts';
 import {registerGlobalInitFunc} from '../modules/observer.ts';
 import {localUserSettings} from '../modules/user-settings.ts';
+import {initProjectAssignees} from './project-assignees.ts';
 
 function updateIssueCount(card: HTMLElement): void {
   const parent = card.parentElement!;
@@ -175,6 +176,7 @@ function initRepoProjectToggleFullScreen(elProjectsView: HTMLElement): void {
 
 export function initRepoProjectsView(): void {
   registerGlobalInitFunc('initRepoProjectsView', (elProjectsView) => {
+    initProjectAssignees(elProjectsView);
     initRepoProjectToggleFullScreen(elProjectsView);
 
     const writableProjectBoard = document.querySelector('#project-board[data-project-board-writable="true"]');
