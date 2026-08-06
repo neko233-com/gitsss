@@ -95,7 +95,7 @@ var UI = struct {
 	CodeCommentLines:        4,
 	ReactionMaxUserNum:      10,
 	MaxDisplayFileSize:      8388608,
-	DefaultTheme:            `gitsss-light`,
+	DefaultTheme:            `gitsss-github-light`,
 	FileIconTheme:           `material`,
 	FolderIconTheme:         `basic`,
 	Reactions:               []string{`+1`, `-1`, `laugh`, `hooray`, `confused`, `heart`, `rocket`, `eyes`},

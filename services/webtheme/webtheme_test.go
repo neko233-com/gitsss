@@ -15,7 +15,16 @@ import (
 )
 
 func TestParseThemeMetaInfo(t *testing.T) {
-	m := parseThemeMetaInfoToMap(`gitea-theme-meta-info {
+	m := parseThemeMetaInfoToMap(`gitsss-theme-meta-info {
+	--theme-display-name: "Gitsss";
+	--theme-color-scheme: "light";
+}`)
+	assert.Equal(t, map[string]string{
+		"--theme-display-name": "Gitsss",
+		"--theme-color-scheme": "light",
+	}, m)
+
+	m = parseThemeMetaInfoToMap(`gitea-theme-meta-info {
 	--k1: "v1";
 	--k2: "v\"2";
 	--k3: 'v3';
@@ -47,7 +56,7 @@ gitea-theme-meta-info {
 	assert.Equal(t, map[string]string{"--k1": "v1", "--k2": "v2"}, m)
 }
 
-func TestLoadGitSSSThemeFromAssets(t *testing.T) {
+func TestLoadGitSSSGitHubThemeFromAssets(t *testing.T) {
 	staticRootPath, err := filepath.Abs("../..")
 	require.NoError(t, err)
 	defer test.MockVariableValue(&setting.StaticRootPath, staticRootPath)()
@@ -55,7 +64,7 @@ func TestLoadGitSSSThemeFromAssets(t *testing.T) {
 	themeList, themeMap := loadThemesFromAssets(false)
 
 	assert.NotEmpty(t, themeList)
-	theme, ok := themeMap["gitsss-light"]
+	theme, ok := themeMap["gitsss-github-light"]
 	require.True(t, ok)
-	assert.Equal(t, "gitsss-light", theme.InternalName)
+	assert.Equal(t, "gitsss-github-light", theme.InternalName)
 }

@@ -1,0 +1,250 @@
+@import "./theme-gitea-dark.css";
+
+gitsss-theme-meta-info {
+  --theme-display-name: "gitsss GitHub Dark";
+  --theme-color-scheme: "dark";
+}
+
+/*
+ * gitsss GitHub Dark — faithful GitHub Primer (dark) palette.
+ * Surfaces, text, borders and accent follow github.com dark mode.
+ * Subtle, brand-neutral polish only (GitHub is a flat, functional UI).
+ */
+:root {
+  --is-dark-theme: true;
+
+  --gitsss-primary-green: #238636;
+  --gitsss-primary-green-hover: #2ea043;
+  --gitsss-primary-green-active: #238636;
+  --gitsss-navbar-text: #ffffff;
+  --gitsss-scrollbar: #30363d;
+  --gitsss-scrollbar-hover: #484f58;
+
+  /* GitHub Primer radius scale */
+  --border-radius: 6px;
+  --border-radius-medium: 6px;
+
+  /* GitHub dark accent (Primer blue #2f81f7) */
+  --color-primary: #2f81f7;
+  --color-primary-contrast: #ffffff;
+  --color-primary-dark-1: #388bfd;
+  --color-primary-dark-2: #58a6ff;
+  --color-primary-dark-3: #79b8ff;
+  --color-primary-dark-4: #a3c7ff;
+  --color-primary-dark-5: #c4d9ff;
+  --color-primary-dark-6: #ddeaff;
+  --color-primary-dark-7: #f0f6ff;
+  --color-primary-light-1: #1f6feb;
+  --color-primary-light-2: #1a5fd0;
+  --color-primary-light-3: #1555bd;
+  --color-primary-light-4: #1148a0;
+  --color-primary-light-5: #0d3a82;
+  --color-primary-light-6: #0a2e66;
+  --color-primary-light-7: #06214a;
+  --color-primary-alpha-10: #2f81f719;
+  --color-primary-alpha-20: #2f81f733;
+  --color-primary-alpha-30: #2f81f74d;
+  --color-primary-alpha-40: #2f81f766;
+  --color-primary-alpha-50: #2f81f780;
+  --color-primary-alpha-60: #2f81f799;
+  --color-primary-alpha-70: #2f81f7b3;
+  --color-primary-alpha-80: #2f81f7cc;
+  --color-primary-alpha-90: #2f81f7e6;
+  --color-primary-hover: var(--color-primary-dark-1);
+  --color-primary-active: var(--color-primary-light-1);
+
+  /* Surfaces — GitHub Dark hierarchy */
+  --color-body: #0d1117;
+  --color-box-header: #161b22;
+  --color-box-body: #0d1117;
+  --color-box-body-highlight: #161b22;
+  --color-footer: #0d1117;
+
+  /* Text — GitHub Dark */
+  --color-text-dark: #e6edf3;
+  --color-text: #e6edf3;
+  --color-text-light: #8b949e;
+  --color-text-light-1: #7d8590;
+  --color-text-light-2: #6e7681;
+  --color-text-light-3: #6e7681;
+
+  --color-timeline: #30363d;
+  --color-input-text: #e6edf3;
+  --color-input-background: #0d1117;
+  --color-input-toggle-background: #30363d;
+  --color-input-border: #30363d;
+  --color-light: #2f81f714;
+  --color-light-border: #30363d;
+  --color-hover: #2f81f714;
+  --color-hover-opaque: #161b22;
+  --color-active: #2f81f71f;
+  --color-menu: #161b22;
+  --color-card: #161b22;
+  --color-markup-table-row: rgba(230, 237, 243, 0.04);
+  --color-markup-code-block: #161b22;
+  --color-markup-code-inline: rgba(110, 118, 129, 0.4);
+  --color-button: #21262d;
+  --color-code-bg: #161b22;
+  --color-shadow: rgba(1, 4, 9, 0.5);
+  --color-shadow-opaque: #010409;
+  --color-secondary-bg: #161b22;
+  --color-expand-button: #21262d;
+  --color-nav-bg: #010409;
+  --color-nav-hover-bg: #161b22;
+  --color-nav-text: #e6edf3;
+  --color-secondary-nav-bg: #0d1117;
+  --color-label-text: #e6edf3;
+  --color-label-bg: rgba(110, 118, 129, 0.4);
+  --color-label-hover-bg: rgba(110, 118, 129, 0.5);
+  --color-label-active-bg: rgba(110, 118, 129, 0.6);
+  --color-reaction-bg: rgba(110, 118, 129, 0.12);
+  --color-reaction-hover-bg: var(--color-primary-light-1);
+  --color-reaction-active-bg: var(--color-primary-light-2);
+  --color-tooltip-text: #e6edf3;
+  --color-tooltip-bg: #161b22;
+  --color-accent: var(--color-primary-dark-1);
+  --color-small-accent: var(--color-primary-light-2);
+  --color-highlight-fg: #e6edf3;
+  --color-highlight-bg: rgba(56, 139, 253, 0.15);
+  --color-overlay-backdrop: rgba(1, 4, 9, 0.8);
+
+  color-scheme: dark;
+}
+
+/*
+ * GitHub-style subtle polish — flat, functional, no heavy motion.
+ */
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+/* Links */
+a { transition: color 120ms ease; }
+
+/* Focus ring (GitHub accent) */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Buttons */
+.ui.button,
+.btn,
+.button,
+.ui.menu .item {
+  transition: background-color 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    color 120ms ease;
+}
+/* GitHub primary action buttons are green (links stay blue) */
+.ui.primary.button {
+  background: var(--gitsss-primary-green);
+  color: var(--gitsss-navbar-text);
+  box-shadow: 0 1px 0 rgba(1, 4, 9, 0.2);
+}
+.ui.primary.button:hover {
+  background: var(--gitsss-primary-green-hover);
+}
+.ui.primary.button:active {
+  background: var(--gitsss-primary-green-active);
+}
+
+/* Form inputs: GitHub 6px radius + accent focus ring */
+.ui.input > input,
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="search"],
+input[type="number"],
+textarea,
+select {
+  border-radius: 6px;
+  background-color: var(--color-input-background);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.ui.input > input:focus,
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-alpha-30);
+  outline: none;
+}
+
+/* Checkboxes / radios: GitHub accent */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--color-primary);
+  border-radius: 6px;
+}
+.ui.toggle.checkbox input:checked ~ .box::before,
+.ui.toggle.checkbox input:checked ~ label::before {
+  background-color: var(--color-primary) !important;
+}
+
+/* Smooth theme switch transition */
+html {
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+/* Markdown / code: GitHub rounded, comfortable */
+.markdown pre,
+.markdown code,
+.code-block,
+.file-view {
+  border-radius: 6px;
+}
+.markdown code {
+  background: var(--color-markup-code-inline);
+  padding: 0.2em 0.4em;
+  border-radius: 6px;
+}
+.markdown pre {
+  background: var(--color-code-bg);
+  border: 1px solid var(--color-light-border);
+  padding: 14px 16px;
+}
+
+/* Logo visibility on dark surfaces */
+#navbar-logo img,
+img.logo,
+.brand img,
+.navbar-logo img {
+  filter: brightness(0) invert(1);
+}
+
+/* Selection */
+::selection {
+  background: var(--color-primary-alpha-30);
+  color: var(--color-text-dark);
+}
+
+/* Scrollbars (GitHub subtle) */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb {
+  background: var(--gitsss-scrollbar);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--gitsss-scrollbar-hover);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  html { transition: none !important; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
