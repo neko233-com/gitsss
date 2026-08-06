@@ -48,6 +48,13 @@ func RegisterRenderers() {
 		},
 	})
 
+	markup.RegisterRenderer(&frontendRenderer{
+		name: "game-assets",
+		patterns: []string{
+			"*.tga", "*.dds", "*.ktx", "*.ktx2", "*.basis", "*.hdr", "*.exr", "*.aseprite",
+		},
+	})
+
 	for _, renderer := range setting.ExternalMarkupRenderers {
 		markup.RegisterRenderer(&Renderer{renderer})
 	}

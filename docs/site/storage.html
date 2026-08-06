@@ -61,6 +61,7 @@
 元数据与权限 → PostgreSQL（生产）
 单机试用     → SQLite + 本地卷（不建议多节点）</code></pre></div>
       <p>Git 仓库、附件、LFS、包和 Actions 日志使用独立存储配置，可分别迁移到 MinIO/S3 兼容服务或 Azure Blob。多节点部署必须使用共享对象存储，并让所有节点使用同一数据库和密钥。</p>
+      <p>SQLite 单机模式仍兼容既有 <code>sqlite3</code> 配置；无 C 工具链的平台可使用 <code>CGO_ENABLED=0 go build -tags sqlite</code>，内置纯 Go 驱动，不改变 XORM、数据库路径或迁移合同。</p>
 
       <h2>游戏资产策略</h2>
       <ul>
@@ -69,7 +70,7 @@
         <li>持续集成缓存与临时构建产物：使用 Actions/外部制品存储，不进入长期 Git 历史。</li>
         <li>大规模迁移前先做裸仓库备份、LFS 校验和恢复演练；删除历史对象前保留不可变快照。</li>
       </ul>
-      <p>仓库内的常见可预览格式包括图片、SVG、PDF、音频、视频，以及 3D Viewer 支持的 3DM、3DS、3MF、AMF、BIM、BREP、DAE、FBX、FCSTD、GLB、GLTF、IFC、IGES、STEP、STL、OBJ、OFF、PLY、WRL。无法安全或离线解码的专有格式仍提供原始下载和源码查看，不伪造预览结果。</p>
+      <p>仓库内的常见可预览格式包括图片、SVG、PDF、音频、视频，以及 3D Viewer 支持的 3DM、3DS、3MF、AMF、BIM、BREP、DAE、FBX、FCSTD、GLB、GLTF、IFC、IGES、STEP、STL、OBJ、OFF、PLY、WRL。TGA 与 DDS（DXT1/3/5）可直接画布预览，KTX/KTX2、Basis、HDR、EXR 等无法安全或离线解码的格式仍提供原始下载和源码查看；Unity Prefab/Scene/Asset、Godot TSCN/TRES、Shader 等文本资产使用代码查看，不伪造专有格式预览结果。</p>
       <div class="code-block"><pre><code># .gitattributes
 *.fbx filter=lfs diff=lfs merge=lfs -text
 *.glb filter=lfs diff=lfs merge=lfs -text

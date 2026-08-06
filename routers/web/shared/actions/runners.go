@@ -158,6 +158,11 @@ func Runners(ctx *context.Context) {
 	ctx.Data["RunnerOwnerID"] = opts.OwnerID
 	ctx.Data["RunnerRepoID"] = opts.RepoID
 	ctx.Data["SortType"] = opts.Sort
+	if rCtx.IsAdmin {
+		ctx.Data["BuiltinRunnerEnabled"] = setting.Actions.BuiltinRunnerEnabled
+		ctx.Data["BuiltinRunnerCapacity"] = setting.Actions.BuiltinRunnerCapacity
+		ctx.Data["BuiltinRunnerLabels"] = setting.Actions.BuiltinRunnerLabels
+	}
 
 	pager := context.NewPagination(count, opts.PageSize, opts.Page, 5)
 

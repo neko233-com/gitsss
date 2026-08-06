@@ -77,9 +77,11 @@
           <tr><td>上游版本</td><td>Gitea Runner v1.0.0</td></tr>
           <tr><td>上游 Commit</td><td><code>594c9ade7cccf7be6cd0f1cd18ae8d28bba878c2</code></td></tr>
           <tr><td>本地模块</td><td><code>github.com/neko233-com/gitsss/runner</code></td></tr>
-          <tr><td>位置</td><td><code>runner/</code></td></tr>
+          <tr><td>位置</td><td><code>runner/</code>，由 <code>runner/pkg/builtin</code> 嵌入服务进程</td></tr>
         </tbody>
       </table>
+
+      <p>服务启动时按配置自动创建全局 <code>gitsss-builtin</code> Runner，使用现有 Actions API 回环轮询；外部 Runner 仍可并行使用。新增配置只影响 Runner 启动，不改变数据库、Git、LFS、工作流目录或 API 合同。</p>
 
       <hr>
 

@@ -144,6 +144,14 @@
         </tbody>
       </table>
 
+      <h2>内置 Actions Runner</h2>
+      <p>Actions 默认启动一个由服务端管理的 Runner，直接使用现有 Actions API，不需要单独注册 Runner 进程。默认标签为 <code>self-hosted:host</code>、<code>ubuntu-latest:host</code>、<code>ubuntu-24.04:host</code>，并发数为 2；工作区和缓存位于数据目录下的 <code>actions/builtin-runner</code>。</p>
+      <div class="code-block"><pre><code>[actions]
+BUILTIN_RUNNER_ENABLED = true
+BUILTIN_RUNNER_CAPACITY = 2
+BUILTIN_RUNNER_LABELS = self-hosted:host,ubuntu-latest:host,ubuntu-24.04:host</code></pre></div>
+      <p>如果使用外部 Runner 集群，可将 <code>BUILTIN_RUNNER_ENABLED</code> 设为 <code>false</code>。数据库、Git、LFS、Actions 日志与制品存储合同不变。</p>
+
       <h2>自定义更新检查</h2>
       <p>默认关闭。如需启用，指向公司内部更新服务器：</p>
       <div class="code-block">

@@ -21,7 +21,28 @@
 					</div>
 				{{end}}
 				<div class="ui{{if not .IsOrganizationOwner}} top{{end}} attached segment">
+					{{if .IsOrganizationOwner}}
+						<div class="org-team-assignment-palette" data-org-team-assignment>
+							<div class="org-team-assignment-heading">
+								<strong>{{ctx.Locale.Tr "org.teams.add_team_member"}}</strong>
+								<span class="muted">{{ctx.Locale.Tr "org.teams.members.drag_hint"}}</span>
+							</div>
+							<div class="org-team-assignment-members">
+								{{range .TeamAvailableMembers}}
+									{{if not (index $.TeamMemberIDs .ID)}}
+										<div class="org-team-assignment-member" draggable="true" data-team-member-name="{{.Name}}">
+											{{ctx.AvatarUtils.Avatar . 24}}
+											<span>{{template "shared/user/name" .}}</span>
+										</div>
+									{{end}}
+								{{end}}
+							</div>
+						</div>
+					{{end}}
 					<div class="flex-list">
+						<div class="org-team-drop-target" data-team-drop-target>
+							{{ctx.Locale.Tr "org.teams.members.drop_hint"}}
+						</div>
 						{{range .Team.Members}}
 							<div class="flex-item tw-items-center">
 								<div class="flex-item-leading">

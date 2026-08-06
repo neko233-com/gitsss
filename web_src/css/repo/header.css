@@ -27,3 +27,132 @@
 .repo-header .flex-item-trailing {
   flex-wrap: nowrap;
 }
+
+.repo-sidebar {
+  display: none;
+}
+
+@media (min-width: 1440px) {
+  .repository .repo-primary-nav {
+    display: none;
+  }
+
+  .repository .repo-sidebar {
+    position: fixed;
+    z-index: 10;
+    top: 104px;
+    left: 16px;
+    display: block;
+    width: 216px;
+    padding: 0.75rem;
+    border: 1px solid var(--color-secondary);
+    border-radius: 10px;
+    background: var(--color-box-body);
+    box-shadow: 0 10px 30px rgb(31 35 40 / 8%);
+  }
+
+  .repo-sidebar-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.55rem 0.7rem;
+    overflow: hidden;
+    border-bottom: 1px solid var(--color-secondary);
+    font-weight: var(--font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .repo-sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-bottom: 1px solid var(--color-secondary);
+  }
+
+  .repo-sidebar-header .repo-sidebar-title {
+    flex: 1;
+    border-bottom: 0;
+  }
+
+  .repo-sidebar-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-text-light);
+    cursor: pointer;
+  }
+
+  .repo-sidebar-toggle:hover,
+  .repo-sidebar-toggle:focus-visible {
+    background: var(--color-primary-alpha-10);
+    color: var(--color-primary);
+  }
+
+  .repo-sidebar-nav {
+    display: flex;
+    flex-flow: column;
+    gap: 0.2rem;
+    padding-top: 0.55rem;
+  }
+
+  .repo-sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.52rem 0.6rem;
+    border-radius: 6px;
+    color: var(--color-text-light);
+    transition: color 120ms ease, background-color 120ms ease, transform 120ms ease;
+  }
+
+  .repo-sidebar-link:hover,
+  .repo-sidebar-link.active {
+    background: var(--color-primary-alpha-10);
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+
+  .repo-sidebar-link:hover {
+    transform: translateX(2px);
+  }
+
+  .repo-sidebar-divider {
+    height: 1px;
+    margin: 0.45rem 0;
+    background: var(--color-secondary);
+  }
+}
+
+@media (min-width: 1440px) {
+  body.repo-sidebar-collapsed .repository .repo-sidebar {
+    width: 56px;
+    padding: 0.5rem;
+  }
+
+  body.repo-sidebar-collapsed .repo-sidebar-header .repo-sidebar-title {
+    justify-content: center;
+    padding: 0.45rem 0;
+  }
+
+  body.repo-sidebar-collapsed .repo-sidebar-label,
+  body.repo-sidebar-collapsed .repo-sidebar-divider {
+    display: none;
+  }
+
+  body.repo-sidebar-collapsed .repo-sidebar-link {
+    justify-content: center;
+    padding-inline: 0.45rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .repo-sidebar-link {
+    transition: none;
+  }
+}

@@ -2,7 +2,8 @@ import {POST} from '../modules/fetch.ts';
 import {showErrorToast} from '../modules/toast.ts';
 
 function assignedIDs(card: HTMLElement): Set<string> {
-  return new Set((card.getAttribute('data-assignee-ids') ?? '').split(',').filter(Boolean));
+  const assignedIDs = card.getAttribute('data-assignee-ids') || '';
+  return new Set(assignedIDs.split(',').filter(Boolean));
 }
 
 async function assignIssue(card: HTMLElement, assigneeID: string): Promise<void> {

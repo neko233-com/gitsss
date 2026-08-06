@@ -111,3 +111,13 @@
   background: var(--color-info-bg);
   color: var(--color-text);
 }
+.admin-builtin-runner-card {
+  border-top: 3px solid var(--color-primary) !important;
+}
+
+.admin-builtin-runner-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}

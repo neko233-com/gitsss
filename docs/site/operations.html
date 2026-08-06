@@ -100,6 +100,18 @@ ENABLED = true
 HTTP_ENDPOINT = http://updates.intranet.example/gitsss/version.json</code></pre>
       </div>
 
+      <h2>远程仓库交接验证</h2>
+      <p>仓库内置只读验证脚本，检查健康接口、Swagger、仓库页面、Smart HTTP 引用、Git LFS 与工作流文件，不会推送、建 tag 或修改远程数据。</p>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code># PowerShell（密码只从隐藏输入读取，不写入 URL）
+$env:GITSSS_REMOTE_PASSWORD = Read-Host "Remote password" -AsPlainText
+.\scripts\verify-remote.ps1 -BaseUrl http://192.168.110.42:3000
+
+# Linux / macOS
+GITSSS_REMOTE_PASSWORD='...' ./scripts/verify-remote.sh</code></pre>
+      </div>
+
       <h3>构建镜像时使用公司镜像</h3>
       <p>Docker 构建支持以下 Build Args 指向公司内部镜像：</p>
       <div class="code-block">

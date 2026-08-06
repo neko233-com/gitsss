@@ -38,10 +38,33 @@ when release builders cannot access public registries. `UBUNTU_MIRROR` serves
 amd64 packages and `UBUNTU_PORTS_MIRROR` serves arm64 packages. These settings
 affect build dependency acquisition only; they are not configured in runtime.
 
-The built-in runner uses the host Docker socket only to create job containers.
-The socket is not mounted into jobs. Each job starts a private Docker daemon,
-so repositories do not share Docker images, containers, networks, or volumes.
-The runner removes interrupted `GITEA-ACTIONS-TASK-*` resources on startup.
+The server-owned runner is started in the `gitsss web` process by default and
+uses the existing Actions API. Host-mode jobs need no separate runner binary;
+an external runner fleet remains supported by setting
+`[actions] BUILTIN_RUNNER_ENABLED = false`. Docker-backed labels use the host
+Docker socket only to create job containers. The socket is not mounted into
+jobs. Each job starts a private Docker daemon, so repositories do not share
+Docker images, containers, networks, or volumes. The runner removes
+interrupted `GITEA-ACTIONS-TASK-*` resources on startup.
+
+## Remote handoff validation
+
+The repository includes read-only validation scripts for an internal target.
+They check health, Swagger, repository access, smart HTTP refs, Git LFS, and
+workflow discovery without pushing or changing remote data. Supply the secret
+through `GITSSS_REMOTE_PASSWORD` or the hidden PowerShell prompt:
+
+```powershell
+$env:GITSSS_REMOTE_PASSWORD = Read-Host "Remote password" -AsPlainText
+.\scripts\verify-remote.ps1 -BaseUrl http://192.168.110.42:3000
+```
+
+```bash
+GITSSS_REMOTE_PASSWORD='...' ./scripts/verify-remote.sh
+```
+
+The scripts use `.gitea/workflows` and `.github/workflows` as compatible
+workflow paths and perform no push, tag, or release operation.
 
 Storage awareness is available at `/-/admin/storage`. It reports volume
 health, classified storage, and Git/LFS bytes per repository. Manual cleanup

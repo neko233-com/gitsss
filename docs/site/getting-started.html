@@ -120,6 +120,9 @@ docker ps --filter name=gitsss</code></pre>
         <p>首次登录后系统会强制要求修改密码。请立即设置一个强密码。</p>
       </div>
 
+      <h2>邀请团队成员</h2>
+      <p>管理员进入管理后台的用户邀请页面生成一次性邀请链接。链接带有过期时间且只能消费一次；用户通过链接设置账号和密码。登录失败采用渐进式延迟，不会因为短时暴力尝试永久锁死账号。</p>
+
       <div class="callout callout-tip">
         <span class="callout-label">更新与卸载</span>
         <p>更新时复用原安装目录和数据卷并重跑安装器；卸载前先执行 <code>docker compose --project-directory INSTALL_DIR down</code>。完整步骤见 <a href="operations.html">运维指南</a>。</p>

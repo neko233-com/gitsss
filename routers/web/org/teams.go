@@ -392,6 +392,19 @@ func TeamMembers(ctx *context.Context) {
 		ctx.ServerError("GetMembers", err)
 		return
 	}
+	if ctx.Org.IsOwner {
+		members, _, err := ctx.Org.Organization.GetMembers(ctx, ctx.Doer)
+		if err != nil {
+			ctx.ServerError("GetOrganizationMembers", err)
+			return
+		}
+		teamMemberIDs := make(map[int64]bool, len(ctx.Org.Team.Members))
+		for _, member := range ctx.Org.Team.Members {
+			teamMemberIDs[member.ID] = true
+		}
+		ctx.Data["TeamAvailableMembers"] = members
+		ctx.Data["TeamMemberIDs"] = teamMemberIDs
+	}
 	ctx.Data["Units"] = unit_model.Units
 
 	invites, err := org_model.GetInvitesByTeamID(ctx, ctx.Org.Team.ID)
