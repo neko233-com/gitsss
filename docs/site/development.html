@@ -56,6 +56,7 @@
         <li><strong>Node.js LTS + pnpm</strong> — 前端开发</li>
       </ul>
       <p class="callout">前端依赖使用 <code>pnpm-workspace.yaml</code> 管理 overrides 与构建脚本许可，默认使用冻结锁文件安装；Scarf 安装分析已关闭，适合内网和离线构建。</p>
+      <p class="callout callout-warning">如果 Docker 引擎不可用，可运行等价的本机 Go 与 pnpm 检查并在验证报告中记录限制；未执行的容器目标不能标记为通过。</p>
 
       <h2>快速开始</h2>
       <div class="code-block">

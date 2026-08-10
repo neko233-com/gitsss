@@ -28,6 +28,8 @@ task test:js
 task build
 ```
 
+If the Docker daemon is unavailable, run the equivalent local Go and pnpm commands and record the limitation in the validation report; do not treat an unexecuted container target as a passed gate.
+
 Run focused checks while iterating:
 
 ```text
