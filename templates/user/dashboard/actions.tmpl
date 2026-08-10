@@ -1,0 +1,79 @@
+{{if .ActionsDashboard}}
+<section class="dashboard-actions-panel" aria-labelledby="dashboard-actions-title" data-dashboard-actions>
+	<div class="dashboard-actions-header">
+		<div>
+			<div class="dashboard-actions-kicker">{{ctx.Locale.Tr "dashboard.actions.kicker"}}</div>
+			<h2 id="dashboard-actions-title">{{ctx.Locale.Tr "dashboard.actions.title"}}</h2>
+			<p>{{ctx.Locale.Tr "dashboard.actions.description"}}</p>
+		</div>
+		<a class="ui basic button" href="{{if .SignedUser.IsAdmin}}{{AppSubUrl}}/-/admin/actions/runners{{else}}{{AppSubUrl}}/user/settings/actions/runners{{end}}">{{ctx.Locale.Tr "dashboard.actions.open"}}</a>
+	</div>
+	<div class="dashboard-actions-stats" role="list" aria-label="{{ctx.Locale.Tr "dashboard.actions.title"}}">
+		<div class="dashboard-actions-stat" role="listitem">
+			<strong>{{.ActionsDashboard.RunningJobs}}</strong>
+			<span>{{ctx.Locale.Tr "dashboard.actions.running"}}</span>
+		</div>
+		<div class="dashboard-actions-stat">
+			<strong>{{.ActionsDashboard.QueuedJobs}}</strong>
+			<span>{{ctx.Locale.Tr "dashboard.actions.queued"}}</span>
+		</div>
+		<div class="dashboard-actions-stat">
+			<strong>{{.ActionsDashboard.ActiveRunners}}</strong>
+			<span>{{ctx.Locale.Tr "dashboard.actions.active_runners"}}</span>
+		</div>
+		<div class="dashboard-actions-stat">
+			<strong>{{.ActionsDashboard.TotalRunners}}</strong>
+			<span>{{ctx.Locale.Tr "dashboard.actions.total_runners"}}</span>
+		</div>
+		<div class="dashboard-actions-stat">
+			<strong>{{.ActionsDashboard.OfflineRunners}}</strong>
+			<span>{{ctx.Locale.Tr "dashboard.actions.offline_runners"}}</span>
+		</div>
+		<div class="dashboard-actions-stat">
+			<strong>{{.ActionsDashboard.SuccessLastDay}}</strong>
+			<span>{{ctx.Locale.Tr "dashboard.actions.success_24h"}}</span>
+		</div>
+		<div class="dashboard-actions-stat">
+			<strong class="{{if gt .ActionsDashboard.FailureLastDay 0}}dashboard-actions-danger{{end}}">{{.ActionsDashboard.FailureLastDay}}</strong>
+			<span>{{ctx.Locale.Tr "dashboard.actions.failure_24h"}}</span>
+		</div>
+	</div>
+	<div class="dashboard-actions-toolbar">
+		<label class="dashboard-actions-search">
+			{{svg "octicon-search" 16}}
+			<span class="sr-only">{{ctx.Locale.Tr "dashboard.actions.search"}}</span>
+			<input type="search" data-dashboard-actions-search placeholder="{{ctx.Locale.Tr "dashboard.actions.search_placeholder"}}" autocomplete="off">
+		</label>
+		<span class="dashboard-actions-result" data-dashboard-actions-result aria-live="polite"></span>
+	</div>
+	<div class="dashboard-actions-list" data-dashboard-actions-list>
+		{{range .ActionsDashboard.Items}}
+		<a class="dashboard-actions-item {{if .IsRunning}}is-running{{else}}is-queued{{end}}" data-dashboard-action-item data-search="{{.Search}}" href="{{if .Run}}{{.Run.Link}}{{else}}#{{end}}">
+			<span class="dashboard-actions-status {{if .IsRunning}}is-running{{else}}is-queued{{end}}" aria-hidden="true"></span>
+			<span class="dashboard-actions-item-main">
+				<strong>{{if .Job}}{{.Job.Name}}{{else}}{{ctx.Locale.Tr "dashboard.actions.unknown_job"}}{{end}}</strong>
+				<span>
+					{{if .Repo}}{{.Repo.FullName}}{{else}}{{ctx.Locale.Tr "dashboard.actions.unknown_repository"}}{{end}}
+					<span class="dashboard-actions-separator">·</span>
+					{{.Status.LocaleString ctx.Locale}}
+				</span>
+			</span>
+			<span class="dashboard-actions-runner">
+				{{if .Runner}}{{.Runner.Name}}{{else}}{{ctx.Locale.Tr "dashboard.actions.waiting_runner"}}{{end}}
+				{{if .Runner}}<small>{{.Runner.StatusLocaleName ctx.Locale}}</small>{{end}}
+			</span>
+			<span class="dashboard-actions-time">{{DateUtils.TimeSince .Updated}}</span>
+		</a>
+		{{else}}
+		<div class="dashboard-actions-empty">{{ctx.Locale.Tr "dashboard.actions.empty"}}</div>
+		{{end}}
+	</div>
+	{{if .ActionsDashboard.LastCompleted}}
+	<div class="dashboard-actions-last-result">
+		<span>{{ctx.Locale.Tr "dashboard.actions.last_result"}}</span>
+		<a href="{{.ActionsDashboard.LastCompleted.Link}}">{{.ActionsDashboard.LastCompleted.Title}}</a>
+		<span class="dashboard-actions-last-status {{if .ActionsDashboard.LastCompleted.Status.IsSuccess}}is-success{{else if .ActionsDashboard.LastCompleted.Status.IsFailure}}is-failure{{end}}">{{.ActionsDashboard.LastCompleted.Status.LocaleString ctx.Locale}}</span>
+	</div>
+	{{end}}
+</section>
+{{end}}

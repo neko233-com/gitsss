@@ -37,6 +37,7 @@ import (
 	"github.com/neko233-com/gitsss/routers/web/feed"
 	"github.com/neko233-com/gitsss/routers/web/shared/issue"
 	"github.com/neko233-com/gitsss/routers/web/shared/user"
+	actions_service "github.com/neko233-com/gitsss/services/actions"
 	"github.com/neko233-com/gitsss/services/context"
 	feed_service "github.com/neko233-com/gitsss/services/feed"
 	issue_service "github.com/neko233-com/gitsss/services/issue"
@@ -108,6 +109,13 @@ func Dashboard(ctx *context.Context) {
 		"searchLimit": setting.UI.User.RepoPagingNum,
 		"uid":         uid,
 	}
+
+	actionsDashboard, err := actions_service.GetDashboardStats(ctx)
+	if err != nil {
+		ctx.ServerError("GetActionsDashboardStats", err)
+		return
+	}
+	ctx.Data["ActionsDashboard"] = actionsDashboard
 
 	prepareHeatmapURL(ctx)
 
