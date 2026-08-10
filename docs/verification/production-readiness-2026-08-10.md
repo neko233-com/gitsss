@@ -4,7 +4,7 @@ Date: 2026-08-10
 
 ## Scope
 
-- Final local branch: `main`, 14 commits ahead of `origin/main` after the
+- Final local branch: `main`, 16 commits ahead of `origin/main` after the
   local product upgrade.
 - No `.github/workflows/` files were created, changed, enabled, or executed.
 - Git protocol, repository paths, LFS paths, database schema, API contracts,
@@ -66,6 +66,9 @@ clone path is the production-safe mirror path.
 
 - Go race tests passed for `./services/auth ./services/actions` with SQLite
   compatibility tags.
+- Full native `go test ./...` on Windows produced no package output for five
+  minutes and was stopped with its exact test process tree; the focused auth,
+  Actions, LDAP, vet, and race gates passed.
 - Frontend Vitest, ESLint, Vue type checking, Stylelint, and Vite production
   build passed; the frozen pnpm install passed.
 - Native Go formatting/build checks passed.
