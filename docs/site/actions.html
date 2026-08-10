@@ -54,6 +54,9 @@
       <h2>管理员 Runner 管理</h2>
       <p>管理员打开 <code>管理后台 → Actions → Runners</code> 即可看到内置 Runner 的状态、容量和标签。内置 Runner 默认名为 <code>gitsss-builtin</code>，与服务进程同生命周期；现有列表仍支持禁用、编辑和管理外部 Runner。</p>
 
+      <h2>首页 Worker 运营面板</h2>
+      <p>首页 Actions Worker 面板显示当前运行中与排队中的 Job，运行中任务始终置顶；已完成任务不进入列表，只保留最近一次完成结果。可按仓库、任务名、Runner、提交 SHA 或工作流搜索，面板同时给出 Runner 总量、在线状态、24 小时成功数与失败数，便于快速判断内网 CI 是否已触发、正在执行或已经失败。</p>
+
       <div class="callout callout-note">
         <span class="callout-label">安全策略</span>
         <p>未知远程 Action 在离线模式下会明确失败，不会尝试访问公网。仓库任务运行在独立容器内，每个任务使用私有 Docker daemon，不能访问宿主 Docker socket。</p>
