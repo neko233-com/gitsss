@@ -3,6 +3,16 @@ import {basename} from '../../utils.ts';
 
 const MAX_PIXELS = 50_000_000;
 
+const audioMimeTypes: Record<string, string> = {
+  aac: 'audio/aac',
+  flac: 'audio/flac',
+  m4a: 'audio/mp4',
+  mp3: 'audio/mpeg',
+  ogg: 'audio/ogg',
+  opus: 'audio/ogg; codecs=opus',
+  wav: 'audio/wav',
+};
+
 function read16(bytes: Uint8Array, offset: number): number {
   return bytes[offset] | (bytes[offset + 1] << 8);
 }
@@ -139,7 +149,49 @@ function rawLink(): string {
   return window.location.href.replace('/render/', '/raw/');
 }
 
-function renderNotice(container: HTMLElement, filename: string, message: string): void {
+export function audioMimeTypeForExtension(extension: string): string {
+  return audioMimeTypes[extension] || '';
+}
+
+function readAscii(bytes: Uint8Array, start: number, length: number): string {
+  return String.fromCharCode(...bytes.slice(start, start + length));
+}
+
+function readKTXMetadata(bytes: Uint8Array, extension: string): string {
+  if (extension === 'ktx2' && bytes.length >= 68 && readAscii(bytes, 0, 12) === '\u00abKTX 20\u00bb\r\n\u001a\n') {
+    const width = read32(bytes, 20);
+    const height = read32(bytes, 24);
+    const depth = read32(bytes, 28);
+    const layers = read32(bytes, 32);
+    const faces = read32(bytes, 36);
+    const levels = read32(bytes, 40);
+    const compression = read32(bytes, 44);
+    return `KTX2 ${width}x${height}${depth > 1 ? `x${depth}` : ''} · ${levels || 1} mip levels · ${layers || 1} layer(s) · ${faces || 1} face(s) · supercompression ${compression}`;
+  }
+
+  if (extension === 'ktx' && bytes.length >= 64 && readAscii(bytes, 0, 12) === '\u00abKTX 11\u00bb\r\n\u001a\n') {
+    return `KTX ${read32(bytes, 36)}x${read32(bytes, 40)} · ${read32(bytes, 56) || 1} mip levels`;
+  }
+
+  if (extension === 'hdr') {
+    const header = new TextDecoder().decode(bytes.slice(0, Math.min(bytes.length, 4096)));
+    const dimensions = /-Y\s+(\d+)\s+\+X\s+(\d+)/.exec(header);
+    return dimensions ? `Radiance HDR ${dimensions[2]}x${dimensions[1]}` : 'Radiance HDR texture';
+  }
+
+  if (extension === 'aseprite' && bytes.length >= 16 && read16(bytes, 0) === 0xa5e0) {
+    return `Aseprite ${read16(bytes, 8)}x${read16(bytes, 10)} · ${read16(bytes, 6)} frame(s)`;
+  }
+
+  if (extension === 'basis' || extension === 'exr') return `${extension.toUpperCase()} texture · ${bytes.length} bytes`;
+  return '';
+}
+
+export function inspectGameAssetMetadata(extension: string, bytes: Uint8Array): string {
+  return readKTXMetadata(bytes, extension);
+}
+
+function renderNotice(container: HTMLElement, filename: string, message: string, metadata = ''): void {
   container.classList.add('game-asset-preview');
   const card = document.createElement('div');
   card.className = 'game-asset-preview-card';
@@ -147,6 +199,12 @@ function renderNotice(container: HTMLElement, filename: string, message: string)
   title.textContent = filename;
   const description = document.createElement('p');
   description.textContent = message;
+  if (metadata) {
+    const metadataElement = document.createElement('code');
+    metadataElement.className = 'game-asset-preview-metadata';
+    metadataElement.textContent = metadata;
+    card.append(metadataElement);
+  }
   const link = document.createElement('a');
   link.href = rawLink();
   link.target = '_blank';
@@ -156,10 +214,32 @@ function renderNotice(container: HTMLElement, filename: string, message: string)
   container.append(card);
 }
 
+function renderAudio(container: HTMLElement, filename: string, bytes: Uint8Array<ArrayBuffer>, mimeType: string): boolean {
+  if (typeof URL.createObjectURL !== 'function') {
+    renderNotice(container, filename, 'Audio preview is unavailable in this browser.');
+    return true;
+  }
+
+  const url = URL.createObjectURL(new Blob([bytes], {type: mimeType}));
+  const audio = document.createElement('audio');
+  audio.className = 'game-asset-preview-audio';
+  audio.controls = true;
+  audio.preload = 'metadata';
+  audio.src = url;
+  audio.setAttribute('aria-label', filename);
+  container.classList.add('game-asset-preview');
+  container.append(audio);
+  window.addEventListener('pagehide', () => URL.revokeObjectURL(url), {once: true});
+  return true;
+}
+
 export const frontendRender: FrontendRenderFunc = async (opts): Promise<boolean> => {
   const filename = basename(opts.treePath);
   const extension = filename.toLowerCase().split('.').pop() || '';
   const bytes = opts.contentBytes();
+  const audioMimeType = audioMimeTypeForExtension(extension);
+  if (audioMimeType) return renderAudio(opts.container, filename, bytes, audioMimeType);
+
   let width = 0;
   let height = 0;
   let pixels: Uint8ClampedArray | null = null;
@@ -185,6 +265,11 @@ export const frontendRender: FrontendRenderFunc = async (opts): Promise<boolean>
     opts.container.append(canvas);
     return true;
   }
-  renderNotice(opts.container, filename, 'This game texture format is indexed safely. Use raw/source view for the original asset when a browser decoder is unavailable.');
+  renderNotice(
+    opts.container,
+    filename,
+    'This game asset is indexed safely. Use raw/source view for the original asset when a browser decoder is unavailable.',
+    inspectGameAssetMetadata(extension, bytes),
+  );
   return true;
 };

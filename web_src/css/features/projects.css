@@ -60,6 +60,22 @@
   opacity: .5;
 }
 
+.project-column-over-wip {
+  border-color: var(--color-red) !important;
+  box-shadow: 0 0 0 2px var(--color-red-badge-bg);
+}
+
+.project-column-wip-status {
+  color: var(--color-text-light-2);
+  font-size: .75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.project-column-over-wip .project-column-wip-status {
+  color: var(--color-red);
+  font-weight: var(--font-weight-semibold);
+}
+
 .project-column:first-child {
   margin-left: auto !important;
 }

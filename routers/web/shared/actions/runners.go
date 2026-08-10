@@ -17,6 +17,7 @@ import (
 	"github.com/neko233-com/gitsss/modules/util"
 	"github.com/neko233-com/gitsss/modules/web"
 	shared_user "github.com/neko233-com/gitsss/routers/web/shared/user"
+	actions_service "github.com/neko233-com/gitsss/services/actions"
 	"github.com/neko233-com/gitsss/services/context"
 	"github.com/neko233-com/gitsss/services/forms"
 )
@@ -160,6 +161,7 @@ func Runners(ctx *context.Context) {
 	ctx.Data["SortType"] = opts.Sort
 	if rCtx.IsAdmin {
 		ctx.Data["BuiltinRunnerEnabled"] = setting.Actions.BuiltinRunnerEnabled
+		ctx.Data["BuiltinRunnerRunning"] = actions_service.BuiltinRunnerRunning()
 		ctx.Data["BuiltinRunnerCapacity"] = setting.Actions.BuiltinRunnerCapacity
 		ctx.Data["BuiltinRunnerLabels"] = setting.Actions.BuiltinRunnerLabels
 	}
@@ -169,6 +171,29 @@ func Runners(ctx *context.Context) {
 	ctx.Data["Page"] = pager
 
 	ctx.HTML(http.StatusOK, rCtx.RunnersTemplate)
+}
+
+// BuiltinRunnerControl starts, stops, or restarts the server-owned runner.
+func BuiltinRunnerControl(ctx *context.Context) {
+	action := ctx.PathParam("action")
+	var err error
+	switch action {
+	case "start":
+		err = actions_service.StartBuiltinRunner(ctx)
+	case "stop":
+		err = actions_service.StopBuiltinRunner(ctx)
+	case "restart":
+		err = actions_service.RestartBuiltinRunner(ctx)
+	default:
+		ctx.NotFound(nil)
+		return
+	}
+	if err != nil {
+		ctx.Flash.Error(err.Error())
+	} else {
+		ctx.Flash.Success(ctx.Tr("actions.runners.builtin." + action + "_success"))
+	}
+	ctx.Redirect(setting.AppSubURL + "/-/admin/actions/runners")
 }
 
 // RunnersEdit renders runner edit page for repository level
