@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"sync"
 
 	actions_model "github.com/neko233-com/gitsss/models/actions"
 	"github.com/neko233-com/gitsss/models/db"
@@ -22,6 +23,13 @@ const (
 	builtinRunnerDirectory = "actions/builtin-runner"
 )
 
+var builtinRunnerManager struct {
+	sync.Mutex
+	parentCtx context.Context
+	cancel    context.CancelFunc
+	handle    *builtin.Handle
+}
+
 // StartBuiltinRunner starts the server-owned Actions runner after routes are mounted.
 // It is safe to call before the HTTP listener is ready; the runner retries declaration.
 func StartBuiltinRunner(ctx context.Context) error {
@@ -29,13 +37,24 @@ func StartBuiltinRunner(ctx context.Context) error {
 		return nil
 	}
 
+	builtinRunnerManager.Lock()
+	defer builtinRunnerManager.Unlock()
+	if builtinRunnerManager.handle != nil {
+		return nil
+	}
+
+	return startBuiltinRunnerLocked(ctx)
+}
+
+func startBuiltinRunnerLocked(ctx context.Context) error {
 	registration, err := createBuiltinRunnerRegistration(ctx)
 	if err != nil {
 		return fmt.Errorf("create built-in runner registration: %w", err)
 	}
 
 	baseDir := filepath.Join(setting.AppDataPath, builtinRunnerDirectory)
-	handle, err := builtin.Start(ctx, builtin.Options{
+	runnerCtx, cancel := context.WithCancel(ctx)
+	handle, err := builtin.Start(runnerCtx, builtin.Options{
 		Address:        setting.LocalURL,
 		JobInstanceURL: setting.LocalURL,
 		WorkdirParent:  filepath.Join(baseDir, "workspaces"),
@@ -54,15 +73,67 @@ func StartBuiltinRunner(ctx context.Context) error {
 		},
 	})
 	if err != nil {
+		cancel()
 		return err
 	}
 
-	go func() {
-		<-ctx.Done()
-		handle.Close()
-	}()
+	builtinRunnerManager.parentCtx = ctx
+	builtinRunnerManager.cancel = cancel
+	builtinRunnerManager.handle = handle
+	go clearBuiltinRunnerWhenStopped(runnerCtx, handle)
+
 	log.Info("built-in Actions runner %q started", registration.Name)
 	return nil
+}
+
+func clearBuiltinRunnerWhenStopped(ctx context.Context, handle *builtin.Handle) {
+	<-ctx.Done()
+	handle.Close()
+
+	builtinRunnerManager.Lock()
+	if builtinRunnerManager.handle == handle {
+		builtinRunnerManager.handle = nil
+		builtinRunnerManager.cancel = nil
+	}
+	builtinRunnerManager.Unlock()
+}
+
+// StopBuiltinRunner stops the server-owned runner without changing its config.
+func StopBuiltinRunner(ctx context.Context) error {
+	builtinRunnerManager.Lock()
+	cancel := builtinRunnerManager.cancel
+	handle := builtinRunnerManager.handle
+	builtinRunnerManager.cancel = nil
+	builtinRunnerManager.handle = nil
+	builtinRunnerManager.Unlock()
+
+	if cancel == nil || handle == nil {
+		return nil
+	}
+	cancel()
+	handle.Close()
+	return nil
+}
+
+// RestartBuiltinRunner replaces the server-owned runner registration and poller.
+func RestartBuiltinRunner(ctx context.Context) error {
+	builtinRunnerManager.Lock()
+	parentCtx := builtinRunnerManager.parentCtx
+	builtinRunnerManager.Unlock()
+	if parentCtx == nil {
+		parentCtx = ctx
+	}
+	if err := StopBuiltinRunner(ctx); err != nil {
+		return err
+	}
+	return StartBuiltinRunner(parentCtx)
+}
+
+// BuiltinRunnerRunning reports whether the in-process runner poller is active.
+func BuiltinRunnerRunning() bool {
+	builtinRunnerManager.Lock()
+	defer builtinRunnerManager.Unlock()
+	return builtinRunnerManager.handle != nil
 }
 
 func createBuiltinRunnerRegistration(ctx context.Context) (*actions_model.ActionRunner, error) {

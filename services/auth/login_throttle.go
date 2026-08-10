@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -27,6 +28,7 @@ func RecordLoginFailure(ctx context.Context, c loginFailureCache, username, remo
 		return 0
 	}
 
+	remoteAddr = normalizeRemoteAddr(remoteAddr)
 	accountFailures := bumpLoginFailure(c, loginFailureKey("account", strings.ToLower(strings.TrimSpace(username))))
 	ipFailures := bumpLoginFailure(c, loginFailureKey("ip", remoteAddr))
 	return loginFailureDelay(max(accountFailures, ipFailures))
@@ -38,7 +40,15 @@ func ClearLoginFailures(ctx context.Context, c loginFailureCache, username, remo
 		return
 	}
 	_ = c.Delete(loginFailureKey("account", strings.ToLower(strings.TrimSpace(username))))
-	_ = c.Delete(loginFailureKey("ip", remoteAddr))
+	_ = c.Delete(loginFailureKey("ip", normalizeRemoteAddr(remoteAddr)))
+}
+
+func normalizeRemoteAddr(remoteAddr string) string {
+	remoteAddr = strings.TrimSpace(remoteAddr)
+	if host, _, err := net.SplitHostPort(remoteAddr); err == nil {
+		return host
+	}
+	return strings.Trim(remoteAddr, "[]")
 }
 
 func loginFailureKey(scope, value string) string {

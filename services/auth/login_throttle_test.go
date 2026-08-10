@@ -41,3 +41,14 @@ func TestLoginFailureThrottleDoesNotLockSuccessfulLogin(t *testing.T) {
 	assert.Empty(t, c.values)
 	assert.Zero(t, RecordLoginFailure(context.Background(), c, "owner", "10.0.0.2"))
 }
+
+func TestLoginFailureThrottleNormalizesRemotePort(t *testing.T) {
+	c := &testLoginFailureCache{values: map[string]string{}}
+	for range 4 {
+		RecordLoginFailure(context.Background(), c, "owner", "10.0.0.2:1000")
+	}
+
+	assert.Positive(t, RecordLoginFailure(context.Background(), c, "other", "10.0.0.2:2000"))
+	ClearLoginFailures(context.Background(), c, "other", "10.0.0.2:3000")
+	assert.Positive(t, RecordLoginFailure(context.Background(), c, "owner", "10.0.0.2:4000"))
+}

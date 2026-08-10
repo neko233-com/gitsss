@@ -52,6 +52,7 @@ func RegisterRenderers() {
 		name: "game-assets",
 		patterns: []string{
 			"*.tga", "*.dds", "*.ktx", "*.ktx2", "*.basis", "*.hdr", "*.exr", "*.aseprite",
+			"*.wav", "*.ogg", "*.mp3", "*.flac", "*.m4a", "*.aac", "*.opus",
 		},
 	})
 

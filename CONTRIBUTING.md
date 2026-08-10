@@ -15,8 +15,9 @@ the root [AGENTS.md](AGENTS.md) remains the authoritative execution contract.
 ## Development
 
 Backend dependencies use Go modules. Frontend dependencies use pnpm and the
-lockfile. Use the repository targets so the local toolchain matches release
-validation:
+lockfile. pnpm 10+ reads overrides and build approvals from
+`pnpm-workspace.yaml`; installs are frozen and Scarf analytics are disabled.
+Use the repository targets so the local toolchain matches release validation:
 
 ```text
 task fmt

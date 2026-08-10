@@ -122,6 +122,13 @@
   gap: 0.75rem;
 }
 
+.admin-builtin-runner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-top: 1rem;
+}
+
 .admin-sidebar-menu {
   overflow: hidden;
   border: 1px solid var(--color-light-border);

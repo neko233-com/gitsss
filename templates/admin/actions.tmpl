@@ -11,6 +11,16 @@
 				<span>{{ctx.Locale.Tr "actions.runners.builtin.capacity"}}: {{.BuiltinRunnerCapacity}}</span>
 				<span>{{ctx.Locale.Tr "actions.runners.builtin.labels"}}: {{StringUtils.Join .BuiltinRunnerLabels ", "}}</span>
 			</div>
+			<div class="admin-builtin-runner-actions">
+				{{if not .BuiltinRunnerEnabled}}
+					<span class="muted">{{ctx.Locale.Tr "actions.runners.builtin.config_disabled"}}</span>
+				{{else if .BuiltinRunnerRunning}}
+					<button class="ui basic button link-action" data-url="{{AppSubUrl}}/-/admin/actions/runners/builtin/restart" data-modal-confirm="{{ctx.Locale.Tr "actions.runners.builtin.restart_confirm"}}">{{ctx.Locale.Tr "actions.runners.builtin.restart"}}</button>
+					<button class="ui basic red button link-action" data-url="{{AppSubUrl}}/-/admin/actions/runners/builtin/stop" data-modal-confirm="{{ctx.Locale.Tr "actions.runners.builtin.stop_confirm"}}">{{ctx.Locale.Tr "actions.runners.builtin.stop"}}</button>
+				{{else}}
+					<button class="ui primary button link-action" data-url="{{AppSubUrl}}/-/admin/actions/runners/builtin/start">{{ctx.Locale.Tr "actions.runners.builtin.start"}}</button>
+				{{end}}
+			</div>
 		</div>
 		{{template "shared/actions/runner_list" .}}
 	{{end}}

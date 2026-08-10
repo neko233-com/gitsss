@@ -868,6 +868,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 
 		m.Group("/actions", func() {
 			m.Get("", misc.LocationRedirect("./actions/runners"))
+			m.Post("/runners/builtin/{action:start|stop|restart}", shared_actions.BuiltinRunnerControl)
 			addSettingsRunnersRoutes()
 			addSettingsVariablesRoutes()
 		})
