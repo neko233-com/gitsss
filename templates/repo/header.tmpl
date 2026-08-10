@@ -243,9 +243,14 @@
 	</div>
 	<div class="ui tabs divider"></div>
 	{{if not (or .Repository.IsBeingCreated .Repository.IsBroken)}}
-		<aside class="repo-sidebar" aria-label="{{ctx.Locale.Tr "repo.navigation"}}">
+		<button class="repo-sidebar-mobile-toggle" type="button" data-repo-sidebar-mobile-open aria-controls="repo-sidebar-navigation" aria-expanded="false" aria-label="{{ctx.Locale.Tr "repo.sidebar.open"}}">
+			{{svg "octicon-three-bars" 16}}<span>{{ctx.Locale.Tr "repo.sidebar.open"}}</span>
+		</button>
+		<button class="repo-sidebar-backdrop" type="button" data-repo-sidebar-mobile-close aria-label="{{ctx.Locale.Tr "repo.sidebar.close"}}" tabindex="-1"></button>
+		<aside id="repo-sidebar-navigation" class="repo-sidebar" aria-label="{{ctx.Locale.Tr "repo.navigation"}}">
 			<div class="repo-sidebar-header">
 				<div class="repo-sidebar-title">{{svg "octicon-repo" 16}}<span class="repo-sidebar-label">{{.Repository.Name}}</span></div>
+				<button class="repo-sidebar-mobile-close" type="button" data-repo-sidebar-mobile-close aria-label="{{ctx.Locale.Tr "repo.sidebar.close"}}" title="{{ctx.Locale.Tr "repo.sidebar.close"}}">{{svg "octicon-x" 16}}</button>
 				<button class="repo-sidebar-toggle" type="button" data-repo-sidebar-toggle data-expand-title="{{ctx.Locale.Tr "repo.sidebar.expand"}}" aria-expanded="true" title="{{ctx.Locale.Tr "repo.sidebar.collapse"}}">{{svg "octicon-chevron-left" 16}}</button>
 			</div>
 			<nav class="repo-sidebar-nav">
