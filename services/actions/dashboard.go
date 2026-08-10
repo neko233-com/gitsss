@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -80,7 +81,8 @@ func GetDashboardStats(ctx context.Context) (*DashboardStats, error) {
 	if err := findDashboardJobs(ctx, &queuedJobs, actions_model.StatusWaiting, actions_model.StatusBlocked); err != nil {
 		return nil, err
 	}
-	jobs := append(runningJobs, queuedJobs...)
+	runningJobs = append(runningJobs, queuedJobs...)
+	jobs := runningJobs
 	stats.RunningJobs, err = countDashboardJobs(ctx, actions_model.StatusRunning)
 	if err != nil {
 		return nil, err
@@ -307,7 +309,7 @@ func workerSearchText(item *DashboardWorkerItem) string {
 	}
 	parts := []string{item.Status.String()}
 	if item.Job != nil {
-		parts = append(parts, item.Job.Name, fmt.Sprintf("%d", item.Job.ID))
+		parts = append(parts, item.Job.Name, strconv.FormatInt(item.Job.ID, 10))
 	}
 	if item.Runner != nil {
 		parts = append(parts, item.Runner.Name, strings.Join(item.Runner.AgentLabels, " "))
