@@ -30,7 +30,7 @@
 							<div class="org-team-assignment-members">
 								{{range .TeamAvailableMembers}}
 									{{if not (index $.TeamMemberIDs .ID)}}
-										<div class="org-team-assignment-member" draggable="true" data-team-member-name="{{.Name}}">
+										<div class="org-team-assignment-member" draggable="true" role="button" tabindex="0" aria-label="{{.Name}} {{ctx.Locale.Tr "org.teams.members.drag_hint"}}" data-team-member-name="{{.Name}}">
 											{{ctx.AvatarUtils.Avatar . 24}}
 											<span>{{template "shared/user/name" .}}</span>
 										</div>
@@ -40,7 +40,7 @@
 						</div>
 					{{end}}
 					<div class="flex-list">
-						<div class="org-team-drop-target" data-team-drop-target>
+						<div class="org-team-drop-target" data-team-drop-target role="button" tabindex="0" aria-label="{{ctx.Locale.Tr "org.teams.members.drop_hint"}}">
 							{{ctx.Locale.Tr "org.teams.members.drop_hint"}}
 						</div>
 						{{range .Team.Members}}

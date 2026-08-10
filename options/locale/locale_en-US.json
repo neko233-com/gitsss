@@ -1179,6 +1179,8 @@
   "repo.navigation": "Repository navigation",
   "repo.sidebar.collapse": "Collapse repository navigation",
   "repo.sidebar.expand": "Expand repository navigation",
+  "repo.sidebar.open": "Open repository navigation",
+  "repo.sidebar.close": "Close repository navigation",
   "repo.code.desc": "Access source code, files, commits and branches.",
   "repo.branch": "Branch",
   "repo.tree": "Tree",

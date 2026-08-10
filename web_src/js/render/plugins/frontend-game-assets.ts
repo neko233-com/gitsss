@@ -178,7 +178,9 @@ export const frontendRender: FrontendRenderFunc = async (opts): Promise<boolean>
     canvas.width = width;
     canvas.height = height;
     canvas.className = 'game-asset-preview-canvas';
-    canvas.getContext('2d')!.putImageData(new ImageData(pixels, width, height), 0, 0);
+    const imageData = new ImageData(width, height);
+    imageData.data.set(pixels);
+    canvas.getContext('2d')!.putImageData(imageData, 0, 0);
     opts.container.classList.add('game-asset-preview');
     opts.container.append(canvas);
     return true;

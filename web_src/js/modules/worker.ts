@@ -37,7 +37,8 @@ export class UserEventsSharedWorker {
       }
 
       if (event.data.type === 'error') {
-        console.error('worker port event error', event.data);
+        // EventSource emits this while reconnecting; there is no actionable payload.
+        return;
       } else if (event.data.type === 'logout') {
         if (event.data.data !== 'here') return;
         this.sharedWorker.port.postMessage({type: 'close'});

@@ -3,7 +3,7 @@
 import '../css/swagger-standalone.css';
 import {initSwaggerUI} from './render/swagger.ts';
 
-async function initGiteaAPIViewer() {
+async function initAPIViewer() {
   const elSwaggerUi = document.querySelector<HTMLElement>('#swagger-ui')!;
   const url = elSwaggerUi.getAttribute('data-source')!;
   const res = await fetch(url); // eslint-disable-line no-restricted-globals
@@ -11,4 +11,4 @@ async function initGiteaAPIViewer() {
   await initSwaggerUI(elSwaggerUi, {specText: await res.text()});
 }
 
-initGiteaAPIViewer();
+initAPIViewer();

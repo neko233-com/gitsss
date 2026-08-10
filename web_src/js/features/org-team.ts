@@ -26,6 +26,14 @@ function initOrgTeamAssignment() {
   const teamForm = document.querySelector<HTMLFormElement>('form[action$="/action/add"]');
   if (!member || !teamForm) return;
 
+  const submitMember = (username: string): void => {
+    const input = teamForm.querySelector<HTMLInputElement>('input[name="uname"]');
+    if (!input || !username) return;
+    input.value = username;
+    teamForm.classList.add('is-loading');
+    teamForm.requestSubmit();
+  };
+
   for (const candidate of palette.querySelectorAll<HTMLElement>('[data-team-member-name]')) {
     candidate.addEventListener('dragstart', (event) => {
       event.dataTransfer!.setData('text/plain', candidate.getAttribute('data-team-member-name')!);
@@ -33,6 +41,11 @@ function initOrgTeamAssignment() {
       candidate.classList.add('is-dragging');
     });
     candidate.addEventListener('dragend', () => candidate.classList.remove('is-dragging'));
+    candidate.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      submitMember(candidate.getAttribute('data-team-member-name')!);
+    });
   }
 
   dropTarget.addEventListener('dragover', (event) => {
@@ -45,9 +58,6 @@ function initOrgTeamAssignment() {
     dropTarget.classList.remove('is-drag-over');
     const username = event.dataTransfer!.getData('text/plain');
     if (!username) return;
-    const input = teamForm.querySelector<HTMLInputElement>('input[name="uname"]')!;
-    input.value = username;
-    teamForm.classList.add('is-loading');
-    teamForm.submit();
+    submitMember(username);
   });
 }

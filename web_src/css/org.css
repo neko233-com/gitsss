@@ -105,7 +105,8 @@
 }
 
 .org-team-assignment-member:hover,
-.org-team-assignment-member.is-dragging {
+.org-team-assignment-member.is-dragging,
+.org-team-assignment-member:focus-visible {
   border-color: var(--color-primary);
   box-shadow: 0 4px 12px rgb(31 35 40 / 12%);
   transform: translateY(-1px);
@@ -124,6 +125,13 @@
 .org-team-drop-target.is-drag-over {
   background: var(--color-primary-alpha-10);
   color: var(--color-primary);
+}
+
+.org-team-drop-target:focus-visible {
+  background: var(--color-primary-alpha-10);
+  color: var(--color-primary);
+  outline: 0;
+  box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
 }
 
 @media (prefers-reduced-motion: reduce) {

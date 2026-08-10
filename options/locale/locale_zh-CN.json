@@ -1177,6 +1177,8 @@
   "repo.navigation": "仓库导航",
   "repo.sidebar.collapse": "收起仓库导航",
   "repo.sidebar.expand": "展开仓库导航",
+  "repo.sidebar.open": "打开仓库导航",
+  "repo.sidebar.close": "关闭仓库导航",
   "repo.code.desc": "查看源码、文件、提交和分支。",
   "repo.branch": "分支",
   "repo.tree": "目录树",
