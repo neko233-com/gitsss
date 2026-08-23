@@ -16,6 +16,7 @@
       <a href="migration.html">迁移</a>
       <a href="actions.html">Actions</a>
       <a href="development.html">开发</a>
+      <a href="virtualbox.html">vbox 验证</a>
       <a href="https://github.com/neko233-com/gitsss">GitHub</a>
     </nav>
   </header>
@@ -34,6 +35,7 @@
         <a href="migration.html">从 Gitea 迁移</a>
         <a href="actions.html">离线 Actions</a>
         <a href="operations.html">运维指南</a>
+        <a href="virtualbox.html">vbox 验证</a>
       </div>
       <div class="sidebar-section">
         <div class="sidebar-heading">开发</div>
@@ -95,6 +97,24 @@
         <li>配置自动启动（systemd / launchd / 计划任务）</li>
         <li>启动 gitsss 容器</li>
       </ol>
+
+      <h2>vbox/Docker 命令兼容的本机验证：GitHub neko233-com/vbox</h2>
+      <p>需要使用本机 OCI runner 验证时，使用 checkout
+        <code>C:\Users\14170\Desktop\Code\neko233-Projects\vbox</code>（GitHub
+        <code>github.com/neko233-com/vbox</code>），而不是 Oracle VirtualBox：</p>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code>Set-Location 'C:\Users\14170\Desktop\Code\neko233-Projects\vbox'
+.\install.ps1
+Set-Location 'C:\Users\14170\Desktop\Code\neko233-Projects\gitsss'
+.\tools\vbox\gitsss.ps1 -Action install
+.\tools\vbox\gitsss.ps1 -Action verify</code></pre>
+      </div>
+      <p>vbox 替代的是 <code>docker</code> 命令本身，安装器默认提供同目录的
+        <code>docker.exe</code> 兼容别名；Dockerfile、镜像名和卷配置无需改写。该路径使用
+        vbox 的 <code>--volume HOST:CONTAINER</code> 把
+        <code>%LOCALAPPDATA%\gitsss\vbox-data</code> 持久化到镜像的
+        <code>/data</code>，并通过 <code>/api/healthz</code> 完成 HTTP 冒烟检查。</p>
 
       <h2>Step 2: 验证服务</h2>
       <div class="code-block">

@@ -105,6 +105,48 @@ tasks:
     cmds:
       - docker build -t "{{.DOCKER_IMAGE}}:{{.DOCKER_TAG}}" .
 
+  vbox:check:
+    desc: Check the local GitHub neko233-com/vbox provider
+    cmds:
+      - powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File tools/vbox/gitsss.ps1 -Action check
+
+  vbox:pull:
+    desc: Pull the GitSSS image with GitHub neko233-com/vbox
+    cmds:
+      - powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File tools/vbox/gitsss.ps1 -Action pull
+
+  vbox:load:
+    desc: Load a Docker save archive into GitHub neko233-com/vbox
+    requires:
+      vars: [IMAGE_ARCHIVE]
+    cmds:
+      - powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File tools/vbox/gitsss.ps1 -Action load -ImageArchive "{{.IMAGE_ARCHIVE}}"
+
+  vbox:install:
+    desc: Run GitSSS locally with GitHub neko233-com/vbox
+    cmds:
+      - powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File tools/vbox/gitsss.ps1 -Action install
+
+  vbox:verify:
+    desc: Verify GitSSS HTTP health with GitHub neko233-com/vbox instead of Docker
+    cmds:
+      - powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File tools/vbox/gitsss.ps1 -Action verify
+
+  vbox:logs:
+    desc: Show GitSSS logs from GitHub neko233-com/vbox
+    cmds:
+      - powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File tools/vbox/gitsss.ps1 -Action logs
+
+  vbox:stop:
+    desc: Stop the local GitSSS vbox container
+    cmds:
+      - powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File tools/vbox/gitsss.ps1 -Action stop
+
+  vbox:remove:
+    desc: Remove the local GitSSS vbox container and keep its data directory
+    cmds:
+      - powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File tools/vbox/gitsss.ps1 -Action remove
+
   release:
     desc: Build local release artifacts
     cmds:

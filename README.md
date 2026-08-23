@@ -12,6 +12,12 @@
 
 安装器从离线包加载镜像，且始终使用 `--pull never`，不会访问镜像仓库。
 
+本机容器运行使用 GitHub `neko233-com/vbox` checkout：
+`C:\Users\14170\Desktop\Code\neko233-Projects\vbox`。这里的 vbox 是 OCI
+容器运行器，不是 Oracle VirtualBox 或 Vagrant。它替代的是 `docker` 命令本身，默认安装
+同目录的 `docker.exe` 兼容别名；Dockerfile、镜像名、卷和常用 Docker/Compose 配置无需改写，
+vbox 本身不启动也不依赖 Docker Desktop 或 Docker daemon。
+
 ## 默认配置
 
 | 项目 | 默认值 |
@@ -145,6 +151,47 @@ docker volume rm gitsss-data
 ```
 
 此操作不可恢复。使用非默认数据卷时，将命令中的 `gitsss-data` 替换成实际名称。
+
+## vbox/Docker 命令兼容的本机验证
+
+先在本机 vbox checkout 构建安装，再从 gitsss 根目录执行：
+
+```powershell
+Set-Location 'C:\Users\14170\Desktop\Code\neko233-Projects\vbox'
+.\install.ps1
+Set-Location 'C:\Users\14170\Desktop\Code\neko233-Projects\gitsss'
+$env:Path = "$env:LOCALAPPDATA\vbox\bin;$env:Path"
+.\tools\vbox\gitsss.ps1 -Action check
+.\tools\vbox\gitsss.ps1 -Action pull
+.\tools\vbox\gitsss.ps1 -Action install
+.\tools\vbox\gitsss.ps1 -Action verify
+```
+
+安装后的 `vbox build` 和 `docker build` 使用同一 vbox 实现，因此现有 Dockerfile 不需要
+任何改动。需要让现有 Docker 客户端或 Compose 使用同一个本机 vbox 引擎时，可启动
+Docker Engine 兼容 API，并只设置客户端连接地址：
+
+```powershell
+vbox server start --docker-api
+$env:DOCKER_HOST = 'tcp://127.0.0.1:2375'
+docker compose -f compose.yaml up -d
+```
+
+上述方式不改变 `Dockerfile`、`compose.yaml`、镜像名或卷路径；vbox 负责执行 Docker
+兼容命令和 API。多机编排、Swarm/Kubernetes 等平台能力仍不属于本机 vbox 引擎。
+
+如果私有 registry 暂时不可用，可直接导入 Docker `save` 生成的离线归档，跳过拉取：
+
+```powershell
+.\tools\vbox\gitsss.ps1 -Action load -ImageArchive .\gitsss-image.tar
+.\tools\vbox\gitsss.ps1 -Action install -ImageArchive .\gitsss-image.tar
+.\tools\vbox\gitsss.ps1 -Action verify -ImageArchive .\gitsss-image.tar
+# 等价的 Taskfile 调用：task vbox:load IMAGE_ARCHIVE=.\gitsss-image.tar
+```
+
+验证使用 vbox 的 `--volume` 将 `%LOCALAPPDATA%\gitsss\vbox-data` 持久化到
+镜像 `/data`，健康检查地址为 `http://127.0.0.1:3000/api/healthz`。详见
+[vbox 本机验证](docs/operations/virtualbox.md)。
 
 ## 开发
 
