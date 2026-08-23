@@ -39,11 +39,13 @@ amd64 packages and `UBUNTU_PORTS_MIRROR` serves arm64 packages. These settings
 affect build dependency acquisition only; they are not configured in runtime.
 
 The server-owned runner is started in the `gitsss web` process by default and
-uses the existing Actions API. Host-mode jobs need no separate runner binary;
-an external runner fleet remains supported by setting
+uses the existing Actions API. Host-mode jobs need no separate runner binary or
+Docker socket; this is also the default path for Docker-command-compatible
+runtimes such as vbox. An external runner fleet remains supported by setting
 `[actions] BUILTIN_RUNNER_ENABLED = false`. Docker-backed labels use the host
-Docker socket only to create job containers. The socket is not mounted into
-jobs. Each job starts a private Docker daemon, so repositories do not share
+Docker socket only to create job containers, and this fallback requires a real
+Docker-compatible socket. The socket is not mounted into jobs. Each job starts
+a private Docker daemon, so repositories do not share
 Docker images, containers, networks, or volumes. The runner removes
 interrupted `GITEA-ACTIONS-TASK-*` resources on startup.
 

@@ -40,3 +40,9 @@ func TestCreateBuiltinRunnerRegistration(t *testing.T) {
 	assert.Empty(t, stored.Token)
 	assert.Equal(t, runner.TokenHash, stored.TokenHash)
 }
+
+func TestBuiltinRunnerURLUsesIPv4LoopbackForLocalhost(t *testing.T) {
+	assert.Equal(t, "http://127.0.0.1:3000/", normalizeBuiltinRunnerURL("http://localhost:3000/"))
+	assert.Equal(t, "https://127.0.0.1/", normalizeBuiltinRunnerURL("https://localhost/"))
+	assert.Equal(t, "http://gitsss.internal:3000/", normalizeBuiltinRunnerURL("http://gitsss.internal:3000/"))
+}

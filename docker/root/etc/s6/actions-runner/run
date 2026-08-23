@@ -3,7 +3,10 @@ set -eu
 
 case "${GITSSS_BUILTIN_RUNNER_ENABLED:-true}" in
     0|false|FALSE|no|NO)
-        echo "gitsss built-in Actions runner disabled"
+        echo "gitsss built-in Actions runner disabled; using Docker runner fallback"
+        ;;
+    *)
+        echo "gitsss built-in Actions runner enabled; Docker runner fallback disabled"
         exec sleep infinity
         ;;
 esac

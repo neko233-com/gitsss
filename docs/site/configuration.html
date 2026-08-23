@@ -152,7 +152,7 @@
 BUILTIN_RUNNER_ENABLED = true
 BUILTIN_RUNNER_CAPACITY = 2
 BUILTIN_RUNNER_LABELS = self-hosted:host,ubuntu-latest:host,ubuntu-24.04:host</code></pre></div>
-      <p>如果使用外部 Runner 集群，可将 <code>BUILTIN_RUNNER_ENABLED</code> 设为 <code>false</code>。数据库、Git、LFS、Actions 日志与制品存储合同不变。</p>
+      <p>如果使用外部 Runner 集群，可将 <code>BUILTIN_RUNNER_ENABLED</code> 设为 <code>false</code>。默认值为 <code>true</code> 时不依赖 <code>/var/run/docker.sock</code>，可在 vbox 这类 Docker 命令兼容运行时中直接启动；切换到外部 Docker Runner 后，才需要提供可用的 Docker socket。数据库、Git、LFS、Actions 日志与制品存储合同不变。</p>
 
       <h2>自定义更新检查</h2>
       <p>默认关闭。如需启用，指向公司内部更新服务器：</p>
