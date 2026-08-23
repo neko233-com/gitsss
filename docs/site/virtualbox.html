@@ -70,8 +70,8 @@
 .\tools\vbox\gitsss.ps1 -Action verify</code></pre>
       </div>
       <p>验证使用 <code>vbox run</code>，不调用宿主 Docker 或 Compose。安装器同时提供同目录的
-        <code>docker.exe</code> 兼容别名，因此现有 Dockerfile、镜像名、卷映射和常用 Compose
-        配置无需改写。HTTP 地址是
+        <code>docker.exe</code> 兼容别名，因此现有 Dockerfile、镜像名、卷映射和 Compose
+        配置无需改写。独立 Compose 客户端可通过 vbox Engine API 使用同一份配置；HTTP 地址是
         <code>http://127.0.0.1:3000/</code>，Git SSH 地址是
         <code>127.0.0.1:2222</code>。持久化目录默认为
         <code>%LOCALAPPDATA%\gitsss\vbox-data</code>，映射到容器的
@@ -97,9 +97,10 @@
       <h2>卷与兼容性</h2>
       <p>GitSSS 依赖 vbox 的 <code>--volume HOST:CONTAINER[:ro]</code>。Windows + Linux
         镜像会把主机目录映射到 vbox-runtime WSL2，再 bind mount 到 rootfs；停止进程时会
-        卸载挂载点。需要让现有 Docker 客户端或 Compose 连接 vbox 时，运行
+        卸载挂载点。需要让现有 Docker 客户端或独立 Compose 客户端连接 vbox 时，运行
         <code>vbox server start --docker-api</code> 并设置
-        <code>DOCKER_HOST=tcp://127.0.0.1:2375</code>；Dockerfile 和 Compose 文件本身不变。</p>
+        <code>DOCKER_HOST=tcp://127.0.0.1:2375</code>；Dockerfile 和 Compose 文件本身不变。
+        vbox 不提供 Compose CLI 插件或多机控制面。</p>
 
       <div class="code-block">
         <button class="copy-btn" onclick="copyCode(this)">Copy</button>
