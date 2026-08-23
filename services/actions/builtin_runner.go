@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	actions_model "github.com/neko233-com/gitsss/models/actions"
@@ -54,9 +55,10 @@ func startBuiltinRunnerLocked(ctx context.Context) error {
 
 	baseDir := filepath.Join(setting.AppDataPath, builtinRunnerDirectory)
 	runnerCtx, cancel := context.WithCancel(ctx)
+	localURL := builtinRunnerURL()
 	handle, err := builtin.Start(runnerCtx, builtin.Options{
-		Address:        setting.LocalURL,
-		JobInstanceURL: setting.LocalURL,
+		Address:        localURL,
+		JobInstanceURL: localURL,
 		WorkdirParent:  filepath.Join(baseDir, "workspaces"),
 		CacheDir:       filepath.Join(baseDir, "cache"),
 		CacheHost:      "127.0.0.1",
@@ -84,6 +86,17 @@ func startBuiltinRunnerLocked(ctx context.Context) error {
 
 	log.Info("built-in Actions runner %q started", registration.Name)
 	return nil
+}
+
+func builtinRunnerURL() string {
+	// A server bound to 0.0.0.0 listens on IPv4 only. Go may resolve
+	// localhost to ::1 first inside a container, so keep the in-process
+	// runner on an explicit IPv4 loopback address.
+	return normalizeBuiltinRunnerURL(setting.LocalURL)
+}
+
+func normalizeBuiltinRunnerURL(localURL string) string {
+	return strings.Replace(localURL, "://localhost", "://127.0.0.1", 1)
 }
 
 func clearBuiltinRunnerWhenStopped(ctx context.Context, handle *builtin.Handle) {

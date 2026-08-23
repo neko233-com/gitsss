@@ -6,7 +6,7 @@
 
 ## 前置条件
 
-- Docker Engine 或 Docker Desktop 已启动，并可执行 `docker`、`docker compose`。
+- Docker Engine、Docker Desktop，或可执行 `docker`、`docker compose` 的兼容运行时；使用 vbox 时不需要 Docker daemon。
 - 离线镜像包，例如 `gitsss-image.tar`；也可预先执行 `docker load --input gitsss-image.tar`。
 - Windows 使用 PowerShell 5.1+；Linux/macOS 使用 Bash。
 
@@ -38,7 +38,7 @@ vbox 本身不启动也不依赖 Docker Desktop 或 Docker daemon。
 - 管理员可生成有时效、一次性账号邀请链接；邀请用户只需设置账号密码。
 - 登录失败采用账号 + 来源地址的渐进式延迟，成功登录立即恢复，不永久锁死账号。
 - 仓库页面提供 GitHub 风格主题、商业版 Git 导航布局和可折叠宽屏侧栏；窄屏自动切换为可关闭抽屉。侧栏覆盖代码、Issue、PR、Actions、Packages、任务看板、Release、Wiki、外部链接与设置，并支持拖拽/键盘指派成员与本地 WIP 限制。
-- 服务进程默认内置 Actions Runner；管理员可在 Actions → Runners 查看、启动、停止、重启或禁用，外部 Runner 仍兼容。
+- 服务进程默认内置 Actions Runner；管理员可在 Actions → Runners 查看、启动、停止、重启或禁用，外部 Runner 仍兼容。默认内置 Runner 不读取 Docker socket，vbox 等 Docker 命令兼容运行时可直接使用；只有切换到外部 Docker Runner 才需要可用 socket。
 - 首页提供 Actions Worker 运营面板：运行中任务固定置顶，排队任务可搜索，已完成任务隐藏，并保留最近一次成功/失败结果与 24 小时统计。
 - 游戏仓库支持 Git LFS、3D 模型、常见图片/音视频、Unity/Godot 文本资产，以及 TGA/DDS 纹理预览；无法安全解码的格式保留原始资产入口。
 

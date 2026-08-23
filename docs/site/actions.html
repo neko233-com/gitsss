@@ -51,10 +51,14 @@
       <p class="subtitle">内置 CI/CD，无需公网访问</p>
 
       <h2>概述</h2>
-      <p>gitsss 将服务端、内置 Runner、Node.js、Go、Git LFS、Docker 和常用 Action 打包在一个 Ubuntu 24.04 镜像中。启动后无需任何外部依赖即可运行 CI/CD 工作流。</p>
+      <p>gitsss 将服务端、内置 Runner、Node.js、Go、Git LFS、Docker 和常用 Action 打包在一个 Ubuntu 24.04 镜像中。默认使用服务进程内置 Runner，启动后无需外部 Docker 服务、Runner 注册进程或公网依赖即可运行 CI/CD 工作流。</p>
 
       <h2>管理员 Runner 管理</h2>
       <p>管理员打开 <code>管理后台 → Actions → Runners</code> 即可看到内置 Runner 的状态、容量和标签，并可直接启动、停止或重启内置 Runner。内置 Runner 默认名为 <code>gitsss-builtin</code>，与服务进程同生命周期；现有列表仍支持禁用、编辑和管理外部 Runner。</p>
+      <div class="callout callout-note">
+        <span class="callout-label">Docker 兼容模式</span>
+        <p>默认的内置 Runner 不读取 <code>/var/run/docker.sock</code>，因此可直接运行在 vbox 等 Docker 命令兼容运行时中。只有将 <code>BUILTIN_RUNNER_ENABLED</code> 设为 <code>false</code>、改用外部 Docker Runner 时，才需要提供可用的 Docker socket。</p>
+      </div>
 
       <h2>首页 Worker 运营面板</h2>
       <p>首页 Actions Worker 面板显示当前运行中与排队中的 Job，运行中任务始终置顶；已完成任务不进入列表，只保留最近一次完成结果。可按仓库、任务名、Runner、提交 SHA 或工作流搜索，面板同时给出 Runner 总量、在线状态、24 小时成功数与失败数，便于快速判断内网 CI 是否已触发、正在执行或已经失败。</p>
