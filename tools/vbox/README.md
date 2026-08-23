@@ -30,11 +30,13 @@ service running, `logs` to inspect it, and `remove` to remove only the
 container while retaining the data directory.
 
 The installer also places `docker.exe` beside `vbox.exe`, so existing
-Dockerfiles, image names, volume mappings, and common Compose configuration can
-continue to use the `docker` command without changing the file contents. For
-Docker clients that use the Engine API, run `vbox server start --docker-api`
-and set `DOCKER_HOST=tcp://127.0.0.1:2375`. vbox itself does not start or
-depend on Docker Desktop or a Docker daemon.
+Dockerfiles, image names, and volume mappings can continue to use the `docker`
+command without changing the file contents. An existing standalone Compose
+client can use the unchanged Compose file through the Engine API: run
+`vbox server start --docker-api` and set
+`DOCKER_HOST=tcp://127.0.0.1:2375`. vbox itself does not start or depend on
+Docker Desktop or a Docker daemon, and it does not provide a Compose CLI
+plugin.
 
 The helper requires a built `vbox.exe` either on `PATH`, at
 `C:\Users\14170\Desktop\Code\neko233-Projects\vbox\target\release\vbox.exe`,
