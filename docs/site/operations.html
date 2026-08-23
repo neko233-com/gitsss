@@ -16,6 +16,7 @@
       <a href="migration.html">迁移</a>
       <a href="actions.html">Actions</a>
       <a href="development.html">开发</a>
+      <a href="virtualbox.html">vbox 验证</a>
       <a href="https://github.com/neko233-com/gitsss">GitHub</a>
     </nav>
   </header>
@@ -34,6 +35,7 @@
         <a href="migration.html">从 Gitea 迁移</a>
         <a href="actions.html">离线 Actions</a>
         <a href="operations.html" class="active">运维指南</a>
+        <a href="virtualbox.html">vbox 验证</a>
       </div>
       <div class="sidebar-section">
         <div class="sidebar-heading">开发</div>
@@ -47,6 +49,11 @@
     <main class="content">
       <h1>运维指南</h1>
       <p class="subtitle">离线部署、Mac mini M4、存储管理</p>
+
+      <div class="callout callout-note">
+        <span class="callout-label">本机验证</span>
+        <p>本机 Docker 命令替代使用 <code>C:\tools\vbox</code> 中的 <code>github.com/neko233-com/vbox</code>。它提供 <code>docker.exe</code> 兼容别名，Dockerfile 和常用 Compose 配置无需改写；完整命令见 <a href="virtualbox.html">vbox 验证</a>。</p>
+      </div>
 
       <h2>离线生产策略</h2>
       <p>gitsss 启动和运行完全不需要外部网络。更新检查器默认关闭，Actions Runner 不会下载未知远程 Action。</p>
