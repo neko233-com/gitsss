@@ -40,8 +40,7 @@ vbox 导入，不需要 Docker：
 .\tools\vbox\gitsss.ps1 -Action verify -ImageArchive .\gitsss-image.tar
 ```
 
-验证 helper 使用 `vbox run`，不调用 Docker 或 Compose；也可以让现有 Docker 客户端或
-独立 Compose 客户端通过 vbox 的 Engine API 工作：
+验证 helper 使用 `vbox run`，也可以直接让原始 Compose 文件通过 vbox 工作：
 
 - HTTP 映射到 `127.0.0.1:3000`；
 - Git SSH 映射到 `127.0.0.1:2222`；
@@ -50,14 +49,14 @@ vbox 导入，不需要 Docker：
 - 通过 `/api/healthz` 等待服务就绪。
 
 ```powershell
-vbox server start --docker-api
-$env:DOCKER_HOST = 'tcp://127.0.0.1:2375'
-# 由已有的独立 Compose 客户端执行
-docker-compose -f compose.yaml up -d
+$env:Path = "$env:LOCALAPPDATA\vbox\bin;$env:Path"
+docker compose -f compose.yaml up -d
+docker compose -f compose.yaml ps
+docker compose -f compose.yaml down
 ```
 
 Dockerfile、`compose.yaml`、镜像名和卷路径保持不变；只有 Docker 命令/API 的提供方从
-Docker daemon 换为 vbox。vbox 本身不实现 Compose CLI 插件、多机网络或 Swarm 控制面。
+Docker daemon 换为 vbox。vbox 本身不提供多机网络或 Swarm 控制面。
 
 当前镜像仓库如果返回 401，不应把它当成 vbox 运行时成功。可在 vbox 进程环境中设置
 `VBOX_REGISTRY_USERNAME`、`VBOX_REGISTRY_PASSWORD`，或者配置匹配 registry 的

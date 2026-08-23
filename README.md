@@ -167,19 +167,18 @@ $env:Path = "$env:LOCALAPPDATA\vbox\bin;$env:Path"
 .\tools\vbox\gitsss.ps1 -Action verify
 ```
 
-安装后的 `vbox build` 和 `docker build` 使用同一 vbox 实现，因此现有 Dockerfile 不需要
-任何改动。需要让现有 Docker 客户端或独立的 Compose 客户端使用同一个本机 vbox 引擎时，可启动
-Docker Engine 兼容 API，并只设置客户端连接地址：
+安装后的 `vbox build`、`docker build` 和 `docker compose` 使用同一 vbox 实现，因此现有
+Dockerfile 和 Compose 文件不需要任何改动：
 
 ```powershell
-vbox server start --docker-api
-$env:DOCKER_HOST = 'tcp://127.0.0.1:2375'
-# 由现有的独立 Compose 客户端执行，例如：docker-compose -f compose.yaml up -d
+$env:Path = "$env:LOCALAPPDATA\vbox\bin;$env:Path"
+docker compose -f compose.yaml up -d
+docker compose -f compose.yaml ps
+docker compose -f compose.yaml down
 ```
 
 上述方式不改变 `Dockerfile`、`compose.yaml`、镜像名或卷路径；vbox 负责执行 Docker
-兼容命令和 API。vbox 不把 Compose 插件伪装成 Docker CLI 子命令；多机编排、
-Swarm/Kubernetes 等平台能力也不属于本机 vbox 引擎。
+兼容命令和 API。多机编排、Swarm/Kubernetes 等平台能力仍不属于本机 vbox 引擎。
 
 如果私有 registry 暂时不可用，可直接导入 Docker `save` 生成的离线归档，跳过拉取：
 
