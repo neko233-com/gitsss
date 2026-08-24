@@ -7,7 +7,7 @@ RUN apt-get -o Acquire::Retries=5 update && \
     COREPACK_NPM_REGISTRY="$NPM_REGISTRY" corepack prepare pnpm@10.33.0 --activate && \
     rm -rf /var/lib/apt/lists/*
 WORKDIR /src
-COPY package.json pnpm-lock.yaml .npmrc ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     npm_config_registry="$NPM_REGISTRY" pnpm install --frozen-lockfile
 COPY --exclude=.git/ . .
