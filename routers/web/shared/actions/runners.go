@@ -193,7 +193,8 @@ func BuiltinRunnerControl(ctx *context.Context) {
 	} else {
 		ctx.Flash.Success(ctx.Tr("actions.runners.builtin." + action + "_success"))
 	}
-	ctx.Redirect(setting.AppSubURL + "/-/admin/actions/runners")
+	// link-action expects a JSON redirect response instead of an HTML redirect.
+	ctx.JSONRedirect(setting.AppSubURL + "/-/admin/actions/runners")
 }
 
 // RunnersEdit renders runner edit page for repository level

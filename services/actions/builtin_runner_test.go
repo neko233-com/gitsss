@@ -4,6 +4,7 @@
 package actions
 
 import (
+	"context"
 	"testing"
 
 	actions_model "github.com/neko233-com/gitsss/models/actions"
@@ -45,4 +46,18 @@ func TestBuiltinRunnerURLUsesIPv4LoopbackForLocalhost(t *testing.T) {
 	assert.Equal(t, "http://127.0.0.1:3000/", normalizeBuiltinRunnerURL("http://localhost:3000/"))
 	assert.Equal(t, "https://127.0.0.1/", normalizeBuiltinRunnerURL("https://localhost/"))
 	assert.Equal(t, "http://gitsss.internal:3000/", normalizeBuiltinRunnerURL("http://gitsss.internal:3000/"))
+}
+
+func TestBuiltinRunnerUsesServiceContextAfterStartup(t *testing.T) {
+	requestCtx := context.WithValue(t.Context(), struct{ name string }{}, "request")
+	serviceCtx := context.WithValue(t.Context(), struct{ name string }{}, "service")
+
+	oldParentCtx := builtinRunnerManager.parentCtx
+	builtinRunnerManager.parentCtx = serviceCtx
+	t.Cleanup(func() { builtinRunnerManager.parentCtx = oldParentCtx })
+
+	assert.Same(t, serviceCtx, builtinRunnerContext(requestCtx))
+
+	builtinRunnerManager.parentCtx = nil
+	assert.Same(t, requestCtx, builtinRunnerContext(requestCtx))
 }

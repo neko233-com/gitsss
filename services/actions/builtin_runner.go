@@ -44,7 +44,14 @@ func StartBuiltinRunner(ctx context.Context) error {
 		return nil
 	}
 
-	return startBuiltinRunnerLocked(ctx)
+	return startBuiltinRunnerLocked(builtinRunnerContext(ctx))
+}
+
+func builtinRunnerContext(ctx context.Context) context.Context {
+	if builtinRunnerManager.parentCtx != nil {
+		return builtinRunnerManager.parentCtx
+	}
+	return ctx
 }
 
 func startBuiltinRunnerLocked(ctx context.Context) error {
