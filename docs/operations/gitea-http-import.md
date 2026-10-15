@@ -36,8 +36,12 @@ Imported:
   release notes, release attachment bytes up to 512 MiB, wiki pages, and
   generic packages linked to those repositories.
 
-Not imported: non-generic package bytes (npm, Maven, container, and the other
-package protocols), webhooks,
+npm, Maven, PyPI, and container images are copied with their own upload
+protocols. npm is republished from the tarball, Maven files are put back on
+the group/artifact path, PyPI uses the upload form, and container blobs are
+pushed before the manifest. Other package protocols are listed and skipped.
+
+Not imported: webhooks,
 Actions secrets, access tokens, SSH keys, TOTP secrets, OAuth grants, or
 password hashes. Merged pull requests are closed on the target; the merge
 commit is not replayed. Issue numbers match the source only when the target

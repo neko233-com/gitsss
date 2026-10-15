@@ -44,11 +44,14 @@ type PullReview struct {
 }
 
 // ReviewComment is a line comment on a review.
+// Resolver is set when the source comment was marked resolved.
 type ReviewComment struct {
-	Body    string `json:"body"`
-	Path    string `json:"path,omitempty"`
-	LineNum uint64 `json:"position,omitempty"`
-	User    *User  `json:"user,omitempty"`
+	ID       int64  `json:"id,omitempty"`
+	Body     string `json:"body"`
+	Path     string `json:"path,omitempty"`
+	LineNum  uint64 `json:"position,omitempty"`
+	User     *User  `json:"user,omitempty"`
+	Resolver *User  `json:"resolver,omitempty"`
 }
 
 // PackageCopy is a package version linked to the repository.
@@ -127,7 +130,7 @@ func (m *Migrator) discoverExtras(ctx context.Context, ref RepositoryRef, plan *
 		if pkg.Repository == nil || !strings.EqualFold(pkg.Repository.FullName, ref.String()) {
 			continue
 		}
-		if strings.EqualFold(pkg.Type, "generic") {
+		if !strings.EqualFold(pkg.Type, "container") {
 			endpoint := "/packages/" + url.PathEscape(ref.Owner) + "/" + url.PathEscape(pkg.Type) + "/" + url.PathEscape(pkg.Name) + "/" + url.PathEscape(pkg.Version) + "/files"
 			if err := m.source.get(ctx, endpoint, &pkg.Files); err != nil && !isNotFound(err) {
 				return fmt.Errorf("list source package files %s/%s: %w", ref, pkg.Name, err)
@@ -153,28 +156,25 @@ func (m *Migrator) applyExtras(ctx context.Context, ref RepositoryRef, plan Repo
 	}
 	linked := map[string]struct{}{}
 	for _, pkg := range plan.Packages {
-		if !strings.EqualFold(pkg.Type, "generic") || len(pkg.Files) == 0 {
+		copied, err := m.copyPackage(ctx, ref, pkg)
+		if err != nil {
+			return err
+		}
+		if !copied {
 			stats.packagesSkipped++
-			if !strings.EqualFold(pkg.Type, "generic") {
-				stats.notes = append(stats.notes, ref.String()+": package "+pkg.Type+"/"+pkg.Name+"@"+pkg.Version+" was not copied because only generic packages have a byte-for-byte HTTP upload")
+			if !packageProtocolSupported(pkg.Type) {
+				stats.notes = append(stats.notes, ref.String()+": package "+pkg.Type+"/"+pkg.Name+"@"+pkg.Version+" has no byte-for-byte protocol copier")
 			}
 			continue
 		}
-		for _, file := range pkg.Files {
-			if err := m.copyGenericFile(ctx, ref, pkg, file); err != nil {
-				return err
+		key := strings.ToLower(pkg.Type + "/" + pkg.Name)
+		if _, ok := linked[key]; !ok {
+			endpoint := "/packages/" + url.PathEscape(ref.Owner) + "/" + url.PathEscape(pkg.Type) + "/" + url.PathEscape(pkg.Name) + "/-/link/" + url.PathEscape(ref.Name)
+			if err := m.target.post(ctx, endpoint, nil, nil); err != nil && !isNotFound(err) {
+				return fmt.Errorf("link target package %s/%s: %w", ref, pkg.Name, err)
 			}
+			linked[key] = struct{}{}
 		}
-		key := strings.ToLower(pkg.Name)
-		if _, ok := linked[key]; ok {
-			stats.packagesCopied++
-			continue
-		}
-		endpoint := "/packages/" + url.PathEscape(ref.Owner) + "/generic/" + url.PathEscape(pkg.Name) + "/-/link/" + url.PathEscape(ref.Name)
-		if err := m.target.post(ctx, endpoint, nil, nil); err != nil && !isNotFound(err) {
-			return fmt.Errorf("link target package %s/%s: %w", ref, pkg.Name, err)
-		}
-		linked[key] = struct{}{}
 		stats.packagesCopied++
 	}
 	return nil
@@ -260,12 +260,22 @@ func (m *Migrator) createReview(ctx context.Context, ref RepositoryRef, number i
 	if login := loginOf(review.User); login != "" {
 		client = m.target.asUser(login)
 	}
-	err := client.do(ctx, http.MethodPost, endpoint, payload, nil, http.StatusOK)
+	var created struct {
+		ID int64 `json:"id"`
+	}
+	var output any
+	if reviewHasResolver(review.Comments) {
+		output = &created
+	}
+	err := client.do(ctx, http.MethodPost, endpoint, payload, output, http.StatusOK)
 	if err == nil {
-		return nil
+		return m.resolveReviewComments(ctx, ref, number, created.ID, review.Comments)
 	}
 	if len(comments) == 0 || !reviewRejected(err) {
 		return fmt.Errorf("create target review on %s#%d: %w", ref, number, err)
+	}
+	if reviewHasResolver(review.Comments) {
+		return fmt.Errorf("create target review on %s#%d: line comments were rejected, so the resolved state was not copied: %w", ref, number, err)
 	}
 	// The line no longer matches the mirrored diff. Keep the text on the review body.
 	var b strings.Builder
@@ -284,6 +294,54 @@ func (m *Migrator) createReview(ctx context.Context, ref RepositoryRef, number i
 	fallback := map[string]any{"event": event, "body": strings.TrimSpace(b.String()), "commit_id": review.CommitID}
 	if err := m.target.do(ctx, http.MethodPost, endpoint, fallback, nil, http.StatusOK); err != nil {
 		return fmt.Errorf("create target review on %s#%d: %w", ref, number, err)
+	}
+	return nil
+}
+
+func reviewHasResolver(comments []ReviewComment) bool {
+	for _, comment := range comments {
+		if loginOf(comment.Resolver) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Migrator) resolveReviewComments(ctx context.Context, ref RepositoryRef, number, reviewID int64, source []ReviewComment) error {
+	if !reviewHasResolver(source) {
+		return nil
+	}
+	if reviewID == 0 {
+		return fmt.Errorf("target review on %s#%d has no id, so resolved comments cannot be marked", ref, number)
+	}
+	var created []ReviewComment
+	endpoint := repoPath(ref) + "/pulls/" + strconv.FormatInt(number, 10) + "/reviews/" + strconv.FormatInt(reviewID, 10) + "/comments"
+	if err := m.target.get(ctx, endpoint, &created); err != nil {
+		return fmt.Errorf("read target review comments on %s#%d: %w", ref, number, err)
+	}
+	used := map[int64]struct{}{}
+	for _, comment := range source {
+		if loginOf(comment.Resolver) == "" {
+			continue
+		}
+		match := int64(0)
+		for _, candidate := range created {
+			if _, ok := used[candidate.ID]; ok {
+				continue
+			}
+			if candidate.Path == comment.Path && candidate.Body == comment.Body {
+				match = candidate.ID
+				break
+			}
+		}
+		if match == 0 {
+			return fmt.Errorf("resolved comment %s on %s#%d was not found on the target", comment.Path, ref, number)
+		}
+		used[match] = struct{}{}
+		resolvePath := repoPath(ref) + "/pulls/comments/" + strconv.FormatInt(match, 10) + "/resolve"
+		if err := m.target.noContent(ctx, http.MethodPost, resolvePath, nil); err != nil {
+			return fmt.Errorf("resolve target comment %s on %s#%d: %w", comment.Path, ref, number, err)
+		}
 	}
 	return nil
 }
@@ -331,27 +389,44 @@ func sameOrigin(baseURL, rawURL string, allowQuery bool) error {
 	return nil
 }
 
+type downloadedFile struct {
+	Path        string
+	Size        int64
+	ContentType string
+}
+
 func (c *apiClient) downloadLimited(ctx context.Context, rawURL string, limit int64) (string, int64, error) {
-	if err := requireSameOrigin(c.baseURL, rawURL); err != nil {
+	file, err := c.downloadFile(ctx, rawURL, limit, nil)
+	if err != nil {
 		return "", 0, err
+	}
+	return file.Path, file.Size, nil
+}
+
+func (c *apiClient) downloadFile(ctx context.Context, rawURL string, limit int64, headers map[string]string) (downloadedFile, error) {
+	if err := requireSameOrigin(c.baseURL, rawURL); err != nil {
+		return downloadedFile{}, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
-		return "", 0, err
+		return downloadedFile{}, err
 	}
 	c.authorize(req)
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return "", 0, err
+		return downloadedFile{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		message, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return "", 0, c.redact(&APIError{Method: http.MethodGet, URL: rawURL, StatusCode: resp.StatusCode, Body: strings.TrimSpace(string(message))})
+		return downloadedFile{}, c.redact(&APIError{Method: http.MethodGet, URL: rawURL, StatusCode: resp.StatusCode, Body: strings.TrimSpace(string(message))})
 	}
 	file, err := os.CreateTemp("", "gitsss-import-*")
 	if err != nil {
-		return "", 0, err
+		return downloadedFile{}, err
 	}
 	copied, err := io.Copy(file, io.LimitReader(resp.Body, limit+1))
 	if closeErr := file.Close(); err == nil {
@@ -359,13 +434,13 @@ func (c *apiClient) downloadLimited(ctx context.Context, rawURL string, limit in
 	}
 	if err != nil {
 		_ = os.Remove(file.Name())
-		return "", 0, err
+		return downloadedFile{}, err
 	}
 	if copied > limit {
 		_ = os.Remove(file.Name())
-		return "", 0, fmt.Errorf("download exceeded %d bytes", limit)
+		return downloadedFile{}, fmt.Errorf("download exceeded %d bytes", limit)
 	}
-	return file.Name(), copied, nil
+	return downloadedFile{Path: file.Name(), Size: copied, ContentType: resp.Header.Get("Content-Type")}, nil
 }
 
 func (c *apiClient) uploadStream(ctx context.Context, method, rawURL, contentType, filePath string, size, expected int64) error {
