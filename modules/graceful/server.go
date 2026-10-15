@@ -42,6 +42,7 @@ type Server struct {
 	OnShutdown           func()
 	PerWriteTimeout      time.Duration
 	PerWritePerKbTimeout time.Duration
+	rebindable           bool
 }
 
 // NewServer creates a server on network at provided address
@@ -76,6 +77,11 @@ func (srv *Server) ListenAndServe(serve ServeFunction, useProxyProtocol bool) er
 	if err != nil {
 		log.Error("Unable to GetListener: %v", err)
 		return err
+	}
+	if srv.rebindable {
+		rebind := &rebindListener{current: listener}
+		setWebRebind(rebind)
+		listener = rebind
 	}
 
 	// we need to wrap the listener to take account of our lifecycle

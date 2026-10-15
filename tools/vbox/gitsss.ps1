@@ -7,7 +7,7 @@ param(
     [string]$ImageArchive = "",
     [string]$DataDir = "",
     [ValidateRange(1, 65535)]
-    [int]$HttpPort = 3000,
+    [int]$HttpPort = 5300,
     [ValidateRange(1, 65535)]
     [int]$GitSshPort = 2222,
     [switch]$KeepRunning
@@ -69,12 +69,12 @@ function Invoke-VboxRun {
     Ensure-DataDir
     $args = @(
         "run", "--detach", "--name", $containerName,
-        "--publish", "$HttpPort`:3000",
+        "--publish", "$HttpPort`:$HttpPort",
         "--publish", "$GitSshPort`:22",
         "--volume", "$DataDir`:/data",
         "--env", "USER_UID=1000",
         "--env", "USER_GID=1000",
-        "--env", "GITSSS__server__HTTP_PORT=3000",
+        "--env", "GITSSS__server__HTTP_PORT=$HttpPort",
         "--env", "GITSSS__server__SSH_PORT=2222",
         "--env", "GITSSS__server__SSH_LISTEN_PORT=22",
         "--env", "GITSSS__server__LFS_START_SERVER=true",
@@ -82,7 +82,7 @@ function Invoke-VboxRun {
         "--env", "GITSSS__server__ROOT_URL=http://127.0.0.1:$HttpPort/",
         "--entrypoint", "/usr/local/bin/gitsss",
         $Image,
-        "web", "--port", "3000"
+        "web", "--port", "$HttpPort"
     )
     Invoke-Vbox -Arguments $args | Out-Host
 }

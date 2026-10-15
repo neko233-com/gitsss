@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidateRange(1, 65535)]
-    [int]$Port = 3000,
+    [int]$Port = 5300,
     [string]$RootUrl = "",
     [string]$JobInstanceUrl = "",
     [string]$Image = "gitsss/gitsss:latest",

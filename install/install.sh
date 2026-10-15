@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-port=3000
+port=5300
 root_url=
 job_instance_url=
 image=gitsss/gitsss:latest

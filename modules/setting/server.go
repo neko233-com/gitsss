@@ -184,7 +184,7 @@ func loadServerFrom(rootCfg ConfigProvider) {
 
 	Domain = sec.Key("DOMAIN").MustString("localhost")
 	HTTPAddr = sec.Key("HTTP_ADDR").MustString("0.0.0.0")
-	HTTPPort = sec.Key("HTTP_PORT").MustString("3000")
+	HTTPPort = sec.Key("HTTP_PORT").MustString("5300")
 
 	// DEPRECATED should not be removed because users maybe upgrade from lower version to the latest version
 	// if these are removed, the warning will not be shown

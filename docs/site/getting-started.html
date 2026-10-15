@@ -71,8 +71,8 @@
         <pre><code>./install/install.sh \
   --image-archive ./gitsss-image.tar \
   --install-dir /opt/gitsss \
-  --port 3000 \
-  --root-url http://192.168.110.42:3000/ \
+  --port 5300 \
+  --root-url http://192.168.110.42:5300/ \
   --initial-admin-user root \
   --initial-admin-password 'change-this-password'</code></pre>
       </div>
@@ -83,8 +83,8 @@
         <pre><code>.\install\install.ps1 `
   -ImageArchive .\gitsss-image.tar `
   -InstallDir C:\gitsss `
-  -Port 3000 `
-  -RootUrl http://192.168.110.42:3000/ `
+  -Port 5300 `
+  -RootUrl http://192.168.110.42:5300/ `
   -InitialAdminUser root `
   -InitialAdminPassword 'change-this-password'</code></pre>
       </div>
@@ -120,13 +120,13 @@ Set-Location 'C:\Users\14170\Desktop\Code\neko233-Projects\gitsss'
       <div class="code-block">
         <button class="copy-btn" onclick="copyCode(this)">Copy</button>
         <pre><code># 检查健康状态
-curl --fail http://localhost:3000/api/healthz
+curl --fail http://localhost:5300/api/healthz
 
 # 检查容器状态
 docker ps --filter name=gitsss</code></pre>
       </div>
 
-      <p>浏览器访问 <code>http://&lt;你的IP&gt;:3000</code>，使用以下凭据登录：</p>
+      <p>浏览器访问 <code>http://&lt;你的IP&gt;:5300</code>，使用以下凭据登录：</p>
       <table>
         <thead><tr><th>字段</th><th>值</th></tr></thead>
         <tbody>
@@ -165,7 +165,7 @@ git add .
 git commit -m "initial commit"
 
 # 添加远程（使用 HTTP）
-git remote add origin http://192.168.110.42:3000/root/my-project.git
+git remote add origin http://192.168.110.42:5300/root/my-project.git
 git push -u origin main</code></pre>
       </div>
 
@@ -187,7 +187,7 @@ Host gitsss
       <table>
         <thead><tr><th>服务</th><th>端口</th><th>协议</th></tr></thead>
         <tbody>
-          <tr><td>Web / API</td><td><code>3000</code></td><td>HTTP</td></tr>
+          <tr><td>Web / API</td><td><code>5300</code></td><td>HTTP</td></tr>
           <tr><td>SSH Git</td><td><code>2222</code></td><td>SSH</td></tr>
           <tr><td>内部 Runner</td><td><code>8088</code></td><td>HTTP（仅 localhost）</td></tr>
         </tbody>

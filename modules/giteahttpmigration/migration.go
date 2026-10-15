@@ -32,20 +32,22 @@ const (
 )
 
 type Options struct {
-	SourceURL      string
-	SourceToken    string
-	TargetURL      string
-	TargetToken    string
-	Repositories   []string
-	ConflictPolicy ConflictPolicy
-	HTTPClient     *http.Client
-	Mirror         RepositoryMirror
+	SourceURL       string
+	SourceToken     string
+	TargetURL       string
+	TargetToken     string
+	Repositories    []string
+	AllRepositories bool
+	ConflictPolicy  ConflictPolicy
+	HTTPClient      *http.Client
+	Mirror          RepositoryMirror
 }
 
 type Migrator struct {
 	source   *apiClient
 	target   *apiClient
 	repos    []RepositoryRef
+	allRepos bool
 	conflict ConflictPolicy
 	mirror   RepositoryMirror
 }
@@ -228,7 +230,7 @@ func New(options Options) (*Migrator, error) {
 	if strings.TrimSpace(options.TargetToken) == "" {
 		return nil, errors.New("target token is required")
 	}
-	if len(options.Repositories) == 0 {
+	if len(options.Repositories) == 0 && !options.AllRepositories {
 		return nil, errors.New("at least one repository is required")
 	}
 	if options.ConflictPolicy == "" {
@@ -283,6 +285,7 @@ func New(options Options) (*Migrator, error) {
 		source:   newAPIClient(sourceBase, options.SourceToken, httpClient, options.SourceToken),
 		target:   newAPIClient(targetBase, options.TargetToken, httpClient, options.SourceToken, options.TargetToken),
 		repos:    repositories,
+		allRepos: options.AllRepositories,
 		conflict: options.ConflictPolicy,
 		mirror:   mirror,
 	}, nil
@@ -359,6 +362,13 @@ func (m *Migrator) Discover(ctx context.Context) (*Plan, error) {
 		return nil, errors.New("source token must belong to a site administrator")
 	}
 	plan.SourceLogin = sourceActor.UserName
+	if m.allRepos && len(m.repos) == 0 {
+		refs, err := m.source.listRepositoryRefs(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("list source repositories: %w", err)
+		}
+		m.repos = refs
+	}
 	if err := m.source.getAll(ctx, "/admin/users", &plan.Users); err != nil {
 		return nil, fmt.Errorf("list source users (site-admin token required): %w", err)
 	}
@@ -1075,6 +1085,45 @@ func (c *apiClient) exists(ctx context.Context, endpoint string) (bool, error) {
 		return false, nil
 	}
 	return err == nil, err
+}
+
+func (c *apiClient) listRepositoryRefs(ctx context.Context) ([]RepositoryRef, error) {
+	seen := map[string]struct{}{}
+	var refs []RepositoryRef
+	for pageNumber := 1; pageNumber <= 2000; pageNumber++ {
+		var page struct {
+			Data []struct {
+				Name  string `json:"name"`
+				Owner struct {
+					UserName string `json:"login"`
+				} `json:"owner"`
+			} `json:"data"`
+		}
+		endpoint := "/repos/search?private=true&page=" + strconv.Itoa(pageNumber) + "&limit=" + strconv.Itoa(pageSize)
+		if err := c.get(ctx, endpoint, &page); err != nil {
+			return nil, err
+		}
+		if len(page.Data) == 0 {
+			break
+		}
+		for _, repository := range page.Data {
+			ref := RepositoryRef{Owner: repository.Owner.UserName, Name: repository.Name}
+			key := strings.ToLower(ref.String())
+			if ref.Owner == "" || ref.Name == "" {
+				continue
+			}
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			refs = append(refs, ref)
+		}
+		if len(page.Data) < pageSize {
+			break
+		}
+	}
+	sort.Slice(refs, func(i, j int) bool { return refs[i].String() < refs[j].String() })
+	return refs, nil
 }
 
 func (c *apiClient) getAll(ctx context.Context, endpoint string, output any) error {

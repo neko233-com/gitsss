@@ -115,7 +115,7 @@
       </div>
 
       <h2>版本检查</h2>
-      <p>Agent 用 <code>gitsss update check --json</code> 读取一份 JSON：当前版本、最新版本、<code>need_update</code>、清单是否来自 GitHub，以及每个镜像的可用性与延迟。下载必须带校验和：<code>gitsss update download --output DIR --json</code>。校验失败时进程返回非 0，并且不会留下目标文件。<code>--save</code> 把镜像列表写回 <code>[cron.update_checker]</code>，不改变启动时默认不访问外网的行为，除非同时传入 <code>--enable-schedule</code>。</p>
+      <p>Agent 用 <code>gitsss update check --json</code> 读取一份 JSON：当前版本、最新版本、<code>need_update</code>、清单是否来自 GitHub，以及每个镜像的可用性与延迟。下载必须带校验和：<code>gitsss update download --output DIR --json</code>。校验失败时进程返回非 0，并且不会留下目标文件。<code>--save</code> 把镜像列表写回 <code>[cron.update_checker]</code>，不改变启动时默认不访问外网的行为，除非同时传入 <code>--enable-schedule</code>。仓库提交日报、周报、月报在已登录且有代码读取权限时提供：<code>GET /{owner}/{repo}/activity/summary</code>。它只统计时间戳，不返回补丁内容。</p>
 
       <p>日常验证优先在本机跑。没有 Docker，或设置了 <code>GITSSS_TASK_NATIVE=1</code> 时，<code>task</code> 直接执行 Make，不启动容器。只编译后端时用 <code>make backend-quick</code>。发布包用 <code>make release-native VERSION=...</code>，默认同时编译 2 个目标并用 <code>xz -6</code> 并行压缩。<code>make release</code> 仍是需要 Docker 的 xgo 路径。</p>
 
