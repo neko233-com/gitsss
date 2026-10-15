@@ -648,10 +648,23 @@ generate: generate-backend ## run "go generate"
 .PHONY: generate-backend
 generate-backend: $(TAGS_PREREQ) generate-go
 
+BINDATA_GENERATE_PKGS := ./modules/public/ ./modules/templates/ ./modules/options/ ./modules/migration/
+
 .PHONY: generate-go
 generate-go: $(TAGS_PREREQ)
-	@echo "Running go generate..."
-	@CC= GOOS= GOARCH= CGO_ENABLED=0 $(GO) generate -tags '$(TAGS)' ./...
+ifneq (,$(findstring bindata,$(TAGS)))
+	@echo "Generating bindata..."
+	@CC= GOOS= GOARCH= CGO_ENABLED=0 $(GO) generate -tags '$(TAGS)' $(BINDATA_GENERATE_PKGS)
+else
+	@echo "Skipping go generate; pass TAGS=bindata when embedding assets."
+endif
+
+.PHONY: generate-bindata
+generate-bindata: ## embed templates, options, public assets, and migration schemas
+	@CC= GOOS= GOARCH= CGO_ENABLED=0 $(GO) generate -tags 'bindata $(TAGS)' $(BINDATA_GENERATE_PKGS)
+
+.PHONY: backend-quick
+backend-quick: $(EXECUTABLE) ## build the backend without walking go generate
 
 .PHONY: security-check
 security-check:
@@ -666,8 +679,16 @@ endif
 $(EXECUTABLE_E2E): $(GO_SOURCES) $(FRONTEND_DEST)
 	CGO_ENABLED=1 $(GO) build $(GOFLAGS) $(EXTRA_GOFLAGS) -tags '$(TEST_TAGS)' -ldflags '-s -w $(EXTLDFLAGS) $(LDFLAGS)' -o $@
 
+RELEASE_JOBS ?= 2
+XZ_LEVEL ?= 6
+RELEASE_GOGIT ?=
+
 .PHONY: release
 release: frontend generate release-windows release-linux release-darwin release-copy release-compress vendor release-sources release-check
+
+.PHONY: release-native
+release-native: frontend generate-bindata | $(DIST_DIRS) ## cross-compile on the host without Docker or xgo
+	VERSION='$(VERSION)' RELEASE_JOBS='$(RELEASE_JOBS)' XZ_LEVEL='$(XZ_LEVEL)' RELEASE_GOGIT='$(RELEASE_GOGIT)' DIST='$(DIST)' ./build/release-native.sh
 
 $(DIST_DIRS):
 	mkdir -p $(DIST_DIRS)
@@ -701,7 +722,9 @@ release-check: | $(DIST_DIRS)
 
 .PHONY: release-compress
 release-compress: | $(DIST_DIRS)
-	cd $(DIST)/release/; for file in `find . -type f -name "*"`; do echo "compressing $${file}" && $(GO) run $(GXZ_PACKAGE) -k -9 $${file}; done;
+	cd $(DIST)/release/; \
+	find . -type f ! -name '*.xz' ! -name '*.sha256' -print0 | \
+		xargs -0 -P $(RELEASE_JOBS) -I{} xz -T1 -k -$(XZ_LEVEL) -f {}
 
 .PHONY: release-sources
 release-sources: | $(DIST_DIRS)

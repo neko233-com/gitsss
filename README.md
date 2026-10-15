@@ -209,12 +209,10 @@ gitsss update download --output /tmp
 
 ```sh
 # 后端工具链：Go 1.27.2
+# 没有 Docker 时 task 直接在本机执行。GITSSS_TASK_NATIVE=1 也可以强制本机。
 pnpm install --frozen-lockfile
-task help
-task fmt
-task lint:go
-task lint:js
-task test
+make backend-quick
+make release-native VERSION=1.2.0
 ```
 
 ## 相关文档
