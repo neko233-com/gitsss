@@ -1,7 +1,17 @@
 {{$canWriteProject := and .CanWriteProjects (or (not .Repository) (not .Repository.IsArchived))}}
 
 <div class="ui container fluid padded projects-view" data-global-init="initRepoProjectsView">
-	<div class="ui container flex-text-block project-header">
+		{{if .CanWriteProjects}}
+		<form class="ui form tw-mb-4" method="post" action="{{.Project.Link ctx}}/fields">
+			<div class="field">
+				<label>{{ctx.Locale.Tr "projects.fields"}}</label>
+				<textarea name="fields" rows="4">{{.Project.FieldsJSON}}</textarea>
+				<p class="help">{{ctx.Locale.Tr "projects.fields_help"}}</p>
+			</div>
+			<button class="ui small button" type="submit">{{ctx.Locale.Tr "projects.fields_save"}}</button>
+		</form>
+		{{end}}
+		<div class="ui container flex-text-block project-header">
 		<h2>{{.Project.Title}}</h2>
 		<div class="tw-flex-1"></div>
 		<div class="list-header-filters ui secondary menu tw-m-0">

@@ -24,6 +24,7 @@ import (
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	"github.com/neko233-com/gitsss/models/unit"
 	user_model "github.com/neko233-com/gitsss/models/user"
+	"github.com/neko233-com/gitsss/modules/announcement"
 	"github.com/neko233-com/gitsss/modules/base"
 	"github.com/neko233-com/gitsss/modules/container"
 	"github.com/neko233-com/gitsss/modules/indexer"
@@ -116,6 +117,9 @@ func Dashboard(ctx *context.Context) {
 		return
 	}
 	ctx.Data["ActionsDashboard"] = actionsDashboard
+	if notices, err := announcement.Load(ctx); err == nil {
+		ctx.Data["Announcements"] = announcement.Published(notices)
+	}
 
 	prepareHeatmapURL(ctx)
 

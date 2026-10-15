@@ -27,7 +27,8 @@ New local accounts receive random temporary passwords and must change them on fi
 			&cli.StringFlag{Name: "source-token-file", Usage: "File containing source site-admin API token", Required: true, TakesFile: true},
 			&cli.StringFlag{Name: "target-url", Usage: "Target gitsss root URL", Required: true},
 			&cli.StringFlag{Name: "target-token-file", Usage: "File containing target site-admin API token", Required: true, TakesFile: true},
-			&cli.StringSliceFlag{Name: "repo", Usage: "Repository owner/name or source URL; repeat for each repository", Required: true},
+			&cli.StringSliceFlag{Name: "repo", Usage: "Repository owner/name or source URL; repeat for each repository"},
+			&cli.BoolFlag{Name: "all-repos", Usage: "Import every repository visible to the source site administrator, with its owner accounts, organizations, teams, and permissions"},
 			&cli.StringFlag{Name: "conflict", Usage: "Existing target object policy: fail or skip", Value: string(giteahttpmigration.ConflictFail)},
 			&cli.DurationFlag{Name: "timeout", Usage: "Whole discovery/import timeout", Value: 30 * time.Minute},
 			&cli.BoolFlag{Name: "apply", Usage: "Write discovered objects to target; omitted means dry-run"},
@@ -46,13 +47,17 @@ func runImportGiteaHTTP(ctx context.Context, c *cli.Command) (returnErr error) {
 	if err != nil {
 		return fmt.Errorf("read target token: %w", err)
 	}
+	if len(c.StringSlice("repo")) == 0 && !c.Bool("all-repos") {
+		return errors.New("pass --repo for each repository or --all-repos")
+	}
 	migrator, err := giteahttpmigration.New(giteahttpmigration.Options{
-		SourceURL:      c.String("source-url"),
-		SourceToken:    sourceToken,
-		TargetURL:      c.String("target-url"),
-		TargetToken:    targetToken,
-		Repositories:   c.StringSlice("repo"),
-		ConflictPolicy: giteahttpmigration.ConflictPolicy(c.String("conflict")),
+		SourceURL:       c.String("source-url"),
+		SourceToken:     sourceToken,
+		TargetURL:       c.String("target-url"),
+		TargetToken:     targetToken,
+		Repositories:    c.StringSlice("repo"),
+		AllRepositories: c.Bool("all-repos"),
+		ConflictPolicy:  giteahttpmigration.ConflictPolicy(c.String("conflict")),
 	})
 	if err != nil {
 		return err

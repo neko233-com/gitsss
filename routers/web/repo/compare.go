@@ -121,6 +121,7 @@ func setCsvCompareContext(ctx *context.Context) {
 		extension := strings.ToLower(filepath.Ext(diffFile.Name))
 		return extension == ".csv" || extension == ".tsv"
 	}
+	ctx.Data["MediaKind"] = gitdiff.MediaKind
 
 	type CsvDiffResult struct {
 		Sections []*gitdiff.TableDiffSection

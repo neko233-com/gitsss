@@ -1,0 +1,23 @@
+{{if or .blobBase .blobHead}}
+<div class="tw-p-3">
+	<p>{{ctx.Locale.Tr "repo.diff.media_no_bytes"}}</p>
+	<div class="tw-flex tw-flex-wrap tw-gap-4">
+		{{if .blobBase}}
+		<div>
+			<p>{{ctx.Locale.Tr "repo.diff.file_before"}} · {{FileSize .blobBase.Size}}</p>
+			{{if eq .kind "audio"}}<audio controls src="{{.root.BeforeRawPath}}/{{PathEscapeSegments .file.OldName}}"></audio>{{end}}
+			{{if eq .kind "video"}}<video controls src="{{.root.BeforeRawPath}}/{{PathEscapeSegments .file.OldName}}"></video>{{end}}
+			{{if eq .kind "model"}}<a href="{{.root.BeforeRawPath}}/{{PathEscapeSegments .file.OldName}}">{{.file.OldName}}</a>{{end}}
+		</div>
+		{{end}}
+		{{if .blobHead}}
+		<div>
+			<p>{{ctx.Locale.Tr "repo.diff.file_after"}} · {{FileSize .blobHead.Size}}</p>
+			{{if eq .kind "audio"}}<audio controls src="{{.root.RawPath}}/{{PathEscapeSegments .file.Name}}"></audio>{{end}}
+			{{if eq .kind "video"}}<video controls src="{{.root.RawPath}}/{{PathEscapeSegments .file.Name}}"></video>{{end}}
+			{{if eq .kind "model"}}<a href="{{.root.RawPath}}/{{PathEscapeSegments .file.Name}}">{{.file.Name}}</a>{{end}}
+		</div>
+		{{end}}
+	</div>
+</div>
+{{end}}

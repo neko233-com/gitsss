@@ -76,7 +76,7 @@ FROM docker.io/library/golang:1.25.5-bookworm AS go-1-25-runtime
 
 FROM docker.io/library/ubuntu:24.04 AS gitsss
 
-EXPOSE 22 3000
+EXPOSE 22 5300
 
 ARG TARGETARCH
 ARG UBUNTU_MIRROR

@@ -91,6 +91,17 @@ type AdminDashboardForm struct {
 	From string
 }
 
+// AdminTakeoverForm changes the live HTTP port.
+type AdminTakeoverForm struct {
+	Port string `binding:"Required" form:"port"`
+}
+
+// Validate validates the port form.
+func (f *AdminTakeoverForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
+	ctx := context.GetValidateContext(req)
+	return middleware.Validate(errs, ctx.Data, f, ctx.Locale)
+}
+
 // AdminUpdateForm configures GitHub release checks and mirror fallbacks.
 type AdminUpdateForm struct {
 	Op          string `binding:"Required" form:"op"`

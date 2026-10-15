@@ -104,6 +104,7 @@ type Project struct {
 	CreatedUnix    timeutil.TimeStamp `xorm:"INDEX created"`
 	UpdatedUnix    timeutil.TimeStamp `xorm:"INDEX updated"`
 	ClosedDateUnix timeutil.TimeStamp
+	FieldsJSON     string `xorm:"TEXT"`
 }
 
 // Ghost Project is a project which has been deleted
@@ -343,6 +344,7 @@ func UpdateProject(ctx context.Context, p *Project) error {
 		"title",
 		"description",
 		"card_type",
+		"fields_json",
 	).Update(p)
 	return err
 }

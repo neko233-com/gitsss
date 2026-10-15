@@ -77,6 +77,7 @@
 					{{$sniffedTypeBase := call $.GetSniffedTypeForBlob $blobBase}}
 					{{$sniffedTypeHead := call $.GetSniffedTypeForBlob $blobHead}}
 					{{$isImage:= or (call $.IsSniffedTypeAnImage $sniffedTypeBase) (call $.IsSniffedTypeAnImage $sniffedTypeHead)}}
+					{{$mediaKind := call $.MediaKind $file.Name}}
 					{{$isCsv := (call $.IsCsvFile $file)}}
 					{{$showFileViewToggle := or $isImage (and (not $file.IsIncomplete) $isCsv)}}
 					{{$isExpandable := or (gt $file.Addition 0) (gt $file.Deletion 0) $file.IsBin}}
@@ -170,6 +171,9 @@
 											{{end}}
 										{{else}}
 											{{ctx.Locale.Tr "repo.diff.bin_not_shown"}}
+											{{if and $mediaKind (ne $mediaKind "image")}}
+												{{template "repo/diff/media_diff" dict "file" . "root" $ "kind" $mediaKind "blobBase" $blobBase "blobHead" $blobHead}}
+											{{end}}
 										{{end}}
 									</div>
 								{{else if $file.SubmoduleDiffInfo}}

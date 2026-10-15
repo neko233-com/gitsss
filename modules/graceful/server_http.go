@@ -31,6 +31,7 @@ func newHTTPServer(network, address, name string, handler http.Handler) (*Server
 // to handle requests on incoming connections.
 func HTTPListenAndServe(network, address, name string, handler http.Handler, useProxyProtocol bool) error {
 	server, lHandler := newHTTPServer(network, address, name, handler)
+	server.rebindable = network == "tcp"
 	return server.ListenAndServe(lHandler, useProxyProtocol)
 }
 

@@ -22,16 +22,16 @@ vbox 本身不启动也不依赖 Docker Desktop 或 Docker daemon。
 
 | 项目 | 默认值 |
 | --- | --- |
-| Web 端口 | `3000` |
+| Web 端口 | `5300` |
 | SSH 端口 | `2222` |
-| 默认地址 | `http://localhost:3000/` |
+| 默认地址 | `http://localhost:5300/` |
 | 初始管理员 | `root` |
 | 初始密码 | `root` |
 | 最小密码长度 | `4` |
 | Docker 镜像 | `gitsss/gitsss:latest` |
 | 数据卷 | `gitsss-data` |
 
-初始管理员仅在空数据卷创建，首次登录必须修改密码。生产环境请在安装时覆盖默认凭据。
+初始管理员仅在空数据卷创建，首次登录必须修改密码。生产环境请在安装时覆盖默认凭据。新安装默认监听 `5300`，避免和仍在运行的 Gitea 抢 `3000`。导入账号、组织和仓库后，管理员在「接管 Gitea」页面把端口热切换到 `3000`，再停止旧的 Gitea。已有配置里写明的 `HTTP_PORT` 不会被改掉。
 
 ## 内网生产能力
 
@@ -52,8 +52,8 @@ vbox 本身不启动也不依赖 Docker Desktop 或 Docker daemon。
 .\install\install.ps1 `
   -ImageArchive .\gitsss-image.tar `
   -InstallDir C:\gitsss `
-  -Port 3000 `
-  -RootUrl http://git.example.internal:3000/ `
+  -Port 5300 `
+  -RootUrl http://git.example.internal:5300/ `
   -InitialAdminUser root `
   -InitialAdminPassword 'change-this-password'
 ```
@@ -66,8 +66,8 @@ vbox 本身不启动也不依赖 Docker Desktop 或 Docker daemon。
 ./install/install.sh \
   --image-archive ./gitsss-image.tar \
   --install-dir /opt/gitsss \
-  --port 3000 \
-  --root-url http://git.example.internal:3000/ \
+  --port 5300 \
+  --root-url http://git.example.internal:5300/ \
   --initial-admin-user root \
   --initial-admin-password 'change-this-password'
 ```
@@ -101,8 +101,8 @@ docker compose --project-directory C:\gitsss logs --follow
   -ImageArchive .\gitsss-image-new.tar `
   -InstallDir C:\gitsss `
   -DataVolume gitsss-data `
-  -Port 3000 `
-  -RootUrl http://git.example.internal:3000/
+  -Port 5300 `
+  -RootUrl http://git.example.internal:5300/
 ```
 
 ```sh
@@ -110,8 +110,8 @@ docker compose --project-directory C:\gitsss logs --follow
   --image-archive ./gitsss-image-new.tar \
   --install-dir /opt/gitsss \
   --data-volume gitsss-data \
-  --port 3000 \
-  --root-url http://git.example.internal:3000/
+  --port 5300 \
+  --root-url http://git.example.internal:5300/
 ```
 
 不要在已有数据卷的更新命令中传入新的管理员凭据；现有账户密码不会被重置。
@@ -190,7 +190,7 @@ docker compose -f compose.yaml down
 ```
 
 验证使用 vbox 的 `--volume` 将 `%LOCALAPPDATA%\gitsss\vbox-data` 持久化到
-镜像 `/data`，健康检查地址为 `http://127.0.0.1:3000/api/healthz`。详见
+镜像 `/data`，健康检查地址为 `http://127.0.0.1:5300/api/healthz`。详见
 [vbox 本机验证](docs/operations/virtualbox.md)。
 
 ## 检查更新
