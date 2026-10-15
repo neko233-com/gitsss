@@ -1,19 +1,14 @@
 // Copyright 2021 The Gitea Authors. All rights reserved.
 // SPDX-License-Identifier: MIT
 
+// Package updatechecker finds newer gitsss releases and verifies downloaded packages.
 package updatechecker
 
 import (
 	"context"
 	"errors"
-	"fmt"
-	"io"
-	"net/http"
 	"strings"
-	"time"
 
-	"github.com/neko233-com/gitsss/modules/json"
-	"github.com/neko233-com/gitsss/modules/proxy"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/system"
 
@@ -30,57 +25,21 @@ func (r *CheckerState) Name() string {
 	return "update-checker"
 }
 
-const maxManifestSize = 1024 * 1024
-
 // GitSSSUpdateChecker records the version from an explicitly configured manifest endpoint.
+// An empty endpoint performs no network request, including when the cron task is enabled.
 func GitSSSUpdateChecker(ctx context.Context, httpEndpoint string) error {
 	httpEndpoint = strings.TrimSpace(httpEndpoint)
 	if httpEndpoint == "" {
 		return nil
 	}
-
-	httpClient := &http.Client{
-		Transport: &http.Transport{
-			Proxy: proxy.Proxy(),
-		},
-		Timeout: 10 * time.Second,
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, httpEndpoint, nil)
+	report, err := Check(ctx, Options{HTTPEndpoint: httpEndpoint, CurrentVersion: setting.AppVer})
 	if err != nil {
 		return err
 	}
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("update manifest returned HTTP %d", resp.StatusCode)
-	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxManifestSize+1))
-	if err != nil {
-		return err
-	}
-	if len(body) > maxManifestSize {
-		return fmt.Errorf("update manifest exceeds %d bytes", maxManifestSize)
-	}
-
-	type respType struct {
-		Latest struct {
-			Version string `json:"version"`
-		} `json:"latest"`
-	}
-	respData := respType{}
-	err = json.Unmarshal(body, &respData)
-	if err != nil {
-		return err
-	}
-	if strings.TrimSpace(respData.Latest.Version) == "" {
+	if strings.TrimSpace(report.LatestVersion) == "" {
 		return errors.New("update manifest has no latest version")
 	}
-
-	return UpdateRemoteVersion(req.Context(), respData.Latest.Version)
+	return UpdateRemoteVersion(ctx, report.LatestVersion)
 }
 
 // UpdateRemoteVersion updates the latest available version of gitsss.

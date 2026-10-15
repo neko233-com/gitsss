@@ -114,6 +114,9 @@
         <p>完成不是“代码已改”。完成意味着行为、测试、运维影响和文档相互一致，下一位人类或 Agent 不需要从代码重新推导使用方式。</p>
       </div>
 
+      <h2>版本检查</h2>
+      <p>Agent 用 <code>gitsss update check --json</code> 读取一份 JSON：当前版本、最新版本、<code>need_update</code>、清单是否来自 GitHub，以及每个镜像的可用性与延迟。下载必须带校验和：<code>gitsss update download --output DIR --json</code>。校验失败时进程返回非 0，并且不会留下目标文件。<code>--save</code> 把镜像列表写回 <code>[cron.update_checker]</code>，不改变启动时默认不访问外网的行为，除非同时传入 <code>--enable-schedule</code>。</p>
+
       <h2>交接</h2>
       <p>交接时说明：已改文件和行为、已运行的验证及结果、未运行项目与原因、保留的用户改动，以及需要人工决定的风险。不要把未验证的假设表述为完成。</p>
 

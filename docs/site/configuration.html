@@ -154,15 +154,27 @@ BUILTIN_RUNNER_CAPACITY = 2
 BUILTIN_RUNNER_LABELS = self-hosted:host,ubuntu-latest:host,ubuntu-24.04:host</code></pre></div>
       <p>如果使用外部 Runner 集群，可将 <code>BUILTIN_RUNNER_ENABLED</code> 设为 <code>false</code>。默认值为 <code>true</code> 时不依赖 <code>/var/run/docker.sock</code>，可在 vbox 这类 Docker 命令兼容运行时中直接启动；切换到外部 Docker Runner 后，才需要提供可用的 Docker socket。数据库、Git、LFS、Actions 日志与制品存储合同不变。</p>
 
-      <h2>自定义更新检查</h2>
-      <p>默认关闭。如需启用，指向公司内部更新服务器：</p>
+      <h2>版本更新检查</h2>
+      <p>服务启动时不会访问 GitHub。管理员可在 <code>/-/admin/updates</code> 立即检查，或显式打开定时任务。检查对象是 <code>neko233-com/gitsss</code> 的 GitHub Releases。直连 <code>api.github.com</code> 与配置的 HTTP 镜像会并行探测；能连上 GitHub 时以官方清单和 sha256 为准，下载时优先用延迟最低的可用地址，失败再按延迟顺序回退。</p>
+      <p>镜像列表留空时使用内置前缀代理 <code>https://ghfast.top</code>，适合中国大陆等无法直接访问 GitHub 的网络。可以改成任意多个 <code>http</code>/<code>https</code> 前缀，或使用 <code>{url}</code> 模板。建议在内网提供自己的镜像，替换公共代理。</p>
       <div class="code-block">
         <button class="copy-btn" onclick="copyCode(this)">Copy</button>
         <pre><code>[cron.update_checker]
 ENABLED = true
+CHECK_GITHUB = true
+GITHUB_REPO = neko233-com/gitsss
+MIRRORS = https://ghfast.top,https://updates.intranet.example/github/{url}
+PROBE_TIMEOUT = 4s
 HTTP_ENDPOINT = http://updates.intranet.example/gitsss/version.json</code></pre>
       </div>
-      <p>请求超时 10 秒，响应上限 1 MiB，必须包含 <code>latest.version</code> 字段。</p>
+      <p><code>HTTP_ENDPOINT</code> 仍是可选的内网清单，响应上限 1 MiB，可以是 GitHub Release JSON，或包含 <code>latest.version</code> 的旧格式。<code>CHECK_GITHUB</code> 缺省为 false；它和 <code>HTTP_ENDPOINT</code> 都为空时，即使定时任务已启用也不会发起网络请求。</p>
+      <p>命令行可以检查并下载经过校验的包，不会替换正在运行的进程：</p>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code>gitsss update check --json
+gitsss update check --mirror https://mirror.example --mirror https://backup.example/{url} --save
+gitsss update download --asset gitsss-linux-amd64.tar.gz --output /tmp</code></pre>
+      </div>
 
       <script>
       function copyCode(btn) {

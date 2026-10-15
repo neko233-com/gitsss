@@ -754,6 +754,8 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 
 		m.Get("/self_check", admin.SelfCheck)
 		m.Post("/self_check", admin.SelfCheckPost)
+		m.Get("/updates", admin.Updates)
+		m.Post("/updates", web.Bind(forms.AdminUpdateForm{}), admin.UpdatesPost)
 
 		m.Group("/config", func() {
 			m.Get("", admin.Config)

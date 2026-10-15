@@ -6,22 +6,40 @@ runner, or Action service.
 ## Update manifests
 
 The inherited external Gitea update endpoint is removed. The update checker is
-disabled by default and its endpoint is empty, including when gitsss takes over
-a Gitea configuration that enabled the old checker without declaring an
-endpoint.
+disabled by default and does not contact GitHub during startup, including when
+gitsss takes over a Gitea configuration that enabled the old checker without
+declaring an endpoint.
 
-An administrator may explicitly point the checker at a company-controlled
-manifest server:
+An administrator can check GitHub Releases from `/-/admin/updates` or
+`gitsss update check`. The check probes `api.github.com` and the configured
+HTTP mirrors in parallel, prefers the official manifest when GitHub answers,
+and downloads through the lowest-latency healthy mirror with the remaining
+mirrors as fallbacks. An empty mirror list uses `https://ghfast.top`. Asset
+downloads are kept only after the sha256 matches the selected manifest. The
+command writes a file; it does not replace the running server.
+
+`CHECK_GITHUB` defaults to false. Leaving both `CHECK_GITHUB` unset and
+`HTTP_ENDPOINT` empty performs no network request even if the task is enabled.
+An intranet manifest remains optional:
 
 ```ini
 [cron.update_checker]
 ENABLED = true
+CHECK_GITHUB = true
+GITHUB_REPO = neko233-com/gitsss
+MIRRORS = https://ghfast.top
+PROBE_TIMEOUT = 4s
 HTTP_ENDPOINT = http://updates.intranet.example/gitsss/version.json
 ```
 
-Requests have a 10-second timeout, reject non-success responses, limit the
-manifest to 1 MiB, and require `latest.version`. Leaving `HTTP_ENDPOINT` empty
-performs no network request even if the task is enabled.
+Requests reject non-success responses and limit the manifest to 1 MiB. A GitHub
+release needs `tag_name`. The legacy intranet document needs `latest.version`.
+
+```sh
+gitsss update check --json
+gitsss update check --mirror https://mirror.example --save
+gitsss update download --asset gitsss-linux-amd64.tar.gz --output /tmp
+```
 
 ## Actions
 

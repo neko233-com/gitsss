@@ -99,12 +99,17 @@ rm -f "$HOME/Library/LaunchAgents/com.gitsss.autostart.plist"</code></pre>
       </div>
 
       <h2>更新检查</h2>
-      <p>如需启用公司内部更新检查，配置 <code>app.ini</code>：</p>
+      <p>启动和日常访问不会自动连接 GitHub。需要检查版本时，管理员打开 <code>/-/admin/updates</code>，或执行 <code>gitsss update check --json</code>。镜像按可用性和延迟排序，下载失败时按该顺序回退；sha256 不匹配的包会被丢弃。默认镜像是 <code>https://ghfast.top</code>，可在配置或命令行替换为多个内网地址。</p>
       <div class="code-block">
         <button class="copy-btn" onclick="copyCode(this)">Copy</button>
         <pre><code>[cron.update_checker]
 ENABLED = true
-HTTP_ENDPOINT = http://updates.intranet.example/gitsss/version.json</code></pre>
+CHECK_GITHUB = true
+MIRRORS = https://ghfast.top
+HTTP_ENDPOINT = http://updates.intranet.example/gitsss/version.json
+
+gitsss update check --json
+gitsss update download --output /tmp</code></pre>
       </div>
 
       <h2>远程仓库交接验证</h2>

@@ -193,6 +193,18 @@ docker compose -f compose.yaml down
 镜像 `/data`，健康检查地址为 `http://127.0.0.1:3000/api/healthz`。详见
 [vbox 本机验证](docs/operations/virtualbox.md)。
 
+## 检查更新
+
+启动时不会访问 GitHub。管理员在登录后打开「管理后台 → 版本更新」，或在服务器上运行：
+
+```sh
+gitsss update check --json
+gitsss update check --mirror https://mirror.example --mirror https://backup.example/{url} --save
+gitsss update download --output /tmp
+```
+
+直连 GitHub 与配置的 HTTP 镜像会同时探测。官方清单可达时，用它的 sha256 校验从最快镜像下载的包；官方清单不可达时，按延迟从低到高回退，并在结果里标明校验和只绑定所选镜像。镜像留空时使用 `https://ghfast.top`。`gitsss update download` 只写出校验通过的文件，不替换正在运行的进程。
+
 ## 开发
 
 ```sh
