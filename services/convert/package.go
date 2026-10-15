@@ -42,12 +42,13 @@ func ToPackage(ctx context.Context, pd *packages.PackageDescriptor, doer *user_m
 // ToPackageFile converts packages.PackageFileDescriptor to api.PackageFile
 func ToPackageFile(pfd *packages.PackageFileDescriptor) *api.PackageFile {
 	return &api.PackageFile{
-		ID:         pfd.File.ID,
-		Size:       pfd.Blob.Size,
-		Name:       pfd.File.Name,
-		HashMD5:    pfd.Blob.HashMD5,
-		HashSHA1:   pfd.Blob.HashSHA1,
-		HashSHA256: pfd.Blob.HashSHA256,
-		HashSHA512: pfd.Blob.HashSHA512,
+		ID:           pfd.File.ID,
+		Size:         pfd.Blob.Size,
+		Name:         pfd.File.Name,
+		HashMD5:      pfd.Blob.HashMD5,
+		HashSHA1:     pfd.Blob.HashSHA1,
+		HashSHA256:   pfd.Blob.HashSHA256,
+		HashSHA512:   pfd.Blob.HashSHA512,
+		CompositeKey: pfd.File.CompositeKey,
 	}
 }

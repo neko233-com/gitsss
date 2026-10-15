@@ -46,3 +46,21 @@ export function mergePayload(): {Do: string} {
 export function commentPayload(body: string): {body: string} {
   return {body};
 }
+
+export function branchProtectionPayload(rule: string, approvals: number): {rule_name: string; branch_name: string; enable_push: boolean; required_approvals: number; block_on_outdated_branch: boolean} {
+  return {
+    rule_name: rule,
+    branch_name: rule,
+    enable_push: true,
+    required_approvals: approvals,
+    block_on_outdated_branch: true,
+  };
+}
+
+export function teamAccessPayload(permission: string, units: Record<string, string>): {permission: string; units_map: Record<string, string>} {
+  return {permission, units_map: units};
+}
+
+export function markupPreviewPayload(text: string, contextPath: string): {Text: string; Mode: string; Context: string} {
+  return {Text: text, Mode: 'markdown', Context: contextPath};
+}

@@ -1,6 +1,6 @@
 import {useEffect, useState, type FormEvent} from 'react';
 import {createRoot} from 'react-dom/client';
-import {commentPayload, fileUpdatePayload, mergePayload, moveIssuesPayload, repoSettingsPayload, webhookPayload, type BoardCard} from './actions.ts';
+import {branchProtectionPayload, commentPayload, fileUpdatePayload, markupPreviewPayload, mergePayload, moveIssuesPayload, repoSettingsPayload, teamAccessPayload, webhookPayload, type BoardCard} from './actions.ts';
 import {Aurora} from './shader.tsx';
 import {gitsssReactPage, projectID, type GitsssReactPage} from './routes.ts';
 
@@ -13,6 +13,8 @@ type Column = {id: number; title: string; cards: BoardCard[]};
 type Board = {id: number; title: string; columns: Column[]};
 type Hook = {id?: number; config?: {url?: string}; active?: boolean};
 type Collaborator = {login?: string; username?: string};
+type Protection = {id?: number; rule_name?: string; required_approvals?: number};
+type RepoTeam = {id?: number; name?: string; permission?: string; units_map?: Record<string, string>};
 
 const shellStyle = `
 .gitsss-react-shell { position: relative; overflow: hidden; margin: 16px auto 24px; max-width: 1120px; border: 1px solid var(--color-secondary, #d0d7de); border-radius: 6px; background: var(--color-box-body, #fff); color: var(--color-text, #1f2328); }
@@ -29,6 +31,9 @@ const shellStyle = `
 .gitsss-react-card { margin-top: 8px; padding: 8px; border-radius: 6px; background: var(--color-box-body, #fff); cursor: grab; }
 .gitsss-react-shell textarea, .gitsss-react-shell input { width: 100%; margin: 8px 0; box-sizing: border-box; }
 .gitsss-react-diff { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 12px; }
+.gitsss-react-preview { width: 100%; min-height: 180px; border: 1px solid var(--color-secondary, #d0d7de); border-radius: 6px; background: var(--color-box-body, #fff); }
+.gitsss-react-matrix { width: 100%; border-collapse: collapse; }
+.gitsss-react-matrix td, .gitsss-react-matrix th { border-bottom: 1px solid var(--color-secondary, #d0d7de); text-align: left; padding: 4px; }
 .gitsss-react-classic { margin-top: 12px; font-size: 13px; }
 `;
 
@@ -86,6 +91,9 @@ function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner
   const [hooks, setHooks] = useState<Hook[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [diff, setDiff] = useState('');
+  const [preview, setPreview] = useState('');
+  const [protections, setProtections] = useState<Protection[]>([]);
+  const [teams, setTeams] = useState<RepoTeam[]>([]);
   const [selectedPull, setSelectedPull] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
   const branch = repoInfo?.default_branch || 'main';
@@ -116,15 +124,19 @@ function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner
         const releases = await readJSON<Array<{name?: string; tag_name?: string}>>(apiPath(sub, owner, repo, '/releases?limit=20'));
         if (!ignore) setItems(releases.map((release) => ({title: release.name || release.tag_name, name: release.tag_name})));
       } else if (page === 'settings') {
-        const [info, people, hookList] = await Promise.all([
+        const [info, people, hookList, rules, repoTeams] = await Promise.all([
           readJSON<Repo>(apiPath(sub, owner, repo, '')),
           readJSON<Collaborator[]>(apiPath(sub, owner, repo, '/collaborators')),
           readJSON<Hook[]>(apiPath(sub, owner, repo, '/hooks')),
+          readJSON<Protection[]>(apiPath(sub, owner, repo, '/branch_protections')).catch(() => []),
+          readJSON<RepoTeam[]>(apiPath(sub, owner, repo, '/teams')).catch(() => []),
         ]);
         if (!ignore) {
           setRepoInfo(info);
           setCollaborators(people);
           setHooks(hookList);
+          setProtections(rules);
+          setTeams(repoTeams);
         }
       } else if (page === 'projects') {
         const id = projectID(pathname);
@@ -159,6 +171,18 @@ function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner
     const body = await readJSON<FileBody>(apiPath(sub, owner, repo, `/contents/${entry.path}?ref=${encodeURIComponent(branch)}`));
     setFile(body);
     setDraft(body.encoding === 'base64' && body.content ? atob(body.content) : body.content || '');
+  }
+
+  async function previewFile() {
+    const prefix = sub.endsWith('/') ? sub.slice(0, -1) : sub;
+    const response = await fetch(`${prefix}/api/v1/markdown`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(markupPreviewPayload(draft, `${prefix}/${owner}/${repo}`)),
+    });
+    if (!response.ok) throw new Error(String(response.status));
+    setPreview(await response.text());
   }
 
   async function saveFile() {
@@ -253,7 +277,9 @@ function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner
                 void saveFile().catch(() => setNotice('提交失败'));
               }}>
                 <textarea rows={12} value={draft} onChange={(event) => setDraft(event.target.value)} />
+                <button type="button" onClick={() => void previewFile().catch(() => setNotice('预览失败'))}>预览</button>
                 <button type="submit">提交到 {branch}</button>
+                {preview ? <iframe className="gitsss-react-preview" sandbox="" title="编辑器预览" srcDoc={preview} /> : null}
               </form>
             ) : null}
           </div>
@@ -332,6 +358,58 @@ function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner
               <input name="url" type="url" placeholder="https://example.test/hook" required />
               <button type="submit">创建 Webhook</button>
             </form>
+            <h3>分支保护</h3>
+            {protections.map((rule) => <p key={rule.id || rule.rule_name}>{rule.rule_name} · 需要 {rule.required_approvals || 0} 个批准</p>)}
+            <form onSubmit={(event) => {
+              event.preventDefault();
+              const form = new FormData(event.currentTarget);
+              void sendJSON(apiPath(sub, owner, repo, '/branch_protections'), 'POST', branchProtectionPayload(String(form.get('rule') || ''), Number(form.get('approvals') || 0)))
+                .then(() => setNotice('分支保护已创建'))
+                .catch(() => setNotice('分支保护创建失败'));
+            }}>
+              <input name="rule" placeholder="main" required />
+              <input name="approvals" type="number" min="0" defaultValue="1" />
+              <button type="submit">添加保护规则</button>
+            </form>
+            <h3>团队权限</h3>
+            {teams.map((team) => (
+              <form key={team.id} onSubmit={(event) => {
+                event.preventDefault();
+                const form = new FormData(event.currentTarget);
+                const units = {...(team.units_map || {})};
+                for (const [key, value] of form.entries()) {
+                  if (key.startsWith('unit:')) units[key.slice(5)] = String(value);
+                }
+                const prefix = sub.endsWith('/') ? sub.slice(0, -1) : sub;
+                void sendJSON(`${prefix}/api/v1/teams/${team.id}`, 'PATCH', teamAccessPayload(String(form.get('permission') || team.permission || 'read'), units))
+                  .then(() => setNotice(`${team.name} 的权限已保存`))
+                  .catch(() => setNotice('团队权限保存失败'));
+              }}>
+                <strong>{team.name}</strong>
+                <select name="permission" defaultValue={team.permission || 'read'}>
+                  <option value="read">read</option>
+                  <option value="write">write</option>
+                  <option value="admin">admin</option>
+                </select>
+                <table className="gitsss-react-matrix">
+                  <tbody>
+                    {Object.entries(team.units_map || {}).map(([unit, access]) => (
+                      <tr key={unit}>
+                        <th>{unit}</th>
+                        <td>
+                          <select name={`unit:${unit}`} defaultValue={access}>
+                            <option value="none">none</option>
+                            <option value="read">read</option>
+                            <option value="write">write</option>
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <button type="submit">保存团队权限</button>
+              </form>
+            ))}
           </div>
         ) : null}
         <p className="gitsss-react-classic"><a href={classic}>使用经典界面</a></p>

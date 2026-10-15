@@ -4,10 +4,13 @@
 package giteahttpmigration
 
 import (
+	"bytes"
 	"encoding/base64"
+	"io"
 	"testing"
 
 	"github.com/neko233-com/gitsss/modules/json"
+	"github.com/neko233-com/gitsss/modules/packages/cargo"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,6 +48,36 @@ func TestNpmPublishDocumentHasIntegrity(t *testing.T) {
 	raw, err := base64.StdEncoding.DecodeString(parsed.Attachments["widget-1.0.0.tgz"].Data)
 	require.NoError(t, err)
 	assert.Equal(t, "tarball", string(raw))
+}
+
+func TestCargoPublishBodyRoundTrip(t *testing.T) {
+	body, err := cargoPublishBody("widget", "1.0.0", []byte("crate-bytes"))
+	require.NoError(t, err)
+	parsed, err := cargo.ParsePackage(bytes.NewReader(body))
+	require.NoError(t, err)
+	assert.Equal(t, "widget", parsed.Name)
+	assert.Equal(t, "1.0.0", parsed.Version)
+	content, err := io.ReadAll(parsed.Content)
+	require.NoError(t, err)
+	assert.Equal(t, "crate-bytes", string(content))
+}
+
+func TestDebianAndAlpineCoordinates(t *testing.T) {
+	dist, component, arch, err := debianCoordinates(PackageCopy{Name: "gitsss", Version: "1.2.0"}, PackageFile{
+		Name: "gitsss_1.2.0_amd64.deb", CompositeKey: "bookworm|main",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "bookworm", dist)
+	assert.Equal(t, "main", component)
+	assert.Equal(t, "amd64", arch)
+
+	branch, repository, architecture, err := alpineCoordinates(PackageFile{Name: "gitsss.apk", CompositeKey: "v3.20|community|x86_64"})
+	require.NoError(t, err)
+	assert.Equal(t, "v3.20", branch)
+	assert.Equal(t, "community", repository)
+	assert.Equal(t, "x86_64", architecture)
+	_, _, _, err = debianCoordinates(PackageCopy{Name: "gitsss", Version: "1.2.0"}, PackageFile{Name: "gitsss_1.2.0_amd64.deb"})
+	require.Error(t, err)
 }
 
 func TestContainerDigests(t *testing.T) {

@@ -46,4 +46,6 @@ type PackageFile struct {
 	HashSHA256 string `json:"sha256"`
 	// The SHA512 hash of the package file
 	HashSHA512 string `json:"sha512"`
+	// CompositeKey is the package-manager coordinate, such as debian "distribution|component".
+	CompositeKey string `json:"composite_key,omitempty"`
 }

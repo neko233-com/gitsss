@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -24,7 +25,7 @@ import (
 
 func packageProtocolSupported(packageType string) bool {
 	switch strings.ToLower(packageType) {
-	case "generic", "npm", "maven", "pypi", "container":
+	case "generic", "npm", "maven", "pypi", "container", "helm", "cargo", "debian", "composer", "alpine", "nuget", "rubygems":
 		return true
 	default:
 		return false
@@ -51,6 +52,20 @@ func (m *Migrator) copyPackage(ctx context.Context, ref RepositoryRef, pkg Packa
 		return true, m.copyPyPIPackage(ctx, ref, pkg)
 	case "container":
 		return true, m.copyContainerPackage(ctx, ref, pkg)
+	case "helm":
+		return true, m.copyHelmPackage(ctx, ref, pkg)
+	case "cargo":
+		return true, m.copyCargoPackage(ctx, ref, pkg)
+	case "debian":
+		return true, m.copyDebianPackage(ctx, ref, pkg)
+	case "composer":
+		return true, m.copyComposerPackage(ctx, ref, pkg)
+	case "alpine":
+		return true, m.copyAlpinePackage(ctx, ref, pkg)
+	case "nuget":
+		return true, m.copyNuGetPackage(ctx, ref, pkg)
+	case "rubygems":
+		return true, m.copyRubyGemsPackage(ctx, ref, pkg)
 	default:
 		return false, nil
 	}
@@ -359,6 +374,207 @@ func escapeImage(image string) string {
 		parts[i] = url.PathEscape(part)
 	}
 	return strings.Join(parts, "/")
+}
+
+func (m *Migrator) copyHelmPackage(ctx context.Context, ref RepositoryRef, pkg PackageCopy) error {
+	filename := helmChartFilename(pkg)
+	download := "/api/packages/" + url.PathEscape(ref.Owner) + "/helm/" + url.PathEscape(filename)
+	downloaded, err := m.source.downloadFile(ctx, strings.TrimSuffix(m.source.baseURL, "/")+download, maxCopiedBytes, nil)
+	if err != nil {
+		return fmt.Errorf("download helm chart %s/%s: %w", ref, pkg.Name, err)
+	}
+	defer os.Remove(downloaded.Path)
+	targetURL := strings.TrimSuffix(m.target.baseURL, "/") + "/api/packages/" + url.PathEscape(ref.Owner) + "/helm/api/charts"
+	if err := m.target.uploadStream(ctx, http.MethodPost, targetURL, "application/gzip", downloaded.Path, downloaded.Size, http.StatusCreated); err != nil {
+		return fmt.Errorf("upload helm chart %s/%s: %w", ref, pkg.Name, err)
+	}
+	return nil
+}
+
+func helmChartFilename(pkg PackageCopy) string {
+	if len(pkg.Files) > 0 && pkg.Files[0].Name != "" {
+		return pkg.Files[0].Name
+	}
+	return strings.ToLower(pkg.Name + "-" + pkg.Version + ".tgz")
+}
+
+func cargoPublishBody(name, version string, crate []byte) ([]byte, error) {
+	if name == "" || version == "" {
+		return nil, errors.New("cargo publish needs a name and version")
+	}
+	meta, err := json.Marshal(map[string]string{"name": name, "vers": version})
+	if err != nil {
+		return nil, err
+	}
+	if len(meta) > int(^uint32(0)) || len(crate) > int(^uint32(0)) {
+		return nil, errors.New("cargo publish body is too large")
+	}
+	body := bytes.NewBuffer(make([]byte, 0, 8+len(meta)+len(crate)))
+	var size [4]byte
+	binary.LittleEndian.PutUint32(size[:], uint32(len(meta)))
+	body.Write(size[:])
+	body.Write(meta)
+	binary.LittleEndian.PutUint32(size[:], uint32(len(crate)))
+	body.Write(size[:])
+	body.Write(crate)
+	return body.Bytes(), nil
+}
+
+func (m *Migrator) copyCargoPackage(ctx context.Context, ref RepositoryRef, pkg PackageCopy) error {
+	download := "/api/packages/" + url.PathEscape(ref.Owner) + "/cargo/api/v1/crates/" + url.PathEscape(pkg.Name) + "/" + url.PathEscape(pkg.Version) + "/download"
+	downloaded, err := m.source.downloadFile(ctx, strings.TrimSuffix(m.source.baseURL, "/")+download, maxCopiedBytes, nil)
+	if err != nil {
+		return fmt.Errorf("download cargo crate %s/%s: %w", ref, pkg.Name, err)
+	}
+	defer os.Remove(downloaded.Path)
+	crate, err := os.ReadFile(downloaded.Path)
+	if err != nil {
+		return err
+	}
+	document, err := cargoPublishBody(pkg.Name, pkg.Version, crate)
+	if err != nil {
+		return err
+	}
+	temp, err := os.CreateTemp("", "gitsss-cargo-*")
+	if err != nil {
+		return err
+	}
+	if _, err := temp.Write(document); err != nil {
+		_ = temp.Close()
+		_ = os.Remove(temp.Name())
+		return err
+	}
+	_ = temp.Close()
+	defer os.Remove(temp.Name())
+	targetURL := strings.TrimSuffix(m.target.baseURL, "/") + "/api/packages/" + url.PathEscape(ref.Owner) + "/cargo/api/v1/crates/new"
+	if err := m.target.uploadStream(ctx, http.MethodPut, targetURL, "application/octet-stream", temp.Name(), int64(len(document)), http.StatusOK); err != nil {
+		return fmt.Errorf("publish cargo crate %s/%s: %w", ref, pkg.Name, err)
+	}
+	return nil
+}
+
+func debianCoordinates(pkg PackageCopy, file PackageFile) (string, string, string, error) {
+	distribution, component, ok := strings.Cut(file.CompositeKey, "|")
+	if !ok || distribution == "" || component == "" || strings.Contains(component, "|") {
+		return "", "", "", fmt.Errorf("debian package %s is missing distribution|component", pkg.Name)
+	}
+	suffix := "_" + pkg.Version + "_"
+	name, arch, found := strings.Cut(strings.TrimSuffix(file.Name, ".deb"), suffix)
+	if !found || name != pkg.Name || arch == "" {
+		return "", "", "", fmt.Errorf("debian file %q does not match %s_%s_<arch>.deb", file.Name, pkg.Name, pkg.Version)
+	}
+	return distribution, component, arch, nil
+}
+
+func (m *Migrator) copyDebianPackage(ctx context.Context, ref RepositoryRef, pkg PackageCopy) error {
+	if len(pkg.Files) == 0 {
+		return fmt.Errorf("debian package %s/%s has no files", ref, pkg.Name)
+	}
+	for _, file := range pkg.Files {
+		distribution, component, arch, err := debianCoordinates(pkg, file)
+		if err != nil {
+			return err
+		}
+		base := "/api/packages/" + url.PathEscape(ref.Owner) + "/debian/pool/" + url.PathEscape(distribution) + "/" + url.PathEscape(component)
+		download := base + "/" + url.PathEscape(pkg.Name+"_"+pkg.Version+"_"+arch+".deb")
+		downloaded, err := m.source.downloadFile(ctx, strings.TrimSuffix(m.source.baseURL, "/")+download, maxCopiedBytes, nil)
+		if err != nil {
+			return fmt.Errorf("download debian package %s/%s: %w", ref, pkg.Name, err)
+		}
+		targetURL := strings.TrimSuffix(m.target.baseURL, "/") + base + "/upload"
+		err = m.target.uploadStream(ctx, http.MethodPut, targetURL, "application/vnd.debian.binary-package", downloaded.Path, downloaded.Size, http.StatusCreated)
+		_ = os.Remove(downloaded.Path)
+		if err != nil {
+			return fmt.Errorf("upload debian package %s/%s: %w", ref, pkg.Name, err)
+		}
+	}
+	return nil
+}
+
+func (m *Migrator) copyComposerPackage(ctx context.Context, ref RepositoryRef, pkg PackageCopy) error {
+	if len(pkg.Files) == 0 {
+		return fmt.Errorf("composer package %s/%s has no files", ref, pkg.Name)
+	}
+	file := pkg.Files[0]
+	download := "/api/packages/" + url.PathEscape(ref.Owner) + "/composer/files/" + url.PathEscape(pkg.Name) + "/" + url.PathEscape(pkg.Version) + "/" + url.PathEscape(file.Name)
+	downloaded, err := m.source.downloadFile(ctx, strings.TrimSuffix(m.source.baseURL, "/")+download, maxCopiedBytes, nil)
+	if err != nil {
+		return fmt.Errorf("download composer package %s/%s: %w", ref, pkg.Name, err)
+	}
+	defer os.Remove(downloaded.Path)
+	targetURL := strings.TrimSuffix(m.target.baseURL, "/") + "/api/packages/" + url.PathEscape(ref.Owner) + "/composer?version=" + url.QueryEscape(pkg.Version)
+	if err := m.target.uploadStream(ctx, http.MethodPut, targetURL, "application/zip", downloaded.Path, downloaded.Size, http.StatusCreated); err != nil {
+		return fmt.Errorf("upload composer package %s/%s: %w", ref, pkg.Name, err)
+	}
+	return nil
+}
+
+func alpineCoordinates(file PackageFile) (string, string, string, error) {
+	parts := strings.Split(file.CompositeKey, "|")
+	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+		return "", "", "", fmt.Errorf("alpine file %s is missing branch|repository|architecture", file.Name)
+	}
+	return parts[0], parts[1], parts[2], nil
+}
+
+func (m *Migrator) copyAlpinePackage(ctx context.Context, ref RepositoryRef, pkg PackageCopy) error {
+	if len(pkg.Files) == 0 {
+		return fmt.Errorf("alpine package %s/%s has no files", ref, pkg.Name)
+	}
+	for _, file := range pkg.Files {
+		branch, repository, arch, err := alpineCoordinates(file)
+		if err != nil {
+			return err
+		}
+		download := "/api/packages/" + url.PathEscape(ref.Owner) + "/alpine/" + url.PathEscape(branch) + "/" + url.PathEscape(repository) + "/" + url.PathEscape(arch) + "/" + url.PathEscape(file.Name)
+		downloaded, err := m.source.downloadFile(ctx, strings.TrimSuffix(m.source.baseURL, "/")+download, maxCopiedBytes, nil)
+		if err != nil {
+			return fmt.Errorf("download alpine package %s/%s: %w", ref, file.Name, err)
+		}
+		targetURL := strings.TrimSuffix(m.target.baseURL, "/") + "/api/packages/" + url.PathEscape(ref.Owner) + "/alpine/" + url.PathEscape(branch) + "/" + url.PathEscape(repository)
+		err = m.target.uploadStream(ctx, http.MethodPut, targetURL, "application/vnd.alpine.apk", downloaded.Path, downloaded.Size, http.StatusCreated)
+		_ = os.Remove(downloaded.Path)
+		if err != nil {
+			return fmt.Errorf("upload alpine package %s/%s: %w", ref, file.Name, err)
+		}
+	}
+	return nil
+}
+
+func (m *Migrator) copyNuGetPackage(ctx context.Context, ref RepositoryRef, pkg PackageCopy) error {
+	if len(pkg.Files) == 0 {
+		return fmt.Errorf("nuget package %s/%s has no files", ref, pkg.Name)
+	}
+	file := pkg.Files[0]
+	download := "/api/packages/" + url.PathEscape(ref.Owner) + "/nuget/package/" + url.PathEscape(pkg.Name) + "/" + url.PathEscape(pkg.Version) + "/" + url.PathEscape(file.Name)
+	downloaded, err := m.source.downloadFile(ctx, strings.TrimSuffix(m.source.baseURL, "/")+download, maxCopiedBytes, nil)
+	if err != nil {
+		return fmt.Errorf("download nuget package %s/%s: %w", ref, pkg.Name, err)
+	}
+	defer os.Remove(downloaded.Path)
+	targetURL := strings.TrimSuffix(m.target.baseURL, "/") + "/api/packages/" + url.PathEscape(ref.Owner) + "/nuget/"
+	if err := m.target.uploadStream(ctx, http.MethodPut, targetURL, "application/octet-stream", downloaded.Path, downloaded.Size, http.StatusCreated); err != nil {
+		return fmt.Errorf("upload nuget package %s/%s: %w", ref, pkg.Name, err)
+	}
+	return nil
+}
+
+func (m *Migrator) copyRubyGemsPackage(ctx context.Context, ref RepositoryRef, pkg PackageCopy) error {
+	if len(pkg.Files) == 0 {
+		return fmt.Errorf("rubygems package %s/%s has no files", ref, pkg.Name)
+	}
+	file := pkg.Files[0]
+	download := "/api/packages/" + url.PathEscape(ref.Owner) + "/rubygems/gems/" + url.PathEscape(file.Name)
+	downloaded, err := m.source.downloadFile(ctx, strings.TrimSuffix(m.source.baseURL, "/")+download, maxCopiedBytes, nil)
+	if err != nil {
+		return fmt.Errorf("download rubygems package %s/%s: %w", ref, pkg.Name, err)
+	}
+	defer os.Remove(downloaded.Path)
+	targetURL := strings.TrimSuffix(m.target.baseURL, "/") + "/api/packages/" + url.PathEscape(ref.Owner) + "/rubygems/api/v1/gems"
+	if err := m.target.uploadStream(ctx, http.MethodPost, targetURL, "application/octet-stream", downloaded.Path, downloaded.Size, http.StatusCreated); err != nil {
+		return fmt.Errorf("upload rubygems package %s/%s: %w", ref, pkg.Name, err)
+	}
+	return nil
 }
 
 func fileSHA256(path string) (string, error) {
