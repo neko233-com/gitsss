@@ -21,6 +21,7 @@ import (
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/process"
 	"github.com/neko233-com/gitsss/modules/public"
+	"github.com/neko233-com/gitsss/modules/repolayout"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/templates"
 	"github.com/neko233-com/gitsss/modules/util"
@@ -209,6 +210,13 @@ func serveInstalled(c *cli.Command) error {
 	// use cmd -> InitWebInstalled, but the AppDataPath doesn't exist during those tests.
 	if _, err := os.Stat(setting.AppDataPath); err != nil {
 		log.Fatal("Can not find APP_DATA_PATH %q", setting.AppDataPath)
+	}
+	lfsRoot := ""
+	if setting.LFS.Storage.Type == setting.LocalStorageType {
+		lfsRoot = setting.LFS.Storage.Path
+	}
+	if _, err := repolayout.Ensure(setting.AppDataPath, setting.RepoRootPath, lfsRoot); err != nil {
+		log.Fatal("Git repository layout is not compatible with this gitsss version: %v", err)
 	}
 
 	// the AppDataTempDir is fully managed by us with a safe sub-path

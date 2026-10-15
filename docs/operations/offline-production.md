@@ -44,7 +44,7 @@ gitsss update download --asset gitsss-linux-amd64.tar.gz --output /tmp
 ## Actions
 
 The embedded runner resolves the supported Actions from the image. Unknown
-remote Actions fail closed. Node.js, Go 1.25.5, Go 1.26.5, npm, pnpm, checkout,
+remote Actions fail closed. Node.js, Go 1.27.2, Go 1.26.5, Go 1.25.5, npm, pnpm, checkout,
 cache, and artifact runtimes are shipped in the same Ubuntu 24.04 image. Git
 LFS is also installed for HTTP migration and normal repository use. Server
 startup and supported workflow execution do not require an external package or
@@ -96,8 +96,10 @@ Repositories, LFS objects, databases, and unknown paths are excluded.
 
 Local release targets produce only `gitsss-*` binary, source, compressed, and
 checksum filenames. The cross-build tool is pinned, and the Go toolchain line is
-fixed to Go 1.26. The removed legacy upgrade helper cannot download or install
-an external server binary.
+fixed to Go 1.27.2. The removed legacy upgrade helper cannot download or install
+an external server binary. Upgrades replace that binary only. Bare repositories,
+Git objects, refs, and LFS object bytes stay in place; new metadata belongs in
+`gitsss/layout.json` and `gitsss/extensions/`.
 
 Run `task release` on the release host. The host must provide Docker, Go,
 Make, and Task. Cross-compilation runs from the host so Docker-based xgo

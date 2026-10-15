@@ -170,6 +170,9 @@
         <p>Schema 变更必须是增量且可逆的，在迁移窗口期内不能破坏兼容性。</p>
       </div>
 
+      <h3>Git 核心数据</h3>
+      <p>服务端使用 Go 1.27.2 构建。升级可以更换二进制，但不能搬迁或重写裸仓库、Git 对象、refs 和 LFS 对象字节。布局合同版本 1 记在数据目录的 <code>gitsss/layout.json</code>。后续功能只能把扩展文件放到 <code>gitsss/extensions/&lt;id&gt;/</code>，并在清单的 <code>reserved</code> 里登记。更旧的程序如果读到更高的 <code>layout_version</code>，必须停止且不写这些目录。回滚就是换回上一版程序，Git 与 LFS 数据不需要迁移。</p>
+
       <hr>
 
       <h2>离线规则</h2>

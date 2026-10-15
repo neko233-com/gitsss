@@ -35,3 +35,4 @@
 
 - Do not redesign Git, LFS, local/S3/MinIO storage, database paths, or Actions artifact/log storage without a compatibility report covering migration, rollback, capacity and performance impact.
 - Additive storage drivers and observability are allowed when existing paths, providers, keys and APIs remain unchanged; validate both CGO and pure-Go SQLite builds locally.
+- Git layout contract v1 is `data/gitsss/layout.json`. Upgrades may add `reserved` keys and files under `data/gitsss/extensions/<id>/` only. They must not move, rename, repack, or rewrite bare repositories, Git objects, refs, or LFS object bytes. A binary that does not understand `layout_version` must stop without writing those trees. Rollback is the previous binary; Git and LFS data need no migration.

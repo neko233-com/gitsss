@@ -208,6 +208,7 @@ gitsss update download --output /tmp
 ## 开发
 
 ```sh
+# 后端工具链：Go 1.27.2
 pnpm install --frozen-lockfile
 task help
 task fmt
