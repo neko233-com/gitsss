@@ -36,3 +36,9 @@
 - Do not redesign Git, LFS, local/S3/MinIO storage, database paths, or Actions artifact/log storage without a compatibility report covering migration, rollback, capacity and performance impact.
 - Additive storage drivers and observability are allowed when existing paths, providers, keys and APIs remain unchanged; validate both CGO and pure-Go SQLite builds locally.
 - Git layout contract v1 is `data/gitsss/layout.json`. Upgrades may add `reserved` keys and files under `data/gitsss/extensions/<id>/` only. They must not move, rename, repack, or rewrite bare repositories, Git objects, refs, or LFS object bytes. A binary that does not understand `layout_version` must stop without writing those trees. Rollback is the previous binary; Git and LFS data need no migration.
+
+## Cursor Cloud specific instructions
+
+- `task help` lists targets. Every other `task` target runs `make` inside Docker. This environment has no Docker daemon, so run `make` on the host: `TAGS="sqlite sqlite_unlock_notify" make backend`, `make frontend`, `make test-backend`, and `make test-frontend`.
+- The `node` binary already on `PATH` can be older than `package.json` `engines` (`>=22.18`). Before `pnpm` or `make`, prepend Node 22.23.3: `export PATH="$HOME/.nvm/versions/node/v22.23.3/bin:$PATH"`.
+- Start the web server from the repository root with `./gitsss web --port 3000 --pid /tmp/gitsss.pid`. Without `custom/conf/app.ini` the process serves the install wizard. Health check: `http://127.0.0.1:3000/api/healthz`. On the install form set the SSH port to `0` unless port 22 can be bound, and choose SQLite.

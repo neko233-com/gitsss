@@ -117,6 +117,11 @@
       <h2>版本检查</h2>
       <p>Agent 用 <code>gitsss update check --json</code> 读取一份 JSON：当前版本、最新版本、<code>need_update</code>、清单是否来自 GitHub，以及每个镜像的可用性与延迟。下载必须带校验和：<code>gitsss update download --output DIR --json</code>。校验失败时进程返回非 0，并且不会留下目标文件。<code>--save</code> 把镜像列表写回 <code>[cron.update_checker]</code>，不改变启动时默认不访问外网的行为，除非同时传入 <code>--enable-schedule</code>。</p>
 
+      <h2>Cloud Agent 本机工具链</h2>
+      <p><code>task help</code> 只列出目标。其余 <code>task</code> 目标在 Docker 里执行 <code>make</code>。Cloud Agent 虚拟机没有 Docker daemon，所以在宿主机上运行 <code>make</code>：<code>TAGS="sqlite sqlite_unlock_notify" make backend</code>、<code>make frontend</code>、<code>make test-backend</code>、<code>make test-frontend</code>。</p>
+      <p>环境里已有的 <code>node</code> 可能低于 <code>package.json</code> 的 <code>engines</code>（<code>&gt;=22.18</code>）。运行 <code>pnpm</code> 或 <code>make</code> 前把 Node 22.23.3 放到 PATH 前面：<code>export PATH="$HOME/.nvm/versions/node/v22.23.3/bin:$PATH"</code>。</p>
+      <p>在仓库根目录启动 Web：<code>./gitsss web --port 3000 --pid /tmp/gitsss.pid</code>。没有 <code>custom/conf/app.ini</code> 时提供安装向导。健康检查是 <code>http://127.0.0.1:3000/api/healthz</code>。安装表单里把 SSH 端口设为 <code>0</code>，除非可以绑定 22 端口，并选择 SQLite。</p>
+
       <h2>交接</h2>
       <p>交接时说明：已改文件和行为、已运行的验证及结果、未运行项目与原因、保留的用户改动，以及需要人工决定的风险。不要把未验证的假设表述为完成。</p>
 
