@@ -32,10 +32,12 @@ Imported:
 - public organization membership and direct repository collaborators;
 - selected repository metadata, branches, tags, notes, default branch, archive
   state, complete Git objects, and Git LFS objects;
-- labels, milestones, issues, issue comments, pull requests, and release
-  notes on repositories created in that apply run.
+- labels, milestones, issues, issue comments, pull requests, review threads,
+  release notes, release attachment bytes up to 512 MiB, wiki pages, and
+  generic packages linked to those repositories.
 
-Not imported: wiki, release attachment bytes, packages, review threads, attachments, webhooks,
+Not imported: non-generic package bytes (npm, Maven, container, and the other
+package protocols), webhooks,
 Actions secrets, access tokens, SSH keys, TOTP secrets, OAuth grants, or
 password hashes. Merged pull requests are closed on the target; the merge
 commit is not replayed. Issue numbers match the source only when the target

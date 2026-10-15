@@ -160,6 +160,8 @@ type RepositoryPlan struct {
 	Issues        []Issue        `json:"issues,omitempty"`
 	Pulls         []PullRequest  `json:"pulls,omitempty"`
 	Releases      []Release      `json:"releases,omitempty"`
+	Wiki          []WikiPage     `json:"wiki,omitempty"`
+	Packages      []PackageCopy  `json:"packages,omitempty"`
 }
 
 type Plan struct {
@@ -192,6 +194,11 @@ type Result struct {
 	PullsCreated         int      `json:"pulls_created"`
 	CommentsCreated      int      `json:"comments_created"`
 	ReleasesCreated      int      `json:"releases_created"`
+	AssetsCreated        int      `json:"assets_created"`
+	WikiPagesCreated     int      `json:"wiki_pages_created"`
+	ReviewsCreated       int      `json:"reviews_created"`
+	PackagesCopied       int      `json:"packages_copied"`
+	PackagesSkipped      int      `json:"packages_skipped"`
 	ContentSkipped       int      `json:"content_skipped"`
 	IndexRemaps          int      `json:"index_remaps"`
 	Notes                []string `json:"notes,omitempty"`
@@ -702,6 +709,11 @@ func (m *Migrator) Apply(ctx context.Context, plan *Plan, credentials Credential
 		result.PullsCreated += stats.pulls
 		result.CommentsCreated += stats.comments
 		result.ReleasesCreated += stats.releases
+		result.AssetsCreated += stats.assets
+		result.WikiPagesCreated += stats.wikiPages
+		result.ReviewsCreated += stats.reviews
+		result.PackagesCopied += stats.packagesCopied
+		result.PackagesSkipped += stats.packagesSkipped
 		result.IndexRemaps += stats.remaps
 		if stats.skipped {
 			result.ContentSkipped++
@@ -1275,6 +1287,15 @@ func (s sliceValue) newPage() sliceValue {
 	case *[]Release:
 		page := make([]Release, 0)
 		return sliceValue{value: &page}
+	case *[]WikiPage:
+		page := make([]WikiPage, 0)
+		return sliceValue{value: &page}
+	case *[]PullReview:
+		page := make([]PullReview, 0)
+		return sliceValue{value: &page}
+	case *[]PackageCopy:
+		page := make([]PackageCopy, 0)
+		return sliceValue{value: &page}
 	case *[]string:
 		page := make([]string, 0)
 		return sliceValue{value: &page}
@@ -1307,6 +1328,12 @@ func (s sliceValue) length() int {
 		return len(*value)
 	case *[]Release:
 		return len(*value)
+	case *[]WikiPage:
+		return len(*value)
+	case *[]PullReview:
+		return len(*value)
+	case *[]PackageCopy:
+		return len(*value)
 	case *[]string:
 		return len(*value)
 	default:
@@ -1336,6 +1363,12 @@ func (s sliceValue) append(page sliceValue) {
 		*target = append(*target, *page.value.(*[]IssueComment)...)
 	case *[]Release:
 		*target = append(*target, *page.value.(*[]Release)...)
+	case *[]WikiPage:
+		*target = append(*target, *page.value.(*[]WikiPage)...)
+	case *[]PullReview:
+		*target = append(*target, *page.value.(*[]PullReview)...)
+	case *[]PackageCopy:
+		*target = append(*target, *page.value.(*[]PackageCopy)...)
 	case *[]string:
 		*target = append(*target, *page.value.(*[]string)...)
 	default:
