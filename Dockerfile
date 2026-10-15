@@ -21,7 +21,7 @@ RUN corepack enable && \
     corepack prepare pnpm@10.33.0 --activate
 
 # Build backend for each target platform
-FROM docker.io/library/golang:1.26-bookworm AS build-env
+FROM docker.io/library/golang:1.27.2-bookworm AS build-env
 
 ARG GITSSS_VERSION=development
 ARG TAGS="sqlite sqlite_unlock_notify"
@@ -69,6 +69,8 @@ RUN chmod 755 /tmp/local/usr/bin/entrypoint \
               /tmp/local/etc/s6/.s6-svscan/* \
               /go/src/github.com/neko233-com/gitsss/gitsss \
               /go/src/github.com/neko233-com/gitsss/gitsss-runner
+
+FROM docker.io/library/golang:1.26.5-bookworm AS go-1-26-runtime
 
 FROM docker.io/library/golang:1.25.5-bookworm AS go-1-25-runtime
 
@@ -118,6 +120,7 @@ COPY --from=build-env /go/src/github.com/neko233-com/gitsss/gitsss /app/gitsss/g
 COPY --from=build-env /go/src/github.com/neko233-com/gitsss/gitsss-runner /app/gitsss/internal/runner
 COPY --from=build-env /go/src/github.com/neko233-com/gitsss/actions/builtin /app/gitsss/builtin-actions
 COPY --from=build-env /usr/local/go /usr/local/go
+COPY --from=go-1-26-runtime /usr/local/go /opt/gitsss/toolchains/go1.26.5
 COPY --from=go-1-25-runtime /usr/local/go /opt/gitsss/toolchains/go1.25.5
 COPY --from=node-runtime /usr/local/lib/node_modules /usr/local/lib/node_modules
 COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node

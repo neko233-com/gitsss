@@ -1,6 +1,6 @@
 module github.com/neko233-com/gitsss/packages/migration-sdk
 
-go 1.26
+go 1.27.2
 
 require (
 	github.com/42wim/httpsig v1.2.4

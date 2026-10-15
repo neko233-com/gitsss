@@ -28,7 +28,7 @@ function requestedVersion() {
 }
 
 function requestedMinor(version) {
-  if (!version || ['stable', 'latest', '*'].includes(version.toLowerCase())) return '1.26';
+  if (!version || ['stable', 'latest', '*'].includes(version.toLowerCase())) return '1.27';
   const match = version.match(/(\d+)\.(\d+)/);
   return match ? `${match[1]}.${match[2]}` : '';
 }
@@ -38,10 +38,11 @@ try {
   const minor = requestedMinor(requested);
   const toolchains = {
     '1.25': '/opt/gitsss/toolchains/go1.25.5',
-    '1.26': '/usr/local/go',
+    '1.26': '/opt/gitsss/toolchains/go1.26.5',
+    '1.27': '/usr/local/go',
   };
   const goroot = toolchains[minor];
-  if (!goroot) throw new Error(`gitsss offline image provides Go 1.25 and 1.26; requested ${requested || 'an unknown version'}`);
+  if (!goroot) throw new Error(`gitsss offline image provides Go 1.25, 1.26, and 1.27; requested ${requested || 'an unknown version'}`);
 
   const goBinary = path.join(goroot, 'bin', 'go');
   const output = childProcess.execFileSync(goBinary, ['version'], {encoding: 'utf8'}).trim();

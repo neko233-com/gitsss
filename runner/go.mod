@@ -1,49 +1,44 @@
 module github.com/neko233-com/gitsss/runner
 
-go 1.26.0
-
-require (
-	connectrpc.com/connect v1.19.2
-	github.com/avast/retry-go/v4 v4.7.0
-	github.com/docker/docker v25.0.15+incompatible
-	github.com/joho/godotenv v1.5.1
-	github.com/mattn/go-isatty v0.0.22
-	github.com/neko233-com/gitsss/packages/actions-proto-go v0.0.0
-	github.com/sirupsen/logrus v1.9.4
-	github.com/spf13/cobra v1.10.2
-	github.com/stretchr/testify v1.11.1
-	go.yaml.in/yaml/v4 v4.0.0-rc.3
-	golang.org/x/term v0.42.0
-	golang.org/x/time v0.14.0 // indirect
-	google.golang.org/protobuf v1.36.11
-	gopkg.in/yaml.v3 v3.0.1 // indirect
-	gotest.tools/v3 v3.5.2
-)
+go 1.27.2
 
 replace github.com/neko233-com/gitsss/packages/actions-proto-go => ../packages/actions-proto-go
 
 require (
+	connectrpc.com/connect v1.19.2
 	github.com/Masterminds/semver v1.5.0
+	github.com/avast/retry-go/v4 v4.7.0
 	github.com/creack/pty v1.1.24
 	github.com/distribution/reference v0.6.0
 	github.com/docker/cli v25.0.7+incompatible
+	github.com/docker/docker v25.0.15+incompatible
 	github.com/docker/go-connections v0.6.0
 	github.com/go-git/go-billy/v5 v5.8.0
 	github.com/go-git/go-git/v5 v5.18.0
 	github.com/gobwas/glob v0.2.3
 	github.com/imdario/mergo v0.3.16
+	github.com/joho/godotenv v1.5.1
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
+	github.com/mattn/go-isatty v0.0.22
 	github.com/moby/buildkit v0.13.2
 	github.com/moby/patternmatcher v0.6.1
+	github.com/neko233-com/gitsss/packages/actions-proto-go v0.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/opencontainers/selinux v1.13.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/rhysd/actionlint v1.7.12
+	github.com/sirupsen/logrus v1.9.4
+	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
+	github.com/stretchr/testify v1.11.1
 	github.com/timshannon/bolthold v0.0.0-20240314194003-30aac6950928
 	go.etcd.io/bbolt v1.4.3
+	go.yaml.in/yaml/v4 v4.0.0-rc.3
+	golang.org/x/term v0.42.0
+	google.golang.org/protobuf v1.36.11
+	gotest.tools/v3 v3.5.2
 )
 
 require (
@@ -111,8 +106,10 @@ require (
 	golang.org/x/net v0.52.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/grpc v1.67.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

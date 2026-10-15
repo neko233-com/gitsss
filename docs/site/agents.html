@@ -120,6 +120,9 @@
       <h2>交接</h2>
       <p>交接时说明：已改文件和行为、已运行的验证及结果、未运行项目与原因、保留的用户改动，以及需要人工决定的风险。不要把未验证的假设表述为完成。</p>
 
+      <h2>Git 数据兼容</h2>
+      <p>布局合同 v1 在数据目录的 <code>gitsss/layout.json</code>。升级只能新增 <code>reserved</code> 键和 <code>gitsss/extensions/&lt;id&gt;/</code> 下的文件，不能移动、重命名、重打包或改写裸仓库、Git 对象、refs 与 LFS 对象。读不懂 <code>layout_version</code> 的程序必须停下来，并且不写这些目录。回滚是换回上一版二进制，Git 与 LFS 不需要数据迁移。</p>
+
       <h2>存储稳定性冻结</h2>
       <p>Git、LFS、本地/S3/MinIO、数据库路径和 Actions 日志/制品存储属于兼容性合同。禁止无报告的大规模重构；新增驱动或观测能力必须保持既有路径、配置键和 API 不变，并同时验证 CGO 与纯 Go SQLite 构建。</p>
     </main>

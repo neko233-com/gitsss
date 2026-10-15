@@ -55,6 +55,9 @@
         <p>Gitsss 不改变 Git 对象模型。高频源码走 Git，二进制资产走 Git LFS；不要把游戏构建包、贴图缓存或中间产物直接提交到普通 Git blob。</p>
       </div>
 
+      <h2>升级时保持不动的数据</h2>
+      <p>裸仓库路径、仓库里的 objects/refs，以及 LFS 对象 oid 是冻结数据。程序升级只允许在数据目录新增 <code>gitsss/layout.json</code> 和 <code>gitsss/extensions/</code>。这个旁路文件不在任何 Git 仓库内部。启动时如果发现更新的布局版本，进程会退出，避免旧程序改写仓库。</p>
+
       <h2>推荐拓扑</h2>
       <div class="code-block"><pre><code>Git 客户端
   ├─ Git smart HTTP / SSH → Git 对象存储
