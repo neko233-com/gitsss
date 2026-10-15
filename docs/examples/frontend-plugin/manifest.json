@@ -1,0 +1,9 @@
+{
+  "plugins": [
+    {
+      "id": "hello-board",
+      "src": "/assets/plugins/hello-board/index.js",
+      "slots": ["dashboard"]
+    }
+  ]
+}

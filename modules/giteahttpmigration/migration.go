@@ -33,8 +33,12 @@ const (
 
 type Options struct {
 	SourceURL       string
+	SourceUser      string
+	SourcePassword  string
 	SourceToken     string
 	TargetURL       string
+	TargetUser      string
+	TargetPassword  string
 	TargetToken     string
 	Repositories    []string
 	AllRepositories bool
@@ -151,6 +155,11 @@ type RepositoryPlan struct {
 	Repository    Repository     `json:"repository"`
 	Refs          []Reference    `json:"refs,omitempty"`
 	Collaborators []Collaborator `json:"collaborators,omitempty"`
+	Labels        []Label        `json:"labels,omitempty"`
+	Milestones    []Milestone    `json:"milestones,omitempty"`
+	Issues        []Issue        `json:"issues,omitempty"`
+	Pulls         []PullRequest  `json:"pulls,omitempty"`
+	Releases      []Release      `json:"releases,omitempty"`
 }
 
 type Plan struct {
@@ -164,19 +173,28 @@ type Plan struct {
 }
 
 type Result struct {
-	UsersCreated         int `json:"users_created"`
-	UsersSkipped         int `json:"users_skipped"`
-	OrganizationsCreated int `json:"organizations_created"`
-	OrganizationsSkipped int `json:"organizations_skipped"`
-	TeamsCreated         int `json:"teams_created"`
-	TeamsReused          int `json:"teams_reused"`
-	RepositoriesCreated  int `json:"repositories_created"`
-	RepositoriesSkipped  int `json:"repositories_skipped"`
-	TeamMemberships      int `json:"team_memberships_applied"`
-	TeamRepositories     int `json:"team_repositories_applied"`
-	Collaborators        int `json:"collaborators_applied"`
-	PublicMemberships    int `json:"public_memberships_applied"`
-	RefsVerified         int `json:"refs_verified"`
+	UsersCreated         int      `json:"users_created"`
+	UsersSkipped         int      `json:"users_skipped"`
+	OrganizationsCreated int      `json:"organizations_created"`
+	OrganizationsSkipped int      `json:"organizations_skipped"`
+	TeamsCreated         int      `json:"teams_created"`
+	TeamsReused          int      `json:"teams_reused"`
+	RepositoriesCreated  int      `json:"repositories_created"`
+	RepositoriesSkipped  int      `json:"repositories_skipped"`
+	TeamMemberships      int      `json:"team_memberships_applied"`
+	TeamRepositories     int      `json:"team_repositories_applied"`
+	Collaborators        int      `json:"collaborators_applied"`
+	PublicMemberships    int      `json:"public_memberships_applied"`
+	RefsVerified         int      `json:"refs_verified"`
+	LabelsCreated        int      `json:"labels_created"`
+	MilestonesCreated    int      `json:"milestones_created"`
+	IssuesCreated        int      `json:"issues_created"`
+	PullsCreated         int      `json:"pulls_created"`
+	CommentsCreated      int      `json:"comments_created"`
+	ReleasesCreated      int      `json:"releases_created"`
+	ContentSkipped       int      `json:"content_skipped"`
+	IndexRemaps          int      `json:"index_remaps"`
+	Notes                []string `json:"notes,omitempty"`
 }
 
 type Credential struct {
@@ -224,11 +242,13 @@ func (f *JSONLCredentialFile) Close() error {
 }
 
 func New(options Options) (*Migrator, error) {
-	if strings.TrimSpace(options.SourceToken) == "" {
-		return nil, errors.New("source token is required")
+	sourceAuth, err := resolveEndpointAuth(options.SourceUser, options.SourcePassword, options.SourceToken, "source")
+	if err != nil {
+		return nil, err
 	}
-	if strings.TrimSpace(options.TargetToken) == "" {
-		return nil, errors.New("target token is required")
+	targetAuth, err := resolveEndpointAuth(options.TargetUser, options.TargetPassword, options.TargetToken, "target")
+	if err != nil {
+		return nil, err
 	}
 	if len(options.Repositories) == 0 && !options.AllRepositories {
 		return nil, errors.New("at least one repository is required")
@@ -281,14 +301,34 @@ func New(options Options) (*Migrator, error) {
 	if mirror == nil {
 		mirror = mirrorRepository
 	}
+	secrets := []string{sourceAuth.Secret, targetAuth.Secret}
 	return &Migrator{
-		source:   newAPIClient(sourceBase, options.SourceToken, httpClient, options.SourceToken),
-		target:   newAPIClient(targetBase, options.TargetToken, httpClient, options.SourceToken, options.TargetToken),
+		source:   newAuthenticatedClient(sourceBase, sourceAuth, httpClient, secrets...),
+		target:   newAuthenticatedClient(targetBase, targetAuth, httpClient, secrets...),
 		repos:    repositories,
 		allRepos: options.AllRepositories,
 		conflict: options.ConflictPolicy,
 		mirror:   mirror,
 	}, nil
+}
+
+func resolveEndpointAuth(user, password, token, side string) (clientAuth, error) {
+	user = strings.TrimSpace(user)
+	password = strings.TrimSpace(password)
+	token = strings.TrimSpace(token)
+	switch {
+	case password != "" && token != "":
+		return clientAuth{}, fmt.Errorf("%s password and token cannot both be set", side)
+	case password != "":
+		if user == "" {
+			return clientAuth{}, fmt.Errorf("%s username is required when a password is set", side)
+		}
+		return clientAuth{User: user, Secret: password, Basic: true}, nil
+	case token != "":
+		return clientAuth{User: user, Secret: token}, nil
+	default:
+		return clientAuth{}, fmt.Errorf("%s token or username and password is required", side)
+	}
 }
 
 func normalizeBaseURL(rawURL string) (string, error) {
@@ -359,7 +399,7 @@ func (m *Migrator) Discover(ctx context.Context) (*Plan, error) {
 		return nil, fmt.Errorf("read source token identity: %w", err)
 	}
 	if !sourceActor.IsAdmin {
-		return nil, errors.New("source token must belong to a site administrator")
+		return nil, errors.New("source credentials must belong to a site administrator")
 	}
 	plan.SourceLogin = sourceActor.UserName
 	if m.allRepos && len(m.repos) == 0 {
@@ -471,6 +511,9 @@ func (m *Migrator) discoverRepository(ctx context.Context, ref RepositoryRef) (R
 		plan.Collaborators = append(plan.Collaborators, Collaborator{UserName: collaborator.UserName, Permission: permission.Permission})
 	}
 	sort.Slice(plan.Collaborators, func(i, j int) bool { return plan.Collaborators[i].UserName < plan.Collaborators[j].UserName })
+	if err := m.discoverRepositoryContent(ctx, ref, &plan); err != nil {
+		return RepositoryPlan{}, err
+	}
 	return plan, nil
 }
 
@@ -542,7 +585,7 @@ func (m *Migrator) Apply(ctx context.Context, plan *Plan, credentials Credential
 		return nil, fmt.Errorf("read target token identity: %w", err)
 	}
 	if !targetActor.IsAdmin {
-		return nil, errors.New("target token must belong to a site administrator")
+		return nil, errors.New("target credentials must belong to a site administrator")
 	}
 	result := &Result{}
 	for _, user := range plan.Users {
@@ -594,10 +637,15 @@ func (m *Migrator) Apply(ctx context.Context, plan *Plan, credentials Credential
 	for _, organization := range plan.Organizations {
 		organizationNames[strings.ToLower(organization.Organization.Name)] = struct{}{}
 	}
+	createdRepos := map[string]bool{}
 	for _, repository := range plan.Repositories {
 		created, err := m.createRepository(ctx, plan.SourceLogin, targetActor.UserName, organizationNames, repository)
 		if err != nil {
 			return nil, err
+		}
+		if repository.Repository.Owner != nil {
+			ref := RepositoryRef{Owner: repository.Repository.Owner.UserName, Name: repository.Repository.Name}
+			createdRepos[strings.ToLower(ref.String())] = created
 		}
 		if created {
 			result.RepositoriesCreated++
@@ -637,6 +685,28 @@ func (m *Migrator) Apply(ctx context.Context, plan *Plan, credentials Credential
 			}
 			result.Collaborators++
 		}
+	}
+
+	for _, repository := range plan.Repositories {
+		if repository.Repository.Owner == nil {
+			return nil, errors.New("source repository has no owner")
+		}
+		ref := RepositoryRef{Owner: repository.Repository.Owner.UserName, Name: repository.Repository.Name}
+		stats, err := m.applyRepositoryContent(ctx, ref, repository, createdRepos[strings.ToLower(ref.String())])
+		if err != nil {
+			return nil, err
+		}
+		result.LabelsCreated += stats.labels
+		result.MilestonesCreated += stats.milestones
+		result.IssuesCreated += stats.issues
+		result.PullsCreated += stats.pulls
+		result.CommentsCreated += stats.comments
+		result.ReleasesCreated += stats.releases
+		result.IndexRemaps += stats.remaps
+		if stats.skipped {
+			result.ContentSkipped++
+		}
+		result.Notes = append(result.Notes, stats.notes...)
 	}
 
 	for _, user := range plan.Users {
@@ -816,8 +886,8 @@ func (m *Migrator) createRepository(ctx context.Context, sourceLogin, targetLogi
 	if !plan.Repository.Empty {
 		targetCloneURL := strings.TrimSuffix(m.target.baseURL, "/") + "/" + escapeRepo(ref) + ".git"
 		if err := m.mirror(ctx, MirrorRequest{
-			SourceURL: plan.Repository.CloneURL, SourceLogin: sourceLogin, SourceToken: m.source.token,
-			TargetURL: targetCloneURL, TargetLogin: targetLogin, TargetToken: m.target.token,
+			SourceURL: plan.Repository.CloneURL, SourceLogin: sourceLogin, SourceToken: m.source.secret,
+			TargetURL: targetCloneURL, TargetLogin: targetLogin, TargetToken: m.target.secret,
 		}); err != nil {
 			return false, m.rollbackRepository(ctx, ref, fmt.Errorf("mirror target repository %s: %w", ref, err))
 		}
@@ -1047,19 +1117,38 @@ func escapeRepo(ref RepositoryRef) string {
 	return url.PathEscape(ref.Owner) + "/" + url.PathEscape(ref.Name)
 }
 
+type clientAuth struct {
+	User   string
+	Secret string
+	Basic  bool
+}
+
 type apiClient struct {
 	baseURL string
 	apiURL  string
-	token   string
+	user    string
+	secret  string
+	basic   bool
+	sudo    string
 	secrets []string
 	http    *http.Client
 }
 
-func newAPIClient(baseURL, token string, httpClient *http.Client, secrets ...string) *apiClient {
+func newAPIClient(baseURL, secret string, httpClient *http.Client, secrets ...string) *apiClient {
+	return newAuthenticatedClient(baseURL, clientAuth{Secret: secret}, httpClient, secrets...)
+}
+
+func newAuthenticatedClient(baseURL string, auth clientAuth, httpClient *http.Client, secrets ...string) *apiClient {
 	return &apiClient{
 		baseURL: baseURL, apiURL: strings.TrimSuffix(baseURL, "/") + "/api/v1",
-		token: token, secrets: secrets, http: httpClient,
+		user: auth.User, secret: auth.Secret, basic: auth.Basic, secrets: secrets, http: httpClient,
 	}
+}
+
+func (c *apiClient) asUser(user string) *apiClient {
+	clone := *c
+	clone.sudo = user
+	return &clone
 }
 
 func (c *apiClient) get(ctx context.Context, endpoint string, output any) error {
@@ -1168,6 +1257,24 @@ func (s sliceValue) newPage() sliceValue {
 	case *[]Repository:
 		page := make([]Repository, 0)
 		return sliceValue{value: &page}
+	case *[]Label:
+		page := make([]Label, 0)
+		return sliceValue{value: &page}
+	case *[]Milestone:
+		page := make([]Milestone, 0)
+		return sliceValue{value: &page}
+	case *[]Issue:
+		page := make([]Issue, 0)
+		return sliceValue{value: &page}
+	case *[]PullRequest:
+		page := make([]PullRequest, 0)
+		return sliceValue{value: &page}
+	case *[]IssueComment:
+		page := make([]IssueComment, 0)
+		return sliceValue{value: &page}
+	case *[]Release:
+		page := make([]Release, 0)
+		return sliceValue{value: &page}
 	case *[]string:
 		page := make([]string, 0)
 		return sliceValue{value: &page}
@@ -1188,6 +1295,18 @@ func (s sliceValue) length() int {
 		return len(*value)
 	case *[]Repository:
 		return len(*value)
+	case *[]Label:
+		return len(*value)
+	case *[]Milestone:
+		return len(*value)
+	case *[]Issue:
+		return len(*value)
+	case *[]PullRequest:
+		return len(*value)
+	case *[]IssueComment:
+		return len(*value)
+	case *[]Release:
+		return len(*value)
 	case *[]string:
 		return len(*value)
 	default:
@@ -1205,6 +1324,18 @@ func (s sliceValue) append(page sliceValue) {
 		*target = append(*target, *page.value.(*[]Team)...)
 	case *[]Repository:
 		*target = append(*target, *page.value.(*[]Repository)...)
+	case *[]Label:
+		*target = append(*target, *page.value.(*[]Label)...)
+	case *[]Milestone:
+		*target = append(*target, *page.value.(*[]Milestone)...)
+	case *[]Issue:
+		*target = append(*target, *page.value.(*[]Issue)...)
+	case *[]PullRequest:
+		*target = append(*target, *page.value.(*[]PullRequest)...)
+	case *[]IssueComment:
+		*target = append(*target, *page.value.(*[]IssueComment)...)
+	case *[]Release:
+		*target = append(*target, *page.value.(*[]Release)...)
 	case *[]string:
 		*target = append(*target, *page.value.(*[]string)...)
 	default:
@@ -1242,7 +1373,14 @@ func (c *apiClient) do(ctx context.Context, method, endpoint string, input, outp
 		return fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "token "+c.token)
+	if c.basic {
+		req.SetBasicAuth(c.user, c.secret)
+	} else {
+		req.Header.Set("Authorization", "token "+c.secret)
+	}
+	if c.sudo != "" {
+		req.Header.Set("Sudo", c.sudo)
+	}
 	if input != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

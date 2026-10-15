@@ -1713,6 +1713,7 @@ func Routes() *web.Router {
 			})
 			m.Get("/orgs", admin.GetAllOrgs)
 			m.Post("/listen-port", admin.PostListenPort)
+			m.Post("/lfs-gc", admin.PostLFSGC)
 			m.Group("/users", func() {
 				m.Get("", admin.SearchUsers)
 				m.Post("", bind(api.CreateUserOption{}), admin.CreateUser)

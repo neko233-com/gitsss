@@ -113,6 +113,9 @@ LFS_MAX_FILE_SIZE = 10737418240</code></pre></div>
 
       <h2>存储可观测性</h2>
       <p>管理员可在 <code>/-/admin/storage</code> 查看卷可用空间、仓库 Git/LFS 字节数和待清理对象。任何写保护状态都应先处理底层磁盘或对象存储告警，再恢复写入。</p>
+      <h2>LFS 清理</h2>
+      <p>游戏仓库会留下指针已经删除的 LFS 对象。<code>gitsss admin lfs-gc</code> 默认只扫描并输出 JSON。<code>--apply</code> 才删除，而且只删除早于 <code>--older-than</code>（默认 168 小时）的元数据。短于 24 小时会被拒绝，除非加上 <code>--force</code>。管理页是 <code>/-/admin/lfs-gc</code>，API 是 <code>POST /api/v1/admin/lfs-gc</code>。对象路径和 oid 布局不变。说明见 <code>docs/operations/lfs-gc.md</code>。</p>
+      <p>服务端 Git 配置会把 <code>lfs.concurrenttransfers</code> 设成 CPU 数，最多 8。这只影响传输并发，不改变对象存放位置。</p>
     </main>
   </div>
   <script>

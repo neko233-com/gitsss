@@ -118,6 +118,21 @@ func (f *AdminUpdateForm) Validate(req *http.Request, errs binding.Errors) bindi
 	return middleware.Validate(errs, ctx.Data, f, ctx.Locale)
 }
 
+// AdminLFSGCForm scans or deletes unreferenced LFS objects.
+type AdminLFSGCForm struct {
+	Op             string `binding:"Required" form:"op"`
+	OlderThanHours int    `form:"older_than_hours"`
+	Repository     string `form:"repository"`
+	Confirm        bool   `form:"confirm"`
+	Format         string `form:"format"`
+}
+
+// Validate validates the LFS GC form.
+func (f *AdminLFSGCForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
+	ctx := context.GetValidateContext(req)
+	return middleware.Validate(errs, ctx.Data, f, ctx.Locale)
+}
+
 // Validate validates form fields
 func (f *AdminDashboardForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
 	ctx := context.GetValidateContext(req)

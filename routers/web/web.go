@@ -760,6 +760,8 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 		m.Post("/announcements", admin.AnnouncementsPost)
 		m.Get("/updates", admin.Updates)
 		m.Post("/updates", web.Bind(forms.AdminUpdateForm{}), admin.UpdatesPost)
+		m.Get("/lfs-gc", admin.LFSGC)
+		m.Post("/lfs-gc", web.Bind(forms.AdminLFSGCForm{}), admin.LFSGCPost)
 
 		m.Group("/config", func() {
 			m.Get("", admin.Config)
