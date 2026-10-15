@@ -1,0 +1,87 @@
+{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin")}}
+<div class="admin-setting-content">
+	<h4 class="ui top attached header">
+		{{ctx.Locale.Tr "admin.updates"}}
+	</h4>
+	<div class="ui attached segment">
+		<p>{{ctx.Locale.Tr "admin.updates.intro" .DefaultMirror}}</p>
+		<p>{{ctx.Locale.Tr "admin.updates.current"}} <strong>{{.CurrentVersion}}</strong></p>
+		<form class="ui form" method="post" action="{{AppSubUrl}}/-/admin/updates">
+			<div class="field">
+				<label for="github-repo">{{ctx.Locale.Tr "admin.updates.repo"}}</label>
+				<input id="github-repo" name="github_repo" value="{{.GitHubRepo}}" autocomplete="off">
+			</div>
+			<div class="field">
+				<label for="update-mirrors">{{ctx.Locale.Tr "admin.updates.mirrors"}}</label>
+				<textarea id="update-mirrors" name="mirrors" rows="6" placeholder="{{.DefaultMirror}}">{{.MirrorsText}}</textarea>
+				<p class="help">{{ctx.Locale.Tr "admin.updates.mirrors_help" .DefaultMirror}}</p>
+			</div>
+			<div class="field">
+				<div class="ui checkbox">
+					<input type="checkbox" name="check_github" value="true" {{if .CheckGitHub}}checked{{end}}>
+					<label>{{ctx.Locale.Tr "admin.updates.check_github"}}</label>
+				</div>
+			</div>
+			<div class="field">
+				<div class="ui checkbox">
+					<input type="checkbox" name="enabled" value="true" {{if .ScheduleEnabled}}checked{{end}}>
+					<label>{{ctx.Locale.Tr "admin.updates.enable_schedule"}}</label>
+				</div>
+			</div>
+			<button class="ui primary button" type="submit" name="op" value="check">{{ctx.Locale.Tr "admin.updates.check_now"}}</button>
+			<button class="ui button" type="submit" name="op" value="save">{{ctx.Locale.Tr "admin.updates.save"}}</button>
+		</form>
+	</div>
+
+	{{if .Report}}
+	<h4 class="ui top attached header">
+		{{ctx.Locale.Tr "admin.updates.result"}}
+	</h4>
+	<div class="ui attached segment">
+		<p>
+			{{ctx.Locale.Tr "admin.updates.latest"}} <strong>{{.Report.LatestVersion}}</strong>
+			{{if .Report.ManifestTrusted}}{{ctx.Locale.Tr "admin.updates.trusted"}}{{else}}{{ctx.Locale.Tr "admin.updates.untrusted"}}{{end}}
+		</p>
+		{{if .Report.HTMLURL}}<p><a href="{{.Report.HTMLURL}}" target="_blank" rel="noreferrer">{{.Report.HTMLURL}}</a></p>{{end}}
+		{{if .Report.Note}}<div class="ui warning message">{{.Report.Note}}</div>{{end}}
+		{{if .Report.Error}}<div class="ui negative message">{{.Report.Error}}</div>{{end}}
+		<table class="ui very basic table">
+			<thead>
+				<tr>
+					<th>{{ctx.Locale.Tr "admin.updates.status"}}</th>
+					<th>{{ctx.Locale.Tr "admin.updates.endpoint"}}</th>
+					<th>{{ctx.Locale.Tr "admin.updates.latency"}}</th>
+					<th>{{ctx.Locale.Tr "admin.updates.detail"}}</th>
+				</tr>
+			</thead>
+			<tbody>
+				{{range .Report.Probes}}
+				<tr>
+					<td>{{if .OK}}OK{{else}}FAIL{{end}}{{if .Selected}} · {{ctx.Locale.Tr "admin.updates.selected"}}{{end}}</td>
+					<td>{{.Name}}{{if .Mirror}}<br><code>{{.Mirror}}</code>{{end}}</td>
+					<td>{{.LatencyMS}} ms</td>
+					<td>{{.Error}}</td>
+				</tr>
+				{{end}}
+			</tbody>
+		</table>
+		{{if .Report.Assets}}
+		<h5>{{ctx.Locale.Tr "admin.updates.assets"}}</h5>
+		<table class="ui very basic table">
+			<thead>
+				<tr><th>{{ctx.Locale.Tr "admin.updates.asset"}}</th><th>{{ctx.Locale.Tr "admin.updates.checksum"}}</th></tr>
+			</thead>
+			<tbody>
+				{{range .Report.Assets}}
+				<tr>
+					<td>{{.Name}}</td>
+					<td>{{if .SHA256}}<code>{{.SHA256}}</code>{{else}}{{ctx.Locale.Tr "admin.updates.checksum_missing"}}{{end}}</td>
+				</tr>
+				{{end}}
+			</tbody>
+		</table>
+		{{end}}
+	</div>
+	{{end}}
+</div>
+{{template "admin/layout_footer" .}}

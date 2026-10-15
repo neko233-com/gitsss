@@ -5,6 +5,7 @@ package cron
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	activities_model "github.com/neko233-com/gitsss/models/activities"
@@ -139,21 +140,56 @@ func registerDeleteOldActions() {
 	})
 }
 
-func registerUpdateGitSSSChecker() {
-	type UpdateCheckerConfig struct {
-		BaseConfig
-		HTTPEndpoint string `ini:"HTTP_ENDPOINT"`
+// UpdateCheckerConfig is the [cron.update_checker] task.
+// CHECK_GITHUB defaults to false so an enabled task with an empty endpoint still makes no network request.
+type UpdateCheckerConfig struct {
+	BaseConfig
+	HTTPEndpoint string        `ini:"HTTP_ENDPOINT"`
+	CheckGitHub  bool          `ini:"CHECK_GITHUB"`
+	GitHubRepo   string        `ini:"GITHUB_REPO"`
+	Mirrors      string        `ini:"MIRRORS"`
+	ProbeTimeout time.Duration `ini:"PROBE_TIMEOUT"`
+}
+
+func (c *UpdateCheckerConfig) options() updatechecker.Options {
+	mirrors, _ := updatechecker.ParseMirrors(c.Mirrors)
+	return updatechecker.Options{
+		HTTPEndpoint: strings.TrimSpace(c.HTTPEndpoint),
+		CheckGitHub:  c.CheckGitHub,
+		GitHubRepo:   strings.TrimSpace(c.GitHubRepo),
+		Mirrors:      mirrors,
+		ProbeTimeout: c.ProbeTimeout,
 	}
+}
+
+func registerUpdateGitSSSChecker() {
 	RegisterTaskFatal("update_checker", &UpdateCheckerConfig{
 		BaseConfig: BaseConfig{
 			Enabled:    false,
 			RunAtStart: false,
 			Schedule:   "@every 168h",
 		},
-		HTTPEndpoint: "",
 	}, func(ctx context.Context, _ *user_model.User, config Config) error {
-		updateCheckerConfig := config.(*UpdateCheckerConfig)
-		return updatechecker.GitSSSUpdateChecker(ctx, updateCheckerConfig.HTTPEndpoint)
+		opts := config.(*UpdateCheckerConfig).options()
+		// Prefer the live config so mirror changes from the admin page apply before the next process start.
+		if setting.CfgProvider != nil {
+			opts = updatechecker.OptionsFromConfig()
+		}
+		opts.CurrentVersion = setting.AppVer
+		if !opts.CheckGitHub && strings.TrimSpace(opts.HTTPEndpoint) == "" {
+			return nil
+		}
+		report, err := updatechecker.Check(ctx, opts)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(report.LatestVersion) == "" {
+			return nil
+		}
+		if err := updatechecker.SaveReport(ctx, report); err != nil {
+			return err
+		}
+		return updatechecker.UpdateRemoteVersion(ctx, report.LatestVersion)
 	})
 }
 

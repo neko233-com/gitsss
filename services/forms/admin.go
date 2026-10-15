@@ -91,6 +91,22 @@ type AdminDashboardForm struct {
 	From string
 }
 
+// AdminUpdateForm configures GitHub release checks and mirror fallbacks.
+type AdminUpdateForm struct {
+	Op          string `binding:"Required" form:"op"`
+	Mirrors     string `form:"mirrors"`
+	GitHubRepo  string `form:"github_repo"`
+	CheckGitHub bool   `form:"check_github"`
+	Enabled     bool   `form:"enabled"`
+	Format      string `form:"format"`
+}
+
+// Validate validates the update check form.
+func (f *AdminUpdateForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
+	ctx := context.GetValidateContext(req)
+	return middleware.Validate(errs, ctx.Data, f, ctx.Locale)
+}
+
 // Validate validates form fields
 func (f *AdminDashboardForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
 	ctx := context.GetValidateContext(req)

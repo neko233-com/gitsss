@@ -11,6 +11,9 @@
 				<a class="{{if .PageIsAdminSelfCheck}}active {{end}}item" href="{{AppSubUrl}}/-/admin/self_check">
 					{{ctx.Locale.Tr "admin.self_check"}}
 				</a>
+				<a class="{{if .PageIsAdminUpdates}}active {{end}}item" href="{{AppSubUrl}}/-/admin/updates">
+					{{ctx.Locale.Tr "admin.updates"}}
+				</a>
 				<a class="{{if .PageIsAdminStorageAwareness}}active {{end}}item" href="{{AppSubUrl}}/-/admin/storage">
 					{{ctx.Locale.Tr "admin.storage_awareness.title"}}
 				</a>

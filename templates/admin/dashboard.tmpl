@@ -36,6 +36,7 @@
 		{{if .NeedUpdate}}
 			<div class="ui negative message flash-error">
 				<p>{{ctx.Locale.Tr "admin.dashboard.new_version_hint" .RemoteVersion AppVer "https://github.com/neko233-com/gitsss/releases"}}</p>
+				<p><a href="{{AppSubUrl}}/-/admin/updates">{{ctx.Locale.Tr "admin.updates"}}</a></p>
 			</div>
 		{{end}}
 		<h4 class="ui top attached header">

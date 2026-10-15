@@ -49,3 +49,30 @@ PROPORTION_TO_CHECK_PER_REPO = 0.1
 	assert.Equal(t, int64(10), config.NumberToCheckPerRepo)
 	assert.InDelta(t, 0.1, config.ProportionToCheckPerRepo, 0.001)
 }
+
+func TestUpdateCheckerConfig(t *testing.T) {
+	cfg, err := setting.NewConfigProviderFromData(`
+[cron.update_checker]
+ENABLED = true
+HTTP_ENDPOINT = http://updates.example/version.json
+CHECK_GITHUB = true
+GITHUB_REPO = neko233-com/gitsss
+MIRRORS = https://mirror.example,https://backup.example/{url}
+PROBE_TIMEOUT = 3s
+`)
+	assert.NoError(t, err)
+	defer test.MockVariableValue(&setting.CfgProvider, cfg)()
+
+	config := &UpdateCheckerConfig{
+		BaseConfig: BaseConfig{Enabled: false, Schedule: "@every 168h"},
+	}
+	_, err = setting.GetCronSettings("update_checker", config)
+	assert.NoError(t, err)
+	assert.True(t, config.Enabled)
+	assert.True(t, config.CheckGitHub)
+	assert.Equal(t, "neko233-com/gitsss", config.GitHubRepo)
+	assert.Equal(t, 3*time.Second, config.ProbeTimeout)
+	opts := config.options()
+	assert.Equal(t, []string{"https://mirror.example", "https://backup.example/{url}"}, opts.Mirrors)
+	assert.Equal(t, "http://updates.example/version.json", opts.HTTPEndpoint)
+}
