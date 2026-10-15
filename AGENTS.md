@@ -36,3 +36,9 @@
 - Do not redesign Git, LFS, local/S3/MinIO storage, database paths, or Actions artifact/log storage without a compatibility report covering migration, rollback, capacity and performance impact.
 - Additive storage drivers and observability are allowed when existing paths, providers, keys and APIs remain unchanged; validate both CGO and pure-Go SQLite builds locally.
 - Git layout contract v1 is `data/gitsss/layout.json`. Upgrades may add `reserved` keys and files under `data/gitsss/extensions/<id>/` only. They must not move, rename, repack, or rewrite bare repositories, Git objects, refs, or LFS object bytes. A binary that does not understand `layout_version` must stop without writing those trees. Rollback is the previous binary; Git and LFS data need no migration.
+
+## Agent-facing operations
+
+- `gitsss import-gitea-http` prints JSON. Authenticate with a site-admin token file or `--source-user` plus `--source-password-file` (and the target equivalents). Keep passwords in mode-`0600` files, not on the command line. Without `--apply` it only prints the plan. With `--apply` it copies accounts, RBAC, Git, LFS, and the labels, milestones, issues, comments, pull requests, and release notes of repositories created in that run. Release attachment bytes are not copied.
+- `gitsss admin lfs-gc` prints JSON. It scans until `--apply`. Retention defaults to 168h and refuses a window under 24h unless `--force`. `POST /api/v1/admin/lfs-gc` is the same report for an admin token.
+- Pure frontend plugins live under `custom/public/assets/plugins/`. The backend does not execute them. See `docs/site/extensions.html`.

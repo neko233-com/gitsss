@@ -7,14 +7,15 @@ It never needs SSH, the source host filesystem, or the source Docker volume.
 ## Safety boundary
 
 - Keep source Gitea running and unchanged.
-- Use a source site-administrator token with read access to all accounts and the
-  selected repositories.
+- Use a source site-administrator token, or that administrator's username and
+  password. Read the secret from a mode-`0600` file. Do not pass it as a shell
+  argument.
 - Use a separate target URL during import. Source and target URLs must differ.
 - Dry-run is default and performs no target write.
 - Source HTTP operations are GET-only. Git clone/LFS reads use HTTP(S).
 - Redirects, proxy environment variables, cross-origin clone URLs, embedded
   clone credentials, and unknown collaborator permissions are rejected.
-- Tokens are read from files and redacted from errors. Set files to mode `0600`.
+- Tokens and passwords are read from files and redacted from errors. Set files to mode `0600`.
 
 HTTP cannot export password hashes, TOTP secrets, API tokens, or SSH private
 state. Imported local users receive random temporary passwords, are marked to
@@ -30,10 +31,16 @@ Imported:
 - owner and custom teams, unit permissions, members, and repository grants;
 - public organization membership and direct repository collaborators;
 - selected repository metadata, branches, tags, notes, default branch, archive
-  state, complete Git objects, and Git LFS objects.
+  state, complete Git objects, and Git LFS objects;
+- labels, milestones, issues, issue comments, pull requests, and release
+  notes on repositories created in that apply run.
 
-Not imported: issues, pull requests, wiki, releases, packages, webhooks, Actions
-secrets, access tokens, SSH keys, TOTP secrets, OAuth grants, or password hashes.
+Not imported: wiki, release attachment bytes, packages, review threads, attachments, webhooks,
+Actions secrets, access tokens, SSH keys, TOTP secrets, OAuth grants, or
+password hashes. Merged pull requests are closed on the target; the merge
+commit is not replayed. Issue numbers match the source only when the target
+tracker is empty and the source numbers have no gaps. An existing target
+repository is not overwritten, and its issues are left untouched.
 
 ## Rehearsal
 
@@ -47,10 +54,26 @@ chmod 600 source.token target.token
 gitsss import-gitea-http \
   --source-url http://git.example.internal:3000 \
   --source-token-file source.token \
-  --target-url http://127.0.0.1:3001 \
+  --target-url http://127.0.0.1:5300 \
   --target-token-file target.token \
   --repo engineering/service-api \
   --repo engineering/config-service
+```
+
+Username and password work in place of the token files. Keep the password files
+out of the shell history:
+
+```sh
+chmod 600 source.password target.password
+
+gitsss import-gitea-http \
+  --source-url http://git.example.internal:3000 \
+  --source-user root \
+  --source-password-file source.password \
+  --target-url http://127.0.0.1:5300 \
+  --target-user root \
+  --target-password-file target.password \
+  --all-repos
 ```
 
 Review the JSON plan. It must name only expected accounts, organization/RBAC,
@@ -66,7 +89,7 @@ replication. Use a fresh target for final cutover:
 gitsss import-gitea-http \
   --source-url http://git.example.internal:3000 \
   --source-token-file source.token \
-  --target-url http://127.0.0.1:3001 \
+  --target-url http://127.0.0.1:5300 \
   --target-token-file target.token \
   --repo engineering/service-api \
   --repo engineering/config-service \
@@ -78,11 +101,12 @@ gitsss import-gitea-http \
 Default conflict policy is `fail`. It prevents accidental adoption or
 overwrite of target identities and repositories. `--conflict skip` is only for
 controlled recovery of a known partial run; existing repositories are verified
-but not overwritten.
+but not overwritten, and their issues and pull requests are not copied.
 
 Acceptance requires matching selected refs, Git object IDs, default branches,
 LFS content, organization/team membership, team repository grants, direct
-collaborator permissions, account state, and mode `0600` credentials output.
+collaborator permissions, account state, labels, milestones, issues, comments,
+pull-request head and base, and mode `0600` credentials output.
 
 ## Cutover to port 3000
 
@@ -90,10 +114,10 @@ After acceptance:
 
 1. Keep source rollback data intact.
 2. Stop source Gitea only during the approved cutover window.
-3. Change gitsss published HTTP port/root URL from temporary `3001` to `3000`.
-4. Start gitsss and verify `/api/healthz`, web login, clone, push, LFS, and RBAC.
+3. Change gitsss published HTTP port/root URL from the temporary port, usually `5300`, to `3000`.
+4. Start gitsss and verify `/api/healthz`, web login, clone, push, LFS, issues, and RBAC.
 5. Remove source tokens and securely archive or destroy temporary credentials.
 
 The stopped-volume takeover helper remains an optional full-fidelity fallback
-when password hashes, TOTP, SSH keys, issues, or other database state must be
-preserved. Never run it against a live source volume.
+when password hashes, TOTP, SSH keys, wiki, releases, or other database state
+must be preserved. Never run it against a live source volume.

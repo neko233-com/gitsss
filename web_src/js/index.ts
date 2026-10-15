@@ -28,6 +28,7 @@ import {initRepoPullRequestReview, initRepoIssueFilterItemLabel} from './feature
 import {initRepoEllipsisButton, initCommitStatuses} from './features/repo-commit.ts';
 import {initRepoTopicBar} from './features/repo-home.ts';
 import {initAdminCommon} from './features/admin/common.ts';
+import {initFrontendPlugins} from './features/frontend-plugins.ts';
 import {initRepoCodeView} from './features/repo-code.ts';
 import {initSshKeyFormParser} from './features/sshkey-helper.ts';
 import {initUserSettings} from './features/user-settings.ts';
@@ -112,6 +113,7 @@ const initPerformanceTracer = callInitFunctions([
   initCopyContent,
 
   initAdminCommon,
+  initFrontendPlugins,
   initAdminUserListSearchForm,
   initAdminConfigs,
   initAdminStorageAwareness,

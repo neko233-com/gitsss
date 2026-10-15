@@ -71,12 +71,12 @@
                 <li>完整 Git 对象和 LFS 对象</li>
                 <li>公共组织成员关系</li>
                 <li>直接协作者权限</li>
+                <li>标签、里程碑、Issue、评论、Pull Request、Release 说明</li>
               </ul>
             </td>
             <td>
               <ul>
-                <li>Issue、PR、Wiki</li>
-                <li>Releases、Packages</li>
+                <li>Wiki、Release 附件、Packages</li>
                 <li>Webhooks、Secrets</li>
                 <li>SSH 密钥、TOTP</li>
                 <li>密码哈希、OAuth</li>
@@ -92,16 +92,14 @@
         <p>HTTP 无法导出密码哈希、TOTP 密钥、API Token 或 SSH 私钥。导入的本地用户会收到随机临时密码，首次登录强制修改。</p>
       </div>
 
-      <h3>Step 1: 准备 Token</h3>
-      <p>在源 Gitea 创建站点管理员 Token（需要全部仓库的读取权限），保存到文件：</p>
+      <h3>Step 1: 准备凭据</h3>
+      <p>源站和目标站都要使用站点管理员。可以是 API Token，也可以是用户名加密码文件。密码不要写在命令行上。</p>
       <div class="code-block">
         <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-        <pre><code># 将 token 保存到文件并设置权限
-echo "your-source-token" > source.token
-chmod 600 source.token
-
-echo "your-target-token" > target.token
-chmod 600 target.token</code></pre>
+        <pre><code># 密码或 token 都放进 0600 文件。下面是用户名密码方式。
+printf '%s\n' 'source-admin-password' > source.password
+printf '%s\n' 'target-admin-password' > target.password
+chmod 600 source.password target.password</code></pre>
       </div>
 
       <h3>Step 2: 演练（Dry-run）</h3>
@@ -110,13 +108,14 @@ chmod 600 target.token</code></pre>
         <button class="copy-btn" onclick="copyCode(this)">Copy</button>
         <pre><code>gitsss import-gitea-http \
   --source-url http://git.example.internal:3000 \
-  --source-token-file source.token \
-  --target-url http://127.0.0.1:3001 \
-  --target-token-file target.token \
-  --repo engineering/service-api \
-  --repo engineering/config-service</code></pre>
+  --source-user root \
+  --source-password-file source.password \
+  --target-url http://127.0.0.1:5300 \
+  --target-user root \
+  --target-password-file target.password \
+  --all-repos</code></pre>
       </div>
-      <p>审查 JSON 计划，确认只包含预期的账号、组织/RBAC 和仓库。</p>
+      <p>审查 JSON 计划。它包含账号、组织、仓库，以及标签、里程碑、Issue 和 Pull Request。Dry-run 不写目标站。</p>
 
       <h3>Step 3: 执行导入</h3>
       <p>确认无误后，使用 <code>--apply</code> 执行实际导入：</p>
@@ -124,11 +123,12 @@ chmod 600 target.token</code></pre>
         <button class="copy-btn" onclick="copyCode(this)">Copy</button>
         <pre><code>gitsss import-gitea-http \
   --source-url http://git.example.internal:3000 \
-  --source-token-file source.token \
-  --target-url http://127.0.0.1:3001 \
-  --target-token-file target.token \
-  --repo engineering/service-api \
-  --repo engineering/config-service \
+  --source-user root \
+  --source-password-file source.password \
+  --target-url http://127.0.0.1:5300 \
+  --target-user root \
+  --target-password-file target.password \
+  --all-repos \
   --timeout 30m \
   --apply \
   --credentials-file imported-users.jsonl</code></pre>
@@ -146,7 +146,7 @@ chmod 600 target.token</code></pre>
       <hr>
 
       <h2>方式二：Volume 接管</h2>
-      <p>当需要完整保留密码哈希、TOTP、SSH 密钥、Issue 等数据库状态时，使用 Volume 接管。</p>
+      <p>当需要完整保留密码哈希、TOTP、SSH 密钥、Wiki、Release 等数据库状态时，使用 Volume 接管。Issue 和 Pull Request 已可以由 HTTP 导入复制到新建仓库。</p>
 
       <div class="callout callout-danger">
         <span class="callout-label">警告</span>

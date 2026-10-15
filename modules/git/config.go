@@ -127,6 +127,12 @@ func syncGitConfig(ctx context.Context) (err error) {
 	if err = configSet(ctx, "pack.threads", strconv.Itoa(threads)); err != nil {
 		return err
 	}
+	// Game repositories push many LFS objects. Cap the fan-out so a large host
+	// does not open one HTTP transfer per core.
+	transfers := min(threads, 8)
+	if err = configSet(ctx, "lfs.concurrenttransfers", strconv.Itoa(transfers)); err != nil {
+		return err
+	}
 	if DefaultFeatures().CheckVersionAtLeast("2.21") {
 		if err = configSet(ctx, "core.multiPackIndex", "true"); err != nil {
 			return err

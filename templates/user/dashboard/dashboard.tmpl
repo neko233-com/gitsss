@@ -13,6 +13,7 @@
 			</div>
 			{{end}}
 			<div id="gitsss-react-dashboard" data-endpoint="{{AppSubUrl}}/announcements"></div>
+			<div data-gitsss-plugin-slot="dashboard"></div>
 			<script src="{{AssetUrlPrefix}}/js/gitsss-react-dashboard.js" defer></script>
 			{{template "user/dashboard/actions" .}}
 			{{template "user/heatmap" .}}
