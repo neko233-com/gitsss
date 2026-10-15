@@ -36,10 +36,12 @@ Imported:
   release notes, release attachment bytes up to 512 MiB, wiki pages, and
   generic packages linked to those repositories.
 
-npm, Maven, PyPI, and container images are copied with their own upload
-protocols. npm is republished from the tarball, Maven files are put back on
-the group/artifact path, PyPI uses the upload form, and container blobs are
-pushed before the manifest. Other package protocols are listed and skipped.
+npm, Maven, PyPI, Helm, Cargo, Debian, Composer, Alpine, NuGet, RubyGems,
+and container images are copied with their own upload protocols. Debian and
+Alpine use the file `composite_key` (`distribution|component` or
+`branch|repository|architecture`) exposed by the package file API. Conan and
+Swift stay listed only: their publish APIs are multi-request handshakes, not
+one package file.
 
 Not imported: webhooks,
 Actions secrets, access tokens, SSH keys, TOTP secrets, OAuth grants, or

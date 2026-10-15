@@ -67,9 +67,10 @@ type PackageCopy struct {
 
 // PackageFile is one file inside a package version.
 type PackageFile struct {
-	Name   string `json:"name"`
-	Size   int64  `json:"size"`
-	SHA256 string `json:"sha256,omitempty"`
+	Name         string `json:"name"`
+	Size         int64  `json:"size"`
+	SHA256       string `json:"sha256,omitempty"`
+	CompositeKey string `json:"composite_key,omitempty"`
 }
 
 func (m *Migrator) discoverExtras(ctx context.Context, ref RepositoryRef, plan *RepositoryPlan) error {
