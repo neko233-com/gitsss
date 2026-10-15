@@ -428,7 +428,42 @@ func ViewProject(ctx *context.Context) {
 	ctx.Data["IssuesMap"] = issuesMap
 	ctx.Data["Columns"] = columns
 
+	if strings.Contains(ctx.Req.Header.Get("Accept"), "application/json") {
+		ctx.JSON(http.StatusOK, projectBoardJSON(project, columns, issuesMap))
+		return
+	}
+
 	ctx.HTML(http.StatusOK, tplProjectsView)
+}
+
+type projectBoardCard struct {
+	ID     int64  `json:"id"`
+	Number int64  `json:"number"`
+	Title  string `json:"title"`
+}
+
+type projectBoardColumn struct {
+	ID    int64              `json:"id"`
+	Title string             `json:"title"`
+	Cards []projectBoardCard `json:"cards"`
+}
+
+type projectBoard struct {
+	ID      int64                `json:"id"`
+	Title   string               `json:"title"`
+	Columns []projectBoardColumn `json:"columns"`
+}
+
+func projectBoardJSON(project *project_model.Project, columns project_model.ColumnList, issuesMap map[int64]issues_model.IssueList) projectBoard {
+	board := projectBoard{ID: project.ID, Title: project.Title, Columns: make([]projectBoardColumn, 0, len(columns))}
+	for _, column := range columns {
+		item := projectBoardColumn{ID: column.ID, Title: column.Title, Cards: []projectBoardCard{}}
+		for _, issue := range issuesMap[column.ID] {
+			item.Cards = append(item.Cards, projectBoardCard{ID: issue.ID, Number: issue.Index, Title: issue.Title})
+		}
+		board.Columns = append(board.Columns, item)
+	}
+	return board
 }
 
 // UpdateIssueProject change an issue's project

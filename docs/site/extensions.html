@@ -57,6 +57,7 @@
 
       <h2>纯前端插件</h2>
       <p>页面加载时读取 <code>/assets/plugins/manifest.json</code>。文件不存在就跳过。清单里的脚本必须是同源路径 <code>/assets/plugins/&lt;id&gt;/*.js</code>，拒绝外链、<code>..</code> 和查询串。插件导出 <code>mount(root)</code>，挂到 <code>data-gitsss-plugin-slot</code> 为 <code>dashboard</code> 或 <code>repo-header</code> 的节点。示例在 <code>docs/examples/frontend-plugin/</code>。这些文件和自定义模板一样，属于管理员信任的本地代码。</p>
+      <p>仓库主要页面由 Vite 8 和 React 19 渲染，数据来自现有 API，文本不按 HTML 插入。加载失败或带 <code>?classic=1</code> 时继续使用服务端页面。看板数据在已有项目查看权限下以 <code>Accept: application/json</code> 返回，不新增匿名接口。</p>
 
       <h2>先选扩展边界</h2>
       <table>

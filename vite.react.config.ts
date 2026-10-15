@@ -10,9 +10,9 @@ export default defineConfig({
     emptyOutDir: false,
     sourcemap: false,
     rollupOptions: {
-      input: 'web_src/js/react/dashboard.tsx',
+      input: 'web_src/js/react/app.tsx',
       output: {
-        entryFileNames: 'js/gitsss-react-dashboard.js',
+        entryFileNames: 'js/gitsss-react.js',
         format: 'iife',
       },
     },
