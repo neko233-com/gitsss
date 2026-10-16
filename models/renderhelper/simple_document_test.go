@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/neko233-com/gitsss/models/unittest"
-	"github.com/neko233-com/gitsss/modules/markup"
 	"github.com/neko233-com/gitsss/modules/markup/markdown"
 
 	"github.com/stretchr/testify/assert"
@@ -16,7 +15,7 @@ import (
 func TestSimpleDocument(t *testing.T) {
 	unittest.PrepareTestEnv(t)
 	rctx := NewRenderContextSimpleDocument(t.Context(), "/base").WithMarkupType(markdown.MarkupName)
-	rendered, err := markup.RenderString(rctx, `
+	rendered, err := testRenderString(rctx, `
 65f1bf27bc3bf70f64657658635e66094edbcb4d
 #1
 @user2

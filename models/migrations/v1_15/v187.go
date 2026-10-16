@@ -4,12 +4,11 @@
 package v1_15
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/base"
-
-	"xorm.io/xorm"
 )
 
-func DropWebhookColumns(x *xorm.Engine) error {
+func DropWebhookColumns(x db.EngineMigration) error {
 	// Make sure the columns exist before dropping them
 	type Webhook struct {
 		Signature string `xorm:"TEXT"`

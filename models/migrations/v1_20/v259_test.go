@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/neko233-com/gitsss/models/migrations/base"
+	"github.com/neko233-com/gitsss/models/migrations/migrationtest"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -66,7 +66,7 @@ func Test_ConvertScopedAccessTokens(t *testing.T) {
 		})
 	}
 
-	x, deferable := base.PrepareTestEnv(t, 0, new(AccessToken))
+	x, deferable := migrationtest.PrepareTestEnv(t, 0, new(AccessToken))
 	defer deferable()
 	if x == nil || t.Failed() {
 		t.Skip()

@@ -3,11 +3,9 @@
 
 package v1_12
 
-import (
-	"xorm.io/xorm"
-)
+import "github.com/neko233-com/gitsss/models/db"
 
-func FixMigratedRepositoryServiceType(x *xorm.Engine) error {
+func FixMigratedRepositoryServiceType(x db.EngineMigration) error {
 	// structs.GithubService:
 	// GithubService = 2
 	_, err := x.Exec("UPDATE repository SET original_service_type = ? WHERE original_url LIKE 'https://github.com/%'", 2)

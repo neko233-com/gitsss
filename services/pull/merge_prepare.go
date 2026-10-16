@@ -18,7 +18,6 @@ import (
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/git"
 	"github.com/neko233-com/gitsss/modules/git/gitcmd"
-	"github.com/neko233-com/gitsss/modules/gitrepo"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/util"
 	asymkey_service "github.com/neko233-com/gitsss/services/asymkey"
@@ -103,15 +102,18 @@ func createTemporaryRepoForMerge(ctx context.Context, pr *issues_model.PullReque
 	mergeCtx.sig = doer.NewGitSig()
 	mergeCtx.committer = mergeCtx.sig
 
-	gitRepo, err := gitrepo.OpenRepository(ctx, pr.BaseRepo)
+	gitRepo, err := git.OpenRepository(ctx, mergeCtx.tmpBasePath)
 	if err != nil {
 		defer cancel()
 		return nil, nil, fmt.Errorf("failed to open temp git repo for pr[%d]: %w", mergeCtx.pr.ID, err)
 	}
 	defer gitRepo.Close()
 
-	// Determine if we should sign
-	sign, key, signer, _ := asymkey_service.SignMerge(ctx, pr, doer, gitRepo)
+	// Determine if we should sign, using the temp repo's own refs (see SignMerge for why)
+	sign, key, signer, err := asymkey_service.SignMerge(ctx, pr, doer, gitRepo, git.BranchPrefix+tmpRepoBaseBranch, git.BranchPrefix+tmpRepoTrackingBranch)
+	if err != nil && !asymkey_service.IsErrWontSign(err) {
+		log.Error("%-v SignMerge: %v", mergeCtx.pr, err) // the merge proceeds unsigned regardless, so log it here
+	}
 	if sign {
 		mergeCtx.signKey = key
 		if pr.BaseRepo.GetTrustModel() == repo_model.CommitterTrustModel || pr.BaseRepo.GetTrustModel() == repo_model.CollaboratorCommitterTrustModel {

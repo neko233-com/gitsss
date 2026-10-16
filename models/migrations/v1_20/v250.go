@@ -6,12 +6,11 @@ package v1_20
 import (
 	"strings"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/json"
-
-	"xorm.io/xorm"
 )
 
-func ChangeContainerMetadataMultiArch(x *xorm.Engine) error {
+func ChangeContainerMetadataMultiArch(x db.EngineMigration) error {
 	sess := x.NewSession()
 	defer sess.Close()
 

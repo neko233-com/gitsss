@@ -5,6 +5,7 @@
 package gitea
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 )
@@ -15,39 +16,39 @@ type ListStargazersOptions struct {
 }
 
 // ListRepoStargazers list a repository's stargazers
-func (c *Client) ListRepoStargazers(user, repo string, opt ListStargazersOptions) ([]*User, *Response, error) {
+func (c *RepositoriesService) ListRepoStargazers(ctx context.Context, user, repo string, opt ListStargazersOptions) ([]*User, *Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo); err != nil {
 		return nil, nil, err
 	}
 	opt.setDefaults()
 	stargazers := make([]*User, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/repos/%s/%s/stargazers?%s", user, repo, opt.getURLQuery().Encode()), nil, nil, &stargazers)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/stargazers?%s", user, repo, opt.getURLQuery().Encode()), nil, nil, &stargazers)
 	return stargazers, resp, err
 }
 
 // GetStarredRepos returns the repos that the given user has starred
-func (c *Client) GetStarredRepos(user string) ([]*Repository, *Response, error) {
+func (c *RepositoriesService) GetStarredRepos(ctx context.Context, user string) ([]*Repository, *Response, error) {
 	if err := escapeValidatePathSegments(&user); err != nil {
 		return nil, nil, err
 	}
 	repos := make([]*Repository, 0, 10)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/users/%s/starred", user), jsonHeader, nil, &repos)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/users/%s/starred", user), jsonHeader, nil, &repos)
 	return repos, resp, err
 }
 
 // GetMyStarredRepos returns the repos that the authenticated user has starred
-func (c *Client) GetMyStarredRepos() ([]*Repository, *Response, error) {
+func (c *RepositoriesService) GetMyStarredRepos(ctx context.Context) ([]*Repository, *Response, error) {
 	repos := make([]*Repository, 0, 10)
-	resp, err := c.getParsedResponse("GET", "/user/starred", jsonHeader, nil, &repos)
+	resp, err := c.getParsedResponse(ctx, "GET", "/user/starred", jsonHeader, nil, &repos)
 	return repos, resp, err
 }
 
 // IsRepoStarring returns whether the authenticated user has starred the repo or not
-func (c *Client) IsRepoStarring(user, repo string) (bool, *Response, error) {
+func (c *RepositoriesService) IsRepoStarring(ctx context.Context, user, repo string) (bool, *Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo); err != nil {
 		return false, nil, err
 	}
-	resp, err := c.doRequestWithStatusHandle("GET", fmt.Sprintf("/user/starred/%s/%s", user, repo), jsonHeader, nil)
+	resp, err := c.doRequestWithStatusHandle(ctx, "GET", fmt.Sprintf("/user/starred/%s/%s", user, repo), jsonHeader, nil)
 	if resp != nil {
 		switch resp.StatusCode {
 		case http.StatusNotFound:
@@ -62,11 +63,11 @@ func (c *Client) IsRepoStarring(user, repo string) (bool, *Response, error) {
 }
 
 // StarRepo star specified repo as the authenticated user
-func (c *Client) StarRepo(user, repo string) (*Response, error) {
+func (c *RepositoriesService) StarRepo(ctx context.Context, user, repo string) (*Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo); err != nil {
 		return nil, err
 	}
-	resp, err := c.doRequestWithStatusHandle("PUT", fmt.Sprintf("/user/starred/%s/%s", user, repo), jsonHeader, nil)
+	resp, err := c.doRequestWithStatusHandle(ctx, "PUT", fmt.Sprintf("/user/starred/%s/%s", user, repo), jsonHeader, nil)
 	if resp != nil {
 		switch resp.StatusCode {
 		case http.StatusNoContent:
@@ -79,11 +80,11 @@ func (c *Client) StarRepo(user, repo string) (*Response, error) {
 }
 
 // UnStarRepo remove star to specified repo as the authenticated user
-func (c *Client) UnStarRepo(user, repo string) (*Response, error) {
+func (c *RepositoriesService) UnStarRepo(ctx context.Context, user, repo string) (*Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo); err != nil {
 		return nil, err
 	}
-	resp, err := c.doRequestWithStatusHandle("DELETE", fmt.Sprintf("/user/starred/%s/%s", user, repo), jsonHeader, nil)
+	resp, err := c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/user/starred/%s/%s", user, repo), jsonHeader, nil)
 	if resp != nil {
 		switch resp.StatusCode {
 		case http.StatusNoContent:

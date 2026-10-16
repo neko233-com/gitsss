@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Regression for https://gitea.com/gitea/runner/issues/950: a runner that
+// Regression for https://github.com/neko233-com/gitsss/runner/issues/950: a runner that
 // finalizes a task with no log output sends UpdateLog{Rows:[], NoMore:true}.
 // The previous short-circuit on len(Rows)==0 skipped TransferLogs, leaving
 // an orphan dbfs_data row. Verify the row is now archived and removed.
@@ -73,5 +73,19 @@ jobs:
 
 		_, err = dbfs.Open(t.Context(), actions_module.DBFSPrefix+freshTask.LogFilename)
 		assert.ErrorIs(t, err, os.ErrNotExist, "DBFS row must be cleaned up after TransferLogs")
+
+		// The runner re-sends its final UpdateLog when the response was lost.
+		// A sealed log must ack the re-send and still reject new appended rows.
+		t.Run("re-sent finalize is idempotent", func(t *testing.T) {
+			finalize := &runnerv1.UpdateLogRequest{TaskId: task.Id, Index: 0, Rows: nil, NoMore: true}
+			resp, err := runner.client.runnerServiceClient.UpdateLog(t.Context(), connect.NewRequest(finalize))
+			require.NoError(t, err)
+			assert.EqualValues(t, 0, resp.Msg.AckIndex)
+
+			_, err = runner.client.runnerServiceClient.UpdateLog(t.Context(), connect.NewRequest(&runnerv1.UpdateLogRequest{
+				TaskId: task.Id, Index: 0, Rows: []*runnerv1.LogRow{{Content: "late"}}, NoMore: true,
+			}))
+			require.Error(t, err, "appending rows past the seal must be rejected")
+		})
 	})
 }

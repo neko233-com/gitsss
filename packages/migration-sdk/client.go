@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -40,11 +39,31 @@ type Client struct {
 	debug          bool
 	httpsigner     *HTTPSign
 	client         *http.Client
-	ctx            context.Context
 	mutex          sync.RWMutex
 	serverVersion  *version.Version
 	getVersionOnce sync.Once
 	ignoreVersion  bool // only set by SetGiteaVersion so don't need a mutex lock
+
+	Actions       *ActionsService
+	Activity      *ActivityService
+	ActivityPub   *ActivityPubService
+	Admin         *AdminService
+	Git           *GitService
+	Hooks         *HooksService
+	Issues        *IssuesService
+	Render        *RenderService
+	Meta          *MetaService
+	Notifications *NotificationsService
+	OAuth2        *OAuth2Service
+	Organizations *OrganizationsService
+	Packages      *PackagesService
+	PullRequests  *PullRequestsService
+	Repositories  *RepositoriesService
+	Releases      *ReleasesService
+	Settings      *SettingsService
+	Templates     *TemplatesService
+	Users         *UsersService
+	Wiki          *WikiService
 }
 
 // Response represents the gitea response
@@ -66,28 +85,15 @@ func NewClient(url string, options ...ClientOption) (*Client, error) {
 	client := &Client{
 		url:    strings.TrimSuffix(url, "/"),
 		client: &http.Client{},
-		ctx:    context.Background(),
 	}
+	client.initServices()
 	for _, opt := range options {
 		if err := opt(client); err != nil {
 			return nil, err
 		}
 	}
-	if err := client.checkServerVersionGreaterThanOrEqual(version1_11_0); err != nil {
-		if errors.Is(err, &ErrUnknownVersion{}) {
-			return client, err
-		}
-		return nil, err
-	}
 
 	return client, nil
-}
-
-// NewClientWithHTTP creates an API client with a custom http client
-// Deprecated use SetHTTPClient option
-func NewClientWithHTTP(url string, httpClient *http.Client) *Client {
-	client, _ := NewClient(url, SetHTTPClient(httpClient))
-	return client
 }
 
 // SetHTTPClient is an option for NewClient to set custom http client
@@ -99,6 +105,7 @@ func SetHTTPClient(httpClient *http.Client) ClientOption {
 }
 
 // SetHTTPClient replaces default http.Client with user given one.
+// Deprecated: use SetHTTPClient when initializing the client instead of calling this method on an existing client.
 func (c *Client) SetHTTPClient(client *http.Client) {
 	c.mutex.Lock()
 	c.client = client
@@ -129,10 +136,6 @@ func SetBasicAuth(username, password string) ClientOption {
 // If you have an encrypted sshKey you'll need to also set the passphrase.
 func UseSSHCert(principal, sshKey, passphrase string) ClientOption {
 	return func(client *Client) error {
-		if err := client.checkServerVersionGreaterThanOrEqual(version1_17_0); err != nil {
-			return err
-		}
-
 		client.mutex.Lock()
 		defer client.mutex.Unlock()
 
@@ -152,10 +155,6 @@ func UseSSHCert(principal, sshKey, passphrase string) ClientOption {
 // If you have an encrypted sshKey you'll need to also set the passphrase.
 func UseSSHPubkey(fingerprint, sshKey, passphrase string) ClientOption {
 	return func(client *Client) error {
-		if err := client.checkServerVersionGreaterThanOrEqual(version1_17_0); err != nil {
-			return err
-		}
-
 		client.mutex.Lock()
 		defer client.mutex.Unlock()
 
@@ -170,6 +169,7 @@ func UseSSHPubkey(fingerprint, sshKey, passphrase string) ClientOption {
 }
 
 // SetBasicAuth sets username and password
+// Deprecated: use SetBasicAuth when initializing the client instead of calling this method on an existing client.
 func (c *Client) SetBasicAuth(username, password string) {
 	c.mutex.Lock()
 	c.username, c.password = username, password
@@ -185,24 +185,10 @@ func SetOTP(otp string) ClientOption {
 }
 
 // SetOTP sets OTP for 2FA
+// Deprecated: use SetOTP when initializing the client instead of calling this method on an existing client.
 func (c *Client) SetOTP(otp string) {
 	c.mutex.Lock()
 	c.otp = otp
-	c.mutex.Unlock()
-}
-
-// SetContext is an option for NewClient to set the default context
-func SetContext(ctx context.Context) ClientOption {
-	return func(client *Client) error {
-		client.SetContext(ctx)
-		return nil
-	}
-}
-
-// SetContext set default context witch is used for http requests
-func (c *Client) SetContext(ctx context.Context) {
-	c.mutex.Lock()
-	c.ctx = ctx
 	c.mutex.Unlock()
 }
 
@@ -297,13 +283,13 @@ func (r *Response) parseLinkHeader() {
 	}
 }
 
-func (c *Client) getWebResponse(method, path string, body io.Reader) ([]byte, *Response, error) {
+func (c *Client) getWebResponse(ctx context.Context, method, path string, body io.Reader) ([]byte, *Response, error) {
 	c.mutex.RLock()
 	debug := c.debug
 	if debug {
 		fmt.Printf("%s: %s\nBody: %v\n", method, c.url+path, body)
 	}
-	req, err := http.NewRequestWithContext(c.ctx, method, c.url+path, body)
+	req, err := http.NewRequestWithContext(ctx, method, c.url+path, body)
 
 	client := c.client // client ref can change from this point on so safe it
 	c.mutex.RUnlock()
@@ -331,7 +317,7 @@ func (c *Client) getWebResponse(method, path string, body io.Reader) ([]byte, *R
 	return data, newResponse(resp), err
 }
 
-func (c *Client) doRequest(method, path string, header http.Header, body io.Reader) (*Response, error) {
+func (c *Client) doRequest(ctx context.Context, method, path string, header http.Header, body io.Reader) (*Response, error) {
 	c.mutex.RLock()
 	debug := c.debug
 	if debug {
@@ -343,7 +329,7 @@ func (c *Client) doRequest(method, path string, header http.Header, body io.Read
 		}
 		fmt.Printf("%s: %s\nHeader: %v\nBody: %s\n", method, c.url+"/api/v1"+path, header, bodyStr)
 	}
-	req, err := http.NewRequestWithContext(c.ctx, method, c.url+"/api/v1"+path, body)
+	req, err := http.NewRequestWithContext(ctx, method, c.url+"/api/v1"+path, body)
 	if err != nil {
 		c.mutex.RUnlock()
 		return nil, err
@@ -372,7 +358,7 @@ func (c *Client) doRequest(method, path string, header http.Header, body io.Read
 	}
 
 	if c.httpsigner != nil {
-		err = c.SignRequest(req)
+		err = c.signRequest(req)
 		if err != nil {
 			return nil, err
 		}
@@ -431,8 +417,8 @@ func statusCodeToErr(resp *Response) (body []byte, err error) {
 	return data, fmt.Errorf("%s: %s", resp.Status, string(data))
 }
 
-func (c *Client) getResponseReader(method, path string, header http.Header, body io.Reader) (io.ReadCloser, *Response, error) {
-	resp, err := c.doRequest(method, path, header, body)
+func (c *Client) getResponseReader(ctx context.Context, method, path string, header http.Header, body io.Reader) (io.ReadCloser, *Response, error) {
+	resp, err := c.doRequest(ctx, method, path, header, body)
 	if err != nil {
 		return nil, resp, err
 	}
@@ -446,8 +432,8 @@ func (c *Client) getResponseReader(method, path string, header http.Header, body
 	return resp.Body, resp, nil
 }
 
-func (c *Client) doRequestWithStatusHandle(method, path string, header http.Header, body io.Reader) (*Response, error) {
-	resp, err := c.doRequest(method, path, header, body)
+func (c *Client) doRequestWithStatusHandle(ctx context.Context, method, path string, header http.Header, body io.Reader) (*Response, error) {
+	resp, err := c.doRequest(ctx, method, path, header, body)
 	if err != nil {
 		return resp, err
 	}
@@ -466,8 +452,8 @@ func (c *Client) doRequestWithStatusHandle(method, path string, header http.Head
 	return resp, err
 }
 
-func (c *Client) getResponse(method, path string, header http.Header, body io.Reader) ([]byte, *Response, error) {
-	resp, err := c.doRequest(method, path, header, body)
+func (c *Client) getResponse(ctx context.Context, method, path string, header http.Header, body io.Reader) ([]byte, *Response, error) {
+	resp, err := c.doRequest(ctx, method, path, header, body)
 	if err != nil {
 		return nil, resp, err
 	}
@@ -492,16 +478,16 @@ func (c *Client) getResponse(method, path string, header http.Header, body io.Re
 	return data, resp, nil
 }
 
-func (c *Client) getParsedResponse(method, path string, header http.Header, body io.Reader, obj interface{}) (*Response, error) {
-	data, resp, err := c.getResponse(method, path, header, body)
+func (c *Client) getParsedResponse(ctx context.Context, method, path string, header http.Header, body io.Reader, obj interface{}) (*Response, error) {
+	data, resp, err := c.getResponse(ctx, method, path, header, body)
 	if err != nil {
 		return resp, err
 	}
 	return resp, json.Unmarshal(data, obj)
 }
 
-func (c *Client) getStatusCode(method, path string, header http.Header, body io.Reader) (int, *Response, error) {
-	resp, err := c.doRequest(method, path, header, body)
+func (c *Client) getStatusCode(ctx context.Context, method, path string, header http.Header, body io.Reader) (int, *Response, error) {
+	resp, err := c.doRequest(ctx, method, path, header, body)
 	if err != nil {
 		return -1, resp, err
 	}

@@ -3,9 +3,13 @@
 
 package v1_23
 
-import "xorm.io/xorm"
+import (
+	"github.com/neko233-com/gitsss/models/db"
 
-func AddIndexForReleaseSha1(x *xorm.Engine) error {
+	"xorm.io/xorm"
+)
+
+func AddIndexForReleaseSha1(x db.EngineMigration) error {
 	type Release struct {
 		Sha1 string `xorm:"INDEX VARCHAR(64)"`
 	}

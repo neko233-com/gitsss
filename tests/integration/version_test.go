@@ -9,6 +9,7 @@ import (
 
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/structs"
+	"github.com/neko233-com/gitsss/modules/test"
 	"github.com/neko233-com/gitsss/tests"
 
 	"github.com/stretchr/testify/assert"
@@ -16,12 +17,10 @@ import (
 
 func TestVersion(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
-
-	setting.AppVer = "test-version-1"
+	defer test.MockVariableValue(&setting.AppVer, "test-version-1")()
 	req := NewRequest(t, "GET", "/api/v1/version")
 	resp := MakeRequest(t, req, http.StatusOK)
 
-	var version structs.ServerVersion
-	DecodeJSON(t, resp, &version)
+	version := DecodeJSON(t, resp, &structs.ServerVersion{})
 	assert.Equal(t, setting.AppVer, version.Version)
 }

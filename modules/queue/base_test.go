@@ -15,7 +15,10 @@ import (
 func testQueueBasic(t *testing.T, newFn func(cfg *BaseConfig) (baseQueue, error), cfg *BaseConfig, isUnique bool) {
 	t.Run(fmt.Sprintf("testQueueBasic-%s-unique:%v", cfg.ManagedName, isUnique), func(t *testing.T) {
 		q, err := newFn(cfg)
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
+		t.Cleanup(func() { assert.NoError(t, q.Close()) })
 
 		ctx := t.Context()
 		_ = q.RemoveAll(ctx)

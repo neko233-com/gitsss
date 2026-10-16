@@ -5,6 +5,7 @@
 package gitea
 
 import (
+	"context"
 	"net/url"
 )
 
@@ -13,15 +14,15 @@ type ListAdminEmailsOptions struct {
 	ListOptions
 }
 
-// ListAdminEmails lists all email addresses
-func (c *Client) ListAdminEmails(opt ListAdminEmailsOptions) ([]*Email, *Response, error) {
+// ListEmails lists all email addresses
+func (c *AdminService) ListEmails(ctx context.Context, opt ListAdminEmailsOptions) ([]*Email, *Response, error) {
 	opt.setDefaults()
 
 	link, _ := url.Parse("/admin/emails")
 	link.RawQuery = opt.getURLQuery().Encode()
 
 	emails := make([]*Email, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", link.String(), jsonHeader, nil, &emails)
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), jsonHeader, nil, &emails)
 	return emails, resp, err
 }
 
@@ -31,8 +32,8 @@ type SearchAdminEmailsOptions struct {
 	Query string `json:"q,omitempty"`
 }
 
-// SearchAdminEmails searches email addresses
-func (c *Client) SearchAdminEmails(opt SearchAdminEmailsOptions) ([]*Email, *Response, error) {
+// SearchEmails searches email addresses
+func (c *AdminService) SearchEmails(ctx context.Context, opt SearchAdminEmailsOptions) ([]*Email, *Response, error) {
 	opt.setDefaults()
 
 	link, _ := url.Parse("/admin/emails/search")
@@ -43,6 +44,6 @@ func (c *Client) SearchAdminEmails(opt SearchAdminEmailsOptions) ([]*Email, *Res
 	link.RawQuery = query.Encode()
 
 	emails := make([]*Email, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", link.String(), jsonHeader, nil, &emails)
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), jsonHeader, nil, &emails)
 	return emails, resp, err
 }

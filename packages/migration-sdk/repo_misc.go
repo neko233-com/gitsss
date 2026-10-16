@@ -5,35 +5,12 @@
 package gitea
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
-	"net/url"
-	"time"
 )
-
-// ListRepoActivityFeedsOptions options for listing repository activity feeds
-type ListRepoActivityFeedsOptions struct {
-	ListOptions
-	Date string `json:"date"` // the date of the activities to be found (format: YYYY-MM-DD)
-}
-
-// ListRepoActivityFeeds lists activity feeds for a repository
-func (c *Client) ListRepoActivityFeeds(owner, repo string, opt ListRepoActivityFeedsOptions) ([]*Activity, *Response, error) {
-	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
-		return nil, nil, err
-	}
-	opt.setDefaults()
-
-	link, _ := url.Parse(fmt.Sprintf("/repos/%s/%s/activities/feeds", owner, repo))
-	query := opt.getURLQuery()
-	if opt.Date != "" {
-		query.Add("date", opt.Date)
-	}
-	link.RawQuery = query.Encode()
-
-	feeds := make([]*Activity, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", link.String(), jsonHeader, nil, &feeds)
-	return feeds, resp, err
-}
 
 // IssueConfigValidation represents the validation result for issue config
 type IssueConfigValidation struct {
@@ -42,49 +19,136 @@ type IssueConfigValidation struct {
 }
 
 // ValidateIssueConfig validates the issue config file for a repository
-func (c *Client) ValidateIssueConfig(owner, repo string) (*IssueConfigValidation, *Response, error) {
+func (c *RepositoriesService) ValidateIssueConfig(ctx context.Context, owner, repo string) (*IssueConfigValidation, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
 	result := new(IssueConfigValidation)
-	resp, err := c.getParsedResponse("GET",
+	resp, err := c.getParsedResponse(ctx, "GET",
 		fmt.Sprintf("/repos/%s/%s/issue_config/validate", owner, repo),
 		jsonHeader, nil, &result)
 	return result, resp, err
 }
 
-// TopicSearchOptions options for searching topics
-type TopicSearchOptions struct {
-	ListOptions
-	Query string `json:"q"` // query string
+// --- Pin allowed ---
+
+// NewIssuePinsAllowed represents whether new issue/PR pins are allowed
+type NewIssuePinsAllowed struct {
+	Issues       bool `json:"issues"`
+	PullRequests bool `json:"pull_requests"`
 }
 
-// TopicSearchResult represents a topic search result
-type TopicSearchResult struct {
-	Topics []*TopicResponse `json:"topics"`
-}
-
-// TopicResponse represents a topic
-type TopicResponse struct {
-	ID        int64     `json:"id"`
-	Name      string    `json:"topic_name"`
-	RepoCount int       `json:"repo_count"`
-	Created   time.Time `json:"created"`
-	Updated   time.Time `json:"updated"`
-}
-
-// SearchTopics searches for topics
-func (c *Client) SearchTopics(opt TopicSearchOptions) (*TopicSearchResult, *Response, error) {
-	opt.setDefaults()
-
-	link, _ := url.Parse("/topics/search")
-	query := opt.getURLQuery()
-	if opt.Query != "" {
-		query.Add("q", opt.Query)
+// CheckPinAllowed checks if the current user can pin issues or PRs
+func (c *RepositoriesService) CheckPinAllowed(ctx context.Context, owner, repo string) (*NewIssuePinsAllowed, *Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return nil, nil, err
 	}
-	link.RawQuery = query.Encode()
+	result := new(NewIssuePinsAllowed)
+	resp, err := c.getParsedResponse(ctx, "GET",
+		fmt.Sprintf("/repos/%s/%s/new_pin_allowed", owner, repo),
+		jsonHeader, nil, result)
+	return result, resp, err
+}
 
-	result := new(TopicSearchResult)
-	resp, err := c.getParsedResponse("GET", link.String(), jsonHeader, nil, &result)
+// --- Issue config ---
+
+// IssueConfigContactLink represents an issue config contact link.
+type IssueConfigContactLink struct {
+	Name  string `json:"name"`
+	URL   string `json:"url"`
+	About string `json:"about"`
+}
+
+// IssueConfig represents the parsed issue config for a repository.
+type IssueConfig struct {
+	BlankIssuesEnabled bool                     `json:"blank_issues_enabled"`
+	ContactLinks       []IssueConfigContactLink `json:"contact_links"`
+}
+
+// GetIssueConfig gets the issue config for a repository.
+func (c *RepositoriesService) GetIssueConfig(ctx context.Context, owner, repo string) (*IssueConfig, *Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return nil, nil, err
+	}
+	config := new(IssueConfig)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/issue_config", owner, repo), jsonHeader, nil, config)
+	return config, resp, err
+}
+
+// --- Licenses ---
+
+// GetRepoLicenses gets detected licenses for a repository.
+func (c *RepositoriesService) GetRepoLicenses(ctx context.Context, owner, repo string) ([]string, *Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return nil, nil, err
+	}
+	licenses := make([]string, 0, 2)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/licenses", owner, repo), jsonHeader, nil, &licenses)
+	return licenses, resp, err
+}
+
+// --- Signing keys ---
+
+// GetRepoSigningKeyGPG gets the repository signing GPG public key.
+func (c *RepositoriesService) GetRepoSigningKeyGPG(ctx context.Context, owner, repo string) (string, *Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return "", nil, err
+	}
+	key, resp, err := c.getResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/signing-key.gpg", owner, repo), nil, nil)
+	return string(key), resp, err
+}
+
+// GetRepoSigningKeySSH gets the repository signing SSH public key.
+func (c *RepositoriesService) GetRepoSigningKeySSH(ctx context.Context, owner, repo string) (string, *Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return "", nil, err
+	}
+	key, resp, err := c.getResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/signing-key.pub", owner, repo), nil, nil)
+	return string(key), resp, err
+}
+
+// --- Subscribers ---
+
+// ListRepoSubscribers lists repository watchers.
+func (c *RepositoriesService) ListRepoSubscribers(ctx context.Context, owner, repo string, opt ListOptions) ([]*User, *Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return nil, nil, err
+	}
+	opt.setDefaults()
+	subscribers := make([]*User, 0, opt.PageSize)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/subscribers?%s", owner, repo, opt.getURLQuery().Encode()), jsonHeader, nil, &subscribers)
+	return subscribers, resp, err
+}
+
+// --- Diff patch ---
+
+// ApplyDiffPatchFileOptions applies a patch against repository contents.
+type ApplyDiffPatchFileOptions struct {
+	FileOptions
+	Content string `json:"content"`
+}
+
+// Validate checks whether the patch payload is valid.
+func (opt ApplyDiffPatchFileOptions) Validate() error {
+	if len(opt.Content) == 0 {
+		return errors.New("empty Content field")
+	}
+	return nil
+}
+
+// ApplyRepoDiffPatch applies a patch to repository contents.
+func (c *RepositoriesService) ApplyRepoDiffPatch(ctx context.Context, owner, repo string, opt ApplyDiffPatchFileOptions) (*FileResponse, *Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return nil, nil, err
+	}
+	if err := opt.Validate(); err != nil {
+		return nil, nil, err
+	}
+	body, err := json.Marshal(&opt)
+	if err != nil {
+		return nil, nil, err
+	}
+	result := new(FileResponse)
+	resp, err := c.getParsedResponse(ctx, "POST", fmt.Sprintf("/repos/%s/%s/diffpatch", owner, repo), jsonHeader, bytes.NewReader(body), result)
 	return result, resp, err
 }

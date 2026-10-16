@@ -4,10 +4,12 @@
 package v1_24
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
+
 	"xorm.io/xorm"
 )
 
-func AddEphemeralToActionRunner(x *xorm.Engine) error {
+func AddEphemeralToActionRunner(x db.EngineMigration) error {
 	type ActionRunner struct {
 		Ephemeral bool `xorm:"ephemeral NOT NULL DEFAULT false"`
 	}

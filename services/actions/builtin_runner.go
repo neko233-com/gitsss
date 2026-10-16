@@ -10,11 +10,13 @@ import (
 	"strings"
 	"sync"
 
+	builtinactions "github.com/neko233-com/gitsss/actions/builtin"
 	actions_model "github.com/neko233-com/gitsss/models/actions"
 	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/runner/pkg/builtin"
+	"github.com/neko233-com/gitsss/runner/pkg/builtinassets"
 
 	gouuid "github.com/google/uuid"
 )
@@ -37,6 +39,7 @@ func StartBuiltinRunner(ctx context.Context) error {
 	if !setting.Actions.Enabled || !setting.Actions.BuiltinRunnerEnabled {
 		return nil
 	}
+	builtinassets.SetFallback(builtinactions.Files)
 
 	builtinRunnerManager.Lock()
 	defer builtinRunnerManager.Unlock()
@@ -172,9 +175,7 @@ func createBuiltinRunnerRegistration(ctx context.Context) (*actions_model.Action
 		AgentLabels: append([]string(nil), setting.Actions.BuiltinRunnerLabels...),
 		Description: "Managed by the Gitsss server process",
 	}
-	if err := runner.GenerateToken(); err != nil {
-		return nil, err
-	}
+	runner.GenerateAndFillToken()
 	if err := actions_model.CreateRunner(ctx, runner); err != nil {
 		return nil, err
 	}

@@ -4,12 +4,11 @@
 package v1_23
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func FixMilestoneNoDueDate(x *xorm.Engine) error {
+func FixMilestoneNoDueDate(x db.EngineMigration) error {
 	type Milestone struct {
 		DeadlineUnix timeutil.TimeStamp
 	}

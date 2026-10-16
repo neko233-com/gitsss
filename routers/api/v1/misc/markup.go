@@ -4,8 +4,6 @@
 package misc
 
 import (
-	"net/http"
-
 	"github.com/neko233-com/gitsss/modules/markup"
 	"github.com/neko233-com/gitsss/modules/markup/markdown"
 	api "github.com/neko233-com/gitsss/modules/structs"
@@ -36,12 +34,6 @@ func Markup(ctx *context.APIContext) {
 	//     "$ref": "#/responses/validationError"
 
 	form := web.GetForm(ctx).(*api.MarkupOption)
-
-	if ctx.HasAPIError() {
-		ctx.APIError(http.StatusUnprocessableEntity, ctx.GetErrMsg())
-		return
-	}
-
 	mode := util.Iif(form.Wiki, "wiki", form.Mode) //nolint:staticcheck // form.Wiki is deprecated
 	common.RenderMarkup(ctx.Base, ctx.Repo, mode, form.Text, form.Context, form.FilePath)
 }
@@ -67,12 +59,6 @@ func Markdown(ctx *context.APIContext) {
 	//     "$ref": "#/responses/validationError"
 
 	form := web.GetForm(ctx).(*api.MarkdownOption)
-
-	if ctx.HasAPIError() {
-		ctx.APIError(http.StatusUnprocessableEntity, ctx.GetErrMsg())
-		return
-	}
-
 	mode := util.Iif(form.Wiki, "wiki", form.Mode) //nolint:staticcheck // form.Wiki is deprecated
 	common.RenderMarkup(ctx.Base, ctx.Repo, mode, form.Text, form.Context, "")
 }

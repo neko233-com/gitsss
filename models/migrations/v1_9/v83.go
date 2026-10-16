@@ -4,12 +4,11 @@
 package v1_9
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func AddUploaderIDForAttachment(x *xorm.Engine) error {
+func AddUploaderIDForAttachment(x db.EngineMigration) error {
 	type Attachment struct {
 		ID            int64  `xorm:"pk autoincr"`
 		UUID          string `xorm:"uuid UNIQUE"`

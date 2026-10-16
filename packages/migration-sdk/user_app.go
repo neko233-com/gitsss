@@ -7,6 +7,7 @@ package gitea
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -82,7 +83,7 @@ type ListAccessTokensOptions struct {
 }
 
 // ListAccessTokens lists all the access tokens of user
-func (c *Client) ListAccessTokens(opts ListAccessTokensOptions) ([]*AccessToken, *Response, error) {
+func (c *UsersService) ListAccessTokens(ctx context.Context, opts ListAccessTokensOptions) ([]*AccessToken, *Response, error) {
 	c.mutex.RLock()
 	username := c.username
 	c.mutex.RUnlock()
@@ -91,7 +92,7 @@ func (c *Client) ListAccessTokens(opts ListAccessTokensOptions) ([]*AccessToken,
 	}
 	opts.setDefaults()
 	tokens := make([]*AccessToken, 0, opts.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/users/%s/tokens?%s", url.PathEscape(username), opts.getURLQuery().Encode()), jsonHeader, nil, &tokens)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/users/%s/tokens?%s", url.PathEscape(username), opts.getURLQuery().Encode()), jsonHeader, nil, &tokens)
 	return tokens, resp, err
 }
 
@@ -102,7 +103,7 @@ type CreateAccessTokenOption struct {
 }
 
 // CreateAccessToken create one access token with options
-func (c *Client) CreateAccessToken(opt CreateAccessTokenOption) (*AccessToken, *Response, error) {
+func (c *UsersService) CreateAccessToken(ctx context.Context, opt CreateAccessTokenOption) (*AccessToken, *Response, error) {
 	c.mutex.RLock()
 	username := c.username
 	c.mutex.RUnlock()
@@ -114,12 +115,12 @@ func (c *Client) CreateAccessToken(opt CreateAccessTokenOption) (*AccessToken, *
 		return nil, nil, err
 	}
 	t := new(AccessToken)
-	resp, err := c.getParsedResponse("POST", fmt.Sprintf("/users/%s/tokens", url.PathEscape(username)), jsonHeader, bytes.NewReader(body), t)
+	resp, err := c.getParsedResponse(ctx, "POST", fmt.Sprintf("/users/%s/tokens", url.PathEscape(username)), jsonHeader, bytes.NewReader(body), t)
 	return t, resp, err
 }
 
 // DeleteAccessToken delete token, identified by ID and if not available by name
-func (c *Client) DeleteAccessToken(value interface{}) (*Response, error) {
+func (c *UsersService) DeleteAccessToken(ctx context.Context, value interface{}) (*Response, error) {
 	c.mutex.RLock()
 	username := c.username
 	c.mutex.RUnlock()
@@ -133,7 +134,7 @@ func (c *Client) DeleteAccessToken(value interface{}) (*Response, error) {
 	case reflect.Int64:
 		token = fmt.Sprintf("%d", value.(int64))
 	case reflect.String:
-		if err := c.checkServerVersionGreaterThanOrEqual(version1_13_0); err != nil {
+		if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_13_0); err != nil {
 			return nil, err
 		}
 		token = value.(string)
@@ -141,5 +142,5 @@ func (c *Client) DeleteAccessToken(value interface{}) (*Response, error) {
 		return nil, fmt.Errorf("only string and int64 supported")
 	}
 
-	return c.doRequestWithStatusHandle("DELETE", fmt.Sprintf("/users/%s/tokens/%s", url.PathEscape(username), url.PathEscape(token)), jsonHeader, nil)
+	return c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/users/%s/tokens/%s", url.PathEscape(username), url.PathEscape(token)), jsonHeader, nil)
 }

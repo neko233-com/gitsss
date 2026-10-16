@@ -7,8 +7,10 @@ package gitea
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -150,14 +152,14 @@ func (opt *ListIssueOption) QueryEncode() string {
 }
 
 // ListIssues returns all issues assigned the authenticated user
-func (c *Client) ListIssues(opt ListIssueOption) ([]*Issue, *Response, error) {
+func (c *IssuesService) ListIssues(ctx context.Context, opt ListIssueOption) ([]*Issue, *Response, error) {
 	opt.setDefaults()
 	issues := make([]*Issue, 0, opt.PageSize)
 
 	link, _ := url.Parse("/repos/issues/search")
 	link.RawQuery = opt.QueryEncode()
-	resp, err := c.getParsedResponse("GET", link.String(), jsonHeader, nil, &issues)
-	if e := c.checkServerVersionGreaterThanOrEqual(version1_12_0); e != nil {
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), jsonHeader, nil, &issues)
+	if e := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); e != nil {
 		for i := 0; i < len(issues); i++ {
 			if issues[i].Repository != nil {
 				issues[i].Repository.Owner = strings.Split(issues[i].Repository.FullName, "/")[0]
@@ -165,13 +167,13 @@ func (c *Client) ListIssues(opt ListIssueOption) ([]*Issue, *Response, error) {
 		}
 	}
 	for i := range issues {
-		c.issueBackwardsCompatibility(issues[i])
+		c.issueBackwardsCompatibility(ctx, issues[i])
 	}
 	return issues, resp, err
 }
 
 // ListRepoIssues returns all issues for a given repository
-func (c *Client) ListRepoIssues(owner, repo string, opt ListIssueOption) ([]*Issue, *Response, error) {
+func (c *IssuesService) ListRepoIssues(ctx context.Context, owner, repo string, opt ListIssueOption) ([]*Issue, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
@@ -180,8 +182,8 @@ func (c *Client) ListRepoIssues(owner, repo string, opt ListIssueOption) ([]*Iss
 
 	link, _ := url.Parse(fmt.Sprintf("/repos/%s/%s/issues", owner, repo))
 	link.RawQuery = opt.QueryEncode()
-	resp, err := c.getParsedResponse("GET", link.String(), jsonHeader, nil, &issues)
-	if e := c.checkServerVersionGreaterThanOrEqual(version1_12_0); e != nil {
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), jsonHeader, nil, &issues)
+	if e := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); e != nil {
 		for i := 0; i < len(issues); i++ {
 			if issues[i].Repository != nil {
 				issues[i].Repository.Owner = strings.Split(issues[i].Repository.FullName, "/")[0]
@@ -189,22 +191,22 @@ func (c *Client) ListRepoIssues(owner, repo string, opt ListIssueOption) ([]*Iss
 		}
 	}
 	for i := range issues {
-		c.issueBackwardsCompatibility(issues[i])
+		c.issueBackwardsCompatibility(ctx, issues[i])
 	}
 	return issues, resp, err
 }
 
 // GetIssue returns a single issue for a given repository
-func (c *Client) GetIssue(owner, repo string, index int64) (*Issue, *Response, error) {
+func (c *IssuesService) GetIssue(ctx context.Context, owner, repo string, index int64) (*Issue, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
 	issue := new(Issue)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/repos/%s/%s/issues/%d", owner, repo, index), nil, nil, issue)
-	if e := c.checkServerVersionGreaterThanOrEqual(version1_12_0); e != nil && issue.Repository != nil {
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/issues/%d", owner, repo, index), nil, nil, issue)
+	if e := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); e != nil && issue.Repository != nil {
 		issue.Repository.Owner = strings.Split(issue.Repository.FullName, "/")[0]
 	}
-	c.issueBackwardsCompatibility(issue)
+	c.issueBackwardsCompatibility(ctx, issue)
 	return issue, resp, err
 }
 
@@ -231,7 +233,7 @@ func (opt CreateIssueOption) Validate() error {
 }
 
 // CreateIssue create a new issue for a given repository
-func (c *Client) CreateIssue(owner, repo string, opt CreateIssueOption) (*Issue, *Response, error) {
+func (c *IssuesService) CreateIssue(ctx context.Context, owner, repo string, opt CreateIssueOption) (*Issue, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
@@ -243,9 +245,9 @@ func (c *Client) CreateIssue(owner, repo string, opt CreateIssueOption) (*Issue,
 		return nil, nil, err
 	}
 	issue := new(Issue)
-	resp, err := c.getParsedResponse("POST", fmt.Sprintf("/repos/%s/%s/issues", owner, repo),
+	resp, err := c.getParsedResponse(ctx, "POST", fmt.Sprintf("/repos/%s/%s/issues", owner, repo),
 		jsonHeader, bytes.NewReader(body), issue)
-	c.issueBackwardsCompatibility(issue)
+	c.issueBackwardsCompatibility(ctx, issue)
 	return issue, resp, err
 }
 
@@ -270,7 +272,7 @@ func (opt EditIssueOption) Validate() error {
 }
 
 // EditIssue modify an existing issue for a given repository
-func (c *Client) EditIssue(owner, repo string, index int64, opt EditIssueOption) (*Issue, *Response, error) {
+func (c *IssuesService) EditIssue(ctx context.Context, owner, repo string, index int64, opt EditIssueOption) (*Issue, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
@@ -282,27 +284,204 @@ func (c *Client) EditIssue(owner, repo string, index int64, opt EditIssueOption)
 		return nil, nil, err
 	}
 	issue := new(Issue)
-	resp, err := c.getParsedResponse("PATCH",
+	resp, err := c.getParsedResponse(ctx, "PATCH",
 		fmt.Sprintf("/repos/%s/%s/issues/%d", owner, repo, index),
 		jsonHeader, bytes.NewReader(body), issue)
-	c.issueBackwardsCompatibility(issue)
+	c.issueBackwardsCompatibility(ctx, issue)
 	return issue, resp, err
 }
 
 // DeleteIssue delete a issue from a repository
-func (c *Client) DeleteIssue(user, repo string, id int64) (*Response, error) {
+func (c *IssuesService) DeleteIssue(ctx context.Context, user, repo string, id int64) (*Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("DELETE",
+	return c.doRequestWithStatusHandle(ctx, "DELETE",
 		fmt.Sprintf("/repos/%s/%s/issues/%d", user, repo, id),
 		nil, nil)
 }
 
-func (c *Client) issueBackwardsCompatibility(issue *Issue) {
-	if c.checkServerVersionGreaterThanOrEqual(version1_12_0) != nil {
+func (c *IssuesService) issueBackwardsCompatibility(ctx context.Context, issue *Issue) {
+	if c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0) != nil {
 		c.mutex.RLock()
 		issue.HTMLURL = fmt.Sprintf("%s/%s/issues/%d", c.url, issue.Repository.FullName, issue.Index)
 		c.mutex.RUnlock()
 	}
+}
+
+// IssueBlockedBy represents an issue that blocks another issue
+type IssueBlockedBy struct {
+	Index     int64     `json:"index"`
+	Title     string    `json:"title"`
+	State     string    `json:"state"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// ListIssueBlocksOptions options for listing issue blocks
+type ListIssueBlocksOptions struct {
+	ListOptions
+}
+
+// ListIssueBlocks lists issues that are blocked by the specified issue with pagination
+func (c *IssuesService) ListIssueBlocks(ctx context.Context, owner, repo string, index int64, opt ListIssueBlocksOptions) ([]*Issue, *Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return nil, nil, err
+	}
+	link, _ := url.Parse(fmt.Sprintf("/repos/%s/%s/issues/%d/blocks", owner, repo, index))
+	opt.setDefaults()
+	link.RawQuery = opt.getURLQuery().Encode()
+	issues := make([]*Issue, 0, opt.PageSize)
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), jsonHeader, nil, &issues)
+	return issues, resp, err
+}
+
+// IssueMeta represents issue reference for blocking/dependency operations
+type IssueMeta struct {
+	Index int64 `json:"index"`
+}
+
+// CreateIssueBlocking blocks an issue with another issue
+func (c *IssuesService) CreateIssueBlocking(ctx context.Context, owner, repo string, index int64, opt IssueMeta) (*Issue, *Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return nil, nil, err
+	}
+	body, err := json.Marshal(&opt)
+	if err != nil {
+		return nil, nil, err
+	}
+	issue := new(Issue)
+	resp, err := c.getParsedResponse(ctx, "POST",
+		fmt.Sprintf("/repos/%s/%s/issues/%d/blocks", owner, repo, index),
+		jsonHeader, bytes.NewReader(body), &issue)
+	return issue, resp, err
+}
+
+// RemoveIssueBlocking removes an issue block
+func (c *IssuesService) RemoveIssueBlocking(ctx context.Context, owner, repo string, index int64, opt IssueMeta) (*Issue, *Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return nil, nil, err
+	}
+	body, err := json.Marshal(&opt)
+	if err != nil {
+		return nil, nil, err
+	}
+	issue := new(Issue)
+	resp, err := c.getParsedResponse(ctx, "DELETE",
+		fmt.Sprintf("/repos/%s/%s/issues/%d/blocks", owner, repo, index),
+		jsonHeader, bytes.NewReader(body), &issue)
+	return issue, resp, err
+}
+
+// ListIssueDependenciesOptions options for listing issue dependencies
+type ListIssueDependenciesOptions struct {
+	ListOptions
+}
+
+// ListIssueDependencies lists issues that block the specified issue (its dependencies) with pagination
+func (c *IssuesService) ListIssueDependencies(ctx context.Context, owner, repo string, index int64, opt ListIssueDependenciesOptions) ([]*Issue, *Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return nil, nil, err
+	}
+	link, _ := url.Parse(fmt.Sprintf("/repos/%s/%s/issues/%d/dependencies", owner, repo, index))
+	opt.setDefaults()
+	link.RawQuery = opt.getURLQuery().Encode()
+	issues := make([]*Issue, 0, opt.PageSize)
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), jsonHeader, nil, &issues)
+	return issues, resp, err
+}
+
+// CreateIssueDependency creates a new issue dependency
+func (c *IssuesService) CreateIssueDependency(ctx context.Context, owner, repo string, index int64, opt IssueMeta) (*Issue, *Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return nil, nil, err
+	}
+	body, err := json.Marshal(&opt)
+	if err != nil {
+		return nil, nil, err
+	}
+	issue := new(Issue)
+	resp, err := c.getParsedResponse(ctx, "POST",
+		fmt.Sprintf("/repos/%s/%s/issues/%d/dependencies", owner, repo, index),
+		jsonHeader, bytes.NewReader(body), &issue)
+	return issue, resp, err
+}
+
+// RemoveIssueDependency removes an issue dependency
+func (c *IssuesService) RemoveIssueDependency(ctx context.Context, owner, repo string, index int64, opt IssueMeta) (*Issue, *Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return nil, nil, err
+	}
+	body, err := json.Marshal(&opt)
+	if err != nil {
+		return nil, nil, err
+	}
+	issue := new(Issue)
+	resp, err := c.getParsedResponse(ctx, "DELETE",
+		fmt.Sprintf("/repos/%s/%s/issues/%d/dependencies", owner, repo, index),
+		jsonHeader, bytes.NewReader(body), &issue)
+	return issue, resp, err
+}
+
+// LockIssueOption represents options for locking an issue
+type LockIssueOption struct {
+	LockReason string `json:"lock_reason"`
+}
+
+// LockIssue locks an issue
+func (c *IssuesService) LockIssue(ctx context.Context, owner, repo string, index int64, opt LockIssueOption) (*Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return nil, err
+	}
+	body, err := json.Marshal(&opt)
+	if err != nil {
+		return nil, err
+	}
+	status, resp, err := c.getStatusCode(ctx, "PUT",
+		fmt.Sprintf("/repos/%s/%s/issues/%d/lock", owner, repo, index),
+		jsonHeader, bytes.NewReader(body))
+	if err != nil {
+		return resp, err
+	}
+	if status != http.StatusNoContent {
+		return resp, fmt.Errorf("unexpected status: %d", status)
+	}
+	return resp, nil
+}
+
+// UnlockIssue unlocks an issue
+func (c *IssuesService) UnlockIssue(ctx context.Context, owner, repo string, index int64) (*Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return nil, err
+	}
+	status, resp, err := c.getStatusCode(ctx, "DELETE",
+		fmt.Sprintf("/repos/%s/%s/issues/%d/lock", owner, repo, index),
+		jsonHeader, nil)
+	if err != nil {
+		return resp, err
+	}
+	if status != http.StatusNoContent {
+		return resp, fmt.Errorf("unexpected status: %d", status)
+	}
+	return resp, nil
+}
+
+// EditDeadlineOption represents options for updating issue deadline
+type EditDeadlineOption struct {
+	Deadline *time.Time `json:"due_date"`
+}
+
+// UpdateIssueDeadline updates an issue's deadline
+func (c *IssuesService) UpdateIssueDeadline(ctx context.Context, owner, repo string, index int64, opt EditDeadlineOption) (*Issue, *Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return nil, nil, err
+	}
+	body, err := json.Marshal(&opt)
+	if err != nil {
+		return nil, nil, err
+	}
+	issue := new(Issue)
+	resp, err := c.getParsedResponse(ctx, "POST",
+		fmt.Sprintf("/repos/%s/%s/issues/%d/deadline", owner, repo, index),
+		jsonHeader, bytes.NewReader(body), &issue)
+	return issue, resp, err
 }

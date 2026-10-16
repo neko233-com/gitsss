@@ -28,6 +28,7 @@
         <a href="index.html">文档首页</a>
         <a href="getting-started.html">快速开始</a>
         <a href="configuration.html">配置参考</a>
+        <a href="enterprise.html">企业与组织</a>
         <a href="storage.html">存储与 Git LFS</a>
       </div>
       <div class="sidebar-section">
@@ -55,7 +56,7 @@
         <p>根目录 <code>AGENTS.md</code> 是仓库执行规则的权威来源。本页解释其工作方式，不能替代或放宽其中的要求；冲突时以 <code>AGENTS.md</code> 为准。</p>
       </div>
 
-      <h2>开始工作前</h2>
+      <h2>运行交接</h2><p>先读取健康检查、迁移 JSON 计划、仓库 refs 与组织权限，再执行显式写入。Gitea 3000 与 GitSSS 5030 并行期间禁止自动切换端口；切换等待管理员通知。对 Actions 先读取队列和 Runner 状态；试运行关闭内置 Runner，保护现有发布流程。令牌仅从受保护文件读取，禁止进入提示词、命令参数、报告和提交。</p><h2>开始工作前</h2>
       <ol>
         <li>读取根目录 <code>AGENTS.md</code> 与目标目录内更具体的 <code>AGENTS.md</code>（如存在）。</li>
         <li>执行 <code>task help</code>，确认可用本地开发目标。</li>
@@ -124,7 +125,7 @@
 
       <p>日常验证优先在本机跑。没有 Docker，或设置了 <code>GITSSS_TASK_NATIVE=1</code> 时，<code>task</code> 直接执行 Make，不启动容器。只编译后端时用 <code>make backend-quick</code>。发布包用 <code>make release-native VERSION=...</code>，默认同时编译 2 个目标并用 <code>xz -6</code> 并行压缩。<code>make release</code> 仍是需要 Docker 的 xgo 路径。</p>
 
-      <h2>交接</h2>
+      <h2>企业部署验收</h2><p>GitSSS 默认 0.0.0.0:5030、关闭注册、组织优先。Gitea 保持 3000，最终切换等待管理员通知。用 tools/agent-ops.py 读取 JSON 状态，用 tools/verify-git.py 做真实客户端验收；Actions 仅在独立实例、独立标签验证。原生兼容用 tools/rehearse-native.py 创建受保护的独立副本并核对全部表，不启动源站任务、不复制大型 Git/LFS 数据。程序内置 /help/ 英文离线说明书。升级 343 数据库后的回退必须恢复备份，不能只换旧二进制。</p><h2>交接</h2>
       <p>交接时说明：已改文件和行为、已运行的验证及结果、未运行项目与原因、保留的用户改动，以及需要人工决定的风险。不要把未验证的假设表述为完成。</p>
 
       <h2>Git 数据兼容</h2>

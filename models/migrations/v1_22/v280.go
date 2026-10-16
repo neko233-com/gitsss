@@ -3,11 +3,9 @@
 
 package v1_22
 
-import (
-	"xorm.io/xorm"
-)
+import "github.com/neko233-com/gitsss/models/db"
 
-func RenameUserThemes(x *xorm.Engine) error {
+func RenameUserThemes(x db.EngineMigration) error {
 	sess := x.NewSession()
 	defer sess.Close()
 

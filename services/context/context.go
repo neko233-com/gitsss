@@ -63,8 +63,6 @@ type Context struct {
 	Package *Package
 }
 
-type TemplateContext map[string]any
-
 func init() {
 	web.RegisterResponseStatusProvider[*Base](func(req *http.Request) web_types.ResponseStatusProvider {
 		return req.Context().Value(BaseContextKey).(*Base)
@@ -106,6 +104,7 @@ func NewTemplateContextForWeb(ctx reqctx.RequestContext, req *http.Request, loca
 	tmplCtx["AvatarUtils"] = templates.NewAvatarUtils(ctx)
 	tmplCtx["RenderUtils"] = templates.NewRenderUtils(ctx)
 	tmplCtx["MiscUtils"] = templates.NewMiscUtils(ctx)
+	tmplCtx["ActionsUtils"] = templates.NewActionsUtils(ctx)
 	tmplCtx["RootData"] = ctx.GetData()
 	tmplCtx["Consts"] = map[string]any{
 		"RepoUnitTypeCode":            unit.TypeCode,
@@ -197,11 +196,7 @@ func Contexter() func(next http.Handler) http.Handler {
 				}
 			}
 
-			httpcache.SetCacheControlInHeader(ctx.Resp.Header(), &httpcache.CacheControlOptions{NoTransform: true})
-
-			if setting.Security.XFrameOptions != "unset" {
-				ctx.Resp.Header().Set(`X-Frame-Options`, setting.Security.XFrameOptions)
-			}
+			httpcache.SetCacheControlInHeader(ctx.Resp.Header(), &httpcache.CacheControlOptions{})
 
 			ctx.Data["SystemConfig"] = setting.Config()
 
@@ -212,7 +207,6 @@ func Contexter() func(next http.Handler) http.Handler {
 			ctx.Data["DisableStars"] = setting.Repository.DisableStars
 			ctx.Data["EnableActions"] = setting.Actions.Enabled && !unit.TypeActions.UnitGlobalDisabled()
 
-			ctx.Data["ManifestData"] = setting.ManifestData
 			ctx.Data["AllLangs"] = translation.AllLangs()
 
 			next.ServeHTTP(ctx.Resp, ctx.Req)

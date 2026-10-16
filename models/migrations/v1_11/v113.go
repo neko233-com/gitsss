@@ -6,10 +6,10 @@ package v1_11
 import (
 	"fmt"
 
-	"xorm.io/xorm"
+	"github.com/neko233-com/gitsss/models/db"
 )
 
-func FeatureChangeTargetBranch(x *xorm.Engine) error {
+func FeatureChangeTargetBranch(x db.EngineMigration) error {
 	type Comment struct {
 		OldRef string
 		NewRef string

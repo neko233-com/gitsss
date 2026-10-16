@@ -45,6 +45,21 @@ EMAIL_DOMAIN_BLOCKLIST = d3, *.b
 	assert.False(t, match(Service.EmailDomainBlockList, "d1"))
 }
 
+func TestEnterpriseServiceDefaults(t *testing.T) {
+	defer test.MockVariableValue(&Service)()
+	cfg, err := NewConfigProviderFromData("")
+	assert.NoError(t, err)
+	loadServiceFrom(cfg)
+	assert.True(t, Service.DisableRegistration)
+	assert.True(t, Service.RequireSignInViewStrict)
+	assert.False(t, Service.ShowRegistrationButton)
+	cfg, err = NewConfigProviderFromData("[service]\nDISABLE_REGISTRATION=false\nREQUIRE_SIGNIN_VIEW=false\n")
+	assert.NoError(t, err)
+	loadServiceFrom(cfg)
+	assert.False(t, Service.DisableRegistration)
+	assert.False(t, Service.RequireSignInViewStrict)
+}
+
 func TestLoadServiceVisibilityModes(t *testing.T) {
 	defer test.MockVariableValue(&Service)()
 
@@ -134,7 +149,7 @@ func TestLoadServiceRequireSignInView(t *testing.T) {
 `)
 	assert.NoError(t, err)
 	loadServiceFrom(cfg)
-	assert.False(t, Service.RequireSignInViewStrict)
+	assert.True(t, Service.RequireSignInViewStrict)
 	assert.False(t, Service.BlockAnonymousAccessExpensive)
 
 	cfg, err = NewConfigProviderFromData(`

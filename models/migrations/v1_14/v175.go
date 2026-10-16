@@ -7,13 +7,12 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/setting"
-
-	"xorm.io/xorm"
 )
 
-func FixPostgresIDSequences(x *xorm.Engine) error {
+func FixPostgresIDSequences(x db.EngineMigration) error {
 	if !setting.Database.Type.IsPostgreSQL() {
 		return nil
 	}

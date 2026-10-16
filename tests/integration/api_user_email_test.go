@@ -8,11 +8,33 @@ import (
 	"testing"
 
 	auth_model "github.com/neko233-com/gitsss/models/auth"
+	"github.com/neko233-com/gitsss/modules/setting"
 	api "github.com/neko233-com/gitsss/modules/structs"
 	"github.com/neko233-com/gitsss/tests"
 
 	"github.com/stretchr/testify/assert"
 )
+
+// TestAPIManageEmailsFeatureDisabled ensures the email management API honors the
+// manage_credentials feature restriction, matching the web UI.
+func TestAPIManageEmailsFeatureDisabled(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+
+	session := loginUser(t, "user2")
+	token := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeWriteUser)
+
+	WithDisabledFeatures(t, setting.UserFeatureManageCredentials)
+
+	addReq := NewRequestWithJSON(t, "POST", "/api/v1/user/emails", &api.CreateEmailOption{
+		Emails: []string{"user2-3@example.com"},
+	}).AddTokenAuth(token)
+	MakeRequest(t, addReq, http.StatusNotFound)
+
+	delReq := NewRequestWithJSON(t, "DELETE", "/api/v1/user/emails", &api.DeleteEmailOption{
+		Emails: []string{"user2-2@example.com"},
+	}).AddTokenAuth(token)
+	MakeRequest(t, delReq, http.StatusNotFound)
+}
 
 func TestAPIListEmails(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
@@ -25,8 +47,7 @@ func TestAPIListEmails(t *testing.T) {
 		AddTokenAuth(token)
 	resp := MakeRequest(t, req, http.StatusOK)
 
-	var emails []*api.Email
-	DecodeJSON(t, resp, &emails)
+	emails := DecodeJSON(t, resp, []*api.Email{})
 
 	assert.Equal(t, []*api.Email{
 		{
@@ -64,8 +85,7 @@ func TestAPIAddEmail(t *testing.T) {
 		AddTokenAuth(token)
 	resp := MakeRequest(t, req, http.StatusCreated)
 
-	var emails []*api.Email
-	DecodeJSON(t, resp, &emails)
+	emails := DecodeJSON(t, resp, []*api.Email{})
 	assert.Equal(t, []*api.Email{
 		{
 			Email:    "user2@example.com",
@@ -117,8 +137,7 @@ func TestAPIDeleteEmail(t *testing.T) {
 		AddTokenAuth(token)
 	resp := MakeRequest(t, req, http.StatusOK)
 
-	var emails []*api.Email
-	DecodeJSON(t, resp, &emails)
+	emails := DecodeJSON(t, resp, []*api.Email{})
 	assert.Equal(t, []*api.Email{
 		{
 			Email:    "user2@example.com",

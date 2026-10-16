@@ -4,13 +4,12 @@
 package v1_14
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/base"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func UpdateReactionConstraint(x *xorm.Engine) error {
+func UpdateReactionConstraint(x db.EngineMigration) error {
 	// Reaction represents a reactions on issues and comments.
 	type Reaction struct {
 		ID               int64              `xorm:"pk autoincr"`

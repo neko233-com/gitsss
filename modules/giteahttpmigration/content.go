@@ -106,8 +106,10 @@ func (m *Migrator) discoverRepositoryContent(ctx context.Context, ref Repository
 		return fmt.Errorf("list source milestones for %s: %w", ref, err)
 	}
 	var issues []Issue
-	if err := m.source.getAll(ctx, repoPath(ref)+"/issues?state=all&type=issues", &issues); err != nil {
-		return fmt.Errorf("list source issues for %s: %w", ref, err)
+	if plan.Repository.HasIssues == nil || *plan.Repository.HasIssues {
+		if err := m.source.getAll(ctx, repoPath(ref)+"/issues?state=all&type=issues", &issues); err != nil {
+			return fmt.Errorf("list source issues for %s: %w", ref, err)
+		}
 	}
 	for i := range issues {
 		if issues[i].PullRequest != nil {
@@ -118,8 +120,10 @@ func (m *Migrator) discoverRepositoryContent(ctx context.Context, ref Repository
 		}
 		plan.Issues = append(plan.Issues, issues[i])
 	}
-	if err := m.source.getAll(ctx, repoPath(ref)+"/pulls?state=all", &plan.Pulls); err != nil {
-		return fmt.Errorf("list source pull requests for %s: %w", ref, err)
+	if plan.Repository.HasPullRequests == nil || *plan.Repository.HasPullRequests {
+		if err := m.source.getAll(ctx, repoPath(ref)+"/pulls?state=all", &plan.Pulls); err != nil {
+			return fmt.Errorf("list source pull requests for %s: %w", ref, err)
+		}
 	}
 	for i := range plan.Pulls {
 		if err := m.source.getAll(ctx, repoPath(ref)+"/issues/"+strconv.FormatInt(plan.Pulls[i].Number, 10)+"/comments", &plan.Pulls[i].Comments); err != nil {
@@ -130,8 +134,10 @@ func (m *Migrator) discoverRepositoryContent(ctx context.Context, ref Repository
 	slices.SortFunc(plan.Milestones, func(a, b Milestone) int { return cmp.Compare(a.Title, b.Title) })
 	slices.SortFunc(plan.Issues, func(a, b Issue) int { return cmp.Compare(a.Number, b.Number) })
 	slices.SortFunc(plan.Pulls, func(a, b PullRequest) int { return cmp.Compare(a.Number, b.Number) })
-	if err := m.source.getAll(ctx, repoPath(ref)+"/releases", &plan.Releases); err != nil {
-		return fmt.Errorf("list source releases for %s: %w", ref, err)
+	if plan.Repository.HasReleases == nil || *plan.Repository.HasReleases {
+		if err := m.source.getAll(ctx, repoPath(ref)+"/releases", &plan.Releases); err != nil {
+			return fmt.Errorf("list source releases for %s: %w", ref, err)
+		}
 	}
 	slices.SortFunc(plan.Releases, func(a, b Release) int { return cmp.Compare(a.TagName, b.TagName) })
 	return m.discoverExtras(ctx, ref, plan)

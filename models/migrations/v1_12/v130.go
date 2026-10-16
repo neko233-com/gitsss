@@ -4,13 +4,12 @@
 package v1_12
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/json"
 	"github.com/neko233-com/gitsss/modules/setting"
-
-	"xorm.io/xorm"
 )
 
-func ExpandWebhooks(x *xorm.Engine) error {
+func ExpandWebhooks(x db.EngineMigration) error {
 	type HookEvents struct {
 		Create               bool `json:"create"`
 		Delete               bool `json:"delete"`

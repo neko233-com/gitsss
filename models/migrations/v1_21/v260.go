@@ -4,12 +4,11 @@
 package v1_21
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/base"
-
-	"xorm.io/xorm"
 )
 
-func DropCustomLabelsColumnOfActionRunner(x *xorm.Engine) error {
+func DropCustomLabelsColumnOfActionRunner(x db.EngineMigration) error {
 	sess := x.NewSession()
 	defer sess.Close()
 

@@ -3,11 +3,9 @@
 
 package v1_16
 
-import (
-	"xorm.io/xorm"
-)
+import "github.com/neko233-com/gitsss/models/db"
 
-func AddRenamedBranchTable(x *xorm.Engine) error {
+func AddRenamedBranchTable(x db.EngineMigration) error {
 	type RenamedBranch struct {
 		ID          int64 `xorm:"pk autoincr"`
 		RepoID      int64 `xorm:"INDEX NOT NULL"`

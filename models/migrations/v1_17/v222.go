@@ -8,13 +8,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/base"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func DropOldCredentialIDColumn(x *xorm.Engine) error {
+func DropOldCredentialIDColumn(x db.EngineMigration) error {
 	// This migration maybe rerun so that we should check if it has been run
 	credentialIDExist, err := x.Dialect().IsColumnExist(x.DB(), context.Background(), "webauthn_credential", "credential_id")
 	if err != nil {

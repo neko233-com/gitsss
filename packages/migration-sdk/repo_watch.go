@@ -5,6 +5,7 @@
 package gitea
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -21,28 +22,28 @@ type WatchInfo struct {
 }
 
 // GetWatchedRepos list all the watched repos of user
-func (c *Client) GetWatchedRepos(user string) ([]*Repository, *Response, error) {
+func (c *RepositoriesService) GetWatchedRepos(ctx context.Context, user string) ([]*Repository, *Response, error) {
 	if err := escapeValidatePathSegments(&user); err != nil {
 		return nil, nil, err
 	}
 	repos := make([]*Repository, 0, 10)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/users/%s/subscriptions", user), nil, nil, &repos)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/users/%s/subscriptions", user), nil, nil, &repos)
 	return repos, resp, err
 }
 
 // GetMyWatchedRepos list repositories watched by the authenticated user
-func (c *Client) GetMyWatchedRepos() ([]*Repository, *Response, error) {
+func (c *RepositoriesService) GetMyWatchedRepos(ctx context.Context) ([]*Repository, *Response, error) {
 	repos := make([]*Repository, 0, 10)
-	resp, err := c.getParsedResponse("GET", "/user/subscriptions", nil, nil, &repos)
+	resp, err := c.getParsedResponse(ctx, "GET", "/user/subscriptions", nil, nil, &repos)
 	return repos, resp, err
 }
 
 // CheckRepoWatch check if the current user is watching a repo
-func (c *Client) CheckRepoWatch(owner, repo string) (bool, *Response, error) {
+func (c *RepositoriesService) CheckRepoWatch(ctx context.Context, owner, repo string) (bool, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return false, nil, err
 	}
-	status, resp, err := c.getStatusCode("GET", fmt.Sprintf("/repos/%s/%s/subscription", owner, repo), nil, nil)
+	status, resp, err := c.getStatusCode(ctx, "GET", fmt.Sprintf("/repos/%s/%s/subscription", owner, repo), nil, nil)
 	if err != nil {
 		return false, resp, err
 	}
@@ -57,11 +58,11 @@ func (c *Client) CheckRepoWatch(owner, repo string) (bool, *Response, error) {
 }
 
 // WatchRepo start to watch a repository
-func (c *Client) WatchRepo(owner, repo string) (*Response, error) {
+func (c *RepositoriesService) WatchRepo(ctx context.Context, owner, repo string) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	status, resp, err := c.getStatusCode("PUT", fmt.Sprintf("/repos/%s/%s/subscription", owner, repo), nil, nil)
+	status, resp, err := c.getStatusCode(ctx, "PUT", fmt.Sprintf("/repos/%s/%s/subscription", owner, repo), nil, nil)
 	if err != nil {
 		return resp, err
 	}
@@ -72,11 +73,11 @@ func (c *Client) WatchRepo(owner, repo string) (*Response, error) {
 }
 
 // UnWatchRepo stop to watch a repository
-func (c *Client) UnWatchRepo(owner, repo string) (*Response, error) {
+func (c *RepositoriesService) UnWatchRepo(ctx context.Context, owner, repo string) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	status, resp, err := c.getStatusCode("DELETE", fmt.Sprintf("/repos/%s/%s/subscription", owner, repo), nil, nil)
+	status, resp, err := c.getStatusCode(ctx, "DELETE", fmt.Sprintf("/repos/%s/%s/subscription", owner, repo), nil, nil)
 	if err != nil {
 		return resp, err
 	}

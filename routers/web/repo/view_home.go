@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	auth_model "github.com/neko233-com/gitsss/models/auth"
 	"github.com/neko233-com/gitsss/models/db"
 	git_model "github.com/neko233-com/gitsss/models/git"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
@@ -31,7 +32,7 @@ import (
 )
 
 func checkOutdatedBranch(ctx *context.Context) {
-	if !(ctx.Repo.IsAdmin() || ctx.Repo.IsOwner()) {
+	if !(ctx.Repo.Permission.IsAdmin() || ctx.Repo.Permission.IsOwner()) {
 		return
 	}
 
@@ -276,7 +277,7 @@ func handleRepoViewSubmodule(ctx *context.Context, commitSubmoduleFile *git.Comm
 	redirectLink := submoduleWebLink.CommitWebLink
 	if isViewHomeOnlyContent(ctx) {
 		ctx.Resp.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = ctx.Resp.Write([]byte(htmlutil.HTMLFormat(`<a href="%s">%s</a>`, redirectLink, redirectLink)))
+		_, _ = htmlutil.HTMLPrintf(ctx.Resp, `<a href="%s">%s</a>`, redirectLink, redirectLink)
 	} else if !httplib.IsCurrentGiteaSiteURL(ctx, redirectLink) {
 		// don't auto-redirect to external URL, to avoid open redirect or phishing
 		ctx.Data["NotFoundPrompt"] = redirectLink
@@ -391,6 +392,13 @@ func Home(ctx *context.Context) {
 		return
 	}
 	if redirectSrcToRaw(ctx) {
+		return
+	}
+
+	// a scoped or public-only API token authenticating this web request must still satisfy
+	// the repository read scope before private repo content is served
+	context.CheckRepoScopedToken(ctx, ctx.Repo.Repository, auth_model.Read)
+	if ctx.Written() {
 		return
 	}
 

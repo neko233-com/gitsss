@@ -6,12 +6,11 @@ package v1_6
 import (
 	"fmt"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func AddReview(x *xorm.Engine) error {
+func AddReview(x db.EngineMigration) error {
 	// Review see models/review.go
 	type Review struct {
 		ID          int64 `xorm:"pk autoincr"`

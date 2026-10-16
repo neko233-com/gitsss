@@ -5,14 +5,20 @@
 package org
 
 import (
+	gocontext "context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	activities_model "github.com/neko233-com/gitsss/models/activities"
 	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/organization"
 	"github.com/neko233-com/gitsss/models/perm"
+	repo_model "github.com/neko233-com/gitsss/models/repo"
+	system_model "github.com/neko233-com/gitsss/models/system"
 	user_model "github.com/neko233-com/gitsss/models/user"
+	"github.com/neko233-com/gitsss/modules/graceful"
+	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/optional"
 	api "github.com/neko233-com/gitsss/modules/structs"
 	"github.com/neko233-com/gitsss/modules/util"
@@ -23,6 +29,7 @@ import (
 	"github.com/neko233-com/gitsss/services/convert"
 	feed_service "github.com/neko233-com/gitsss/services/feed"
 	"github.com/neko233-com/gitsss/services/org"
+	repo_service "github.com/neko233-com/gitsss/services/repository"
 	user_service "github.com/neko233-com/gitsss/services/user"
 )
 
@@ -138,8 +145,15 @@ func GetUserOrgsPermissions(ctx *context.APIContext) {
 
 	op := api.OrganizationPermissions{}
 
+	// A public-only token must not disclose membership/permission details of a
+	// non-public org, even for the token owner's own private orgs.
+	if ctx.PublicOnly && !o.Visibility.IsPublic() {
+		ctx.APIErrorNotFound()
+		return
+	}
+
 	if !organization.HasOrgOrUserVisible(ctx, o, ctx.Doer) {
-		ctx.APIErrorNotFound("HasOrgOrUserVisible", nil)
+		ctx.APIErrorNotFound()
 		return
 	}
 
@@ -249,13 +263,13 @@ func Create(ctx *context.APIContext) {
 	//     "$ref": "#/responses/validationError"
 	form := web.GetForm(ctx).(*api.CreateOrgOption)
 	if !ctx.Doer.CanCreateOrganization() {
-		ctx.APIError(http.StatusForbidden, nil)
+		ctx.APIError(http.StatusForbidden, "not allowed to create org")
 		return
 	}
 
 	visibility := api.VisibleTypePublic
 	if form.Visibility != "" {
-		visibility = api.VisibilityModes[form.Visibility]
+		visibility = api.VisibilityModes[string(form.Visibility)]
 	}
 
 	org := &organization.Organization{
@@ -275,7 +289,7 @@ func Create(ctx *context.APIContext) {
 			db.IsErrNameReserved(err) ||
 			db.IsErrNameCharsNotAllowed(err) ||
 			db.IsErrNamePatternNotAllowed(err) {
-			ctx.APIError(http.StatusUnprocessableEntity, err)
+			ctx.APIError(http.StatusUnprocessableEntity, err.Error())
 		} else {
 			ctx.APIErrorInternal(err)
 		}
@@ -305,7 +319,7 @@ func Get(ctx *context.APIContext) {
 	//     "$ref": "#/responses/notFound"
 
 	if !organization.HasOrgOrUserVisible(ctx, ctx.Org.Organization.AsUser(), ctx.Doer) {
-		ctx.APIErrorNotFound("HasOrgOrUserVisible", nil)
+		ctx.APIErrorNotFound()
 		return
 	}
 
@@ -348,7 +362,7 @@ func Rename(ctx *context.APIContext) {
 	orgUser := ctx.Org.Organization.AsUser()
 	if err := user_service.RenameUser(ctx, orgUser, form.NewName, ctx.Doer); err != nil {
 		if user_model.IsErrUserAlreadyExist(err) || db.IsErrNameReserved(err) || db.IsErrNamePatternNotAllowed(err) || db.IsErrNameCharsNotAllowed(err) {
-			ctx.APIError(http.StatusUnprocessableEntity, err)
+			ctx.APIError(http.StatusUnprocessableEntity, err.Error())
 		} else {
 			ctx.APIErrorInternal(err)
 		}
@@ -387,7 +401,7 @@ func Edit(ctx *context.APIContext) {
 
 	if err := org.UpdateOrgEmailAddress(ctx, ctx.Org.Organization, form.Email); err != nil {
 		if errors.Is(err, util.ErrInvalidArgument) {
-			ctx.APIError(http.StatusUnprocessableEntity, err)
+			ctx.APIError(http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 		ctx.APIErrorInternal(err)
@@ -399,7 +413,7 @@ func Edit(ctx *context.APIContext) {
 		Description:               optional.FromPtr(form.Description),
 		Website:                   optional.FromPtr(form.Website),
 		Location:                  optional.FromPtr(form.Location),
-		Visibility:                optional.FromMapLookup(api.VisibilityModes, optional.FromPtr(form.Visibility).Value()),
+		Visibility:                optional.FromMapLookup(api.VisibilityModes, string(optional.FromPtr(form.Visibility).Value())),
 		RepoAdminChangeTeamAccess: optional.FromPtr(form.RepoAdminChangeTeamAccess),
 	}
 	if err := user_service.UpdateUser(ctx, ctx.Org.Organization.AsUser(), opts); err != nil {
@@ -501,4 +515,71 @@ func ListOrgActivityFeeds(ctx *context.APIContext) {
 	ctx.SetTotalCountHeader(count)
 
 	ctx.JSON(http.StatusOK, convert.ToActivities(ctx, feeds, ctx.Doer))
+}
+
+func deleteOrgReposBackground(ctx gocontext.Context, org *organization.Organization, repoIDs []int64, doer *user_model.User) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error("panic during org repo deletion: %v, stack: %v", r, log.Stack(2))
+		}
+	}()
+
+	for _, repoID := range repoIDs {
+		repo, err := repo_model.GetRepositoryByID(ctx, repoID)
+		if err != nil {
+			desc := fmt.Sprintf("Failed to get repository ID %d in org %s: %v", repoID, org.Name, err)
+			_ = system_model.CreateNotice(ctx, system_model.NoticeRepository, desc)
+			log.Error("GetRepositoryByID failed: %v", desc)
+			continue
+		}
+		if err := repo_service.DeleteRepository(ctx, doer, repo, true); err != nil {
+			desc := fmt.Sprintf("Failed to delete repository %s (ID: %d) in org %s: %v", repo.Name, repo.ID, org.Name, err)
+			_ = system_model.CreateNotice(ctx, system_model.NoticeRepository, desc)
+			log.Error("DeleteRepository failed: %v", desc)
+			continue
+		}
+		log.Info("Successfully deleted repository %s (ID: %d) in org %s", repo.Name, repo.ID, org.Name)
+	}
+	log.Info("Completed deletion of repositories in org %s", org.Name)
+}
+
+func DeleteOrgRepos(ctx *context.APIContext) {
+	// swagger:operation DELETE /orgs/{org}/repos organization orgDeleteRepos
+	// ---
+	// summary: Delete all repositories in an organization
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: org
+	//   in: path
+	//   description: name of the organization
+	//   type: string
+	//   required: true
+	// responses:
+	//   "202":
+	//     "$ref": "#/responses/empty"
+	//   "204":
+	//     "$ref": "#/responses/empty"
+	//   "403":
+	//     "$ref": "#/responses/forbidden"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
+
+	// Intentionally it only loads repository IDs to avoid loading too much data into memory
+	// There is no need to do pagination here as the number of repositories is expected to be manageable
+	repoIDs, err := repo_model.GetOrgRepositoryIDs(ctx, ctx.Org.Organization.ID)
+	if err != nil {
+		ctx.APIErrorInternal(err)
+		return
+	}
+
+	if len(repoIDs) == 0 {
+		ctx.Status(http.StatusNoContent)
+		return
+	}
+
+	// Start deletion (slow) in background with detached context, so it can continue even if the request is canceled
+	go deleteOrgReposBackground(graceful.GetManager().ShutdownContext(), ctx.Org.Organization, repoIDs, ctx.Doer)
+
+	ctx.Status(http.StatusAccepted)
 }

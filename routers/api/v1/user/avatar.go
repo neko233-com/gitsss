@@ -13,7 +13,7 @@ import (
 	user_service "github.com/neko233-com/gitsss/services/user"
 )
 
-// UpdateAvatar updates the Avatar of an User
+// UpdateAvatar updates the Avatar of a User
 func UpdateAvatar(ctx *context.APIContext) {
 	// swagger:operation POST /user/avatar user userUpdateAvatar
 	// ---
@@ -32,7 +32,7 @@ func UpdateAvatar(ctx *context.APIContext) {
 
 	content, err := base64.StdEncoding.DecodeString(form.Image)
 	if err != nil {
-		ctx.APIError(http.StatusBadRequest, err)
+		ctx.APIError(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -45,7 +45,7 @@ func UpdateAvatar(ctx *context.APIContext) {
 	ctx.Status(http.StatusNoContent)
 }
 
-// DeleteAvatar deletes the Avatar of an User
+// DeleteAvatar deletes the Avatar of a User
 func DeleteAvatar(ctx *context.APIContext) {
 	// swagger:operation DELETE /user/avatar user userDeleteAvatar
 	// ---

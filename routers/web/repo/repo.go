@@ -18,7 +18,6 @@ import (
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	"github.com/neko233-com/gitsss/models/unit"
 	user_model "github.com/neko233-com/gitsss/models/user"
-	"github.com/neko233-com/gitsss/modules/cache"
 	"github.com/neko233-com/gitsss/modules/git"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/optional"
@@ -61,22 +60,6 @@ func MustBeAbleToUpload(ctx *context.Context) {
 	if !setting.Repository.Upload.Enabled {
 		ctx.NotFound(nil)
 	}
-}
-
-func CommitInfoCache(ctx *context.Context) {
-	var err error
-	ctx.Repo.Commit, err = ctx.Repo.GitRepo.GetBranchCommit(ctx.Repo.Repository.DefaultBranch)
-	if err != nil {
-		ctx.ServerError("GetBranchCommit", err)
-		return
-	}
-	ctx.Repo.CommitsCount, err = ctx.Repo.GetCommitsCount(ctx)
-	if err != nil {
-		ctx.ServerError("GetCommitsCount", err)
-		return
-	}
-	ctx.Data["CommitsCount"] = ctx.Repo.CommitsCount
-	ctx.Repo.GitRepo.LastCommitCache = git.NewLastCommitCache(ctx.Repo.CommitsCount, ctx.Repo.Repository.FullName(), ctx.Repo.GitRepo, cache.GetCache())
 }
 
 func checkContextUser(ctx *context.Context, uid int64) *user_model.User {
@@ -302,12 +285,12 @@ func CreatePost(ctx *context.Context) {
 func handleActionError(ctx *context.Context, err error) {
 	switch {
 	case errors.Is(err, user_model.ErrBlockedUser):
-		ctx.Flash.Error(ctx.Tr("repo.action.blocked_user"))
+		ctx.JSONError(ctx.Tr("repo.action.blocked_user"))
 	case repo_service.IsRepositoryLimitReached(err):
 		limit := err.(repo_service.LimitReachedError).Limit
-		ctx.Flash.Error(ctx.TrN(limit, "repo.form.reach_limit_of_creation_1", "repo.form.reach_limit_of_creation_n", limit))
+		ctx.JSONError(ctx.TrN(limit, "repo.form.reach_limit_of_creation_1", "repo.form.reach_limit_of_creation_n", limit))
 	case errors.Is(err, util.ErrPermissionDenied):
-		ctx.HTTPError(http.StatusNotFound)
+		ctx.JSONError(ctx.Tr("error.permission_denied"))
 	default:
 		ctx.ServerError(fmt.Sprintf("Action (%s)", ctx.PathParam("action")), err)
 	}
@@ -322,7 +305,7 @@ func RedirectDownload(ctx *context.Context) {
 	tagNames := []string{vTag}
 	curRepo := ctx.Repo.Repository
 	releases, err := db.Find[repo_model.Release](ctx, repo_model.FindReleasesOptions{
-		IncludeDrafts: ctx.Repo.CanWrite(unit.TypeReleases),
+		IncludeDrafts: ctx.Repo.Permission.CanWrite(unit.TypeReleases),
 		RepoID:        curRepo.ID,
 		TagNames:      tagNames,
 	})
@@ -540,7 +523,7 @@ func SearchRepo(ctx *context.Context) {
 		ctx.JSON(http.StatusInternalServerError, nil)
 		return
 	}
-	if !ctx.Repo.CanRead(unit.TypeActions) {
+	if !ctx.Repo.Permission.CanRead(unit.TypeActions) {
 		git_model.CommitStatusesHideActionsURL(ctx, latestCommitStatuses)
 	}
 

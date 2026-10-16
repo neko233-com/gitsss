@@ -16,15 +16,12 @@ import (
 	"strings"
 	"time"
 
-	_ "image/gif"  // for processing gif images
-	_ "image/jpeg" // for processing jpeg images
-	_ "image/png"  // for processing png images
-
 	activities_model "github.com/neko233-com/gitsss/models/activities"
 	admin_model "github.com/neko233-com/gitsss/models/admin"
 	asymkey_model "github.com/neko233-com/gitsss/models/asymkey"
 	"github.com/neko233-com/gitsss/models/db"
 	git_model "github.com/neko233-com/gitsss/models/git"
+	"github.com/neko233-com/gitsss/models/gituser"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	unit_model "github.com/neko233-com/gitsss/models/unit"
 	user_model "github.com/neko233-com/gitsss/models/user"
@@ -46,6 +43,9 @@ import (
 
 	_ "golang.org/x/image/bmp"  // for processing bmp images
 	_ "golang.org/x/image/webp" // for processing webp images
+	_ "image/gif"               // for processing gif images
+	_ "image/jpeg"              // for processing jpeg images
+	_ "image/png"               // for processing png images
 )
 
 const (
@@ -133,14 +133,17 @@ func loadLatestCommitData(ctx *context.Context, latestCommit *git.Commit) bool {
 			ctx.ServerError("CalculateTrustStatus", err)
 			return false
 		}
+
+		avatarStackData := gituser.BuildAvatarStackData(ctx, latestCommit.AllParticipantIdentities(), nil)
+		avatarStackData.SearchByEmailLink = gituser.RepoCommitSearchByEmailLink(ctx.Repo.RepoLink, ctx.Repo.RefFullName)
+		ctx.Data["LatestCommitAvatarStackData"] = avatarStackData
 		ctx.Data["LatestCommitVerification"] = verification
-		ctx.Data["LatestCommitUser"] = user_model.ValidateCommitWithEmail(ctx, latestCommit)
 
 		statuses, err := git_model.GetLatestCommitStatus(ctx, ctx.Repo.Repository.ID, latestCommit.ID.String(), db.ListOptionsAll)
 		if err != nil {
 			log.Error("GetLatestCommitStatus: %v", err)
 		}
-		if !ctx.Repo.CanRead(unit_model.TypeActions) {
+		if !ctx.Repo.Permission.CanRead(unit_model.TypeActions) {
 			git_model.CommitStatusesHideActionsURL(ctx, statuses)
 		}
 
@@ -175,12 +178,11 @@ func markupRenderToHTML(ctx *context.Context, renderCtx *markup.RenderContext, r
 }
 
 func checkHomeCodeViewable(ctx *context.Context) {
-	if ctx.Repo.HasUnits() {
+	if ctx.Repo.Permission.HasUnits() {
 		if ctx.Repo.Repository.IsBeingCreated() {
 			task, err := admin_model.GetMigratingTask(ctx, ctx.Repo.Repository.ID)
 			if err != nil {
 				if admin_model.IsErrTaskDoesNotExist(err) {
-					ctx.Data["Repo"] = ctx.Repo
 					ctx.Data["CloneAddr"] = ""
 					ctx.Data["Failed"] = true
 					ctx.HTML(http.StatusOK, tplMigrating)
@@ -195,7 +197,6 @@ func checkHomeCodeViewable(ctx *context.Context) {
 				return
 			}
 
-			ctx.Data["Repo"] = ctx.Repo
 			ctx.Data["MigrateTask"] = task
 			ctx.Data["CloneAddr"], _ = util.SanitizeURL(cfg.CloneAddr)
 			ctx.Data["Failed"] = task.Status == structs.TaskStatusFailed
@@ -310,13 +311,15 @@ func renderDirectoryFiles(ctx *context.Context, timeout time.Duration) git.Entri
 		return nil
 	}
 
-	{
+	{ // this block is for testing purpose only
 		if timeout != 0 && !setting.IsProd && !setting.IsInTesting {
 			log.Debug("first call to get directory file commit info")
 			clearFilesCommitInfo := func() {
 				log.Warn("clear directory file commit info to force async loading on frontend")
 				for i := range files {
-					files[i].Commit = nil
+					if i%2 == 0 { // for testing purpose, only clear half of the files' commit info
+						files[i].Commit = nil
+					}
 				}
 			}
 			_ = clearFilesCommitInfo

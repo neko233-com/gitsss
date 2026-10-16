@@ -9,6 +9,7 @@ const frontendPlugins: Record<string, LazyLoadFunc> = {
   'viewer-3d': () => import('./render/plugins/frontend-viewer-3d.ts'),
   'game-assets': () => import('./render/plugins/frontend-game-assets.ts'),
   'openapi-swagger': () => import('./render/plugins/frontend-openapi-swagger.ts'),
+  'asciicast': () => import('./render/plugins/frontend-asciicast.ts'),
 };
 
 class Options implements FrontendRenderOptions {
@@ -45,26 +46,28 @@ async function initFrontendExternalRender() {
   const viewerContainer = document.querySelector<HTMLElement>('#frontend-render-viewer')!;
   const renderNames = viewerContainer.getAttribute('data-frontend-renders')!.split(' ');
   const fileTreePath = viewerContainer.getAttribute('data-file-tree-path')!;
+  viewerContainer.setAttribute('data-window-origin', window.origin); // mainly for testing purpose
 
   const fileDataElem = document.querySelector<HTMLTextAreaElement>('#frontend-render-data')!;
   fileDataElem.remove();
   const fileDataContent = fileDataElem.value;
   const fileDataEncoding = fileDataElem.getAttribute('data-content-encoding')!;
   const opts = new Options(viewerContainer, fileTreePath, fileDataEncoding, fileDataContent);
-
-  let rendered = false;
+  let renderName = '', rendered = false;
   for (const name of renderNames) {
     if (!(name in frontendPlugins)) continue;
     const plugin = await frontendPlugins[name]();
-    if (await plugin.frontendRender(opts)) {
-      rendered = true;
-      break;
-    }
+    renderName = name;
+    rendered = await plugin.frontendRender(opts);
+    if (rendered) break;
   }
 
-  viewerContainer.classList.remove('is-loading');
-  if (!rendered) {
-    viewerContainer.textContent = 'Preview is unavailable for this asset. Use the raw download or source view.';
+  if (!renderName) {
+    viewerContainer.textContent = 'No frontend render plugin found for this file, but backend declares that there must be one, there must be a bug';
+  } else if (!rendered) {
+    viewerContainer.textContent = `Failed to render by ${renderName}`;
+  } else {
+    viewerContainer.setAttribute('data-frontend-render-name', renderName); // succeeded render, mainly for testing purpose
   }
 }
 

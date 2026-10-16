@@ -5,18 +5,23 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/neko233-com/gitsss/modules/json"
@@ -45,6 +50,8 @@ type Options struct {
 	ConflictPolicy  ConflictPolicy
 	HTTPClient      *http.Client
 	Mirror          RepositoryMirror
+	MirrorCacheDir  string
+	SyncExistingGit bool
 }
 
 type Migrator struct {
@@ -54,15 +61,19 @@ type Migrator struct {
 	allRepos bool
 	conflict ConflictPolicy
 	mirror   RepositoryMirror
+	cacheDir string
+	syncGit  bool
 }
 
 type MirrorRequest struct {
-	SourceURL   string
-	SourceLogin string
-	SourceToken string
-	TargetURL   string
-	TargetLogin string
-	TargetToken string
+	SourceURL      string
+	SourceLogin    string
+	SourceToken    string
+	TargetURL      string
+	TargetLogin    string
+	TargetToken    string
+	CacheDir       string
+	UpdateExisting bool
 }
 
 type RepositoryMirror func(context.Context, MirrorRequest) error
@@ -102,6 +113,8 @@ type Organization struct {
 type Team struct {
 	ID                      int64             `json:"id"`
 	Name                    string            `json:"name"`
+	DisplayName             string            `json:"display_name,omitempty"`
+	Visibility              string            `json:"visibility,omitempty"`
 	Description             string            `json:"description"`
 	IncludesAllRepositories bool              `json:"includes_all_repositories"`
 	Permission              string            `json:"permission"`
@@ -111,16 +124,21 @@ type Team struct {
 }
 
 type Repository struct {
-	Owner         *User  `json:"owner"`
-	Name          string `json:"name"`
-	FullName      string `json:"full_name"`
-	Description   string `json:"description"`
-	Private       bool   `json:"private"`
-	Internal      bool   `json:"internal"`
-	Empty         bool   `json:"empty"`
-	CloneURL      string `json:"clone_url"`
-	DefaultBranch string `json:"default_branch"`
-	Archived      bool   `json:"archived"`
+	Owner           *User  `json:"owner"`
+	Name            string `json:"name"`
+	FullName        string `json:"full_name"`
+	Description     string `json:"description"`
+	Private         bool   `json:"private"`
+	Internal        bool   `json:"internal"`
+	Empty           bool   `json:"empty"`
+	CloneURL        string `json:"clone_url"`
+	DefaultBranch   string `json:"default_branch"`
+	Archived        bool   `json:"archived"`
+	HasIssues       *bool  `json:"has_issues,omitempty"`
+	HasPullRequests *bool  `json:"has_pull_requests,omitempty"`
+	HasReleases     *bool  `json:"has_releases,omitempty"`
+	HasWiki         *bool  `json:"has_wiki,omitempty"`
+	HasActions      *bool  `json:"has_actions,omitempty"`
 }
 
 type Reference struct {
@@ -152,16 +170,17 @@ type OrganizationPlan struct {
 }
 
 type RepositoryPlan struct {
-	Repository    Repository     `json:"repository"`
-	Refs          []Reference    `json:"refs,omitempty"`
-	Collaborators []Collaborator `json:"collaborators,omitempty"`
-	Labels        []Label        `json:"labels,omitempty"`
-	Milestones    []Milestone    `json:"milestones,omitempty"`
-	Issues        []Issue        `json:"issues,omitempty"`
-	Pulls         []PullRequest  `json:"pulls,omitempty"`
-	Releases      []Release      `json:"releases,omitempty"`
-	Wiki          []WikiPage     `json:"wiki,omitempty"`
-	Packages      []PackageCopy  `json:"packages,omitempty"`
+	Repository         Repository     `json:"repository"`
+	Refs               []Reference    `json:"refs,omitempty"`
+	Collaborators      []Collaborator `json:"collaborators,omitempty"`
+	OwnerCollaborators []string       `json:"owner_collaborators,omitempty"`
+	Labels             []Label        `json:"labels,omitempty"`
+	Milestones         []Milestone    `json:"milestones,omitempty"`
+	Issues             []Issue        `json:"issues,omitempty"`
+	Pulls              []PullRequest  `json:"pulls,omitempty"`
+	Releases           []Release      `json:"releases,omitempty"`
+	Wiki               []WikiPage     `json:"wiki,omitempty"`
+	Packages           []PackageCopy  `json:"packages,omitempty"`
 }
 
 type Plan struct {
@@ -171,37 +190,39 @@ type Plan struct {
 	Users         []User             `json:"users"`
 	Organizations []OrganizationPlan `json:"organizations"`
 	Repositories  []RepositoryPlan   `json:"repositories"`
+	GitOnlySync   bool               `json:"git_only_sync,omitempty"`
 	Warnings      []string           `json:"warnings,omitempty"`
 }
 
 type Result struct {
-	UsersCreated         int      `json:"users_created"`
-	UsersSkipped         int      `json:"users_skipped"`
-	OrganizationsCreated int      `json:"organizations_created"`
-	OrganizationsSkipped int      `json:"organizations_skipped"`
-	TeamsCreated         int      `json:"teams_created"`
-	TeamsReused          int      `json:"teams_reused"`
-	RepositoriesCreated  int      `json:"repositories_created"`
-	RepositoriesSkipped  int      `json:"repositories_skipped"`
-	TeamMemberships      int      `json:"team_memberships_applied"`
-	TeamRepositories     int      `json:"team_repositories_applied"`
-	Collaborators        int      `json:"collaborators_applied"`
-	PublicMemberships    int      `json:"public_memberships_applied"`
-	RefsVerified         int      `json:"refs_verified"`
-	LabelsCreated        int      `json:"labels_created"`
-	MilestonesCreated    int      `json:"milestones_created"`
-	IssuesCreated        int      `json:"issues_created"`
-	PullsCreated         int      `json:"pulls_created"`
-	CommentsCreated      int      `json:"comments_created"`
-	ReleasesCreated      int      `json:"releases_created"`
-	AssetsCreated        int      `json:"assets_created"`
-	WikiPagesCreated     int      `json:"wiki_pages_created"`
-	ReviewsCreated       int      `json:"reviews_created"`
-	PackagesCopied       int      `json:"packages_copied"`
-	PackagesSkipped      int      `json:"packages_skipped"`
-	ContentSkipped       int      `json:"content_skipped"`
-	IndexRemaps          int      `json:"index_remaps"`
-	Notes                []string `json:"notes,omitempty"`
+	UsersCreated          int      `json:"users_created"`
+	UsersSkipped          int      `json:"users_skipped"`
+	OrganizationsCreated  int      `json:"organizations_created"`
+	OrganizationsSkipped  int      `json:"organizations_skipped"`
+	TeamsCreated          int      `json:"teams_created"`
+	TeamsReused           int      `json:"teams_reused"`
+	RepositoriesCreated   int      `json:"repositories_created"`
+	RepositoriesSkipped   int      `json:"repositories_skipped"`
+	GitRepositoriesSynced int      `json:"git_repositories_synced"`
+	TeamMemberships       int      `json:"team_memberships_applied"`
+	TeamRepositories      int      `json:"team_repositories_applied"`
+	Collaborators         int      `json:"collaborators_applied"`
+	PublicMemberships     int      `json:"public_memberships_applied"`
+	RefsVerified          int      `json:"refs_verified"`
+	LabelsCreated         int      `json:"labels_created"`
+	MilestonesCreated     int      `json:"milestones_created"`
+	IssuesCreated         int      `json:"issues_created"`
+	PullsCreated          int      `json:"pulls_created"`
+	CommentsCreated       int      `json:"comments_created"`
+	ReleasesCreated       int      `json:"releases_created"`
+	AssetsCreated         int      `json:"assets_created"`
+	WikiPagesCreated      int      `json:"wiki_pages_created"`
+	ReviewsCreated        int      `json:"reviews_created"`
+	PackagesCopied        int      `json:"packages_copied"`
+	PackagesSkipped       int      `json:"packages_skipped"`
+	ContentSkipped        int      `json:"content_skipped"`
+	IndexRemaps           int      `json:"index_remaps"`
+	Notes                 []string `json:"notes,omitempty"`
 }
 
 type Credential struct {
@@ -308,6 +329,18 @@ func New(options Options) (*Migrator, error) {
 	if mirror == nil {
 		mirror = mirrorRepository
 	}
+	cacheDir := strings.TrimSpace(options.MirrorCacheDir)
+	if cacheDir == "" {
+		base, err := os.UserCacheDir()
+		if err != nil {
+			return nil, fmt.Errorf("locate user cache directory: %w", err)
+		}
+		cacheDir = filepath.Join(base, "gitsss", "gitea-http-mirrors")
+	}
+	cacheDir, err = filepath.Abs(cacheDir)
+	if err != nil {
+		return nil, fmt.Errorf("resolve mirror cache directory: %w", err)
+	}
 	secrets := []string{sourceAuth.Secret, targetAuth.Secret}
 	return &Migrator{
 		source:   newAuthenticatedClient(sourceBase, sourceAuth, httpClient, secrets...),
@@ -316,6 +349,8 @@ func New(options Options) (*Migrator, error) {
 		allRepos: options.AllRepositories,
 		conflict: options.ConflictPolicy,
 		mirror:   mirror,
+		cacheDir: cacheDir,
+		syncGit:  options.SyncExistingGit,
 	}, nil
 }
 
@@ -400,7 +435,7 @@ func requireSameOrigin(sourceBase, cloneURL string) error {
 }
 
 func (m *Migrator) Discover(ctx context.Context) (*Plan, error) {
-	plan := &Plan{SourceURL: m.source.baseURL, TargetURL: m.target.baseURL}
+	plan := &Plan{SourceURL: m.source.baseURL, TargetURL: m.target.baseURL, GitOnlySync: m.syncGit}
 	var sourceActor User
 	if err := m.source.get(ctx, "/user", &sourceActor); err != nil {
 		return nil, fmt.Errorf("read source token identity: %w", err)
@@ -415,6 +450,19 @@ func (m *Migrator) Discover(ctx context.Context) (*Plan, error) {
 			return nil, fmt.Errorf("list source repositories: %w", err)
 		}
 		m.repos = refs
+	}
+	if m.syncGit {
+		for _, ref := range m.repos {
+			repositoryPlan, err := m.discoverGitRepository(ctx, ref)
+			if err != nil {
+				return nil, err
+			}
+			plan.Repositories = append(plan.Repositories, repositoryPlan)
+		}
+		sort.Slice(plan.Repositories, func(i, j int) bool {
+			return plan.Repositories[i].Repository.FullName < plan.Repositories[j].Repository.FullName
+		})
+		return plan, nil
 	}
 	if err := m.source.getAll(ctx, "/admin/users", &plan.Users); err != nil {
 		return nil, fmt.Errorf("list source users (site-admin token required): %w", err)
@@ -468,6 +516,27 @@ func (m *Migrator) Discover(ctx context.Context) (*Plan, error) {
 		}
 		plan.Organizations = append(plan.Organizations, orgPlan)
 	}
+	for _, repo := range plan.Repositories {
+		for _, name := range repo.OwnerCollaborators {
+			verified := false
+			for _, org := range plan.Organizations {
+				if !strings.EqualFold(org.Organization.Name, repo.Repository.Owner.UserName) {
+					continue
+				}
+				for _, team := range org.Teams {
+					if team.Team.Permission == "owner" {
+						for _, member := range team.Members {
+							verified = verified || strings.EqualFold(member, name)
+						}
+					}
+				}
+			}
+			if !verified {
+				return nil, fmt.Errorf("source owner collaborator %s/%s is not in the organization's owner team", repo.Repository.FullName, name)
+			}
+			plan.Warnings = append(plan.Warnings, repo.Repository.FullName+"/"+name+": ownership is copied through the Owners team; HTTP does not expose the masked direct grant")
+		}
+	}
 	sort.Slice(plan.Users, func(i, j int) bool { return plan.Users[i].UserName < plan.Users[j].UserName })
 	sort.Slice(plan.Organizations, func(i, j int) bool {
 		return plan.Organizations[i].Organization.Name < plan.Organizations[j].Organization.Name
@@ -475,6 +544,27 @@ func (m *Migrator) Discover(ctx context.Context) (*Plan, error) {
 	sort.Slice(plan.Repositories, func(i, j int) bool {
 		return plan.Repositories[i].Repository.FullName < plan.Repositories[j].Repository.FullName
 	})
+	return plan, nil
+}
+
+func (m *Migrator) discoverGitRepository(ctx context.Context, ref RepositoryRef) (RepositoryPlan, error) {
+	var repository Repository
+	if err := m.source.get(ctx, repoPath(ref), &repository); err != nil {
+		return RepositoryPlan{}, fmt.Errorf("read source repository %s: %w", ref, err)
+	}
+	if repository.Owner == nil {
+		return RepositoryPlan{}, fmt.Errorf("source repository %s has no owner", ref)
+	}
+	if repository.CloneURL == "" {
+		return RepositoryPlan{}, fmt.Errorf("source repository %s has no HTTP clone URL", ref)
+	}
+	if err := requireSameOrigin(m.source.baseURL, repository.CloneURL); err != nil {
+		return RepositoryPlan{}, fmt.Errorf("source repository %s clone URL: %w", ref, err)
+	}
+	plan := RepositoryPlan{Repository: repository}
+	if err := m.discoverReferences(ctx, ref, &plan); err != nil {
+		return RepositoryPlan{}, err
+	}
 	return plan, nil
 }
 
@@ -490,12 +580,8 @@ func (m *Migrator) discoverRepository(ctx context.Context, ref RepositoryRef) (R
 		return RepositoryPlan{}, fmt.Errorf("source repository %s clone URL: %w", ref, err)
 	}
 	plan := RepositoryPlan{Repository: repository}
-	if !repository.Empty {
-		if err := m.source.get(ctx, repoPath(ref)+"/git/refs", &plan.Refs); err != nil {
-			return RepositoryPlan{}, fmt.Errorf("read source refs for %s: %w", ref, err)
-		}
-		plan.Refs = migratedReferences(plan.Refs)
-		sortReferences(plan.Refs)
+	if err := m.discoverReferences(ctx, ref, &plan); err != nil {
+		return RepositoryPlan{}, err
 	}
 	var collaborators []User
 	if err := m.source.getAll(ctx, repoPath(ref)+"/collaborators", &collaborators); err != nil {
@@ -512,6 +598,10 @@ func (m *Migrator) discoverRepository(ctx context.Context, ref RepositoryRef) (R
 		if err := m.source.get(ctx, collaboratorPath, &permission); err != nil {
 			return RepositoryPlan{}, fmt.Errorf("read collaborator permission %s/%s: %w", ref, collaborator.UserName, err)
 		}
+		if permission.Permission == "owner" {
+			plan.OwnerCollaborators = append(plan.OwnerCollaborators, collaborator.UserName)
+			continue
+		}
 		if permission.Permission != "read" && permission.Permission != "write" && permission.Permission != "admin" {
 			return RepositoryPlan{}, fmt.Errorf("source collaborator %s/%s has invalid direct permission %q", ref, collaborator.UserName, permission.Permission)
 		}
@@ -522,6 +612,21 @@ func (m *Migrator) discoverRepository(ctx context.Context, ref RepositoryRef) (R
 		return RepositoryPlan{}, err
 	}
 	return plan, nil
+}
+
+func (m *Migrator) discoverReferences(ctx context.Context, ref RepositoryRef, plan *RepositoryPlan) error {
+	// Push metadata is queued, so is_empty can lag behind the actual Git refs.
+	if err := m.source.get(ctx, repoPath(ref)+"/git/refs", &plan.Refs); err != nil {
+		var apiErr *APIError
+		if plan.Repository.Empty && errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
+			return nil
+		}
+		return fmt.Errorf("read source refs for %s: %w", ref, err)
+	}
+	plan.Refs = migratedReferences(plan.Refs)
+	sortReferences(plan.Refs)
+	plan.Repository.Empty = len(plan.Refs) == 0
+	return nil
 }
 
 func (m *Migrator) discoverOrganization(ctx context.Context, organization Organization, selected map[string]struct{}) (OrganizationPlan, error) {
@@ -736,6 +841,58 @@ func (m *Migrator) Apply(ctx context.Context, plan *Plan, credentials Credential
 	return result, nil
 }
 
+// SyncGitRepositories updates Git refs and LFS objects on repositories that already exist on the target.
+// The persistent local bare cache keeps subsequent source fetches incremental.
+func (m *Migrator) SyncGitRepositories(ctx context.Context, plan *Plan) (*Result, error) {
+	if !m.syncGit {
+		return nil, errors.New("Git-only synchronization was not enabled")
+	}
+	if plan == nil {
+		return nil, errors.New("migration plan is required")
+	}
+	if plan.SourceURL != m.source.baseURL || plan.TargetURL != m.target.baseURL || !plan.GitOnlySync {
+		return nil, errors.New("Git-only synchronization plan does not match migrator")
+	}
+	var targetActor User
+	if err := m.target.get(ctx, "/user", &targetActor); err != nil {
+		return nil, fmt.Errorf("read target token identity: %w", err)
+	}
+	if !targetActor.IsAdmin {
+		return nil, errors.New("target credentials must belong to a site-admin")
+	}
+	result := &Result{}
+	for _, repository := range plan.Repositories {
+		if repository.Repository.Owner == nil {
+			return nil, errors.New("source repository has no owner")
+		}
+		ref := RepositoryRef{Owner: repository.Repository.Owner.UserName, Name: repository.Repository.Name}
+		exists, err := m.target.exists(ctx, repoPath(ref))
+		if err != nil {
+			return nil, fmt.Errorf("check target repository %s: %w", ref, err)
+		}
+		if !exists {
+			return nil, fmt.Errorf("target repository %s does not exist; run the initial import first", ref)
+		}
+		if !repository.Repository.Empty {
+			targetURL := strings.TrimSuffix(m.target.baseURL, "/") + "/" + escapeRepo(ref) + ".git"
+			if err := m.mirror(ctx, MirrorRequest{
+				SourceURL: repository.Repository.CloneURL, SourceLogin: plan.SourceLogin, SourceToken: m.source.secret,
+				TargetURL: targetURL, TargetLogin: targetActor.UserName, TargetToken: m.target.secret,
+				CacheDir: m.cacheDir, UpdateExisting: true,
+			}); err != nil {
+				return nil, fmt.Errorf("sync Git repository %s: %w", ref, err)
+			}
+		}
+		count, err := m.verifyRepository(ctx, repository)
+		if err != nil {
+			return nil, err
+		}
+		result.GitRepositoriesSynced++
+		result.RefsVerified += count
+	}
+	return result, nil
+}
+
 func (m *Migrator) createUser(ctx context.Context, user User, credentials CredentialWriter) (bool, error) {
 	exists, err := m.target.exists(ctx, "/users/"+url.PathEscape(user.UserName))
 	if err != nil {
@@ -845,9 +1002,18 @@ func (m *Migrator) createTeams(ctx context.Context, plan OrganizationPlan) (map[
 		}
 		payload := map[string]any{
 			"name": teamPlan.Team.Name, "description": teamPlan.Team.Description,
+			"display_name":              teamPlan.Team.DisplayName,
 			"includes_all_repositories": teamPlan.Team.IncludesAllRepositories,
 			"permission":                teamPlan.Team.Permission, "units": teamPlan.Team.Units,
 			"units_map": teamPlan.Team.UnitsMap, "can_create_org_repo": teamPlan.Team.CanCreateOrgRepo,
+		}
+		if teamPlan.Team.Visibility != "" {
+			switch teamPlan.Team.Visibility {
+			case "private", "limited", "public":
+				payload["visibility"] = teamPlan.Team.Visibility
+			default:
+				return nil, created, reused, fmt.Errorf("source team %s/%s has unknown visibility %q", orgName, teamPlan.Team.Name, teamPlan.Team.Visibility)
+			}
 		}
 		var targetTeam Team
 		if err := m.target.post(ctx, endpoint, payload, &targetTeam); err != nil {
@@ -886,6 +1052,7 @@ func (m *Migrator) createRepository(ctx context.Context, sourceLogin, targetLogi
 	payload := map[string]any{
 		"name": ref.Name, "description": plan.Repository.Description,
 		"private": plan.Repository.Private || plan.Repository.Internal, "auto_init": false,
+		"default_branch": plan.Repository.DefaultBranch,
 	}
 	endpoint := "/admin/users/" + url.PathEscape(ref.Owner) + "/repos"
 	if _, isOrganization := organizationNames[strings.ToLower(ref.Owner)]; isOrganization {
@@ -900,13 +1067,29 @@ func (m *Migrator) createRepository(ctx context.Context, sourceLogin, targetLogi
 		if err := m.mirror(ctx, MirrorRequest{
 			SourceURL: plan.Repository.CloneURL, SourceLogin: sourceLogin, SourceToken: m.source.secret,
 			TargetURL: targetCloneURL, TargetLogin: targetLogin, TargetToken: m.target.secret,
+			CacheDir: m.cacheDir,
 		}); err != nil {
 			return false, m.rollbackRepository(ctx, ref, fmt.Errorf("mirror target repository %s: %w", ref, err))
+		}
+		if _, err := m.verifyRepository(ctx, plan); err != nil {
+			return false, fmt.Errorf("wait for target push metadata %s: %w", ref, err)
 		}
 	}
 	if plan.Repository.DefaultBranch != "" {
 		if err := m.target.patch(ctx, repoPath(ref), map[string]any{"default_branch": plan.Repository.DefaultBranch}, nil, http.StatusOK); err != nil {
 			return false, m.rollbackRepository(ctx, ref, fmt.Errorf("set target default branch %s: %w", ref, err))
+		}
+	}
+	features := map[string]*bool{"has_issues": plan.Repository.HasIssues, "has_pull_requests": plan.Repository.HasPullRequests, "has_releases": plan.Repository.HasReleases, "has_wiki": plan.Repository.HasWiki, "has_actions": plan.Repository.HasActions}
+	payload = map[string]any{}
+	for key, enabled := range features {
+		if enabled != nil {
+			payload[key] = *enabled
+		}
+	}
+	if len(payload) > 0 {
+		if err := m.target.patch(ctx, repoPath(ref), payload, nil, http.StatusOK); err != nil {
+			return false, m.rollbackRepository(ctx, ref, fmt.Errorf("set target features %s: %w", ref, err))
 		}
 	}
 	if plan.Repository.Archived {
@@ -932,37 +1115,140 @@ func mirrorRepository(ctx context.Context, request MirrorRequest) error {
 	if _, err := exec.LookPath("git-lfs"); err != nil {
 		return errors.New("git-lfs executable is required")
 	}
-	tempDir, err := os.MkdirTemp("", "gitsss-gitea-http-")
-	if err != nil {
-		return fmt.Errorf("create mirror directory: %w", err)
+	if strings.TrimSpace(request.CacheDir) == "" {
+		return errors.New("persistent mirror cache directory is required")
 	}
-	defer os.RemoveAll(tempDir)
-	repositoryDir := path.Join(tempDir, "repository.git")
-	if err := runGit(ctx, "", "", "init", "--bare", "--quiet", repositoryDir); err != nil {
-		return fmt.Errorf("initialize mirror: %w", err)
+	cacheKey := sha256.Sum256([]byte(strings.TrimRight(request.SourceURL, "/")))
+	repositoryDir := filepath.Join(request.CacheDir, hex.EncodeToString(cacheKey[:]))
+	lock := mirrorLock(repositoryDir)
+	lock.Lock()
+	defer lock.Unlock()
+	if err := os.MkdirAll(request.CacheDir, 0o700); err != nil {
+		return fmt.Errorf("create mirror cache directory: %w", err)
 	}
-	if err := runGit(ctx, "", "", "--git-dir", repositoryDir, "remote", "add", "origin", request.SourceURL); err != nil {
-		return fmt.Errorf("configure source: %w", err)
+	if _, err := os.Stat(filepath.Join(repositoryDir, "HEAD")); errors.Is(err, os.ErrNotExist) {
+		if err := runGit(ctx, "", "", "", "init", "--bare", "--quiet", repositoryDir); err != nil {
+			return fmt.Errorf("initialize mirror cache: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("inspect mirror cache: %w", err)
 	}
-	if err := runGit(ctx, request.SourceLogin, request.SourceToken,
+	if err := runGit(ctx, "", "", "", "--git-dir", repositoryDir, "remote", "set-url", "origin", request.SourceURL); err != nil {
+		if addErr := runGit(ctx, "", "", "", "--git-dir", repositoryDir, "remote", "add", "origin", request.SourceURL); addErr != nil {
+			return fmt.Errorf("configure source: %w", addErr)
+		}
+	}
+	if err := runGit(ctx, request.SourceLogin, request.SourceToken, request.SourceURL,
 		"--git-dir", repositoryDir, "fetch", "--quiet", "--prune", "origin",
 		"+refs/heads/*:refs/heads/*", "+refs/tags/*:refs/tags/*", "+refs/notes/*:refs/notes/*",
 	); err != nil {
 		return fmt.Errorf("fetch source refs: %w", err)
 	}
-	if err := runGit(ctx, request.SourceLogin, request.SourceToken, "--git-dir", repositoryDir, "lfs", "fetch", "--all", "origin"); err != nil {
+	sourceRefs, err := gitReferenceMap(ctx, repositoryDir, "", "", "")
+	if err != nil {
+		return fmt.Errorf("read cached refs: %w", err)
+	}
+	targetKey := sha256.Sum256([]byte(request.TargetURL))
+	checkpointPath := filepath.Join(repositoryDir, "last-sync-"+hex.EncodeToString(targetKey[:])+".json")
+	if request.UpdateExisting {
+		previous := map[string]string{}
+		data, err := os.ReadFile(checkpointPath)
+		if err == nil {
+			if err := json.Unmarshal(data, &previous); err != nil {
+				return fmt.Errorf("read mirror checkpoint: %w", err)
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("read mirror checkpoint: %w", err)
+		}
+		targetRefs, err := gitReferenceMap(ctx, "", request.TargetURL, request.TargetLogin, request.TargetToken)
+		if err != nil {
+			return fmt.Errorf("read target refs: %w", err)
+		}
+		if err := validateMirrorTarget(previous, sourceRefs, targetRefs); err != nil {
+			return err
+		}
+	}
+	if err := runGit(ctx, request.SourceLogin, request.SourceToken, request.SourceURL, "-c", "lfs.url="+strings.TrimRight(request.SourceURL, "/")+"/info/lfs", "--git-dir", repositoryDir, "lfs", "fetch", "--all", "origin"); err != nil {
 		return fmt.Errorf("fetch source LFS objects: %w", err)
 	}
-	if err := runGit(ctx, request.TargetLogin, request.TargetToken, "--git-dir", repositoryDir, "push", "--mirror", "--quiet", request.TargetURL); err != nil {
+	// Publish LFS bytes before refs make their pointers visible to clients.
+	if err := runGit(ctx, request.TargetLogin, request.TargetToken, request.TargetURL, "-c", "lfs.url="+strings.TrimRight(request.TargetURL, "/")+"/info/lfs", "--git-dir", repositoryDir, "lfs", "push", "--all", request.TargetURL); err != nil {
+		return fmt.Errorf("push LFS objects: %w", err)
+	}
+	if request.UpdateExisting {
+		if err := runGit(ctx, request.TargetLogin, request.TargetToken, request.TargetURL, "--git-dir", repositoryDir, "push", "--atomic", "--prune", "--quiet", request.TargetURL,
+			"refs/heads/*:refs/heads/*", "refs/tags/*:refs/tags/*", "refs/notes/*:refs/notes/*",
+		); err != nil {
+			return fmt.Errorf("push incremental Git refs: %w", err)
+		}
+	} else if err := runGit(ctx, request.TargetLogin, request.TargetToken, request.TargetURL, "--git-dir", repositoryDir, "push", "--mirror", "--quiet", request.TargetURL); err != nil {
 		return fmt.Errorf("push Git refs: %w", err)
 	}
-	if err := runGit(ctx, request.TargetLogin, request.TargetToken, "--git-dir", repositoryDir, "lfs", "push", "--all", request.TargetURL); err != nil {
-		return fmt.Errorf("push LFS objects: %w", err)
+	data, err := json.Marshal(sourceRefs)
+	if err != nil {
+		return err
+	}
+	file, err := os.CreateTemp(repositoryDir, ".last-sync-")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(file.Name())
+	_, writeErr := file.Write(data)
+	closeErr := file.Close()
+	if err := errors.Join(writeErr, closeErr); err != nil {
+		return err
+	}
+	if err := os.Rename(file.Name(), checkpointPath); err != nil {
+		return fmt.Errorf("save mirror checkpoint: %w", err)
 	}
 	return nil
 }
 
-func runGit(ctx context.Context, login, token string, args ...string) error {
+func validateMirrorTarget(previous, source, target map[string]string) error {
+	if maps.Equal(target, source) || maps.Equal(target, previous) {
+		return nil
+	}
+	return errors.New("target refs changed since the last successful sync; destination changes were preserved; reconcile them before retrying")
+}
+
+func gitReferenceMap(ctx context.Context, directory, remoteURL, login, token string) (map[string]string, error) {
+	var output string
+	var err error
+	if remoteURL == "" {
+		output, err = runGitOutput(ctx, "", "", "", "--git-dir", directory, "for-each-ref", "--format=%(objectname) %(refname)", "refs/heads/", "refs/tags/", "refs/notes/")
+	} else {
+		output, err = runGitOutput(ctx, login, token, remoteURL, "ls-remote", "--refs", remoteURL, "refs/heads/*", "refs/tags/*", "refs/notes/*")
+	}
+	if err != nil {
+		return nil, err
+	}
+	refs := map[string]string{}
+	for line := range strings.SplitSeq(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 2 {
+			refs[fields[1]] = fields[0]
+		}
+	}
+	return refs, nil
+}
+
+var mirrorLockMap sync.Map
+
+func mirrorLock(repositoryDir string) *sync.Mutex {
+	lock, _ := mirrorLockMap.LoadOrStore(repositoryDir, &sync.Mutex{})
+	return lock.(*sync.Mutex)
+}
+
+func runGit(ctx context.Context, login, token, authURL string, args ...string) error {
+	_, err := executeGit(ctx, login, token, authURL, false, args...)
+	return err
+}
+
+func runGitOutput(ctx context.Context, login, token, authURL string, args ...string) (string, error) {
+	return executeGit(ctx, login, token, authURL, true, args...)
+}
+
+func executeGit(ctx context.Context, login, token, authURL string, capture bool, args ...string) (string, error) {
 	extraHeader := ""
 	credential := ""
 	if login != "" || token != "" {
@@ -970,8 +1256,11 @@ func runGit(ctx context.Context, login, token string, args ...string) error {
 		extraHeader = "Authorization: Basic " + credential
 	}
 	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Env = sanitizedGitEnvironment(extraHeader)
+	cmd.Env = sanitizedGitEnvironment(extraHeader, authURL)
 	output := &limitedBuffer{limit: 64 * 1024}
+	if capture {
+		output.limit = 8 * 1024 * 1024
+	}
 	cmd.Stdout = output
 	cmd.Stderr = output
 	if err := cmd.Run(); err != nil {
@@ -981,14 +1270,17 @@ func runGit(ctx context.Context, login, token string, args ...string) error {
 				message = strings.ReplaceAll(message, secret, "[REDACTED]")
 			}
 		}
-		return fmt.Errorf("git %s failed: %w: %s", args[0], err, strings.TrimSpace(message))
+		return "", fmt.Errorf("git %s failed: %w: %s", args[0], err, strings.TrimSpace(message))
 	}
-	return nil
+	if capture && output.truncated {
+		return "", errors.New("Git reference output exceeded 8 MiB; refs were not published")
+	}
+	return output.String(), nil
 }
 
-func sanitizedGitEnvironment(extraHeader string) []string {
+func sanitizedGitEnvironment(extraHeader, authURL string) []string {
 	environment := make([]string, 0, len(os.Environ())+7)
-	blocked := []string{"GIT_CONFIG_", "GIT_TERMINAL_PROMPT=", "GIT_ASKPASS=", "GIT_LFS_SKIP_SMUDGE="}
+	blocked := []string{"GIT_CONFIG_", "GIT_TERMINAL_PROMPT=", "GIT_ASKPASS=", "GIT_LFS_SKIP_SMUDGE=", "GIT_ALLOW_PROTOCOL=", "GIT_TRACE"}
 	for _, item := range os.Environ() {
 		upperItem := strings.ToUpper(item)
 		discard := false
@@ -1002,18 +1294,23 @@ func sanitizedGitEnvironment(extraHeader string) []string {
 			environment = append(environment, item)
 		}
 	}
-	configCount := "1"
+	configCount := "2"
 	config := []string{
 		"GIT_CONFIG_KEY_0=http.followRedirects",
 		"GIT_CONFIG_VALUE_0=false",
+		"GIT_CONFIG_KEY_1=credential.helper",
+		"GIT_CONFIG_VALUE_1=",
 	}
 	if extraHeader != "" {
-		configCount = "2"
-		config = append(config, "GIT_CONFIG_KEY_1=http.extraHeader", "GIT_CONFIG_VALUE_1="+extraHeader)
+		configCount = "3"
+		config = append(config, "GIT_CONFIG_KEY_2=http."+authURL+".extraHeader", "GIT_CONFIG_VALUE_2="+extraHeader)
 	}
 	environment = append(environment, "GIT_CONFIG_COUNT="+configCount)
 	environment = append(environment, config...)
 	return append(environment,
+		"GIT_CONFIG_GLOBAL="+os.DevNull,
+		"GIT_CONFIG_NOSYSTEM=1",
+		"GIT_ALLOW_PROTOCOL=http:https",
 		"GIT_TERMINAL_PROMPT=0",
 		"GIT_ASKPASS=",
 		"GIT_LFS_SKIP_SMUDGE=1",
@@ -1021,13 +1318,17 @@ func sanitizedGitEnvironment(extraHeader string) []string {
 }
 
 type limitedBuffer struct {
-	buffer bytes.Buffer
-	limit  int
+	buffer    bytes.Buffer
+	limit     int
+	truncated bool
 }
 
 func (b *limitedBuffer) Write(content []byte) (int, error) {
 	originalLength := len(content)
 	remaining := b.limit - b.buffer.Len()
+	if len(content) > remaining {
+		b.truncated = true
+	}
 	if remaining > 0 {
 		if len(content) > remaining {
 			content = content[:remaining]
@@ -1043,7 +1344,7 @@ func (b *limitedBuffer) String() string {
 
 func (m *Migrator) verifyRepository(ctx context.Context, plan RepositoryPlan) (int, error) {
 	ref := RepositoryRef{Owner: plan.Repository.Owner.UserName, Name: plan.Repository.Name}
-	deadline := time.Now().Add(30 * time.Second)
+	deadline := time.Now().Add(5 * time.Minute)
 	for {
 		var lastReason string
 		var target Repository
@@ -1074,7 +1375,7 @@ func (m *Migrator) verifyRepository(ctx context.Context, plan RepositoryPlan) (i
 			lastReason = "empty state differs"
 		}
 		if time.Now().After(deadline) {
-			return 0, fmt.Errorf("verify target repository %s: %s after 30s", ref, lastReason)
+			return 0, fmt.Errorf("verify target repository %s: %s after 5m", ref, lastReason)
 		}
 		timer := time.NewTimer(250 * time.Millisecond)
 		select {

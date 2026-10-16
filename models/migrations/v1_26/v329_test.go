@@ -6,7 +6,7 @@ package v1_26
 import (
 	"testing"
 
-	"github.com/neko233-com/gitsss/models/migrations/base"
+	"github.com/neko233-com/gitsss/models/migrations/migrationtest"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -22,7 +22,7 @@ func (UserBadgeBefore) TableName() string {
 }
 
 func Test_AddUniqueIndexForUserBadge(t *testing.T) {
-	x, deferable := base.PrepareTestEnv(t, 0, new(UserBadgeBefore))
+	x, deferable := migrationtest.PrepareTestEnv(t, 0, new(UserBadgeBefore))
 	defer deferable()
 	if x == nil || t.Failed() {
 		return

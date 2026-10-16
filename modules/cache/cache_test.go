@@ -43,7 +43,8 @@ func TestTest(t *testing.T) {
 	elapsed, err := Test()
 	assert.NoError(t, err)
 	// mem cache should take from 300ns up to 1ms on modern hardware ...
-	assert.Positive(t, elapsed)
+	// A coarse platform clock can measure a completed operation as zero.
+	assert.GreaterOrEqual(t, elapsed, time.Duration(0))
 	assert.Less(t, elapsed, SlowCacheThreshold)
 }
 

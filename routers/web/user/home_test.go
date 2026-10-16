@@ -49,6 +49,16 @@ func TestArchivedIssues(t *testing.T) {
 	assert.Len(t, ctx.Data["Issues"], 1)
 }
 
+func TestOrganizationHome(t *testing.T) {
+	assert.NoError(t, unittest.LoadFixtures())
+	ctx, _ := contexttest.MockContext(t, "/")
+	contexttest.LoadUser(t, ctx, 2)
+	Dashboard(ctx)
+	assert.Equal(t, http.StatusOK, ctx.Resp.WrittenStatus())
+	assert.Equal(t, true, ctx.Data["OrganizationHome"])
+	assert.NotNil(t, ctx.Data["Orgs"])
+}
+
 func TestIssues(t *testing.T) {
 	setting.UI.IssuePagingNum = 1
 	assert.NoError(t, unittest.LoadFixtures())

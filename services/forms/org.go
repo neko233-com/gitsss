@@ -66,10 +66,12 @@ type RenameOrgForm struct {
 // CreateTeamForm form for creating team
 type CreateTeamForm struct {
 	TeamName         string `binding:"Required;AlphaDashDot;MaxSize(255)"`
+	DisplayName      string `binding:"MaxSize(255)"`
 	Description      string `binding:"MaxSize(255)"`
 	Permission       string
 	RepoAccess       string
 	CanCreateOrgRepo bool
+	Visibility       string `binding:"OmitEmpty;In(public,limited,private)"`
 }
 
 // Validate validates the fields

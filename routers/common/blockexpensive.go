@@ -11,6 +11,7 @@ import (
 	"github.com/neko233-com/gitsss/modules/reqctx"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/web/middleware"
+	"github.com/neko233-com/gitsss/modules/web/routing"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -71,10 +72,6 @@ func isRoutePathExpensive(routePattern string) bool {
 	return false
 }
 
-func isRoutePathForLongPolling(routePattern string) bool {
-	return routePattern == "/user/events"
-}
-
 func determineRequestPriority(reqCtx reqctx.RequestContext) (ret struct {
 	SignedIn    bool
 	Expensive   bool
@@ -86,7 +83,7 @@ func determineRequestPriority(reqCtx reqctx.RequestContext) (ret struct {
 		ret.SignedIn = true
 	} else {
 		ret.Expensive = isRoutePathExpensive(chiRoutePath)
-		ret.LongPolling = isRoutePathForLongPolling(chiRoutePath)
+		ret.LongPolling = routing.GetRequestRecordInfo(reqCtx).IsLongPolling
 	}
 	return ret
 }

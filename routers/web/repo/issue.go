@@ -87,7 +87,7 @@ func MustAllowUserComment(ctx *context.Context) {
 		return
 	}
 
-	if issue.IsLocked && !ctx.Repo.CanWriteIssuesOrPulls(issue.IsPull) && !ctx.Doer.IsAdmin {
+	if issue.IsLocked && !ctx.Repo.Permission.CanWriteIssuesOrPulls(issue.IsPull) && !ctx.Doer.IsAdmin {
 		ctx.Flash.Error(ctx.Tr("repo.issues.comment_on_locked"))
 		ctx.Redirect(issue.Link())
 		return
@@ -96,8 +96,8 @@ func MustAllowUserComment(ctx *context.Context) {
 
 // MustEnableIssues check if repository enable internal issues
 func MustEnableIssues(ctx *context.Context) {
-	if !ctx.Repo.CanRead(unit.TypeIssues) &&
-		!ctx.Repo.CanRead(unit.TypeExternalTracker) {
+	if !ctx.Repo.Permission.CanRead(unit.TypeIssues) &&
+		!ctx.Repo.Permission.CanRead(unit.TypeExternalTracker) {
 		ctx.NotFound(nil)
 		return
 	}
@@ -111,7 +111,7 @@ func MustEnableIssues(ctx *context.Context) {
 
 // MustAllowPulls check if repository enable pull requests and user have right to do that
 func MustAllowPulls(ctx *context.Context) {
-	if !ctx.Repo.Repository.CanEnablePulls() || !ctx.Repo.CanRead(unit.TypePullRequests) {
+	if !ctx.Repo.Repository.CanEnablePulls() || !ctx.Repo.Permission.CanRead(unit.TypePullRequests) {
 		ctx.NotFound(nil)
 		return
 	}
@@ -201,8 +201,8 @@ func GetActionIssue(ctx *context.Context) *issues_model.Issue {
 }
 
 func checkIssueRights(ctx *context.Context, issue *issues_model.Issue) {
-	if issue.IsPull && !ctx.Repo.CanRead(unit.TypePullRequests) ||
-		!issue.IsPull && !ctx.Repo.CanRead(unit.TypeIssues) {
+	if issue.IsPull && !ctx.Repo.Permission.CanRead(unit.TypePullRequests) ||
+		!issue.IsPull && !ctx.Repo.Permission.CanRead(unit.TypeIssues) {
 		ctx.NotFound(nil)
 	}
 }
@@ -227,8 +227,8 @@ func getActionIssues(ctx *context.Context) issues_model.IssueList {
 		return nil
 	}
 	// Check access rights for all issues
-	issueUnitEnabled := ctx.Repo.CanRead(unit.TypeIssues)
-	prUnitEnabled := ctx.Repo.CanRead(unit.TypePullRequests)
+	issueUnitEnabled := ctx.Repo.Permission.CanRead(unit.TypeIssues)
+	prUnitEnabled := ctx.Repo.Permission.CanRead(unit.TypePullRequests)
 	for _, issue := range issues {
 		if issue.RepoID != ctx.Repo.Repository.ID {
 			ctx.NotFound(errors.New("some issue's RepoID is incorrect"))
@@ -260,13 +260,13 @@ func GetIssueInfo(ctx *context.Context) {
 
 	if issue.IsPull {
 		// Need to check if Pulls are enabled and we can read Pulls
-		if !ctx.Repo.Repository.CanEnablePulls() || !ctx.Repo.CanRead(unit.TypePullRequests) {
+		if !ctx.Repo.Repository.CanEnablePulls() || !ctx.Repo.Permission.CanRead(unit.TypePullRequests) {
 			ctx.HTTPError(http.StatusNotFound)
 			return
 		}
 	} else {
 		// Need to check if Issues are enabled and we can read Issues
-		if !ctx.Repo.CanRead(unit.TypeIssues) {
+		if !ctx.Repo.Permission.CanRead(unit.TypeIssues) {
 			ctx.HTTPError(http.StatusNotFound)
 			return
 		}
@@ -285,7 +285,7 @@ func UpdateIssueTitle(ctx *context.Context) {
 		return
 	}
 
-	if !ctx.IsSigned || (!issue.IsPoster(ctx.Doer.ID) && !ctx.Repo.CanWriteIssuesOrPulls(issue.IsPull)) {
+	if !ctx.IsSigned || (!issue.IsPoster(ctx.Doer.ID) && !ctx.Repo.Permission.CanWriteIssuesOrPulls(issue.IsPull)) {
 		ctx.HTTPError(http.StatusForbidden)
 		return
 	}
@@ -313,7 +313,7 @@ func UpdateIssueRef(ctx *context.Context) {
 		return
 	}
 
-	if !ctx.IsSigned || (!issue.IsPoster(ctx.Doer.ID) && !ctx.Repo.CanWriteIssuesOrPulls(issue.IsPull)) || issue.IsPull {
+	if !ctx.IsSigned || (!issue.IsPoster(ctx.Doer.ID) && !ctx.Repo.Permission.CanWriteIssuesOrPulls(issue.IsPull)) || issue.IsPull {
 		ctx.HTTPError(http.StatusForbidden)
 		return
 	}
@@ -337,7 +337,7 @@ func UpdateIssueContent(ctx *context.Context) {
 		return
 	}
 
-	if !ctx.IsSigned || (ctx.Doer.ID != issue.PosterID && !ctx.Repo.CanWriteIssuesOrPulls(issue.IsPull)) {
+	if !ctx.IsSigned || (ctx.Doer.ID != issue.PosterID && !ctx.Repo.Permission.CanWriteIssuesOrPulls(issue.IsPull)) {
 		ctx.HTTPError(http.StatusForbidden)
 		return
 	}
@@ -393,7 +393,7 @@ func UpdateIssueDeadline(ctx *context.Context) {
 		return
 	}
 
-	if !ctx.Repo.CanWriteIssuesOrPulls(issue.IsPull) {
+	if !ctx.Repo.Permission.CanWriteIssuesOrPulls(issue.IsPull) {
 		ctx.HTTPError(http.StatusForbidden, "", "Not repo writer")
 		return
 	}
@@ -464,7 +464,7 @@ func UpdateIssueAssignee(ctx *context.Context) {
 				return
 			}
 
-			valid, err := access_model.CanBeAssigned(ctx, assignee, issue.Repo, issue.IsPull)
+			valid, err := access_model.CanBeAssigned(ctx, assignee, issue.Repo)
 			if err != nil {
 				ctx.ServerError("canBeAssigned", err)
 				return
@@ -492,7 +492,7 @@ func ChangeIssueReaction(ctx *context.Context) {
 		return
 	}
 
-	if !ctx.IsSigned || (ctx.Doer.ID != issue.PosterID && !ctx.Repo.CanReadIssuesOrPulls(issue.IsPull)) {
+	if !ctx.IsSigned || (ctx.Doer.ID != issue.PosterID && !ctx.Repo.Permission.CanReadIssuesOrPulls(issue.IsPull)) {
 		if log.IsTrace() {
 			if ctx.IsSigned {
 				issueType := "issues"

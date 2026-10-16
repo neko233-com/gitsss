@@ -4,12 +4,11 @@
 package v1_8
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/setting"
-
-	"xorm.io/xorm"
 )
 
-func AddCanCloseIssuesViaCommitInAnyBranch(x *xorm.Engine) error {
+func AddCanCloseIssuesViaCommitInAnyBranch(x db.EngineMigration) error {
 	type Repository struct {
 		ID                              int64 `xorm:"pk autoincr"`
 		CloseIssuesViaCommitInAnyBranch bool  `xorm:"NOT NULL DEFAULT false"`

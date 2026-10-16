@@ -150,17 +150,13 @@ func ProcReceive(ctx context.Context, repo *repo_model.Repository, gitRepo *git.
 				if err != nil {
 					return nil, fmt.Errorf("failed to get commit %s in repository: %s Error: %w", opts.NewCommitIDs[i], repo.FullName(), err)
 				}
-			}
-
-			// create a new pull request
-			if title == "" {
-				title = commit.Summary()
-			}
-			if description == "" {
-				_, description, _ = strings.Cut(commit.Message(), "\n\n")
-			}
-			if description == "" {
-				description = title
+				// create a new pull request
+				if title == "" {
+					title = commit.MessageTitle()
+				}
+				if description == "" {
+					description = commit.MessageBody()
+				}
 			}
 
 			prIssue := &issues_model.Issue{
@@ -290,7 +286,7 @@ func ProcReceive(ctx context.Context, repo *repo_model.Repository, gitRepo *git.
 		} else if commentCreated {
 			notify_service.PullRequestPushCommits(ctx, pusher, pr, comment)
 		}
-		notify_service.PullRequestSynchronized(ctx, pusher, pr)
+		notify_service.PullRequestSynchronized(ctx, pusher, pr, oldCommitID, opts.NewCommitIDs[i])
 
 		results = append(results, private.HookProcReceiveRefResult{
 			OldOID:            oldCommitID,

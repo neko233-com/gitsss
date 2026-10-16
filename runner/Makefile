@@ -18,8 +18,8 @@ DOCKER_TAG ?= nightly
 DOCKER_REF := $(DOCKER_IMAGE):$(DOCKER_TAG)
 DOCKER_ROOTLESS_REF := $(DOCKER_IMAGE):$(DOCKER_TAG)-dind-rootless
 
-GOLANGCI_LINT_PACKAGE ?= github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4
-GOVULNCHECK_PACKAGE ?= golang.org/x/vuln/cmd/govulncheck@v1
+GOLANGCI_LINT_PACKAGE ?= github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+GOVULNCHECK_PACKAGE ?= golang.org/x/vuln/cmd/govulncheck@v1.3.0
 
 STATIC ?=
 EXTLDFLAGS ?=
@@ -118,6 +118,10 @@ lint-go: ## lint go files
 lint-go-fix: ## lint go files and fix issues
 	$(GO) run $(GOLANGCI_LINT_PACKAGE) run --fix
 
+.PHONY: lint-pr-title
+lint-pr-title: ## lint PR title against Conventional Commits (set PR_TITLE=...)
+	@node ./tools/lint-pr-title.ts
+
 .PHONY: security-check
 security-check: deps-tools
 	GOEXPERIMENT= $(GO) run $(GOVULNCHECK_PACKAGE) -show color ./... || true
@@ -136,8 +140,12 @@ tidy-check: tidy
 	fi
 
 .PHONY: test
-test: fmt-check security-check ## test everything
-	@$(GO) test -race -short -v -cover -coverprofile coverage.txt ./... && echo "\n==>\033[32m Ok\033[m\n" || exit 1
+test: fmt-check security-check ## test everything (integration tests self-skip without docker/network)
+	@$(GO) test -race -timeout 20m -v -cover -coverprofile coverage.txt ./... && echo "\n==>\033[32m Ok\033[m\n" || exit 1
+
+.PHONY: test-dind
+test-dind: ## run the daemon-facing tests against the built dind image (TARGET=dind|dind-rootless)
+	@./scripts/test-dind.sh $(TARGET)
 
 .PHONY: install
 install: $(GOFILES) ## install the runner binary via `go install`

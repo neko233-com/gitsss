@@ -7,15 +7,41 @@ import (
 	"net/http"
 	"path"
 	"strconv"
+	"strings"
 
 	"github.com/neko233-com/gitsss/modules/git"
 	"github.com/neko233-com/gitsss/modules/httpcache"
+	"github.com/neko233-com/gitsss/modules/httplib"
+	"github.com/neko233-com/gitsss/modules/json"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/util"
 	"github.com/neko233-com/gitsss/modules/web/middleware"
 	"github.com/neko233-com/gitsss/services/context"
 )
+
+func SiteManifest(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "application/manifest+json")
+	if httpcache.HandleGenericETagPublicCache(req, w, "", &setting.AppStartTime) {
+		return
+	}
+	if req.Method == http.MethodHead {
+		return
+	}
+
+	ctx := req.Context()
+	absoluteAssetURL := strings.TrimSuffix(httplib.MakeAbsoluteURL(ctx, setting.StaticURLPrefix), "/")
+	manifest := map[string]any{
+		"name":       setting.AppName,
+		"short_name": setting.AppName,
+		"start_url":  httplib.GuessCurrentAppURL(ctx),
+		"icons": []map[string]string{
+			{"src": absoluteAssetURL + "/assets/img/logo.png", "type": "image/png", "sizes": "512x512"},
+			{"src": absoluteAssetURL + "/assets/img/logo.svg", "type": "image/svg+xml", "sizes": "512x512"},
+		},
+	}
+	_ = json.NewEncoder(w).Encode(manifest)
+}
 
 func SSHInfo(rw http.ResponseWriter, req *http.Request) {
 	if !git.DefaultFeatures().SupportProcReceive {

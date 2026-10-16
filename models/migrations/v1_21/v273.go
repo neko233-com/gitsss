@@ -4,12 +4,11 @@
 package v1_21
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func AddActionScheduleTable(x *xorm.Engine) error {
+func AddActionScheduleTable(x db.EngineMigration) error {
 	type ActionSchedule struct {
 		ID            int64
 		Title         string

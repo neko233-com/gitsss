@@ -121,6 +121,7 @@ func Clone(ctx context.Context, from, to string, opts CloneRepoOptions) error {
 	}
 
 	cmd := gitcmd.NewCommand().AddArguments("clone")
+	HandleGitCmdHTTPRedirection(cmd, from, to)
 	if opts.SkipTLSVerify {
 		cmd.AddArguments("-c", "http.sslVerify=false")
 	}

@@ -6,12 +6,11 @@ package v1_8
 import (
 	"fmt"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func AddPullRequestRebaseWithMerge(x *xorm.Engine) error {
+func AddPullRequestRebaseWithMerge(x db.EngineMigration) error {
 	// RepoUnit describes all units of a repository
 	type RepoUnit struct {
 		ID          int64

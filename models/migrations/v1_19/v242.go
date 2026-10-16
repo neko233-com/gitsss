@@ -4,13 +4,12 @@
 package v1_19
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/setting"
-
-	"xorm.io/xorm"
 )
 
 // AlterPublicGPGKeyImportContentFieldToMediumText: set GPGKeyImport Content field to MEDIUMTEXT
-func AlterPublicGPGKeyImportContentFieldToMediumText(x *xorm.Engine) error {
+func AlterPublicGPGKeyImportContentFieldToMediumText(x db.EngineMigration) error {
 	sess := x.NewSession()
 	defer sess.Close()
 	if err := sess.Begin(); err != nil {

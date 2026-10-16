@@ -134,3 +134,6 @@ prime/
 
 # A Makefile for custom make targets
 Makefile.local
+
+# Python operator tools
+__pycache__/

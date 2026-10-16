@@ -82,6 +82,13 @@ func Dashboard(ctx *context.Context) {
 	if ctx.Written() {
 		return
 	}
+	if ctx.PathParam("org") == "" && ctx.FormString("view") != "personal" {
+		ctx.Data["Title"] = ctx.Tr("explore.organizations")
+		ctx.Data["PageIsDashboard"] = true
+		ctx.Data["OrganizationHome"] = true
+		ctx.HTML(http.StatusOK, tplDashboard)
+		return
+	}
 
 	var (
 		date = ctx.FormString("date")
@@ -123,6 +130,7 @@ func Dashboard(ctx *context.Context) {
 
 	prepareHeatmapURL(ctx)
 
+	pageSize := setting.UI.User.RepoPagingNum
 	feeds, count, err := feed_service.GetFeedsForDashboard(ctx, activities_model.GetFeedsOptions{
 		RequestedUser:   ctxUser,
 		RequestedTeam:   ctx.Org.Team,
@@ -131,17 +139,17 @@ func Dashboard(ctx *context.Context) {
 		OnlyPerformedBy: false,
 		IncludeDeleted:  false,
 		Date:            ctx.FormString("date"),
-		ListOptions: db.ListOptions{
-			Page:     page,
-			PageSize: setting.UI.FeedPagingNum,
-		},
+		Page:            page, PageSize: pageSize,
 	})
 	if err != nil {
 		ctx.ServerError("GetFeeds", err)
 		return
 	}
 
-	pager := context.NewPagination(count, setting.UI.FeedPagingNum, page, 5).WithCurRows(len(feeds))
+	// FIXME: UNLIMITE-PAGING-ONE-MORE-ROW: here is still an edge case: when curRows==pagingNum, then the "next page" will be an empty page.
+	// Ideally we should query one more row to determine if there is really a next page, but it's impossible in current framework.
+	pager := context.NewPagination(count, pageSize, page, 5).WithUnlimitedPaging(len(feeds), len(feeds) == pageSize)
+
 	pager.AddParamFromRequest(ctx.Req)
 	ctx.Data["Page"] = pager
 	ctx.Data["Feeds"] = feeds
@@ -253,13 +261,13 @@ func Milestones(ctx *context.Context) {
 	}
 	sort.Sort(showRepos)
 
+	repoByID := make(map[int64]*repo_model.Repository, len(showRepos))
+	for _, repo := range showRepos {
+		repoByID[repo.ID] = repo
+	}
+
 	for i := 0; i < len(milestones); {
-		for _, repo := range showRepos {
-			if milestones[i].RepoID == repo.ID {
-				milestones[i].Repo = repo
-				break
-			}
-		}
+		milestones[i].Repo = repoByID[milestones[i].RepoID]
 		if milestones[i].Repo == nil {
 			log.Warn("Cannot find milestone %d 's repository %d", milestones[i].ID, milestones[i].RepoID)
 			milestones = append(milestones[:i], milestones[i+1:]...)
@@ -570,7 +578,7 @@ func buildIssueOverview(ctx *context.Context, unitType unit.Type) {
 		ctx.ServerError("GetIssuesLastCommitStatus", err)
 		return
 	}
-	if !ctx.Repo.CanRead(unit.TypeActions) {
+	if !ctx.Repo.Permission.CanRead(unit.TypeActions) {
 		for key := range commitStatuses {
 			git_model.CommitStatusesHideActionsURL(ctx, commitStatuses[key])
 		}

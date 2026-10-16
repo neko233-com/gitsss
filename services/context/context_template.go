@@ -5,6 +5,7 @@ package context
 
 import (
 	"context"
+	"html"
 	"html/template"
 	"net/http"
 	"strconv"
@@ -12,10 +13,14 @@ import (
 	"time"
 
 	"github.com/neko233-com/gitsss/modules/httplib"
+	"github.com/neko233-com/gitsss/modules/public"
 	"github.com/neko233-com/gitsss/modules/setting"
+	"github.com/neko233-com/gitsss/modules/util"
 	"github.com/neko233-com/gitsss/modules/web/middleware"
 	"github.com/neko233-com/gitsss/services/webtheme"
 )
+
+type TemplateContext map[string]any
 
 var _ context.Context = TemplateContext(nil)
 
@@ -82,4 +87,59 @@ func (c TemplateContext) AppFullLink(link ...string) template.URL {
 		return template.URL(s)
 	}
 	return template.URL(s + "/" + strings.TrimPrefix(link[0], "/"))
+}
+
+func (c TemplateContext) ScriptImport(path string, typ ...string) template.HTML {
+	if len(typ) > 0 {
+		if typ[0] == "module" {
+			return template.HTML(`<script nonce="` + c.CspScriptNonce() + `" type="module" src="` + html.EscapeString(public.AssetURI(path)) + `"></script>`)
+		}
+		panic("unsupported script type: " + typ[0])
+	}
+	return template.HTML(`<script nonce="` + c.CspScriptNonce() + `" src="` + html.EscapeString(public.AssetURI(path)) + `"></script>`)
+}
+
+func (c TemplateContext) CspScriptNonce() (ret string) {
+	// Generate a random nonce for each request and cache it in the context to make it usable during the whole rendering process.
+	//
+	// Some "<script>" tags are not in the CSP context, so they don't need nonce,
+	// these tags are written as "<script nonce>" to help developers to know that "no script nonce attribute is missing"
+	// (e.g.: when they grep the codebase for "script" tags)
+
+	ret, _ = c["_cspScriptNonce"].(string)
+	if ret == "" {
+		ret = util.FastCryptoRandomHex(32) // 16 bytes / 128 bits entropy
+		c["_cspScriptNonce"] = ret
+	}
+	return ret
+}
+
+func (c TemplateContext) HeadMetaContentSecurityPolicy() template.HTML {
+	if setting.Security.ContentSecurityPolicyGeneral == "unset" {
+		return "" // if site admin disables the general CSP, then we don't use it
+	}
+	// The CSP problem is more complicated than it looks.
+	// Gitea was designed to support various "customizations", including:
+	// * custom themes (custom CSS and JS)
+	// * custom assets URL (CDN)
+	// * custom plugins and external renders (e.g.: PlantUML render, and the renders might also load some JS/CSS assets)
+	// There is no easy way for end users to make the CSP "source" completely right.
+	//
+	// There can be 2 approaches in the future:
+	// A. Let end users to configure their reverse proxy to add CSP header
+	//    * Browsers will merge and use the stricter rules between Gitea and reverse proxy
+	// B. Introduce some config options in "app.ini"
+	//    * Maybe this approach should be avoided, don't make the config system too complex, just let users use A
+	return template.HTML(`<meta http-equiv="Content-Security-Policy" content="` +
+		// allow all by default (the same as old releases with no CSP)
+		// * maybe some images or markup (external) renders need "data:", need to investigate
+		// * avatar upload editor needs "blob:", at least "img-src" and "content-src"
+		`default-src * data: blob:;` +
+
+		// enforce nonce for all scripts, disallow inline scripts
+		`script-src * 'nonce-` + c.CspScriptNonce() + `';` +
+
+		// it seems that Vue needs the unsafe-inline, and our custom colors (e.g.: label) also need it
+		`style-src * 'unsafe-inline';` +
+		`">`)
 }

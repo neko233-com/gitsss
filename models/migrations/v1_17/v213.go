@@ -3,11 +3,9 @@
 
 package v1_17
 
-import (
-	"xorm.io/xorm"
-)
+import "github.com/neko233-com/gitsss/models/db"
 
-func AddAllowMaintainerEdit(x *xorm.Engine) error {
+func AddAllowMaintainerEdit(x db.EngineMigration) error {
 	// PullRequest represents relation between pull request and repositories.
 	type PullRequest struct {
 		AllowMaintainerEdit bool `xorm:"NOT NULL DEFAULT false"`

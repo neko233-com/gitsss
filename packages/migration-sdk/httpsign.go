@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/42wim/httpsig"
-	legacyhttpsig "github.com/go-fed/httpsig"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -139,8 +138,17 @@ func newHTTPSign(config *HTTPSignConfig) (*HTTPSign, error) {
 	}, nil
 }
 
-// SignRequest signs a HTTP request
-func (c *Client) SignRequest(r *http.Request) error {
+// SignWithAlgorithm implements ssh.AlgorithmSigner, required by 42wim/httpsig v1.2.4+
+// when signing with RSA keys.
+func (h *HTTPSign) SignWithAlgorithm(rand io.Reader, data []byte, algorithm string) (*ssh.Signature, error) {
+	if as, ok := h.Signer.(ssh.AlgorithmSigner); ok {
+		return as.SignWithAlgorithm(rand, data, algorithm)
+	}
+	return h.Sign(rand, data)
+}
+
+// signRequest signs a HTTP request
+func (c *Client) signRequest(r *http.Request) error {
 	var contents []byte
 
 	headersToSign := []string{httpsig.RequestTarget, "(created)", "(expires)"}
@@ -176,22 +184,8 @@ func (c *Client) SignRequest(r *http.Request) error {
 
 	// create a signer for the request and headers, the signature will be valid for 10 seconds
 	var err error
-
-	// use legacyhttpsig to sign with RSA-SHA1 on older gitea releases
-	if err = c.checkServerVersionGreaterThanOrEqual(version1_23_0); err != nil {
-		// Legacy signer
-		legacySigner, _, err := legacyhttpsig.NewSSHSigner(c.httpsigner, httpsig.DigestSha512, headersToSign, legacyhttpsig.Signature, 10)
-		if err != nil {
-			return fmt.Errorf("legacy httpsig.NewSSHSigner failed: %s", err)
-		}
-
-		// sign the request, use the fingerprint if we don't have a certificate
-		keyID := "gitea"
-		if !c.httpsigner.cert {
-			keyID = ssh.FingerprintSHA256(c.httpsigner.PublicKey())
-		}
-
-		return legacySigner.SignRequest(keyID, r, contents)
+	if err = c.checkServerVersionGreaterThanOrEqual(r.Context(), version1_23_0); err != nil {
+		return fmt.Errorf("SSH signing requires Gitea 1.23.0 or later: %w", err)
 	}
 	// Modern signer
 	modernSigner, _, err := httpsig.NewSSHSigner(c.httpsigner, httpsig.DigestSha512, headersToSign, httpsig.Signature, 10)

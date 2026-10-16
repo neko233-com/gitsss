@@ -17,6 +17,7 @@
       <a href="actions.html">Actions</a>
       <a href="development.html">开发</a>
       <a href="virtualbox.html">vbox 验证</a>
+      <a href="en/index.html">English manual</a>
       <a href="https://github.com/neko233-com/gitsss">GitHub</a>
     </nav>
   </header>
@@ -28,6 +29,7 @@
         <a href="index.html" class="active">文档首页</a>
         <a href="getting-started.html">快速开始</a>
         <a href="configuration.html">配置参考</a>
+        <a href="enterprise.html">企业与组织</a>
         <a href="storage.html">存储与 Git LFS</a>
       </div>
       <div class="sidebar-section">
@@ -52,7 +54,7 @@
 
       <div class="callout callout-tip">
         <span class="callout-label">快速开始</span>
-        <p>默认端口 <code>5300</code>，管理员账号 <code>root</code>，密码 <code>root</code>（首次登录强制修改）。查看 <a href="getting-started.html">安装指南</a>。</p>
+        <p>默认端口 <code>5030</code>，管理员账号 <code>root</code>，密码 <code>root</code>（首次登录强制修改）。查看 <a href="getting-started.html">安装指南</a>。</p>
       </div>
 
       <h2>什么是 gitsss</h2>
@@ -95,7 +97,7 @@
       <table>
         <thead><tr><th>配置项</th><th>默认值</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td>HTTP 端口</td><td><code>5300</code></td><td>Web 界面和 API</td></tr>
+          <tr><td>HTTP 端口</td><td><code>5030</code></td><td>Web 界面和 API</td></tr>
           <tr><td>SSH 端口</td><td><code>2222</code></td><td>Git SSH 协议</td></tr>
           <tr><td>管理员账号</td><td><code>root</code></td><td>首次登录强制修改密码</td></tr>
           <tr><td>管理员密码</td><td><code>root</code></td><td>可通过安装器参数覆盖</td></tr>
@@ -114,8 +116,8 @@
         <pre><code>./install/install.sh \
   --image-archive ./gitsss-image.tar \
   --install-dir /opt/gitsss \
-  --port 5300 \
-  --root-url http://git.example.internal:5300/</code></pre>
+  --port 5030 \
+  --root-url http://git.example.internal:5030/</code></pre>
       </div>
 
       <h3>Windows (PowerShell)</h3>
@@ -124,8 +126,8 @@
         <pre><code>.\install\install.ps1 `
   -ImageArchive .\gitsss-image.tar `
   -InstallDir C:\gitsss `
-  -Port 5300 `
-  -RootUrl http://git.example.internal:5300/</code></pre>
+  -Port 5030 `
+  -RootUrl http://git.example.internal:5030/</code></pre>
       </div>
 
       <h2>文档导航</h2>

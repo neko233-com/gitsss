@@ -12,6 +12,7 @@ import (
 
 	"github.com/neko233-com/gitsss/modules/json"
 	"github.com/neko233-com/gitsss/modules/setting"
+	"github.com/neko233-com/gitsss/modules/test"
 	"github.com/neko233-com/gitsss/routers"
 	"github.com/neko233-com/gitsss/tests"
 
@@ -52,16 +53,11 @@ func sessionFileExist(t *testing.T, tmpDir, sessionID string) bool {
 
 func TestSessionFileCreation(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
-
-	oldSessionConfig := setting.SessionConfig.ProviderConfig
-	defer func() {
-		setting.SessionConfig.ProviderConfig = oldSessionConfig
-		testWebRoutes = routers.NormalRoutes()
-	}()
+	defer test.MockVariableValue(&setting.SessionConfig.ProviderConfig)()
+	defer test.MockVariableValue(&testWebRoutes)()
 
 	var config session.Options
-
-	err := json.Unmarshal([]byte(oldSessionConfig), &config)
+	err := json.Unmarshal([]byte(setting.SessionConfig.ProviderConfig), &config)
 	assert.NoError(t, err)
 
 	config.Provider = "file"

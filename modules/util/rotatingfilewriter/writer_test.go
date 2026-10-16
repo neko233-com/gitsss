@@ -38,8 +38,10 @@ func TestCompressOldFile(t *testing.T) {
 
 	f, err = os.Open(fname + ".gz")
 	assert.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, f.Close()) })
 	zr, err := gzip.NewReader(f)
 	assert.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, zr.Close()) })
 	data, err := io.ReadAll(zr)
 	assert.NoError(t, err)
 	original, err := os.ReadFile(nonGzip)

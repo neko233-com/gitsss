@@ -6,13 +6,13 @@ package v1_18
 import (
 	"fmt"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/issues"
 
 	"xorm.io/builder"
-	"xorm.io/xorm"
 )
 
-func UpdateOpenMilestoneCounts(x *xorm.Engine) error {
+func UpdateOpenMilestoneCounts(x db.EngineMigration) error {
 	var openMilestoneIDs []int64
 	err := x.Table("milestone").Select("id").Where(builder.Neq{"is_closed": 1}).Find(&openMilestoneIDs)
 	if err != nil {

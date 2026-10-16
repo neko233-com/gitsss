@@ -8,16 +8,15 @@ import (
 	"math"
 	"time"
 
+	"github.com/neko233-com/gitsss/models/db"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	"github.com/neko233-com/gitsss/modules/gitrepo"
 	"github.com/neko233-com/gitsss/modules/graceful"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/setting"
-
-	"xorm.io/xorm"
 )
 
-func AddCommitDivergenceToPulls(x *xorm.Engine) error {
+func AddCommitDivergenceToPulls(x db.EngineMigration) error {
 	type Repository struct {
 		ID        int64 `xorm:"pk autoincr"`
 		OwnerID   int64 `xorm:"UNIQUE(s) index"`
@@ -112,7 +111,8 @@ func AddCommitDivergenceToPulls(x *xorm.Engine) error {
 				count,
 				float64(migrated)/float64(count)*100,
 				int(math.Ceil(float64(migrated)/float64(batchSize))),
-				count-int64(migrated))
+				count-int64(migrated),
+			)
 		default:
 		}
 	}

@@ -4,12 +4,11 @@
 package v1_14
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/base"
-
-	"xorm.io/xorm"
 )
 
-func ConvertTopicNameFrom25To50(x *xorm.Engine) error {
+func ConvertTopicNameFrom25To50(x db.EngineMigration) error {
 	type Topic struct {
 		ID          int64  `xorm:"pk autoincr"`
 		Name        string `xorm:"UNIQUE VARCHAR(50)"`

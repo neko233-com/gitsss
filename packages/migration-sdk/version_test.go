@@ -13,20 +13,20 @@ import (
 
 func TestVersion(t *testing.T) {
 	log.Printf("== TestVersion ==")
-	c := newTestClient()
-	rawVersion, _, err := c.ServerVersion()
-	assert.NoError(t, err)
-	assert.True(t, true, rawVersion != "")
+	ctx := t.Context()
 
-	assert.NoError(t, c.checkServerVersionGreaterThanOrEqual(version1_11_0))
-	assert.Error(t, c.CheckServerVersionConstraint("< 1.11.0"))
+	c, err := NewClient("https://example.com", SetGiteaVersion("1.12.123"))
+	assert.NoError(t, err)
+
+	assert.NoError(t, c.checkServerVersionGreaterThanOrEqual(ctx, version1_11_0))
+	assert.Error(t, c.CheckServerVersionConstraint(ctx, "< 1.11.0"))
 
 	c.serverVersion = version1_11_0
-	assert.Error(t, c.checkServerVersionGreaterThanOrEqual(version1_15_0))
+	assert.Error(t, c.checkServerVersionGreaterThanOrEqual(ctx, version1_15_0))
 	c.ignoreVersion = true
-	assert.NoError(t, c.checkServerVersionGreaterThanOrEqual(version1_15_0))
+	assert.NoError(t, c.checkServerVersionGreaterThanOrEqual(ctx, version1_15_0))
 
-	c, err = NewClient(getGiteaURL(), newTestClientAuth(), SetGiteaVersion("1.12.123"))
+	c, err = NewClient("https://example.com", SetGiteaVersion("1.12.123"))
 	assert.NoError(t, err)
-	assert.NoError(t, c.CheckServerVersionConstraint("=1.12.123"))
+	assert.NoError(t, c.CheckServerVersionConstraint(ctx, "=1.12.123"))
 }

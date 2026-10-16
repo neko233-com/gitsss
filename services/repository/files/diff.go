@@ -13,6 +13,9 @@ import (
 
 // GetDiffPreview produces and returns diff result of a file which is not yet committed.
 func GetDiffPreview(ctx context.Context, repo *repo_model.Repository, branch, treePath, oldContent, newContent string) (*gitdiff.Diff, error) {
+	if repo.ID == 0 {
+		return nil, repo_model.ErrRepoNotExist{UID: repo.OwnerID, OwnerName: repo.OwnerName, Name: repo.Name}
+	}
 	if branch == "" {
 		branch = repo.DefaultBranch
 	}

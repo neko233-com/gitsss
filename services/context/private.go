@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/neko233-com/gitsss/modules/graceful"
+	"github.com/neko233-com/gitsss/modules/private"
 	"github.com/neko233-com/gitsss/modules/process"
 	"github.com/neko233-com/gitsss/modules/web"
 	web_types "github.com/neko233-com/gitsss/modules/web/types"
@@ -47,6 +48,14 @@ func (ctx *PrivateContext) Err() error {
 		return ctx.Override.Err()
 	}
 	return ctx.Base.Err()
+}
+
+func (ctx *PrivateContext) PrivateError(status int, err error, userMsg string) {
+	errMsg := ""
+	if err != nil {
+		errMsg = err.Error()
+	}
+	ctx.JSON(status, private.Response{Err: errMsg, UserMsg: userMsg})
 }
 
 type privateContextKeyType struct{}

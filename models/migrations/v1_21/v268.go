@@ -3,12 +3,10 @@
 
 package v1_21
 
-import (
-	"xorm.io/xorm"
-)
+import "github.com/neko233-com/gitsss/models/db"
 
 // UpdateActionsRefIndex updates the index of actions ref field
-func UpdateActionsRefIndex(x *xorm.Engine) error {
+func UpdateActionsRefIndex(x db.EngineMigration) error {
 	type ActionRun struct {
 		Ref string `xorm:"index"` // the commit/tag/… causing the run
 	}

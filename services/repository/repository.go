@@ -242,7 +242,8 @@ func updateRepository(ctx context.Context, repo *repo_model.Repository, visibili
 
 	e := db.GetEngine(ctx)
 
-	if _, err = e.ID(repo.ID).NoAutoTime().AllCols().Update(repo); err != nil {
+	// Push hooks own is_empty; settings can carry a snapshot from before a push.
+	if _, err = e.ID(repo.ID).NoAutoTime().AllCols().Omit("is_empty").Update(repo); err != nil {
 		return fmt.Errorf("update: %w", err)
 	}
 
@@ -271,6 +272,11 @@ func updateRepository(ctx context.Context, repo *repo_model.Repository, visibili
 			}
 
 			if err = repo_model.ClearRepoStars(ctx, repo.ID); err != nil {
+				return err
+			}
+
+			// watchers who lost access must not keep watching the now-private repo
+			if err = repo_model.ClearRepoWatches(ctx, repo.ID); err != nil {
 				return err
 			}
 		}

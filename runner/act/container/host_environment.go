@@ -16,9 +16,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/neko233-com/gitsss/runner/act/common"
@@ -36,15 +35,13 @@ type HostEnvironment struct {
 	TmpDir    string
 	ToolCache string
 	Workdir   string
-	// BindWorkdir is true when the app runner mounts the workspace on the host and
-	// deletes the task directory after the job; host teardown must not remove Workdir.
-	BindWorkdir bool
-	ActPath     string
-	CleanUp     func()
-	StdOut      io.Writer
-
-	mu          sync.Mutex
-	runningPIDs map[int]struct{}
+	// CleanWorkdir means teardown owns Workdir and may delete it. Leave false
+	// when Workdir points at a caller-owned checkout (e.g. `act` local mode).
+	CleanWorkdir bool
+	ActPath      string
+	CleanUp      func()
+	StdOut       io.Writer
+	AllocatePTY  bool // allocate a pseudo-TTY for each step's process
 }
 
 func (e *HostEnvironment) Create(_, _ []string) common.Executor {
@@ -200,12 +197,12 @@ func (e *HostEnvironment) Start(_ bool) common.Executor {
 
 type ptyWriter struct {
 	Out       io.Writer
-	AutoStop  bool
+	AutoStop  atomic.Bool
 	dirtyLine bool
 }
 
 func (w *ptyWriter) Write(buf []byte) (int, error) {
-	if w.AutoStop && len(buf) > 0 && buf[len(buf)-1] == 4 {
+	if w.AutoStop.Load() && len(buf) > 0 && buf[len(buf)-1] == 4 {
 		n, err := w.Out.Write(buf[:len(buf)-1])
 		if err != nil {
 			return n, err
@@ -325,6 +322,30 @@ func (e *HostEnvironment) exec(ctx context.Context, command []string, cmdline st
 	cmd.Stderr = e.StdOut
 	cmd.Dir = wd
 	cmd.SysProcAttr = getSysProcAttr(cmdline, false)
+
+	// On Windows a step often launches a process tree (a shell that starts a
+	// child which spawns further GUI or background processes). The default
+	// context cancellation only kills the direct child, leaving the rest of the
+	// tree running; and because the orphans inherit cmd's stdout/stderr pipe,
+	// cmd.Wait() would block forever, hanging the runner. Kill the whole tree
+	// via a Job Object on cancellation, and bound the wait so a leftover pipe
+	// writer can never hang Wait indefinitely.
+	var killer atomic.Pointer[processKiller]
+	if runtime.GOOS == "windows" {
+		cmd.Cancel = func() error {
+			if k := killer.Load(); k != nil {
+				return k.Kill()
+			}
+			if cmd.Process != nil {
+				return cmd.Process.Kill()
+			}
+			return nil
+		}
+		// Once the step process has exited, give its I/O pipes at most this long
+		// to drain before Wait force-closes them and returns (Go's WaitDelay).
+		cmd.WaitDelay = 10 * time.Second
+	}
+
 	var ppty *os.File
 	var tty *os.File
 	defer func() {
@@ -335,40 +356,36 @@ func (e *HostEnvironment) exec(ctx context.Context, command []string, cmdline st
 			tty.Close()
 		}
 	}()
-	if true /* allocate Terminal */ {
+	if e.AllocatePTY {
 		var err error
 		ppty, tty, err = setupPty(cmd, cmdline)
 		if err != nil {
 			common.Logger(ctx).Debugf("Failed to setup Pty %v\n", err.Error())
 		}
 	}
-	writer := &ptyWriter{Out: e.StdOut}
-	logctx, finishLog := context.WithCancel(context.Background())
+	var writer *ptyWriter
+	var logctx context.Context
 	if ppty != nil {
+		writer = &ptyWriter{Out: e.StdOut}
+		var finishLog context.CancelFunc
+		logctx, finishLog = context.WithCancel(context.Background())
 		go copyPtyOutput(writer, ppty, finishLog)
-	} else {
-		finishLog()
-	}
-	if ppty != nil {
 		go writeKeepAlive(ppty)
 	}
-	// Split Start/Wait so the PID can be registered before the process can exit;
-	// cmd.Run() would block until exit, by which time the PID may have been reused.
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	if cmd.Process != nil {
-		e.mu.Lock()
-		if e.runningPIDs == nil {
-			e.runningPIDs = map[int]struct{}{}
+	if runtime.GOOS == "windows" {
+		// Assign the started process to a Job Object so cmd.Cancel can kill the
+		// whole descendant tree. Children spawned afterwards are auto-included.
+		// On failure (e.g. nested-job restrictions) we fall back to the default
+		// single-process kill; WaitDelay + end-of-job cleanup still apply.
+		if k, kerr := newProcessKiller(cmd.Process); kerr != nil {
+			common.Logger(ctx).Warnf("process tree kill setup failed, falling back to single-process kill: %v", kerr)
+		} else {
+			killer.Store(k)
+			defer k.Close()
 		}
-		e.runningPIDs[cmd.Process.Pid] = struct{}{}
-		e.mu.Unlock()
-		defer func(pid int) {
-			e.mu.Lock()
-			delete(e.runningPIDs, pid)
-			e.mu.Unlock()
-		}(cmd.Process.Pid)
 	}
 	err = cmd.Wait()
 	if err != nil {
@@ -379,14 +396,11 @@ func (e *HostEnvironment) exec(ctx context.Context, command []string, cmdline st
 		return err
 	}
 	if tty != nil {
-		writer.AutoStop = true
+		writer.AutoStop.Store(true)
 		if _, err := tty.WriteString("\x04"); err != nil {
 			common.Logger(ctx).Debug("Failed to write EOT")
 		}
-	}
-	<-logctx.Done()
-
-	if ppty != nil {
+		<-logctx.Done()
 		ppty.Close()
 		ppty = nil
 	}
@@ -442,30 +456,80 @@ func removePathWithRetry(ctx context.Context, path string) error {
 	return lastErr
 }
 
+// buildWindowsWorkspaceKillScript builds a PowerShell command that `taskkill
+// /T /F`s every process tree whose ExecutablePath or CommandLine references one
+// of the given absolute workspace dirs, releasing file handles for cleanup.
+//
+// Win32_Process is used because it exposes both ExecutablePath and CommandLine
+// (Get-Process doesn't, wmic is deprecated). Both match the dir+separator
+// prefix, so a sibling dir sharing a name prefix (job1 vs job10) is spared.
+// Ordinal String methods, not -like, so path metacharacters ([ ] ? *) stay
+// literal.
+//
+// Pure function so the quote-escaping can be unit-tested without PowerShell.
+func buildWindowsWorkspaceKillScript(dirs []string) string {
+	quoted := make([]string, len(dirs))
+	for i, d := range dirs {
+		// Single-quoted PowerShell literal; escape ' by doubling it.
+		quoted[i] = "'" + strings.ReplaceAll(d, "'", "''") + "'"
+	}
+
+	return `$paths = @(` + strings.Join(quoted, ",") + `)
+$selfPid = $PID
+Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+    if ($_.ProcessId -eq $selfPid) { return $false }
+    foreach ($p in $paths) {
+        $prefix = $p + '\'
+        if ($_.ExecutablePath -and $_.ExecutablePath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+        if ($_.CommandLine -and $_.CommandLine.IndexOf($prefix, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { return $true }
+    }
+    return $false
+} | ForEach-Object {
+    & taskkill.exe /PID $_.ProcessId /T /F 2>$null | Out-Null
+}
+`
+}
+
 func (e *HostEnvironment) terminateRunningProcesses(ctx context.Context) {
 	if runtime.GOOS != "windows" {
 		return
 	}
-	e.mu.Lock()
-	pids := make([]int, 0, len(e.runningPIDs))
-	for pid := range e.runningPIDs {
-		pids = append(pids, pid)
-	}
-	e.mu.Unlock()
 
-	if len(pids) == 0 {
+	// Detached: exec.CommandContext won't start on a cancelled ctx, and a
+	// server cancel has already cancelled the parent ctx.
+	killCtx, killCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer killCancel()
+
+	logger := common.Logger(ctx)
+
+	// Workspace dirs we own. Any process running from or referencing one is a
+	// leftover job process. ToolCache is shared across jobs; Workdir only when
+	// we own it (else it's a caller-provided checkout, e.g. act local mode).
+	owned := []string{e.Path, e.TmpDir}
+	if e.CleanWorkdir {
+		owned = append(owned, e.Workdir)
+	}
+	dirs := make([]string, 0, len(owned))
+	for _, d := range owned {
+		if d == "" {
+			continue
+		}
+		abs, err := filepath.Abs(d)
+		if err != nil {
+			continue
+		}
+		dirs = append(dirs, abs)
+	}
+	if len(dirs) == 0 {
 		return
 	}
 
-	logger := common.Logger(ctx)
-	for _, pid := range pids {
-		// Best-effort: forcibly terminate process tree to release file handles
-		// so that workspace cleanup can succeed on Windows.
-		cmd := exec.CommandContext(ctx, "taskkill", "/PID", strconv.Itoa(pid), "/T", "/F")
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			logger.Debugf("taskkill failed for pid=%d: %v output=%s", pid, err, strings.TrimSpace(string(out)))
-		}
+	script := buildWindowsWorkspaceKillScript(dirs)
+
+	cmd := exec.CommandContext(killCtx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		logger.Debugf("workspace process-tree kill via PowerShell failed: %v output=%s", err, strings.TrimSpace(string(out)))
 	}
 }
 
@@ -479,14 +543,20 @@ func (e *HostEnvironment) Remove() common.Executor {
 		if e.CleanUp != nil {
 			e.CleanUp()
 		}
+
+		// Detach: a cancelled ctx would skip removePathWithRetry's retries,
+		// which absorb Windows file-handle release lag after the kill above.
+		rmCtx, rmCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer rmCancel()
+
 		logger := common.Logger(ctx)
 		var errs []error
-		if err := removePathWithRetry(ctx, e.Path); err != nil {
+		if err := removePathWithRetry(rmCtx, e.Path); err != nil {
 			logger.Warnf("failed to remove host misc state %s: %v", e.Path, err)
 			errs = append(errs, err)
 		}
-		if !e.BindWorkdir && e.Workdir != "" {
-			if err := removePathWithRetry(ctx, e.Workdir); err != nil {
+		if e.CleanWorkdir {
+			if err := removePathWithRetry(rmCtx, e.Workdir); err != nil {
 				logger.Warnf("failed to remove host workspace %s: %v", e.Workdir, err)
 				errs = append(errs, err)
 			}

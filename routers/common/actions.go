@@ -4,7 +4,9 @@
 package common
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"strings"
 
 	actions_model "github.com/neko233-com/gitsss/models/actions"
@@ -31,7 +33,8 @@ func DownloadActionsRunJobLogs(ctx *context.Base, ctxRepo *repo_model.Repository
 		return util.NewNotExistErrorf("job not found")
 	}
 
-	if curJob.TaskID == 0 {
+	taskID := curJob.EffectiveTaskID()
+	if taskID == 0 {
 		return util.NewNotExistErrorf("job not started")
 	}
 
@@ -39,7 +42,7 @@ func DownloadActionsRunJobLogs(ctx *context.Base, ctxRepo *repo_model.Repository
 		return fmt.Errorf("LoadRun: %w", err)
 	}
 
-	task, err := actions_model.GetTaskByID(ctx, curJob.TaskID)
+	task, err := actions_model.GetTaskByID(ctx, taskID)
 	if err != nil {
 		return fmt.Errorf("GetTaskByID: %w", err)
 	}
@@ -50,6 +53,9 @@ func DownloadActionsRunJobLogs(ctx *context.Base, ctxRepo *repo_model.Repository
 
 	reader, err := actions.OpenLogs(ctx, task.LogInStorage, task.LogFilename)
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return util.NewNotExistErrorf("logs not found")
+		}
 		return fmt.Errorf("OpenLogs: %w", err)
 	}
 	defer reader.Close()

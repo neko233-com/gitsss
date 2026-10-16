@@ -6,13 +6,12 @@ package v1_13
 import (
 	"fmt"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/base"
 	"github.com/neko233-com/gitsss/modules/setting"
-
-	"xorm.io/xorm"
 )
 
-func FixLanguageStatsToSaveSize(x *xorm.Engine) error {
+func FixLanguageStatsToSaveSize(x db.EngineMigration) error {
 	// LanguageStat see models/repo_language_stats.go
 	type LanguageStat struct {
 		Size int64 `xorm:"NOT NULL DEFAULT 0"`

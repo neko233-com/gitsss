@@ -16,7 +16,7 @@ import (
 	api "github.com/neko233-com/gitsss/modules/structs"
 	"github.com/neko233-com/gitsss/modules/util"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // templateDirCandidates issue templates directory

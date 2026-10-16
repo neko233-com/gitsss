@@ -6,9 +6,9 @@ package v1_23
 import (
 	"testing"
 
-	"github.com/neko233-com/gitsss/models/migrations/base"
+	"github.com/neko233-com/gitsss/models/migrations/migrationtest"
 )
 
 func TestMain(m *testing.M) {
-	base.MainTest(m)
+	migrationtest.MainTest(m)
 }

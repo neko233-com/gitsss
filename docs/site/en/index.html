@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GitSSS Manual</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="header">
+    <a class="header-logo" href="index.html"><span>Git</span>SSS</a>
+    <nav class="header-nav">
+      <a href="#install">Install</a>
+      <a href="#migration">Migration</a>
+      <a href="#ports">Two-port evaluation</a>
+      <a href="https://github.com/neko233-com/gitsss">GitHub</a>
+      <a href="../index.html">中文</a>
+    </nav>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-heading">Manual</div>
+        <a href="#overview" class="active">Overview</a>
+        <a href="#install">Install</a>
+        <a href="#configuration">Configuration</a>
+        <a href="#migration">Gitea migration</a>
+        <a href="#incremental-sync">Incremental Git sync</a>
+        <a href="#ports">Two-port evaluation</a>
+        <a href="#acceptance">Acceptance and rollback</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">Reference</div>
+        <a href="../../operations/gitea-http-import.md">HTTP import details</a>
+        <a href="../configuration.html">Configuration reference</a>
+        <a href="../architecture.html">Architecture and compatibility</a>
+      </div>
+    </aside>
+
+    <main class="content"><section id="enterprise"><h2>Enterprise organizations</h2><p>Fresh installations bind 0.0.0.0:5030, disable self-registration and require sign-in. The home page lists organizations visible to the user first; /?view=personal retains the personal dashboard. Team display_name is an editable label, independent of its stable ID, name, URLs and permission.</p><p>HTTP import does not preserve passwords, keys, tokens, Actions history/secrets, runner credentials or webhook state. Sites using them need a native database/data takeover in the approved maintenance window. Never share a writable database between two instances.</p><p><a href="../enterprise.html">Enterprise operations and rollback</a></p></section>
+      <h1 id="overview">GitSSS Manual</h1>
+      <p class="subtitle">A self-hosted Git collaboration platform for private networks</p>
+      <p>GitSSS provides Git hosting, issues, pull requests, reviews, Actions, packages, releases, wiki, and Git LFS. This manual covers installation and a staged migration from a running Gitea instance.</p>
+
+      <div class="callout callout-note">
+        <span class="callout-label">Staged migration</span>
+        <p>Keep GitSSS on <code>5030</code> and Gitea on <code>3000</code> throughout evaluation. Add the <code>3000</code> listener only after acceptance and an explicitly approved source shutdown.</p>
+      </div>
+
+      <h2 id="install">Install</h2>
+      <h3>Native binaries</h3>
+      <p>Download the matching binary and its <code>.sha256</code> from <a href="https://github.com/neko233-com/gitsss/releases">Releases</a>. Verify the checksum and install Git and Git LFS; JavaScript Actions additionally require Node.js. On Linux or macOS run the command below; on Windows use <code>gitsss.exe</code>. Open port 5030 and create an administrator in the installation form.</p>
+      <pre><code>chmod +x ./gitsss
+./gitsss web --work-path /absolute/path/to/gitsss-data</code></pre>
+      <h3>Offline Docker image</h3>
+      <p>Install from a local image archive. The installer uses <code>--pull never</code> and does not contact a container registry.</p>
+      <h3>Linux or macOS</h3>
+      <pre><code>./install/install.sh \
+  --image-archive ./gitsss-image.tar \
+  --install-dir /opt/gitsss \
+  --port 5030 \
+  --root-url http://gitsss.example.internal:5030/ \
+  --initial-admin-user root \
+  --initial-admin-password 'change-this-password'</code></pre>
+      <p>Linux installs a <code>systemd</code> service by default. macOS installs a per-user <code>launchd</code> agent. Use <code>--no-autostart</code> to skip service registration or <code>--no-start</code> to stage the files without starting the service.</p>
+      <h3>Windows PowerShell</h3>
+      <pre><code>.\install\install.ps1 `
+  -ImageArchive .\gitsss-image.tar `
+  -InstallDir C:\gitsss `
+  -Port 5030 `
+  -RootUrl http://gitsss.example.internal:5030/ `
+  -InitialAdminUser root `
+  -InitialAdminPassword 'change-this-password'</code></pre>
+      <p>On first launch, the installer creates the initial administrator only for an empty data volume. Change its initial password at the first login. Existing <code>HTTP_PORT</code> settings are preserved during upgrades.</p>
+
+      <h2 id="configuration">Configuration</h2>
+      <table>
+        <thead><tr><th>Setting</th><th>Default</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>HTTP_PORT</code></td><td><code>5030</code></td><td>Primary web, API, and HTTP Git listener</td></tr>
+          <tr><td><code>HTTP_ADDITIONAL_PORTS</code></td><td>empty</td><td>Additional HTTP listener ports, comma-separated</td></tr>
+          <tr><td><code>ROOT_URL</code></td><td><code>http://localhost:5030/</code></td><td>Public URL used for links and clone URLs</td></tr>
+          <tr><td>SSH port</td><td><code>2222</code></td><td>Git over SSH</td></tr>
+          <tr><td>Initial administrator</td><td><code>root</code> / <code>root</code></td><td>Must change the initial password</td></tr>
+        </tbody>
+      </table>
+      <p>For Docker, publish each additional host port to the same container port before enabling it. A container cannot listen on a host port that Compose has not published.</p>
+
+      <h2 id="migration">Gitea migration</h2>
+      <p>The HTTP importer reads Gitea through its admin API and Git HTTP. It does not read the source filesystem, database, or Docker volume. Keep the source service and its data unchanged during rehearsal.</p>
+      <h3>1. Protect credentials</h3>
+      <p>Put source and target secrets in private files. Do not pass passwords as command-line arguments or commit secret files.</p>
+      <pre><code>chmod 600 source.password target.password</code></pre>
+      <h3>2. Review a dry-run plan</h3>
+      <pre><code>gitsss import-gitea-http \
+  --source-url http://gitea.example.internal:3000 \
+  --source-user site-admin \
+  --source-password-file source.password \
+  --target-url http://gitsss.example.internal:5030 \
+  --target-user root \
+  --target-password-file target.password \
+  --repo team/repository-a \
+  --repo team/repository-b</code></pre>
+      <p>Without <code>--apply</code>, the importer performs discovery only. Review the output repository list and warnings before proceeding. Start with a few small or representative repositories.</p>
+      <h3>3. Perform the initial import</h3>
+      <pre><code>gitsss import-gitea-http \
+  --source-url http://gitea.example.internal:3000 \
+  --source-user site-admin \
+  --source-password-file source.password \
+  --target-url http://gitsss.example.internal:5030 \
+  --target-user root \
+  --target-password-file target.password \
+  --repo team/repository-a \
+  --repo team/repository-b \
+  --apply --credentials-file imported-users.jsonl</code></pre>
+      <p>Initial import includes selected Git refs and LFS objects, repository settings, supported account and organization permissions, and supported issue, pull request, release, wiki, and package data. Password hashes, 2FA secrets, API tokens, SSH private state, webhooks, and Actions secrets are not available through the source HTTP API. New local accounts receive temporary passwords in the protected credentials file.</p>
+
+      <h2 id="incremental-sync">Incremental Git sync</h2>
+      <p>After initial import, use <code>--sync-existing-git --apply</code> to update existing repositories without recreating them.</p>
+      <pre><code>gitsss import-gitea-http \
+  --source-url http://gitea.example.internal:3000 \
+  --source-user site-admin \
+  --source-password-file source.password \
+  --target-url http://gitsss.example.internal:5030 \
+  --target-user root \
+  --target-password-file target.password \
+  --repo team/repository-a \
+  --repo team/repository-b \
+  --sync-existing-git --apply</code></pre>
+      <ul>
+        <li>Git branches, tags, notes, and LFS objects are synchronized.</li>
+        <li>Fetches reuse a persistent bare-repository cache in the current user's cache directory. Set <code>--mirror-cache-dir</code> to place it on a volume with sufficient free space. The cache avoids downloading existing Git objects again and occupies space roughly in proportion to the mirrored Git data.</li>
+        <li>Source ref deletions are pruned on the target. Fast-forward updates are applied atomically.</li>
+        <li>A private per-target checkpoint protects destination changes, including target-only branches. A changed destination is rejected before writes. Reuse the same cache; a missing checkpoint is initialized only when target refs already match the source.</li>
+        <li>This repeatable mode does not sync issue or pull request changes, repository metadata, permissions, packages, or releases. Those are part of initial import only.</li>
+      </ul>
+      <div class="callout callout-warning">
+        <span class="callout-label">One-way rehearsal</span>
+        <p>During evaluation, keep Gitea as the source of truth. Avoid writing to both systems. Git-only sync does not reconcile two-way edits or continuously mirror collaboration metadata.</p>
+      </div>
+
+      <h2 id="ports">Two-port evaluation</h2>
+      <ol>
+        <li>Leave Gitea on <code>3000</code> and start GitSSS on <code>5030</code> with its own data directory.</li>
+        <li>Import selected repositories and verify their Git refs, LFS objects, and supported collaboration data.</li>
+        <li>Keep Gitea on <code>3000</code> and GitSSS on <code>5030</code> during the evaluation period. Validate several repositories and required product features while both services are available.</li>
+        <li>After acceptance, run the final Git sync and stop Gitea to release port <code>3000</code>.</li>
+        <li>While GitSSS remains available on <code>5030</code>, sign in as a site administrator. Open <strong>Admin → Gitea takeover</strong> and add <code>3000</code> as an alias.</li>
+        <li>GitSSS keeps <code>5030</code> open and serves the same application on <code>3000</code>. Its public root URL changes to port <code>3000</code> for clone and web links.</li>
+      </ol>
+      <p>The API equivalent is <code>POST /api/v1/admin/listen-port/alias</code> with JSON <code>{"port":"3000"}</code>. The caller must be a signed-in site administrator, and the requested port must be free. The request binds the listener before it saves the additional port and root URL.</p>
+
+      <h2 id="agent-operations">Agent operations</h2><p>The bundled manual is available from the footer Help link at <code>/help/</code>, with English as its default. Native runners need Git, Git LFS and Node.js for JavaScript actions. Default host labels match the actual OS; production runner labels and credentials are preserved during native takeover. Keep the rehearsal runner disabled on 5030.</p><pre><code>python3 tools/agent-ops.py status --url http://gitsss.example.internal:5030 --token-file target.token
+python3 tools/verify-git.py --url http://gitsss.example.internal:5030 --token-file target.token --ssh-known-hosts trusted-hosts</code></pre><p>Dispatch and rerun require <code>--apply</code>. Run <code>--actions</code> only on a separate instance containing disposable repositories and a dedicated runner label. No GitHub Actions workflow is enabled for this repository.</p><h2 id="acceptance">Acceptance and rollback</h2>
+      <p>For each pilot repository, compare source and target branch/tag names and commit IDs, verify clones and pushes over HTTP, fetch representative LFS files, and check the imported issues, pull requests, releases, wiki, and packages that the project uses. Also check authentication, permissions, webhooks, Actions runners, backups, and the application features required by your team.</p>
+      <p>Keep the existing Gitea service and its data directory unchanged until the pilot is accepted. If GitSSS fails evaluation, leave Gitea serving on <code>3000</code>, remove only the GitSSS candidate service, and retain its data for investigation. A later cutover needs a scheduled write freeze, a final source-to-target sync, and a separate acceptance decision.</p>
+
+      <hr>
+      <p style="font-size:14px; color:var(--color-fg-muted);">GitSSS is licensed under <a href="https://github.com/neko233-com/gitsss/blob/main/LICENSE">MIT</a>. See the <a href="https://github.com/neko233-com/gitsss/blob/main/README.md">English README</a> or <a href="https://github.com/neko233-com/gitsss/blob/main/README_ZH.md">Chinese README</a>.</p>
+    <h2>Rehearsal evidence: 2026-10-16</h2><p>An independent SQLite snapshot retained all 116 original tables, columns and row IDs (343 to 343), taking about 1.35 seconds. Runtime checks accepted the original admin token, organization/team visibility, four pilot repositories, runner IDs and Actions metadata. Four pilots matched 135 source refs. Disposable real-client checks covered HTTP, SSH, LFS, permissions, pull-request merging and team labels; an isolated native runner completed checkout, shell and artifact upload. Delta checks covered new Git/LFS data, source branch deletion, refusal of independent destination changes and unchanged reruns without cache growth. Production runners and original SSH credentials remain cutover-window checks. Windows local restore paths use proper file: URLs while retaining permission checks and storage locations.</p></main>
+  </div>
+</body>
+</html>

@@ -4,12 +4,11 @@
 package v1_19
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func CreateSecretsTable(x *xorm.Engine) error {
+func CreateSecretsTable(x db.EngineMigration) error {
 	type Secret struct {
 		ID          int64
 		OwnerID     int64              `xorm:"INDEX UNIQUE(owner_repo_name) NOT NULL"`

@@ -12,7 +12,7 @@ import (
 
 	"github.com/neko233-com/gitsss/runner/act/common"
 
-	"github.com/docker/docker/api/types"
+	"github.com/moby/moby/api/types/system"
 	"github.com/pkg/errors"
 )
 
@@ -51,8 +51,8 @@ func RunnerArch(ctx context.Context) string {
 	return runtime.GOOS
 }
 
-func GetHostInfo(ctx context.Context) (info types.Info, err error) {
-	return types.Info{}, nil
+func GetHostInfo(ctx context.Context) (info system.Info, err error) {
+	return system.Info{}, nil
 }
 
 func NewDockerVolumeRemoveExecutor(volume string, force bool) common.Executor {

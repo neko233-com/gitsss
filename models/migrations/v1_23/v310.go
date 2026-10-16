@@ -4,10 +4,12 @@
 package v1_23
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
+
 	"xorm.io/xorm"
 )
 
-func AddPriorityToProtectedBranch(x *xorm.Engine) error {
+func AddPriorityToProtectedBranch(x db.EngineMigration) error {
 	type ProtectedBranch struct {
 		Priority int64 `xorm:"NOT NULL DEFAULT 0"`
 	}

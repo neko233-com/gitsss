@@ -9,14 +9,14 @@ import (
 	"strconv"
 	"strings"
 
-	_ "image/jpeg" // Needed for jpeg support
-
 	"github.com/neko233-com/gitsss/models/db"
 	issues_model "github.com/neko233-com/gitsss/models/issues"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	"github.com/neko233-com/gitsss/models/unit"
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/log"
+
+	_ "image/jpeg" // Needed for jpeg support
 
 	"xorm.io/builder"
 )

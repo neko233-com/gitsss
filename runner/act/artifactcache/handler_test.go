@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -338,6 +339,54 @@ func TestHandler(t *testing.T) {
 		}
 	})
 
+	t.Run("upload write failure returns only error", func(t *testing.T) {
+		key := strings.ToLower(t.Name())
+		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
+		var id uint64
+		{
+			body, err := json.Marshal(&Request{
+				Key:     key,
+				Version: version,
+				Size:    100,
+			})
+			require.NoError(t, err)
+			resp, err := testClient.Post(base+"/caches", "application/json", bytes.NewReader(body))
+			require.NoError(t, err)
+			defer resp.Body.Close()
+			require.Equal(t, 200, resp.StatusCode)
+
+			got := struct {
+				CacheID uint64 `json:"cacheId"`
+			}{}
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
+			id = got.CacheID
+		}
+
+		storageFile := filepath.Join(dir, "not-a-directory")
+		require.NoError(t, os.WriteFile(storageFile, []byte("blocked"), 0o600))
+		originalStorage := handler.storage
+		handler.storage = &Storage{rootDir: storageFile}
+		defer func() {
+			handler.storage = originalStorage
+		}()
+
+		req, err := http.NewRequest(http.MethodPatch,
+			fmt.Sprintf("%s/caches/%d", base, id), bytes.NewReader(make([]byte, 100)))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/octet-stream")
+		req.Header.Set("Content-Range", "bytes 0-99/*")
+		resp, err := testClient.Do(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		require.Equal(t, 500, resp.StatusCode)
+
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		var got map[string]string
+		require.NoError(t, json.Unmarshal(body, &got))
+		assert.NotEmpty(t, got["error"])
+	})
+
 	t.Run("commit early", func(t *testing.T) {
 		key := strings.ToLower(t.Name())
 		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
@@ -459,17 +508,20 @@ func TestHandler(t *testing.T) {
 		assert.Equal(t, contents[except], content)
 	})
 
-	t.Run("case insensitive", func(t *testing.T) {
+	t.Run("case preserved", func(t *testing.T) {
+		// Some actions (e.g. actions/setup-go, actions/setup-node) build cache keys that contain mixed-case fragments such as RUNNER_OS=Linux,
+		// then compare the cacheKey returned by the cache server to their original key with case-sensitive equality to decide whether the
+		// cache was a complete hit. The server must therefore preserve the original key case.
+
 		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
-		key := strings.ToLower(t.Name())
+		key := strings.ToLower(t.Name()) + "_ABC"
 		content := make([]byte, 100)
 		_, err := rand.Read(content)
 		require.NoError(t, err)
-		uploadCacheNormally(t, base, key+"_ABC", version, content)
+		uploadCacheNormally(t, base, key, version, content)
 
 		{
-			reqKey := key + "_aBc"
-			resp, err := testClient.Get(fmt.Sprintf("%s/cache?keys=%s&version=%s", base, reqKey, version))
+			resp, err := testClient.Get(fmt.Sprintf("%s/cache?keys=%s&version=%s", base, key, version))
 			require.NoError(t, err)
 			defer resp.Body.Close()
 			require.Equal(t, 200, resp.StatusCode)
@@ -480,7 +532,8 @@ func TestHandler(t *testing.T) {
 			}{}
 			require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
 			assert.Equal(t, "hit", got.Result)
-			assert.Equal(t, key+"_abc", got.CacheKey)
+			assert.Equal(t, key, got.CacheKey)
+			assert.NotEqual(t, strings.ToLower(key), got.CacheKey)
 		}
 	})
 
@@ -643,7 +696,7 @@ func uploadCacheNormally(t *testing.T, base, key, version string, content []byte
 		}{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
 		assert.Equal(t, "hit", got.Result)
-		assert.Equal(t, strings.ToLower(key), got.CacheKey)
+		assert.Equal(t, key, got.CacheKey)
 		archiveLocation = got.ArchiveLocation
 	}
 	{

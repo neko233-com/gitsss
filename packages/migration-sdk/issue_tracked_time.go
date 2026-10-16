@@ -6,6 +6,7 @@ package gitea
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -54,7 +55,7 @@ func (opt *ListTrackedTimesOptions) QueryEncode() string {
 }
 
 // ListRepoTrackedTimes list tracked times of a repository
-func (c *Client) ListRepoTrackedTimes(owner, repo string, opt ListTrackedTimesOptions) ([]*TrackedTime, *Response, error) {
+func (c *IssuesService) ListRepoTrackedTimes(ctx context.Context, owner, repo string, opt ListTrackedTimesOptions) ([]*TrackedTime, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
@@ -62,24 +63,29 @@ func (c *Client) ListRepoTrackedTimes(owner, repo string, opt ListTrackedTimesOp
 	opt.setDefaults()
 	link.RawQuery = opt.QueryEncode()
 	times := make([]*TrackedTime, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", link.String(), jsonHeader, nil, &times)
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), jsonHeader, nil, &times)
 	return times, resp, err
 }
 
-// GetMyTrackedTimes list tracked times of the current user
-//
-// Deprecated: Use ListMyTrackedTimes instead, which supports pagination and filtering.
-func (c *Client) GetMyTrackedTimes() ([]*TrackedTime, *Response, error) {
-	return c.ListMyTrackedTimes(ListTrackedTimesOptions{})
-}
-
 // ListMyTrackedTimes list tracked times of the current user with pagination and filtering
-func (c *Client) ListMyTrackedTimes(opt ListTrackedTimesOptions) ([]*TrackedTime, *Response, error) {
+func (c *IssuesService) ListMyTrackedTimes(ctx context.Context, opt ListTrackedTimesOptions) ([]*TrackedTime, *Response, error) {
 	link, _ := url.Parse("/user/times")
 	opt.setDefaults()
 	link.RawQuery = opt.QueryEncode()
 	times := make([]*TrackedTime, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", link.String(), jsonHeader, nil, &times)
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), jsonHeader, nil, &times)
+	return times, resp, err
+}
+
+// GetUserTrackedTimes gets all tracked times for a user in a repository.
+func (c *IssuesService) GetUserTrackedTimes(ctx context.Context, owner, repo, user string) ([]*TrackedTime, *Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo, &user); err != nil {
+		return nil, nil, err
+	}
+	times := make([]*TrackedTime, 0, 10)
+	resp, err := c.getParsedResponse(ctx, "GET",
+		fmt.Sprintf("/repos/%s/%s/times/%s", owner, repo, user),
+		jsonHeader, nil, &times)
 	return times, resp, err
 }
 
@@ -102,7 +108,7 @@ func (opt AddTimeOption) Validate() error {
 }
 
 // AddTime adds time to issue with the given index
-func (c *Client) AddTime(owner, repo string, index int64, opt AddTimeOption) (*TrackedTime, *Response, error) {
+func (c *IssuesService) AddTime(ctx context.Context, owner, repo string, index int64, opt AddTimeOption) (*TrackedTime, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
@@ -114,14 +120,14 @@ func (c *Client) AddTime(owner, repo string, index int64, opt AddTimeOption) (*T
 		return nil, nil, err
 	}
 	t := new(TrackedTime)
-	resp, err := c.getParsedResponse("POST",
+	resp, err := c.getParsedResponse(ctx, "POST",
 		fmt.Sprintf("/repos/%s/%s/issues/%d/times", owner, repo, index),
 		jsonHeader, bytes.NewReader(body), t)
 	return t, resp, err
 }
 
 // ListIssueTrackedTimes list tracked times of a single issue for a given repository
-func (c *Client) ListIssueTrackedTimes(owner, repo string, index int64, opt ListTrackedTimesOptions) ([]*TrackedTime, *Response, error) {
+func (c *IssuesService) ListIssueTrackedTimes(ctx context.Context, owner, repo string, index int64, opt ListTrackedTimesOptions) ([]*TrackedTime, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
@@ -129,22 +135,22 @@ func (c *Client) ListIssueTrackedTimes(owner, repo string, index int64, opt List
 	opt.setDefaults()
 	link.RawQuery = opt.QueryEncode()
 	times := make([]*TrackedTime, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", link.String(), jsonHeader, nil, &times)
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), jsonHeader, nil, &times)
 	return times, resp, err
 }
 
 // ResetIssueTime reset tracked time of a single issue for a given repository
-func (c *Client) ResetIssueTime(owner, repo string, index int64) (*Response, error) {
+func (c *IssuesService) ResetIssueTime(ctx context.Context, owner, repo string, index int64) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("DELETE", fmt.Sprintf("/repos/%s/%s/issues/%d/times", owner, repo, index), jsonHeader, nil)
+	return c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/repos/%s/%s/issues/%d/times", owner, repo, index), jsonHeader, nil)
 }
 
 // DeleteTime delete a specific tracked time by id of a single issue for a given repository
-func (c *Client) DeleteTime(owner, repo string, index, timeID int64) (*Response, error) {
+func (c *IssuesService) DeleteTime(ctx context.Context, owner, repo string, index, timeID int64) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("DELETE", fmt.Sprintf("/repos/%s/%s/issues/%d/times/%d", owner, repo, index, timeID), jsonHeader, nil)
+	return c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/repos/%s/%s/issues/%d/times/%d", owner, repo, index, timeID), jsonHeader, nil)
 }

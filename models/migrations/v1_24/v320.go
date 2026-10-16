@@ -4,12 +4,13 @@
 package v1_24
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/json"
 
 	"xorm.io/xorm"
 )
 
-func MigrateSkipTwoFactor(x *xorm.Engine) error {
+func MigrateSkipTwoFactor(x db.EngineMigration) error {
 	type LoginSource struct {
 		TwoFactorPolicy string `xorm:"two_factor_policy NOT NULL DEFAULT ''"`
 	}

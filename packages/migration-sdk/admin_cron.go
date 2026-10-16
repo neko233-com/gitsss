@@ -5,6 +5,7 @@
 package gitea
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -24,23 +25,23 @@ type ListCronTaskOptions struct {
 }
 
 // ListCronTasks list available cron tasks
-func (c *Client) ListCronTasks(opt ListCronTaskOptions) ([]*CronTask, *Response, error) {
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_13_0); err != nil {
+func (c *AdminService) ListCronTasks(ctx context.Context, opt ListCronTaskOptions) ([]*CronTask, *Response, error) {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_13_0); err != nil {
 		return nil, nil, err
 	}
 	opt.setDefaults()
 	ct := make([]*CronTask, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/admin/cron?%s", opt.getURLQuery().Encode()), jsonHeader, nil, &ct)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/admin/cron?%s", opt.getURLQuery().Encode()), jsonHeader, nil, &ct)
 	return ct, resp, err
 }
 
 // RunCronTasks run a cron task
-func (c *Client) RunCronTasks(task string) (*Response, error) {
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_13_0); err != nil {
+func (c *AdminService) RunCronTasks(ctx context.Context, task string) (*Response, error) {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_13_0); err != nil {
 		return nil, err
 	}
 	if err := escapeValidatePathSegments(&task); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("POST", fmt.Sprintf("/admin/cron/%s", task), jsonHeader, nil)
+	return c.doRequestWithStatusHandle(ctx, "POST", fmt.Sprintf("/admin/cron/%s", task), jsonHeader, nil)
 }

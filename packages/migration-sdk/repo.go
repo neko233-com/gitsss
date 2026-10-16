@@ -7,6 +7,7 @@ package gitea
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -169,21 +170,21 @@ type ListReposOptions struct {
 }
 
 // ListMyRepos lists all repositories for the authenticated user that has access to.
-func (c *Client) ListMyRepos(opt ListReposOptions) ([]*Repository, *Response, error) {
+func (c *RepositoriesService) ListMyRepos(ctx context.Context, opt ListReposOptions) ([]*Repository, *Response, error) {
 	opt.setDefaults()
 	repos := make([]*Repository, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/user/repos?%s", opt.getURLQuery().Encode()), nil, nil, &repos)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/user/repos?%s", opt.getURLQuery().Encode()), nil, nil, &repos)
 	return repos, resp, err
 }
 
 // ListUserRepos list all repositories of one user by user's name
-func (c *Client) ListUserRepos(user string, opt ListReposOptions) ([]*Repository, *Response, error) {
+func (c *RepositoriesService) ListUserRepos(ctx context.Context, user string, opt ListReposOptions) ([]*Repository, *Response, error) {
 	if err := escapeValidatePathSegments(&user); err != nil {
 		return nil, nil, err
 	}
 	opt.setDefaults()
 	repos := make([]*Repository, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/users/%s/repos?%s", user, opt.getURLQuery().Encode()), nil, nil, &repos)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/users/%s/repos?%s", user, opt.getURLQuery().Encode()), nil, nil, &repos)
 	return repos, resp, err
 }
 
@@ -193,13 +194,13 @@ type ListOrgReposOptions struct {
 }
 
 // ListOrgRepos list all repositories of one organization by organization's name
-func (c *Client) ListOrgRepos(org string, opt ListOrgReposOptions) ([]*Repository, *Response, error) {
+func (c *RepositoriesService) ListOrgRepos(ctx context.Context, org string, opt ListOrgReposOptions) ([]*Repository, *Response, error) {
 	if err := escapeValidatePathSegments(&org); err != nil {
 		return nil, nil, err
 	}
 	opt.setDefaults()
 	repos := make([]*Repository, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/orgs/%s/repos?%s", org, opt.getURLQuery().Encode()), nil, nil, &repos)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/orgs/%s/repos?%s", org, opt.getURLQuery().Encode()), nil, nil, &repos)
 	return repos, resp, err
 }
 
@@ -309,7 +310,7 @@ type searchRepoResponse struct {
 }
 
 // SearchRepos searches for repositories matching the given filters
-func (c *Client) SearchRepos(opt SearchRepoOptions) ([]*Repository, *Response, error) {
+func (c *RepositoriesService) SearchRepos(ctx context.Context, opt SearchRepoOptions) ([]*Repository, *Response, error) {
 	opt.setDefaults()
 	repos := new(searchRepoResponse)
 
@@ -320,7 +321,7 @@ func (c *Client) SearchRepos(opt SearchRepoOptions) ([]*Repository, *Response, e
 	} else {
 		link.RawQuery = opt.QueryEncode()
 		// IsPrivate only works on gitea >= 1.12.0
-		if err := c.checkServerVersionGreaterThanOrEqual(version1_12_0); err != nil && opt.IsPrivate != nil {
+		if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); err != nil && opt.IsPrivate != nil {
 			if *opt.IsPrivate {
 				// private repos only not supported on gitea <= 1.11.x
 				return nil, nil, err
@@ -331,7 +332,7 @@ func (c *Client) SearchRepos(opt SearchRepoOptions) ([]*Repository, *Response, e
 		}
 	}
 
-	resp, err := c.getParsedResponse("GET", link.String(), nil, nil, &repos)
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), nil, nil, &repos)
 	return repos.Repos, resp, err
 }
 
@@ -364,7 +365,7 @@ type CreateRepoOption struct {
 }
 
 // Validate the CreateRepoOption struct
-func (opt CreateRepoOption) Validate(c *Client) error {
+func (opt CreateRepoOption) Validate(ctx context.Context, c *Client) error {
 	if len(strings.TrimSpace(opt.Name)) == 0 {
 		return fmt.Errorf("name is empty")
 	}
@@ -378,7 +379,7 @@ func (opt CreateRepoOption) Validate(c *Client) error {
 		return fmt.Errorf("default branch name has more than 100 chars")
 	}
 	if len(opt.TrustModel) != 0 {
-		if err := c.checkServerVersionGreaterThanOrEqual(version1_13_0); err != nil {
+		if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_13_0); err != nil {
 			return err
 		}
 	}
@@ -391,12 +392,12 @@ func (opt CreateRepoOption) Validate(c *Client) error {
 }
 
 // CreateRepo creates a repository for authenticated user.
-func (c *Client) CreateRepo(opt CreateRepoOption) (*Repository, *Response, error) {
-	if err := opt.Validate(c); err != nil {
+func (c *RepositoriesService) CreateRepo(ctx context.Context, opt CreateRepoOption) (*Repository, *Response, error) {
+	if err := opt.Validate(ctx, c.Client); err != nil {
 		return nil, nil, err
 	}
 	// object_format_name is only supported on gitea >= 1.22.0
-	if c.checkServerVersionGreaterThanOrEqual(version1_22_0) != nil {
+	if c.checkServerVersionGreaterThanOrEqual(ctx, version1_22_0) != nil {
 		opt.ObjectFormatName = ""
 	}
 	body, err := json.Marshal(&opt)
@@ -404,16 +405,16 @@ func (c *Client) CreateRepo(opt CreateRepoOption) (*Repository, *Response, error
 		return nil, nil, err
 	}
 	repo := new(Repository)
-	resp, err := c.getParsedResponse("POST", "/user/repos", jsonHeader, bytes.NewReader(body), repo)
+	resp, err := c.getParsedResponse(ctx, "POST", "/user/repos", jsonHeader, bytes.NewReader(body), repo)
 	return repo, resp, err
 }
 
 // CreateOrgRepo creates an organization repository for authenticated user.
-func (c *Client) CreateOrgRepo(org string, opt CreateRepoOption) (*Repository, *Response, error) {
+func (c *RepositoriesService) CreateOrgRepo(ctx context.Context, org string, opt CreateRepoOption) (*Repository, *Response, error) {
 	if err := escapeValidatePathSegments(&org); err != nil {
 		return nil, nil, err
 	}
-	if err := opt.Validate(c); err != nil {
+	if err := opt.Validate(ctx, c.Client); err != nil {
 		return nil, nil, err
 	}
 	body, err := json.Marshal(&opt)
@@ -421,24 +422,24 @@ func (c *Client) CreateOrgRepo(org string, opt CreateRepoOption) (*Repository, *
 		return nil, nil, err
 	}
 	repo := new(Repository)
-	resp, err := c.getParsedResponse("POST", fmt.Sprintf("/orgs/%s/repos", org), jsonHeader, bytes.NewReader(body), repo)
+	resp, err := c.getParsedResponse(ctx, "POST", fmt.Sprintf("/orgs/%s/repos", org), jsonHeader, bytes.NewReader(body), repo)
 	return repo, resp, err
 }
 
 // GetRepo returns information of a repository of given owner.
-func (c *Client) GetRepo(owner, reponame string) (*Repository, *Response, error) {
+func (c *RepositoriesService) GetRepo(ctx context.Context, owner, reponame string) (*Repository, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &reponame); err != nil {
 		return nil, nil, err
 	}
 	repo := new(Repository)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/repos/%s/%s", owner, reponame), nil, nil, repo)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s", owner, reponame), nil, nil, repo)
 	return repo, resp, err
 }
 
 // GetRepoByID returns information of a repository by a giver repository ID.
-func (c *Client) GetRepoByID(id int64) (*Repository, *Response, error) {
+func (c *RepositoriesService) GetRepoByID(ctx context.Context, id int64) (*Repository, *Response, error) {
 	repo := new(Repository)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/repositories/%d", id), nil, nil, repo)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repositories/%d", id), nil, nil, repo)
 	return repo, resp, err
 }
 
@@ -507,7 +508,7 @@ type EditRepoOption struct {
 }
 
 // EditRepo edit the properties of a repository
-func (c *Client) EditRepo(owner, reponame string, opt EditRepoOption) (*Repository, *Response, error) {
+func (c *RepositoriesService) EditRepo(ctx context.Context, owner, reponame string, opt EditRepoOption) (*Repository, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &reponame); err != nil {
 		return nil, nil, err
 	}
@@ -516,34 +517,34 @@ func (c *Client) EditRepo(owner, reponame string, opt EditRepoOption) (*Reposito
 		return nil, nil, err
 	}
 	repo := new(Repository)
-	resp, err := c.getParsedResponse("PATCH", fmt.Sprintf("/repos/%s/%s", owner, reponame), jsonHeader, bytes.NewReader(body), repo)
+	resp, err := c.getParsedResponse(ctx, "PATCH", fmt.Sprintf("/repos/%s/%s", owner, reponame), jsonHeader, bytes.NewReader(body), repo)
 	return repo, resp, err
 }
 
 // DeleteRepo deletes a repository of user or organization.
-func (c *Client) DeleteRepo(owner, repo string) (*Response, error) {
+func (c *RepositoriesService) DeleteRepo(ctx context.Context, owner, repo string) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("DELETE", fmt.Sprintf("/repos/%s/%s", owner, repo), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/repos/%s/%s", owner, repo), nil, nil)
 }
 
 // MirrorSync adds a mirrored repository to the mirror sync queue.
-func (c *Client) MirrorSync(owner, repo string) (*Response, error) {
+func (c *RepositoriesService) MirrorSync(ctx context.Context, owner, repo string) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("POST", fmt.Sprintf("/repos/%s/%s/mirror-sync", owner, repo), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "POST", fmt.Sprintf("/repos/%s/%s/mirror-sync", owner, repo), nil, nil)
 }
 
 // GetRepoLanguages return language stats of a repo
-func (c *Client) GetRepoLanguages(owner, repo string) (map[string]int64, *Response, error) {
+func (c *RepositoriesService) GetRepoLanguages(ctx context.Context, owner, repo string) (map[string]int64, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
 	langMap := make(map[string]int64)
 
-	data, resp, err := c.getResponse("GET", fmt.Sprintf("/repos/%s/%s/languages", owner, repo), jsonHeader, nil)
+	data, resp, err := c.getResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/languages", owner, repo), jsonHeader, nil)
 	if err != nil {
 		return nil, resp, err
 	}
@@ -565,33 +566,24 @@ const (
 
 // GetArchive get an archive of a repository by git reference
 // e.g.: ref -> master, 70b7c74b33, v1.2.1, ...
-func (c *Client) GetArchive(owner, repo, ref string, ext ArchiveType) ([]byte, *Response, error) {
+func (c *RepositoriesService) GetArchive(ctx context.Context, owner, repo, ref string, ext ArchiveType) ([]byte, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
 	ref = pathEscapeSegments(ref)
-	return c.getResponse("GET", fmt.Sprintf("/repos/%s/%s/archive/%s%s", owner, repo, ref, ext), nil, nil)
+	return c.getResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/archive/%s%s", owner, repo, ref, ext), nil, nil)
 }
 
 // GetArchiveReader gets a `git archive` for a particular tree-ish git reference
 // such as a branch name (`master`), a commit hash (`70b7c74b33`), a tag
 // (`v1.2.1`). The archive is returned as a byte stream in a ReadCloser. It is
 // the responsibility of the client to close the reader.
-func (c *Client) GetArchiveReader(owner, repo, ref string, ext ArchiveType) (io.ReadCloser, *Response, error) {
+func (c *RepositoriesService) GetArchiveReader(ctx context.Context, owner, repo, ref string, ext ArchiveType) (io.ReadCloser, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
 	ref = pathEscapeSegments(ref)
-	resp, err := c.doRequest("GET", fmt.Sprintf("/repos/%s/%s/archive/%s%s", owner, repo, ref, ext), nil, nil)
-	if err != nil {
-		return nil, resp, err
-	}
-
-	if _, err := statusCodeToErr(resp); err != nil {
-		return nil, resp, err
-	}
-
-	return resp.Body, resp, nil
+	return c.getResponseReader(ctx, "GET", fmt.Sprintf("/repos/%s/%s/archive/%s%s", owner, repo, ref, ext), nil, nil)
 }
 
 // UpdateRepoAvatarOption options for updating repository avatar
@@ -600,7 +592,7 @@ type UpdateRepoAvatarOption struct {
 }
 
 // UpdateRepoAvatar updates a repository's avatar
-func (c *Client) UpdateRepoAvatar(owner, repo string, opt UpdateRepoAvatarOption) (*Response, error) {
+func (c *RepositoriesService) UpdateRepoAvatar(ctx context.Context, owner, repo string, opt UpdateRepoAvatarOption) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
@@ -608,7 +600,7 @@ func (c *Client) UpdateRepoAvatar(owner, repo string, opt UpdateRepoAvatarOption
 	if err != nil {
 		return nil, err
 	}
-	status, resp, err := c.getStatusCode("POST",
+	status, resp, err := c.getStatusCode(ctx, "POST",
 		fmt.Sprintf("/repos/%s/%s/avatar", owner, repo),
 		jsonHeader, bytes.NewReader(body))
 	if err != nil {
@@ -621,11 +613,11 @@ func (c *Client) UpdateRepoAvatar(owner, repo string, opt UpdateRepoAvatarOption
 }
 
 // DeleteRepoAvatar deletes a repository's avatar
-func (c *Client) DeleteRepoAvatar(owner, repo string) (*Response, error) {
+func (c *RepositoriesService) DeleteRepoAvatar(ctx context.Context, owner, repo string) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	status, resp, err := c.getStatusCode("DELETE",
+	status, resp, err := c.getStatusCode(ctx, "DELETE",
 		fmt.Sprintf("/repos/%s/%s/avatar", owner, repo),
 		jsonHeader, nil)
 	if err != nil {

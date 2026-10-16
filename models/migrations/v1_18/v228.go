@@ -4,12 +4,11 @@
 package v1_18
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func AddTeamInviteTable(x *xorm.Engine) error {
+func AddTeamInviteTable(x db.EngineMigration) error {
 	type TeamInvite struct {
 		ID          int64              `xorm:"pk autoincr"`
 		Token       string             `xorm:"UNIQUE(token) INDEX NOT NULL DEFAULT ''"`

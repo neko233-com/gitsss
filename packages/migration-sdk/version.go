@@ -5,25 +5,26 @@
 package gitea
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	version "github.com/hashicorp/go-version"
 )
 
-// ServerVersion returns the version of the server
-func (c *Client) ServerVersion() (string, *Response, error) {
+// ServerVersion returns the version of the server.
+func (c *MetaService) ServerVersion(ctx context.Context) (string, *Response, error) {
 	v := struct {
 		Version string `json:"version"`
 	}{}
-	resp, err := c.getParsedResponse("GET", "/version", nil, nil, &v)
+	resp, err := c.getParsedResponse(ctx, "GET", "/version", nil, nil, &v)
 	return v.Version, resp, err
 }
 
 // CheckServerVersionConstraint validates that the login's server satisfies a
 // given version constraint such as ">= 1.11.0+dev"
-func (c *Client) CheckServerVersionConstraint(constraint string) error {
-	if err := c.loadServerVersion(); err != nil {
+func (c *Client) CheckServerVersionConstraint(ctx context.Context, constraint string) error {
+	if err := c.loadServerVersion(ctx); err != nil {
 		return err
 	}
 
@@ -94,11 +95,11 @@ func (*ErrUnknownVersion) Is(target error) bool {
 }
 
 // checkServerVersionGreaterThanOrEqual is the canonical way in the SDK to check for versions for API compatibility reasons
-func (c *Client) checkServerVersionGreaterThanOrEqual(v *version.Version) error {
+func (c *Client) checkServerVersionGreaterThanOrEqual(ctx context.Context, v *version.Version) error {
 	if c.ignoreVersion {
 		return nil
 	}
-	if err := c.loadServerVersion(); err != nil {
+	if err := c.loadServerVersion(ctx); err != nil {
 		return err
 	}
 
@@ -112,9 +113,17 @@ func (c *Client) checkServerVersionGreaterThanOrEqual(v *version.Version) error 
 }
 
 // loadServerVersion init the serverVersion variable
-func (c *Client) loadServerVersion() (err error) {
+func (c *Client) loadServerVersion(ctx context.Context) (err error) {
+	c.mutex.RLock()
+	serverVersionLoaded := c.serverVersion != nil
+	c.mutex.RUnlock()
+	if serverVersionLoaded {
+		return nil
+	}
+
 	c.getVersionOnce.Do(func() {
-		raw, _, err2 := c.ServerVersion()
+		c.initServices()
+		raw, _, err2 := c.Meta.ServerVersion(ctx)
 		if err2 != nil {
 			err = err2
 			return

@@ -16,7 +16,7 @@ import (
 	"github.com/neko233-com/gitsss/tests"
 
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 func createIssueConfig(t *testing.T, user *user_model.User, repo *repo_model.Repository, issueConfig map[string]any) {
@@ -32,10 +32,9 @@ func getIssueConfig(t *testing.T, owner, repo string) api.IssueConfig {
 	req := NewRequest(t, "GET", urlStr)
 	resp := MakeRequest(t, req, http.StatusOK)
 
-	var issueConfig api.IssueConfig
-	DecodeJSON(t, resp, &issueConfig)
+	issueConfig := DecodeJSON(t, resp, &api.IssueConfig{})
 
-	return issueConfig
+	return *issueConfig
 }
 
 func TestAPIRepoGetIssueConfig(t *testing.T) {
@@ -157,8 +156,7 @@ func TestAPIRepoValidateIssueConfig(t *testing.T) {
 		req := NewRequest(t, "GET", urlStr)
 		resp := MakeRequest(t, req, http.StatusOK)
 
-		var issueConfigValidation api.IssueConfigValidation
-		DecodeJSON(t, resp, &issueConfigValidation)
+		issueConfigValidation := DecodeJSON(t, resp, &api.IssueConfigValidation{})
 
 		assert.True(t, issueConfigValidation.Valid)
 		assert.Empty(t, issueConfigValidation.Message)
@@ -173,8 +171,7 @@ func TestAPIRepoValidateIssueConfig(t *testing.T) {
 		req := NewRequest(t, "GET", urlStr)
 		resp := MakeRequest(t, req, http.StatusOK)
 
-		var issueConfigValidation api.IssueConfigValidation
-		DecodeJSON(t, resp, &issueConfigValidation)
+		issueConfigValidation := DecodeJSON(t, resp, &api.IssueConfigValidation{})
 
 		assert.False(t, issueConfigValidation.Valid)
 		assert.NotEmpty(t, issueConfigValidation.Message)

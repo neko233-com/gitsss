@@ -6,7 +6,7 @@ package v1_26
 import (
 	"testing"
 
-	"github.com/neko233-com/gitsss/models/migrations/base"
+	"github.com/neko233-com/gitsss/models/migrations/migrationtest"
 
 	"github.com/stretchr/testify/require"
 )
@@ -17,7 +17,7 @@ func Test_AddDisabledToActionRunner(t *testing.T) {
 		Name string
 	}
 
-	x, deferable := base.PrepareTestEnv(t, 0, new(ActionRunner))
+	x, deferable := migrationtest.PrepareTestEnv(t, 0, new(ActionRunner))
 	defer deferable()
 
 	_, err := x.Insert(&ActionRunner{Name: "runner"})

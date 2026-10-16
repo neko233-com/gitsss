@@ -5,7 +5,9 @@
 package gitea
 
 import (
+	"context"
 	"fmt"
+	"net/url"
 	"time"
 )
 
@@ -52,80 +54,94 @@ type PackageFile struct {
 // ListPackagesOptions options for listing packages
 type ListPackagesOptions struct {
 	ListOptions
+	// type, and q are only used for ListPackages, not ListPackageVersions
+	Type string
+	Q    string
+}
+
+func (opt ListPackagesOptions) getURLQuery() url.Values {
+	query := opt.ListOptions.getURLQuery()
+	if opt.Type != "" {
+		query.Set("type", opt.Type)
+	}
+	if opt.Q != "" {
+		query.Set("q", opt.Q)
+	}
+	return query
 }
 
 // ListPackages lists all the packages owned by a given owner (user, organisation)
-func (c *Client) ListPackages(owner string, opt ListPackagesOptions) ([]*Package, *Response, error) {
+func (c *PackagesService) ListPackages(ctx context.Context, owner string, opt ListPackagesOptions) ([]*Package, *Response, error) {
 	if err := escapeValidatePathSegments(&owner); err != nil {
 		return nil, nil, err
 	}
 	opt.setDefaults()
 	packages := make([]*Package, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/packages/%s?%s", owner, opt.getURLQuery().Encode()), nil, nil, &packages)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/packages/%s?%s", owner, opt.getURLQuery().Encode()), nil, nil, &packages)
 	return packages, resp, err
 }
 
 // ListPackageVersions lists all versions of a package.
-func (c *Client) ListPackageVersions(owner, packageType, name string, opt ListPackagesOptions) ([]*Package, *Response, error) {
+func (c *PackagesService) ListPackageVersions(ctx context.Context, owner, packageType, name string, opt ListPackagesOptions) ([]*Package, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &packageType, &name); err != nil {
 		return nil, nil, err
 	}
 	opt.setDefaults()
 	packages := make([]*Package, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/packages/%s/%s/%s?%s", owner, packageType, name, opt.getURLQuery().Encode()), nil, nil, &packages)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/packages/%s/%s/%s?%s", owner, packageType, name, opt.ListOptions.getURLQuery().Encode()), nil, nil, &packages)
 	return packages, resp, err
 }
 
 // GetPackage gets the details of a specific package version
-func (c *Client) GetPackage(owner, packageType, name, version string) (*Package, *Response, error) {
+func (c *PackagesService) GetPackage(ctx context.Context, owner, packageType, name, version string) (*Package, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &packageType, &name, &version); err != nil {
 		return nil, nil, err
 	}
 	foundPackage := new(Package)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/packages/%s/%s/%s/%s", owner, packageType, name, version), nil, nil, foundPackage)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/packages/%s/%s/%s/%s", owner, packageType, name, version), nil, nil, foundPackage)
 	return foundPackage, resp, err
 }
 
 // DeletePackage deletes a specific package version
-func (c *Client) DeletePackage(owner, packageType, name, version string) (*Response, error) {
+func (c *PackagesService) DeletePackage(ctx context.Context, owner, packageType, name, version string) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &packageType, &name, &version); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("DELETE", fmt.Sprintf("/packages/%s/%s/%s/%s", owner, packageType, name, version), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/packages/%s/%s/%s/%s", owner, packageType, name, version), nil, nil)
 }
 
 // ListPackageFiles lists the files within a package
-func (c *Client) ListPackageFiles(owner, packageType, name, version string) ([]*PackageFile, *Response, error) {
+func (c *PackagesService) ListPackageFiles(ctx context.Context, owner, packageType, name, version string) ([]*PackageFile, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &packageType, &name, &version); err != nil {
 		return nil, nil, err
 	}
 	packageFiles := make([]*PackageFile, 0)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/packages/%s/%s/%s/%s/files", owner, packageType, name, version), nil, nil, &packageFiles)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/packages/%s/%s/%s/%s/files", owner, packageType, name, version), nil, nil, &packageFiles)
 	return packageFiles, resp, err
 }
 
 // GetLatestPackage gets the details of the latest version of a package
-func (c *Client) GetLatestPackage(owner, packageType, name string) (*Package, *Response, error) {
+func (c *PackagesService) GetLatestPackage(ctx context.Context, owner, packageType, name string) (*Package, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &packageType, &name); err != nil {
 		return nil, nil, err
 	}
 	foundPackage := new(Package)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/packages/%s/%s/%s/-/latest", owner, packageType, name), nil, nil, foundPackage)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/packages/%s/%s/%s/-/latest", owner, packageType, name), nil, nil, foundPackage)
 	return foundPackage, resp, err
 }
 
 // LinkPackage links a package to a repository
-func (c *Client) LinkPackage(owner, packageType, name, repoName string) (*Response, error) {
+func (c *PackagesService) LinkPackage(ctx context.Context, owner, packageType, name, repoName string) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &packageType, &name, &repoName); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("POST", fmt.Sprintf("/packages/%s/%s/%s/-/link/%s", owner, packageType, name, repoName), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "POST", fmt.Sprintf("/packages/%s/%s/%s/-/link/%s", owner, packageType, name, repoName), nil, nil)
 }
 
 // UnlinkPackage unlinks a package from a repository
-func (c *Client) UnlinkPackage(owner, packageType, name string) (*Response, error) {
+func (c *PackagesService) UnlinkPackage(ctx context.Context, owner, packageType, name string) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &packageType, &name); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("POST", fmt.Sprintf("/packages/%s/%s/%s/-/unlink", owner, packageType, name), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "POST", fmt.Sprintf("/packages/%s/%s/%s/-/unlink", owner, packageType, name), nil, nil)
 }

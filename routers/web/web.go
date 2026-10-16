@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 
+	manual "github.com/neko233-com/gitsss/docs"
+
 	auth_model "github.com/neko233-com/gitsss/models/auth"
 	"github.com/neko233-com/gitsss/models/perm"
 	"github.com/neko233-com/gitsss/models/unit"
@@ -23,6 +25,7 @@ import (
 	"github.com/neko233-com/gitsss/modules/web"
 	"github.com/neko233-com/gitsss/modules/web/middleware"
 	"github.com/neko233-com/gitsss/modules/web/routing"
+	"github.com/neko233-com/gitsss/modules/web/types"
 	"github.com/neko233-com/gitsss/routers/common"
 	"github.com/neko233-com/gitsss/routers/web/admin"
 	"github.com/neko233-com/gitsss/routers/web/auth"
@@ -45,7 +48,7 @@ import (
 	"github.com/neko233-com/gitsss/services/context"
 	"github.com/neko233-com/gitsss/services/forms"
 
-	_ "github.com/neko233-com/gitsss/modules/session" // to registers all internal adapters
+	_ "github.com/neko233-com/gitsss/modules/session" // to register all internal adapters
 
 	"gitea.com/go-chi/captcha"
 	chi_middleware "github.com/go-chi/chi/v5/middleware"
@@ -91,8 +94,8 @@ func optionsCorsHandler() func(next http.Handler) http.Handler {
 }
 
 type AuthMiddleware struct {
-	AllowOAuth2       web.PreMiddlewareProvider
-	AllowBasic        web.PreMiddlewareProvider
+	AllowOAuth2       types.PreMiddlewareProvider
+	AllowBasic        types.PreMiddlewareProvider
 	MiddlewareHandler func(*context.Context)
 }
 
@@ -101,7 +104,7 @@ func newWebAuthMiddleware() *AuthMiddleware {
 	type keyAllowBasic struct{}
 	webAuth := &AuthMiddleware{}
 
-	middlewareSetContextValue := func(key, val any) web.PreMiddlewareProvider {
+	middlewareSetContextValue := func(key, val any) types.PreMiddlewareProvider {
 		return func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				dataStore := reqctx.GetRequestDataStore(r.Context())
@@ -260,6 +263,7 @@ func Routes() *web.Router {
 	routes.BeforeRouting(chi_middleware.GetHead)
 
 	routes.Head("/", misc.DummyOK) // for health check - doesn't need to be passed through gzip handler
+	routes.Methods("GET, HEAD", "/assets/site-manifest.json", misc.SiteManifest)
 	routes.Methods("GET, HEAD, OPTIONS", "/assets/*", routing.MarkLogLevelTrace, public.AssetsCors(), public.FileHandlerFunc())
 	routes.Methods("GET, HEAD", "/avatars/*", avatarStorageHandler(setting.Avatar.Storage, "avatars", storage.Avatars))
 	routes.Methods("GET, HEAD", "/repo-avatars/*", avatarStorageHandler(setting.RepoAvatar.Storage, "repo-avatars", storage.RepoAvatars))
@@ -498,10 +502,22 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 		})
 	}
 
+	addSettingsScopedWorkflowsRoutes := func() {
+		m.Group("/scoped-workflows", func() {
+			m.Get("", shared_actions.ScopedWorkflows)
+			m.Post("/add", shared_actions.ScopedWorkflowAdd)
+			m.Post("/required", shared_actions.ScopedWorkflowSetRequired)
+			m.Post("/remove", shared_actions.ScopedWorkflowRemove)
+		})
+	}
+
 	// FIXME: not all routes need go through same middleware.
 	// Especially some AJAX requests, we can reduce middleware number to improve performance.
 
 	m.Get("/", Home)
+	manualHandler := manual.Handler(setting.AppSubURL+"/help", "/help")
+	m.Get("/help", func(ctx *context.Context) { manualHandler.ServeHTTP(ctx.Resp, ctx.Req) })
+	m.Get("/help/*", func(ctx *context.Context) { manualHandler.ServeHTTP(ctx.Resp, ctx.Req) })
 	m.Get("/announcements", reqSignIn, user.Announcements)
 	m.Get("/sitemap.xml", sitemapEnabled, optExploreSignIn, HomeSitemap)
 	m.Group("/.well-known", func() {
@@ -588,7 +604,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 		})
 	}, reqSignOut)
 
-	m.Any("/user/events", routing.MarkLongPolling, events.Events)
+	m.Any("/user/events", routing.MarkLongPolling(), events.Events)
 
 	m.Group("/login/oauth", func() {
 		m.Group("", func() {
@@ -642,7 +658,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 			m.Group("/webauthn", func() {
 				m.Post("/request_register", web.Bind(forms.WebauthnRegistrationForm{}), security.WebAuthnRegister)
 				m.Post("/register", security.WebauthnRegisterPost)
-				m.Post("/delete", web.Bind(forms.WebauthnDeleteForm{}), security.WebauthnDelete)
+				m.Post("/delete", security.WebauthnDelete)
 			})
 			m.Group("/openid", func() {
 				m.Post("", web.Bind(forms.AddOpenIDForm{}), security.OpenIDPost)
@@ -701,6 +717,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 			addSettingsRunnersRoutes()
 			addSettingsSecretsRoutes()
 			addSettingsVariablesRoutes()
+			addSettingsScopedWorkflowsRoutes()
 		}, actions.MustEnableActions)
 
 		m.Get("/organization", user_setting.Organization)
@@ -878,7 +895,9 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 			m.Get("", misc.LocationRedirect("./actions/runners"))
 			m.Post("/runners/builtin/{action:start|stop|restart}", shared_actions.BuiltinRunnerControl)
 			addSettingsRunnersRoutes()
+			m.Post("/runners/bulk", shared_actions.RunnerBulkActionPost)
 			addSettingsVariablesRoutes()
+			addSettingsScopedWorkflowsRoutes()
 		})
 	}, adminReq, ctxDataSet("EnableOAuth2", setting.OAuth2.Enabled, "EnablePackages", setting.Packages.Enabled))
 	// ***** END: Admin *****
@@ -1041,6 +1060,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 					addSettingsRunnersRoutes()
 					addSettingsSecretsRoutes()
 					addSettingsVariablesRoutes()
+					addSettingsScopedWorkflowsRoutes()
 				}, actions.MustEnableActions)
 
 				m.Post("/rename", web.Bind(forms.RenameOrgForm{}), org.SettingsRenamePost)
@@ -1289,9 +1309,12 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 			m.Get("/commit/*", context.RepoRefByType(git.RefTypeCommit), repo.TreeViewNodes)
 		})
 		m.Get("/compare", repo.MustBeNotEmpty, repo.SetEditorconfigIfExists, repo.SetDiffViewStyle, repo.SetWhitespaceBehavior, repo.CompareDiff)
-		m.Combo("/compare/*", repo.MustBeNotEmpty, repo.SetEditorconfigIfExists).
-			Get(repo.SetDiffViewStyle, repo.SetWhitespaceBehavior, repo.CompareDiff).
-			Post(reqSignIn, context.RepoMustNotBeArchived(), reqUnitPullsReader, repo.MustAllowPulls, web.Bind(forms.CreateIssueForm{}), repo.SetWhitespaceBehavior, repo.CompareAndPullRequestPost)
+		m.PathGroup("/compare/*", func(g *web.RouterPathGroup) {
+			g.MatchPath("GET", "/<basehead:*>.diff", repo.MustBeNotEmpty, repo.DownloadCompareDiff)
+			g.MatchPath("GET", "/<basehead:*>.patch", repo.MustBeNotEmpty, repo.DownloadComparePatch)
+			g.MatchPath("GET", "/<*:*>", repo.MustBeNotEmpty, repo.SetEditorconfigIfExists, repo.SetDiffViewStyle, repo.SetWhitespaceBehavior, repo.CompareDiff)
+			g.MatchPath("POST", "/<*:*>", repo.MustBeNotEmpty, repo.SetEditorconfigIfExists, reqSignIn, context.RepoMustNotBeArchived(), reqUnitPullsReader, repo.MustAllowPulls, web.Bind(forms.CreateIssueForm{}), repo.SetWhitespaceBehavior, repo.CompareAndPullRequestPost)
+		})
 		m.Get("/pulls/new/*", repo.PullsNewRedirect)
 	}, optSignIn, context.RepoAssignment, reqUnitCodeReader)
 	// end "/{username}/{reponame}": repo code: find, compare, list
@@ -1378,6 +1401,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 			m.Post("/labels", reqRepoIssuesOrPullsWriter, repo.UpdateIssueLabel)
 			m.Post("/milestone", reqRepoIssuesOrPullsWriter, repo.UpdateIssueMilestone)
 			m.Post("/projects", reqRepoIssuesOrPullsWriter, reqRepoProjectsReader, repo.UpdateIssueProject)
+			m.Post("/projects/column", reqRepoIssuesOrPullsWriter, reqRepoProjectsWriter, repo.UpdateIssueProjectColumn)
 			m.Post("/assignee", reqRepoIssuesOrPullsWriter, repo.UpdateIssueAssignee)
 			m.Post("/status", reqRepoIssuesOrPullsWriter, repo.UpdateIssueStatus)
 			m.Post("/delete", reqRepoAdmin, repo.BatchDeleteIssues)
@@ -1495,15 +1519,13 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 		m.Group("/releases", func() {
 			m.Get("/new", repo.NewRelease)
 			m.Post("/new", web.Bind(forms.NewReleaseForm{}), repo.NewReleasePost)
+			m.Get("/edit/*", repo.EditRelease)
+			m.Post("/edit/*", web.Bind(forms.EditReleaseForm{}), repo.EditReleasePost)
 			m.Post("/generate-notes", web.Bind(forms.GenerateReleaseNotesForm{}), repo.GenerateReleaseNotes)
 			m.Post("/delete", repo.DeleteRelease)
 			m.Post("/attachments", repo.UploadReleaseAttachment)
 			m.Post("/attachments/remove", repo.DeleteAttachment)
 		}, reqSignIn, context.RepoMustNotBeArchived(), reqRepoReleaseWriter)
-		m.Group("/releases", func() {
-			m.Get("/edit/*", repo.EditRelease)
-			m.Post("/edit/*", web.Bind(forms.EditReleaseForm{}), repo.EditReleasePost)
-		}, reqSignIn, context.RepoMustNotBeArchived(), reqRepoReleaseWriter, repo.CommitInfoCache)
 	}, optSignIn, context.RepoAssignment, repo.MustBeNotEmpty, reqRepoReleaseReader)
 	// end "/{username}/{reponame}": repo releases
 
@@ -1562,6 +1584,11 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 			m.Combo("").
 				Get(actions.View).
 				Post(web.Bind(actions.ViewRequest{}), actions.ViewPost)
+			m.Group("/attempts/{attempt}", func() {
+				m.Combo("").
+					Get(actions.View).
+					Post(web.Bind(actions.ViewRequest{}), actions.ViewPost)
+			})
 			m.Group("/jobs/{job}", func() {
 				m.Combo("").
 					Get(actions.View).
@@ -1735,7 +1762,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 
 		m.Get("/forks", repo.Forks)
 		m.Get("/commit/{sha:([a-f0-9]{7,64})}.{ext:patch|diff}", repo.MustBeNotEmpty, repo.RawDiff)
-		m.Post("/lastcommit/*", context.RepoRefByType(git.RefTypeCommit), repo.LastCommit)
+		m.Get("/lastcommit/*", context.RepoRefByType(git.RefTypeCommit), repo.LastCommit)
 	}, optSignIn, context.RepoAssignment, reqUnitCodeReader)
 	// end "/{username}/{reponame}": repo code
 
@@ -1768,6 +1795,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 
 	if setting.API.EnableSwagger {
 		m.Get("/swagger.v1.json", SwaggerV1Json)
+		m.Get("/openapi3.v1.json", OpenAPI3Json)
 	}
 
 	if !setting.IsProd || setting.IsInE2eTesting() {
@@ -1778,8 +1806,10 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 			m.Any("/mail-preview/*", devtest.MailPreviewRender)
 			m.Any("/{sub}", devtest.TmplCommon)
 			m.Get("/repo-action-view/runs/{run}", devtest.MockActionsView)
+			m.Get("/repo-action-view/runs/{run}/attempts/{attempt}", devtest.MockActionsView)
 			m.Get("/repo-action-view/runs/{run}/jobs/{job}", devtest.MockActionsView)
 			m.Post("/repo-action-view/runs/{run}", web.Bind(actions.ViewRequest{}), devtest.MockActionsRunsJobs)
+			m.Post("/repo-action-view/runs/{run}/attempts/{attempt}", web.Bind(actions.ViewRequest{}), devtest.MockActionsRunsJobs)
 			m.Post("/repo-action-view/runs/{run}/jobs/{job}", web.Bind(actions.ViewRequest{}), devtest.MockActionsRunsJobs)
 		})
 	}

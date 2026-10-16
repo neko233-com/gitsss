@@ -9,6 +9,7 @@ import (
 
 	user_model "github.com/neko233-com/gitsss/models/user"
 	api "github.com/neko233-com/gitsss/modules/structs"
+	"github.com/neko233-com/gitsss/modules/util"
 	"github.com/neko233-com/gitsss/routers/api/v1/utils"
 	"github.com/neko233-com/gitsss/services/context"
 	"github.com/neko233-com/gitsss/services/convert"
@@ -44,33 +45,30 @@ func ListBlocks(ctx *context.APIContext, blocker *user_model.User) {
 func CheckUserBlock(ctx *context.APIContext, blocker *user_model.User) {
 	blockee, err := user_model.GetUserByName(ctx, ctx.PathParam("username"))
 	if err != nil {
-		ctx.APIErrorNotFound("GetUserByName", err)
+		ctx.APIErrorAuto(err)
 		return
 	}
 
-	status := http.StatusNotFound
-	blocking, err := user_model.GetBlocking(ctx, blocker.ID, blockee.ID)
-	if err != nil {
+	_, err = user_model.GetBlocking(ctx, blocker.ID, blockee.ID)
+	if errors.Is(err, util.ErrNotExist) {
+		ctx.Status(http.StatusNotFound)
+	} else if err == nil {
+		ctx.Status(http.StatusNoContent)
+	} else {
 		ctx.APIErrorInternal(err)
-		return
 	}
-	if blocking != nil {
-		status = http.StatusNoContent
-	}
-
-	ctx.Status(status)
 }
 
 func BlockUser(ctx *context.APIContext, blocker *user_model.User) {
 	blockee, err := user_model.GetUserByName(ctx, ctx.PathParam("username"))
 	if err != nil {
-		ctx.APIErrorNotFound("GetUserByName", err)
+		ctx.APIErrorAuto(err)
 		return
 	}
 
 	if err := user_service.BlockUser(ctx, ctx.Doer, blocker, blockee, ctx.FormString("note")); err != nil {
 		if errors.Is(err, user_model.ErrCanNotBlock) || errors.Is(err, user_model.ErrBlockOrganization) {
-			ctx.APIError(http.StatusBadRequest, err)
+			ctx.APIError(http.StatusBadRequest, err.Error())
 		} else {
 			ctx.APIErrorInternal(err)
 		}
@@ -83,13 +81,13 @@ func BlockUser(ctx *context.APIContext, blocker *user_model.User) {
 func UnblockUser(ctx *context.APIContext, doer, blocker *user_model.User) {
 	blockee, err := user_model.GetUserByName(ctx, ctx.PathParam("username"))
 	if err != nil {
-		ctx.APIErrorNotFound("GetUserByName", err)
+		ctx.APIErrorAuto(err)
 		return
 	}
 
 	if err := user_service.UnblockUser(ctx, doer, blocker, blockee); err != nil {
 		if errors.Is(err, user_model.ErrCanNotUnblock) || errors.Is(err, user_model.ErrBlockOrganization) {
-			ctx.APIError(http.StatusBadRequest, err)
+			ctx.APIError(http.StatusBadRequest, err.Error())
 		} else {
 			ctx.APIErrorInternal(err)
 		}

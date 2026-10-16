@@ -6,6 +6,7 @@ package gitea
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -45,7 +46,7 @@ func (opt *ListDeployKeysOptions) QueryEncode() string {
 }
 
 // ListDeployKeys list all the deploy keys of one repository
-func (c *Client) ListDeployKeys(user, repo string, opt ListDeployKeysOptions) ([]*DeployKey, *Response, error) {
+func (c *RepositoriesService) ListDeployKeys(ctx context.Context, user, repo string, opt ListDeployKeysOptions) ([]*DeployKey, *Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo); err != nil {
 		return nil, nil, err
 	}
@@ -53,22 +54,22 @@ func (c *Client) ListDeployKeys(user, repo string, opt ListDeployKeysOptions) ([
 	opt.setDefaults()
 	link.RawQuery = opt.QueryEncode()
 	keys := make([]*DeployKey, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", link.String(), nil, nil, &keys)
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), nil, nil, &keys)
 	return keys, resp, err
 }
 
 // GetDeployKey get one deploy key with key id
-func (c *Client) GetDeployKey(user, repo string, keyID int64) (*DeployKey, *Response, error) {
+func (c *RepositoriesService) GetDeployKey(ctx context.Context, user, repo string, keyID int64) (*DeployKey, *Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo); err != nil {
 		return nil, nil, err
 	}
 	key := new(DeployKey)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/repos/%s/%s/keys/%d", user, repo, keyID), nil, nil, &key)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/keys/%d", user, repo, keyID), nil, nil, &key)
 	return key, resp, err
 }
 
 // CreateDeployKey options when create one deploy key
-func (c *Client) CreateDeployKey(user, repo string, opt CreateKeyOption) (*DeployKey, *Response, error) {
+func (c *RepositoriesService) CreateDeployKey(ctx context.Context, user, repo string, opt CreateKeyOption) (*DeployKey, *Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo); err != nil {
 		return nil, nil, err
 	}
@@ -77,14 +78,14 @@ func (c *Client) CreateDeployKey(user, repo string, opt CreateKeyOption) (*Deplo
 		return nil, nil, err
 	}
 	key := new(DeployKey)
-	resp, err := c.getParsedResponse("POST", fmt.Sprintf("/repos/%s/%s/keys", user, repo), jsonHeader, bytes.NewReader(body), key)
+	resp, err := c.getParsedResponse(ctx, "POST", fmt.Sprintf("/repos/%s/%s/keys", user, repo), jsonHeader, bytes.NewReader(body), key)
 	return key, resp, err
 }
 
 // DeleteDeployKey delete deploy key with key id
-func (c *Client) DeleteDeployKey(owner, repo string, keyID int64) (*Response, error) {
+func (c *RepositoriesService) DeleteDeployKey(ctx context.Context, owner, repo string, keyID int64) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("DELETE", fmt.Sprintf("/repos/%s/%s/keys/%d", owner, repo, keyID), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/repos/%s/%s/keys/%d", owner, repo, keyID), nil, nil)
 }

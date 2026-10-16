@@ -6,6 +6,7 @@ package gitea
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -92,6 +93,11 @@ type CreatePullReviewComment struct {
 	NewLineNum int64 `json:"new_position"`
 }
 
+// CreatePullReviewCommentReplyOptions are options to reply to a pull request review comment.
+type CreatePullReviewCommentReplyOptions struct {
+	Body string `json:"body"`
+}
+
 // SubmitPullReviewOptions are options to submit a pending pull review
 type SubmitPullReviewOptions struct {
 	State ReviewStateType `json:"event"`
@@ -146,12 +152,20 @@ func (opt CreatePullReviewComment) Validate() error {
 	return nil
 }
 
+// Validate the CreatePullReviewCommentReplyOptions struct.
+func (opt CreatePullReviewCommentReplyOptions) Validate() error {
+	if len(strings.TrimSpace(opt.Body)) == 0 {
+		return fmt.Errorf("body is empty")
+	}
+	return nil
+}
+
 // ListPullReviews lists all reviews of a pull request
-func (c *Client) ListPullReviews(owner, repo string, index int64, opt ListPullReviewsOptions) ([]*PullReview, *Response, error) {
+func (c *PullRequestsService) ListPullReviews(ctx context.Context, owner, repo string, index int64, opt ListPullReviewsOptions) ([]*PullReview, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_12_0); err != nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); err != nil {
 		return nil, nil, err
 	}
 	opt.setDefaults()
@@ -160,57 +174,57 @@ func (c *Client) ListPullReviews(owner, repo string, index int64, opt ListPullRe
 	link, _ := url.Parse(fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews", owner, repo, index))
 	link.RawQuery = opt.ListOptions.getURLQuery().Encode()
 
-	resp, err := c.getParsedResponse("GET", link.String(), jsonHeader, nil, &rs)
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), jsonHeader, nil, &rs)
 	return rs, resp, err
 }
 
 // GetPullReview gets a specific review of a pull request
-func (c *Client) GetPullReview(owner, repo string, index, id int64) (*PullReview, *Response, error) {
+func (c *PullRequestsService) GetPullReview(ctx context.Context, owner, repo string, index, id int64) (*PullReview, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_12_0); err != nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); err != nil {
 		return nil, nil, err
 	}
 
 	r := new(PullReview)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews/%d", owner, repo, index, id), jsonHeader, nil, &r)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews/%d", owner, repo, index, id), jsonHeader, nil, &r)
 	return r, resp, err
 }
 
 // ListPullReviewComments lists all comments of a pull request review
-func (c *Client) ListPullReviewComments(owner, repo string, index, id int64) ([]*PullReviewComment, *Response, error) {
+func (c *PullRequestsService) ListPullReviewComments(ctx context.Context, owner, repo string, index, id int64) ([]*PullReviewComment, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_12_0); err != nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); err != nil {
 		return nil, nil, err
 	}
 	rcl := make([]*PullReviewComment, 0, 4)
 	link, _ := url.Parse(fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews/%d/comments", owner, repo, index, id))
 
-	resp, err := c.getParsedResponse("GET", link.String(), jsonHeader, nil, &rcl)
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), jsonHeader, nil, &rcl)
 	return rcl, resp, err
 }
 
 // DeletePullReview delete a specific review from a pull request
-func (c *Client) DeletePullReview(owner, repo string, index, id int64) (*Response, error) {
+func (c *PullRequestsService) DeletePullReview(ctx context.Context, owner, repo string, index, id int64) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_12_0); err != nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); err != nil {
 		return nil, err
 	}
 
-	return c.doRequestWithStatusHandle("DELETE", fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews/%d", owner, repo, index, id), jsonHeader, nil)
+	return c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews/%d", owner, repo, index, id), jsonHeader, nil)
 }
 
 // CreatePullReview create a review to an pull request
-func (c *Client) CreatePullReview(owner, repo string, index int64, opt CreatePullReviewOptions) (*PullReview, *Response, error) {
+func (c *PullRequestsService) CreatePullReview(ctx context.Context, owner, repo string, index int64, opt CreatePullReviewOptions) (*PullReview, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_12_0); err != nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); err != nil {
 		return nil, nil, err
 	}
 	if err := opt.Validate(); err != nil {
@@ -222,18 +236,40 @@ func (c *Client) CreatePullReview(owner, repo string, index int64, opt CreatePul
 	}
 
 	r := new(PullReview)
-	resp, err := c.getParsedResponse("POST",
+	resp, err := c.getParsedResponse(ctx, "POST",
 		fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews", owner, repo, index),
 		jsonHeader, bytes.NewReader(body), r)
 	return r, resp, err
 }
 
-// SubmitPullReview submit a pending review to an pull request
-func (c *Client) SubmitPullReview(owner, repo string, index, id int64, opt SubmitPullReviewOptions) (*PullReview, *Response, error) {
+// CreatePullReviewCommentReply replies to a pull request review comment.
+// Available on Gitea main/nightly; first released version not assigned yet.
+// Upstream: gitea/gitea#36683 (331450b17a025ce78b5bf9405ca8d684607680ef).
+func (c *PullRequestsService) CreatePullReviewCommentReply(ctx context.Context, owner, repo string, index, id int64, opt CreatePullReviewCommentReplyOptions) (*PullReviewComment, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_12_0); err != nil {
+	if err := opt.Validate(); err != nil {
+		return nil, nil, err
+	}
+	body, err := json.Marshal(&opt)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	r := new(PullReviewComment)
+	resp, err := c.getParsedResponse(ctx, "POST",
+		fmt.Sprintf("/repos/%s/%s/pulls/%d/comments/%d/replies", owner, repo, index, id),
+		jsonHeader, bytes.NewReader(body), r)
+	return r, resp, err
+}
+
+// SubmitPullReview submit a pending review to an pull request
+func (c *PullRequestsService) SubmitPullReview(ctx context.Context, owner, repo string, index, id int64, opt SubmitPullReviewOptions) (*PullReview, *Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return nil, nil, err
+	}
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); err != nil {
 		return nil, nil, err
 	}
 	if err := opt.Validate(); err != nil {
@@ -245,18 +281,18 @@ func (c *Client) SubmitPullReview(owner, repo string, index, id int64, opt Submi
 	}
 
 	r := new(PullReview)
-	resp, err := c.getParsedResponse("POST",
+	resp, err := c.getParsedResponse(ctx, "POST",
 		fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews/%d", owner, repo, index, id),
 		jsonHeader, bytes.NewReader(body), r)
 	return r, resp, err
 }
 
 // CreateReviewRequests create review requests to an pull request
-func (c *Client) CreateReviewRequests(owner, repo string, index int64, opt PullReviewRequestOptions) (*Response, error) {
+func (c *PullRequestsService) CreateReviewRequests(ctx context.Context, owner, repo string, index int64, opt PullReviewRequestOptions) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_14_0); err != nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_14_0); err != nil {
 		return nil, err
 	}
 	body, err := json.Marshal(&opt)
@@ -264,17 +300,17 @@ func (c *Client) CreateReviewRequests(owner, repo string, index int64, opt PullR
 		return nil, err
 	}
 
-	return c.doRequestWithStatusHandle("POST",
+	return c.doRequestWithStatusHandle(ctx, "POST",
 		fmt.Sprintf("/repos/%s/%s/pulls/%d/requested_reviewers", owner, repo, index),
 		jsonHeader, bytes.NewReader(body))
 }
 
 // DeleteReviewRequests delete review requests to an pull request
-func (c *Client) DeleteReviewRequests(owner, repo string, index int64, opt PullReviewRequestOptions) (*Response, error) {
+func (c *PullRequestsService) DeleteReviewRequests(ctx context.Context, owner, repo string, index int64, opt PullReviewRequestOptions) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_14_0); err != nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_14_0); err != nil {
 		return nil, err
 	}
 	body, err := json.Marshal(&opt)
@@ -282,17 +318,17 @@ func (c *Client) DeleteReviewRequests(owner, repo string, index int64, opt PullR
 		return nil, err
 	}
 
-	return c.doRequestWithStatusHandle("DELETE",
+	return c.doRequestWithStatusHandle(ctx, "DELETE",
 		fmt.Sprintf("/repos/%s/%s/pulls/%d/requested_reviewers", owner, repo, index),
 		jsonHeader, bytes.NewReader(body))
 }
 
 // DismissPullReview dismiss a review for a pull request
-func (c *Client) DismissPullReview(owner, repo string, index, id int64, opt DismissPullReviewOptions) (*Response, error) {
+func (c *PullRequestsService) DismissPullReview(ctx context.Context, owner, repo string, index, id int64, opt DismissPullReviewOptions) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_14_0); err != nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_14_0); err != nil {
 		return nil, err
 	}
 	body, err := json.Marshal(&opt)
@@ -300,39 +336,41 @@ func (c *Client) DismissPullReview(owner, repo string, index, id int64, opt Dism
 		return nil, err
 	}
 
-	return c.doRequestWithStatusHandle("POST",
+	return c.doRequestWithStatusHandle(ctx, "POST",
 		fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews/%d/dismissals", owner, repo, index, id),
 		jsonHeader, bytes.NewReader(body))
 }
 
 // UnDismissPullReview cancel to dismiss a review for a pull request
-func (c *Client) UnDismissPullReview(owner, repo string, index, id int64) (*Response, error) {
+func (c *PullRequestsService) UnDismissPullReview(ctx context.Context, owner, repo string, index, id int64) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_14_0); err != nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_14_0); err != nil {
 		return nil, err
 	}
 
-	return c.doRequestWithStatusHandle("POST",
+	return c.doRequestWithStatusHandle(ctx, "POST",
 		fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews/%d/undismissals", owner, repo, index, id),
 		jsonHeader, nil)
 }
 
 // ResolvePullReviewComment resolves a pull-request review comment conversation.
-// This endpoint is not yet available in any released Gitea version.
-func (c *Client) ResolvePullReviewComment(owner, repo string, commentID int64) (*Response, error) {
+// Available on Gitea main/nightly; first released version not assigned yet.
+// Upstream: gitea/gitea#36441 (c2dea22926f9e7a40aa47296e7b9bc3d1c5b039e).
+func (c *PullRequestsService) ResolvePullReviewComment(ctx context.Context, owner, repo string, commentID int64) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("POST", fmt.Sprintf("/repos/%s/%s/pulls/comments/%d/resolve", owner, repo, commentID), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "POST", fmt.Sprintf("/repos/%s/%s/pulls/comments/%d/resolve", owner, repo, commentID), nil, nil)
 }
 
 // UnresolvePullReviewComment unresolves a pull-request review comment conversation.
-// This endpoint is not yet available in any released Gitea version.
-func (c *Client) UnresolvePullReviewComment(owner, repo string, commentID int64) (*Response, error) {
+// Available on Gitea main/nightly; first released version not assigned yet.
+// Upstream: gitea/gitea#36441 (c2dea22926f9e7a40aa47296e7b9bc3d1c5b039e).
+func (c *PullRequestsService) UnresolvePullReviewComment(ctx context.Context, owner, repo string, commentID int64) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("POST", fmt.Sprintf("/repos/%s/%s/pulls/comments/%d/unresolve", owner, repo, commentID), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "POST", fmt.Sprintf("/repos/%s/%s/pulls/comments/%d/unresolve", owner, repo, commentID), nil, nil)
 }

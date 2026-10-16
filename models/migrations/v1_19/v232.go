@@ -4,12 +4,11 @@
 package v1_19
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/setting"
-
-	"xorm.io/xorm"
 )
 
-func AlterPackageVersionMetadataToLongText(x *xorm.Engine) error {
+func AlterPackageVersionMetadataToLongText(x db.EngineMigration) error {
 	sess := x.NewSession()
 	defer sess.Close()
 	if err := sess.Begin(); err != nil {

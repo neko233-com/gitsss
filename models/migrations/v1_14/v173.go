@@ -6,10 +6,10 @@ package v1_14
 import (
 	"fmt"
 
-	"xorm.io/xorm"
+	"github.com/neko233-com/gitsss/models/db"
 )
 
-func AddTimeIDCommentColumn(x *xorm.Engine) error {
+func AddTimeIDCommentColumn(x db.EngineMigration) error {
 	type Comment struct {
 		TimeID int64
 	}

@@ -12,7 +12,7 @@ import (
 	"github.com/neko233-com/gitsss/services/context"
 	"github.com/neko233-com/gitsss/services/mailer"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 func MailPreviewRender(ctx *context.Context) {

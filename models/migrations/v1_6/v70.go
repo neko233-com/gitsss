@@ -7,12 +7,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/setting"
-
-	"xorm.io/xorm"
 )
 
-func AddIssueDependencies(x *xorm.Engine) (err error) {
+func AddIssueDependencies(x db.EngineMigration) (err error) {
 	type IssueDependency struct {
 		ID           int64     `xorm:"pk autoincr"`
 		UserID       int64     `xorm:"NOT NULL"`

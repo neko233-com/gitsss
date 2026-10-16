@@ -26,7 +26,7 @@ FROM docker.io/library/golang:1.27.2-bookworm AS build-env
 ARG GITSSS_VERSION=development
 ARG TAGS="sqlite sqlite_unlock_notify"
 ARG GOPROXY=https://goproxy.cn|https://proxy.golang.org|direct
-ENV TAGS="bindata timetzdata $TAGS"
+ENV TAGS="bindata timetzdata external_builtin_actions $TAGS"
 ARG CGO_EXTRA_CFLAGS
 
 # Build deps
@@ -76,7 +76,7 @@ FROM docker.io/library/golang:1.25.5-bookworm AS go-1-25-runtime
 
 FROM docker.io/library/ubuntu:24.04 AS gitsss
 
-EXPOSE 22 5300
+EXPOSE 22 5030
 
 ARG TARGETARCH
 ARG UBUNTU_MIRROR

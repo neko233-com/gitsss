@@ -9,11 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/git"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/setting"
-
-	"xorm.io/xorm"
 )
 
 // Copy paste from models/repo.go because we cannot import models package
@@ -25,7 +24,7 @@ func userPath(userName string) string {
 	return filepath.Join(setting.RepoRootPath, strings.ToLower(userName))
 }
 
-func FixPublisherIDforTagReleases(ctx context.Context, x *xorm.Engine) error {
+func FixPublisherIDforTagReleases(ctx context.Context, x db.EngineMigration) error {
 	type Release struct {
 		ID          int64
 		RepoID      int64

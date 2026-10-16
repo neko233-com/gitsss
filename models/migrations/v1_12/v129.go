@@ -3,11 +3,9 @@
 
 package v1_12
 
-import (
-	"xorm.io/xorm"
-)
+import "github.com/neko233-com/gitsss/models/db"
 
-func PurgeUnusedDependencies(x *xorm.Engine) error {
+func PurgeUnusedDependencies(x db.EngineMigration) error {
 	if _, err := x.Exec("DELETE FROM issue_dependency WHERE issue_id NOT IN (SELECT id FROM issue)"); err != nil {
 		return err
 	}

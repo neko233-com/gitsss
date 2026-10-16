@@ -76,7 +76,9 @@ func TestDumperIntegration(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	_ = os.WriteFile(filepath.Join(tmpDir, "test.txt"), nil, 0o644)
-	f, _ := os.Open(filepath.Join(tmpDir, "test.txt"))
+	f, err := os.Open(filepath.Join(tmpDir, "test.txt"))
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, f.Close()) })
 
 	fi, _ := f.Stat()
 	err = dumper.AddFileByReader(f, fi, "test.txt")

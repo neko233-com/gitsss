@@ -161,8 +161,7 @@ func TestPackageContainer(t *testing.T) {
 			req := NewRequest(t, "GET", setting.AppURL+"v2/token")
 			req.Request.SetBasicAuth(user.Name, readToken)
 			resp := MakeRequest(t, req, http.StatusOK)
-			tokenResponse := &TokenResponse{}
-			DecodeJSON(t, resp, &tokenResponse)
+			tokenResponse := DecodeJSON(t, resp, &TokenResponse{})
 
 			readToken = "Bearer " + tokenResponse.Token
 
@@ -182,8 +181,7 @@ func TestPackageContainer(t *testing.T) {
 					return
 				}
 
-				tokenResponse := &TokenResponse{}
-				DecodeJSON(t, resp, &tokenResponse)
+				tokenResponse := DecodeJSON(t, resp, &TokenResponse{})
 
 				assert.NotEmpty(t, tokenResponse.Token)
 
@@ -705,8 +703,7 @@ func TestPackageContainer(t *testing.T) {
 						Tags []string `json:"tags"`
 					}
 
-					tagList := &TagList{}
-					DecodeJSON(t, resp, &tagList)
+					tagList := DecodeJSON(t, resp, &TagList{})
 
 					assert.Equal(t, user.Name+"/"+image, tagList.Name)
 					assert.Equal(t, c.ExpectedTags, tagList.Tags)
@@ -717,8 +714,7 @@ func TestPackageContainer(t *testing.T) {
 					AddTokenAuth(token)
 				resp := MakeRequest(t, req, http.StatusOK)
 
-				var apiPackages []*api.Package
-				DecodeJSON(t, resp, &apiPackages)
+				apiPackages := DecodeJSON(t, resp, []*api.Package{})
 				assert.Len(t, apiPackages, 4) // "latest", "main", "multi", "sha256:..."
 			})
 
@@ -770,20 +766,16 @@ func TestPackageContainer(t *testing.T) {
 
 		var wg sync.WaitGroup
 		for i := range 10 {
-			wg.Add(1)
-
 			content := []byte{byte(i)}
 			digest := fmt.Sprintf("sha256:%x", sha256.Sum256(content))
 
-			go func() {
-				defer wg.Done()
-
+			wg.Go(func() {
 				req := NewRequestWithBody(t, "POST", fmt.Sprintf("%s/blobs/uploads?digest=%s", url, digest), bytes.NewReader(content)).
 					AddTokenAuth(userToken)
 				resp := MakeRequest(t, req, http.StatusCreated)
 
 				assert.Equal(t, digest, resp.Header().Get("Docker-Content-Digest"))
-			}()
+			})
 		}
 		wg.Wait()
 	})
@@ -803,8 +795,7 @@ func TestPackageContainer(t *testing.T) {
 					Repositories []string `json:"repositories"`
 				}
 
-				repoList := &RepositoryList{}
-				DecodeJSON(t, resp, &repoList)
+				repoList := DecodeJSON(t, resp, &RepositoryList{})
 
 				assert.Len(t, repoList.Repositories, len(images))
 				names := make([]string, 0, len(images))

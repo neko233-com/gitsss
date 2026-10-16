@@ -6,7 +6,8 @@ package v1_26
 import (
 	"testing"
 
-	"github.com/neko233-com/gitsss/models/migrations/base"
+	"github.com/neko233-com/gitsss/models/db"
+	"github.com/neko233-com/gitsss/models/migrations/migrationtest"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/test"
 
@@ -15,7 +16,6 @@ import (
 	_ "github.com/neko233-com/gitsss/models/repo"
 
 	"github.com/stretchr/testify/require"
-	"xorm.io/xorm"
 )
 
 func Test_FixCommitStatusTargetURLToUseRunAndJobID(t *testing.T) {
@@ -57,7 +57,7 @@ func Test_FixCommitStatusTargetURLToUseRunAndJobID(t *testing.T) {
 		TargetURL string
 	}
 
-	x, deferable := base.PrepareTestEnv(t, 0,
+	x, deferable := migrationtest.PrepareTestEnv(t, 0,
 		new(Repository),
 		new(ActionRun),
 		new(ActionRunJob),
@@ -100,7 +100,7 @@ func Test_FixCommitStatusTargetURLToUseRunAndJobID(t *testing.T) {
 	}
 }
 
-func assertTargetURL(t *testing.T, x *xorm.Engine, table string, id int64, want string) {
+func assertTargetURL(t *testing.T, x db.EngineMigration, table string, id int64, want string) {
 	t.Helper()
 
 	var row struct {

@@ -4,14 +4,14 @@
 package v1_25
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/base"
 	"github.com/neko233-com/gitsss/modules/setting"
 
-	"xorm.io/xorm"
 	"xorm.io/xorm/schemas"
 )
 
-func UseLongTextInSomeColumnsAndFixBugs(x *xorm.Engine) error {
+func UseLongTextInSomeColumnsAndFixBugs(x db.EngineMigration) error {
 	if !setting.Database.Type.IsMySQL() {
 		return nil // Only mysql need to change from text to long text, for other databases, they are the same
 	}

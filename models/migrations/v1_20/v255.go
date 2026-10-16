@@ -4,12 +4,11 @@
 package v1_20
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func AddArchivedUnixToRepository(x *xorm.Engine) error {
+func AddArchivedUnixToRepository(x db.EngineMigration) error {
 	type Repository struct {
 		ArchivedUnix timeutil.TimeStamp `xorm:"DEFAULT 0"`
 	}

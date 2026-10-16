@@ -6,10 +6,10 @@ package v1_12
 import (
 	"fmt"
 
-	"xorm.io/xorm"
+	"github.com/neko233-com/gitsss/models/db"
 )
 
-func AddOrgIDLabelColumn(x *xorm.Engine) error {
+func AddOrgIDLabelColumn(x db.EngineMigration) error {
 	type Label struct {
 		OrgID int64 `xorm:"INDEX"`
 	}

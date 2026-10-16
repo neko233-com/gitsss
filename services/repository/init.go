@@ -16,12 +16,11 @@ import (
 	"github.com/neko233-com/gitsss/modules/gitrepo"
 	"github.com/neko233-com/gitsss/modules/log"
 	repo_module "github.com/neko233-com/gitsss/modules/repository"
-	"github.com/neko233-com/gitsss/modules/setting"
 	asymkey_service "github.com/neko233-com/gitsss/services/asymkey"
 )
 
 // initRepoCommit temporarily changes with work directory.
-func initRepoCommit(ctx context.Context, tmpPath string, repo *repo_model.Repository, u *user_model.User, defaultBranch string) (err error) {
+func initRepoCommit(ctx context.Context, tmpPath string, repo *repo_model.Repository, u *user_model.User) (err error) {
 	commitTimeStr := time.Now().Format(time.RFC3339)
 
 	sig := u.NewGitSig()
@@ -69,13 +68,9 @@ func initRepoCommit(ctx context.Context, tmpPath string, repo *repo_model.Reposi
 		return fmt.Errorf("git commit: %w", err)
 	}
 
-	if len(defaultBranch) == 0 {
-		defaultBranch = setting.Repository.DefaultBranch
-	}
-
 	if err := gitrepo.PushFromLocal(ctx, tmpPath, repo, git.PushOptions{
 		LocalRefName: "HEAD",
-		Branch:       defaultBranch,
+		Branch:       repo.DefaultBranch,
 		Env:          repo_module.InternalPushingEnvironment(u, repo),
 	}); err != nil {
 		log.Error("Failed to push back to HEAD Error: %v", err)

@@ -6,17 +6,13 @@ package doctor
 import (
 	"context"
 	"fmt"
-	"os/exec"
-	"strings"
 
 	"github.com/neko233-com/gitsss/models"
 	"github.com/neko233-com/gitsss/models/db"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	user_model "github.com/neko233-com/gitsss/models/user"
-	"github.com/neko233-com/gitsss/modules/git"
 	"github.com/neko233-com/gitsss/modules/gitrepo"
 	"github.com/neko233-com/gitsss/modules/log"
-	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/structs"
 
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -32,16 +28,6 @@ func iterateRepositories(ctx context.Context, each func(*repo_model.Repository) 
 		},
 	)
 	return err
-}
-
-func checkScriptType(ctx context.Context, logger log.Logger, autofix bool) error {
-	path, err := exec.LookPath(setting.ScriptType)
-	if err != nil {
-		logger.Critical("ScriptType \"%q\" is not on the current PATH. Error: %v", setting.ScriptType, err)
-		return fmt.Errorf("ScriptType \"%q\" is not on the current PATH. Error: %w", setting.ScriptType, err)
-	}
-	logger.Info("ScriptType %s is on the current PATH at %s", setting.ScriptType, path)
-	return nil
 }
 
 func checkHooks(ctx context.Context, logger log.Logger, autofix bool) error {
@@ -79,42 +65,6 @@ func checkUserStarNum(ctx context.Context, logger log.Logger, autofix bool) erro
 	} else {
 		logger.Info("No check available for User Stars numbers (skipped)")
 	}
-	return nil
-}
-
-func checkEnablePushOptions(ctx context.Context, logger log.Logger, autofix bool) error {
-	numRepos := 0
-	numNeedUpdate := 0
-
-	if err := iterateRepositories(ctx, func(repo *repo_model.Repository) error {
-		numRepos++
-
-		if autofix {
-			return gitrepo.GitConfigSet(ctx, repo, "receive.advertisePushOptions", "true")
-		}
-
-		value, err := gitrepo.GitConfigGet(ctx, repo, "receive.advertisePushOptions")
-		if err != nil {
-			return err
-		}
-
-		result, valid := git.ParseBool(strings.TrimSpace(value))
-		if !result || !valid {
-			numNeedUpdate++
-			logger.Info("%s: does not have receive.advertisePushOptions set correctly: %q", repo.FullName(), value)
-		}
-		return nil
-	}); err != nil {
-		logger.Critical("Unable to EnablePushOptions: %v", err)
-		return err
-	}
-
-	if autofix {
-		logger.Info("Enabled push options for %d repositories.", numRepos)
-	} else {
-		logger.Info("Checked %d repositories, %d need updates.", numRepos, numNeedUpdate)
-	}
-
 	return nil
 }
 
@@ -245,13 +195,6 @@ func checkCommitGraph(ctx context.Context, logger log.Logger, autofix bool) erro
 
 func init() {
 	Register(&Check{
-		Title:     "Check if SCRIPT_TYPE is available",
-		Name:      "script-type",
-		IsDefault: false,
-		Run:       checkScriptType,
-		Priority:  5,
-	})
-	Register(&Check{
 		Title:     "Check if hook files are up-to-date and executable",
 		Name:      "hooks",
 		IsDefault: false,
@@ -264,13 +207,6 @@ func init() {
 		IsDefault: false,
 		Run:       checkUserStarNum,
 		Priority:  6,
-	})
-	Register(&Check{
-		Title:     "Check that all git repositories have receive.advertisePushOptions set to true",
-		Name:      "enable-push-options",
-		IsDefault: false,
-		Run:       checkEnablePushOptions,
-		Priority:  7,
 	})
 	Register(&Check{
 		Title:     "Check git-daemon-export-ok files",

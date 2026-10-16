@@ -6,10 +6,10 @@ package v1_16
 import (
 	"fmt"
 
-	"xorm.io/xorm"
+	"github.com/neko233-com/gitsss/models/db"
 )
 
-func AddAgitFlowPullRequest(x *xorm.Engine) error {
+func AddAgitFlowPullRequest(x db.EngineMigration) error {
 	type PullRequestFlow int
 
 	type PullRequest struct {

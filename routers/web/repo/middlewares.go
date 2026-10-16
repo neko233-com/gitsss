@@ -9,6 +9,7 @@ import (
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/optional"
+	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/util"
 	"github.com/neko233-com/gitsss/services/context"
 	"github.com/neko233-com/gitsss/services/gitdiff"
@@ -80,6 +81,14 @@ func SetWhitespaceBehavior(ctx *context.Context) {
 	}
 }
 
+func GetWhitespaceBehavior(ctx *context.Context) string {
+	behavior, ok := ctx.Data["WhitespaceBehavior"].(string)
+	if !ok {
+		setting.PanicInDevOrTesting("WhitespaceBehavior is not set in context data or is not a string")
+	}
+	return behavior
+}
+
 // SetShowOutdatedComments set the show outdated comments option as context variable
 func SetShowOutdatedComments(ctx *context.Context) {
 	showOutdatedCommentsValue := ctx.FormString("show-outdated")
@@ -94,4 +103,12 @@ func SetShowOutdatedComments(ctx *context.Context) {
 		_ = user_model.SetUserSetting(ctx, ctx.Doer.ID, user_model.SettingsKeyShowOutdatedComments, showOutdatedCommentsValue)
 	}
 	ctx.Data["ShowOutdatedComments"], _ = strconv.ParseBool(showOutdatedCommentsValue)
+}
+
+func GetShowOutdatedComments(ctx *context.Context) bool {
+	show, ok := ctx.Data["ShowOutdatedComments"].(bool)
+	if !ok {
+		setting.PanicInDevOrTesting("ShowOutdatedComments is not set in context data or is not a bool")
+	}
+	return show
 }

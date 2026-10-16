@@ -6,6 +6,9 @@ package repository_test
 import (
 	"testing"
 
+	actions_model "github.com/neko233-com/gitsss/models/actions"
+	"github.com/neko233-com/gitsss/models/db"
+	git_model "github.com/neko233-com/gitsss/models/git"
 	"github.com/neko233-com/gitsss/models/organization"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	"github.com/neko233-com/gitsss/models/unittest"
@@ -51,4 +54,29 @@ func TestDeleteOwnerRepositoriesDirectly(t *testing.T) {
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
 	assert.NoError(t, repo_service.DeleteOwnerRepositoriesDirectly(t.Context(), user))
+}
+
+func TestDeleteRepositoryDirectlyPurgesRepoScopedRows(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+
+	// One row per table that repository deletion used to leave behind (#38494).
+	assert.NoError(t, db.Insert(t.Context(),
+		&actions_model.ActionVariable{RepoID: 1, Name: "to_purge", Data: "value"},
+		&actions_model.ActionRunAttempt{RepoID: 1, RunID: unittest.NonexistentID, Attempt: 1},
+		&actions_model.ActionTasksVersion{RepoID: 1, Version: 1},
+		&git_model.RenamedBranch{RepoID: 1, From: "old-name", To: "new-name"},
+		&git_model.CommitStatusSummary{RepoID: 1, SHA: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", State: "success"},
+		&repo_model.RepoTransfer{RepoID: 1, DoerID: 2, RecipientID: 3},
+	))
+	unittest.AssertExistsAndLoadBean(t, &git_model.CommitStatusIndex{RepoID: 1})
+
+	assert.NoError(t, repo_service.DeleteRepositoryDirectly(t.Context(), 1))
+
+	unittest.AssertNotExistsBean(t, &actions_model.ActionVariable{RepoID: 1})
+	unittest.AssertNotExistsBean(t, &actions_model.ActionRunAttempt{RepoID: 1})
+	unittest.AssertNotExistsBean(t, &actions_model.ActionTasksVersion{RepoID: 1})
+	unittest.AssertNotExistsBean(t, &git_model.RenamedBranch{RepoID: 1})
+	unittest.AssertNotExistsBean(t, &git_model.CommitStatusSummary{RepoID: 1})
+	unittest.AssertNotExistsBean(t, &git_model.CommitStatusIndex{RepoID: 1})
+	unittest.AssertNotExistsBean(t, &repo_model.RepoTransfer{RepoID: 1})
 }

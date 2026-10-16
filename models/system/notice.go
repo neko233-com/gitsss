@@ -13,7 +13,6 @@ import (
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/storage"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-	"github.com/neko233-com/gitsss/modules/util"
 )
 
 // NoticeType describes the notice type
@@ -58,18 +57,6 @@ func CreateNotice(ctx context.Context, tp NoticeType, desc string, args ...any) 
 // CreateRepositoryNotice creates new system notice with type NoticeRepository.
 func CreateRepositoryNotice(desc string, args ...any) error {
 	return CreateNotice(graceful.GetManager().ShutdownContext(), NoticeRepository, desc, args...)
-}
-
-// RemoveAllWithNotice removes all directories in given path and
-// creates a system notice when error occurs.
-func RemoveAllWithNotice(ctx context.Context, title, path string) {
-	if err := util.RemoveAll(path); err != nil {
-		desc := fmt.Sprintf("%s [%s]: %v", title, path, err)
-		log.Warn(title+" [%s]: %v", path, err)
-		if err = CreateNotice(graceful.GetManager().ShutdownContext(), NoticeRepository, desc); err != nil {
-			log.Error("CreateRepositoryNotice: %v", err)
-		}
-	}
 }
 
 // RemoveStorageWithNotice removes a file from the storage and

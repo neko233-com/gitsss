@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"runtime"
 	"sync"
@@ -16,7 +17,7 @@ import (
 	"github.com/neko233-com/gitsss/runner/act/common"
 	"github.com/neko233-com/gitsss/runner/act/model"
 
-	docker_container "github.com/docker/docker/api/types/container"
+	docker_container "github.com/moby/moby/api/types/container"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -30,7 +31,7 @@ type Config struct {
 	Actor                              string                       // the user that triggered the event
 	Workdir                            string                       // path to working directory
 	ActionCacheDir                     string                       // path used for caching action contents
-	ActionOfflineMode                  bool                         // when offline, use caching action contents
+	ActionOfflineMode                  bool                         // when offline, use cached action contents
 	BindWorkdir                        bool                         // bind the workdir to the job container
 	EventName                          string                       // name of event to run
 	EventPath                          string                       // path to JSON file to use for event.json in containers
@@ -73,6 +74,7 @@ type Config struct {
 	EventJSON             string                       // the content of JSON file to use for event.json in containers, overrides EventPath
 	ContainerNamePrefix   string                       // the prefix of container name
 	ContainerMaxLifetime  time.Duration                // the max lifetime of job containers
+	CleanWorkdir          bool                         // remove host executor workdir on teardown
 	DefaultActionInstance string                       // the default actions web site
 	PlatformPicker        func(labels []string) string // platform picker, it will take precedence over Platforms if isn't nil
 	JobLoggerLevel        *log.Level                   // the level of job logger
@@ -80,6 +82,7 @@ type Config struct {
 	InsecureSkipTLS       bool                         // whether to skip verifying TLS certificate of the Gitea instance
 	MaxParallel           int                          // max parallel jobs to run across all workflows (0 = no limit, uses CPU count)
 	IsolatedDocker        bool                         // start a private Docker daemon inside each job container
+	AllocatePTY           bool                         // allocate a pseudo-TTY for each step's process
 }
 
 // GetToken: Adapt to Gitea
@@ -89,6 +92,17 @@ func (c Config) GetToken() string {
 		token = c.Secrets["GITEA_TOKEN"]
 	}
 	return token
+}
+
+// DefaultActionURL returns the host used for implicit remote actions.
+func (c Config) DefaultActionURL() string {
+	if c.DefaultActionInstance != "" {
+		return c.DefaultActionInstance
+	}
+	if c.GitHubInstance != "" {
+		return c.GitHubInstance
+	}
+	return "github.com"
 }
 
 type caller struct {
@@ -238,7 +252,14 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 						return executor(common.WithJobErrorContainer(WithJobLogger(ctx, rc.Run.JobID, jobName, rc.Config, &rc.Masks, matrix)))
 					})
 				}
-				pipeline = append(pipeline, common.NewParallelExecutor(maxParallel, stageExecutor...))
+				// Run all matrix combinations of this job, then drop its aggregation mutex: the
+				// combos are the only users of it, so once they finish the jobMutexes entry can be
+				// released, keeping the map from growing unbounded over a long-lived runner.
+				stageParallel := common.NewParallelExecutor(maxParallel, stageExecutor...)
+				pipeline = append(pipeline, func(ctx context.Context) error {
+					defer jobMutexes.Delete(job)
+					return stageParallel(ctx)
+				})
 			}
 
 			// For pipeline execution:
@@ -322,6 +343,11 @@ func (runner *runnerImpl) newRunContext(ctx context.Context, run *model.Run, mat
 	}
 	rc.ExprEval = rc.NewExpressionEvaluator(ctx)
 	rc.Name = rc.ExprEval.Interpolate(ctx, run.String())
+	// Snapshot the job's pristine output expressions now, before any matrix combo runs and
+	// rewrites the shared Job.Outputs (see interpolateOutputs).
+	if job := run.Job(); job != nil {
+		rc.outputTemplate = maps.Clone(job.Outputs)
+	}
 
 	return rc
 }

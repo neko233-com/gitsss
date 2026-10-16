@@ -31,8 +31,7 @@ func TestPullCreate_CommitStatus(t *testing.T) {
 		testRepoFork(t, session, "user2", "repo1", "user1", "repo1", "")
 		testEditFileToNewBranch(t, session, "user1", "repo1", "master", "status1", "README.md", "status1")
 
-		url := path.Join("user1", "repo1", "compare", "master...status1")
-		req := NewRequestWithValues(t, "POST", url,
+		req := NewRequestWithValues(t, "POST", "/user1/repo1/compare/master...status1",
 			map[string]string{
 				"title": "pull request from status1",
 			},
@@ -121,8 +120,7 @@ func TestPullCreate_EmptyChangesWithDifferentCommits(t *testing.T) {
 		testEditFileToNewBranch(t, session, "user1", "repo1", "master", "status1", "README.md", "status1")
 		testEditFile(t, session, "user1", "repo1", "status1", "README.md", "# repo1\n\nDescription for repo1")
 
-		url := path.Join("user1", "repo1", "compare", "master...status1")
-		req := NewRequestWithValues(t, "POST", url,
+		req := NewRequestWithValues(t, "POST", "/user1/repo1/compare/master...status1",
 			map[string]string{
 				"title": "pull request from status1",
 			},
@@ -134,6 +132,7 @@ func TestPullCreate_EmptyChangesWithDifferentCommits(t *testing.T) {
 		doc := NewHTMLParser(t, resp.Body)
 
 		text := strings.TrimSpace(doc.doc.Find(".merge-section").Text())
+		assert.Contains(t, text, "The changes on this branch are already on the target branch. This will be an empty commit.")
 		assert.Contains(t, text, "This pull request can be merged automatically.")
 	})
 }
@@ -211,7 +210,7 @@ func TestPullStatusDelayCheck(t *testing.T) {
 		})
 		assert.Equal(t, issues.PullRequestStatusChecking, issue3.PullRequest.Status)
 		assert.Zero(t, checkedPrID)
-		assertReloadingInterval(t, "2000") // the PR status is "checking", so try to reload the merge box
+		assertReloadingInterval(t, "5000") // the PR status is "checking", so try to reload the merge box
 
 		// view a PR with status=checking, it starts the real check
 		issue3, checkedPrID = run(t, func(t *testing.T) {

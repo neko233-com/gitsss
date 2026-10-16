@@ -14,7 +14,7 @@ import (
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/util"
 
-	"github.com/jaytaylor/html2text"
+	"github.com/Necoro/html2text"
 	gomail "github.com/wneessen/go-mail"
 )
 

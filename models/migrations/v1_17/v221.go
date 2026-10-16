@@ -7,12 +7,11 @@ import (
 	"encoding/base32"
 	"fmt"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func StoreWebauthnCredentialIDAsBytes(x *xorm.Engine) error {
+func StoreWebauthnCredentialIDAsBytes(x db.EngineMigration) error {
 	// Create webauthnCredential table
 	type webauthnCredential struct {
 		ID           int64 `xorm:"pk autoincr"`

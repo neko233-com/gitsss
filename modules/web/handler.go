@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"reflect"
+	"slices"
 
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/web/routing"
@@ -131,8 +132,8 @@ type middlewareProvider = func(next http.Handler) http.Handler
 
 func executeMiddlewaresHandler(w http.ResponseWriter, r *http.Request, middlewares []middlewareProvider, endpoint http.HandlerFunc) {
 	handler := endpoint
-	for i := len(middlewares) - 1; i >= 0; i-- {
-		handler = middlewares[i](handler).ServeHTTP
+	for _, middleware := range slices.Backward(middlewares) {
+		handler = middleware(handler).ServeHTTP
 	}
 	handler(w, r)
 }

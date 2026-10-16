@@ -6,8 +6,11 @@ package gitea
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"strings"
 	"time"
@@ -54,52 +57,52 @@ func (opt *ListReleasesOptions) QueryEncode() string {
 }
 
 // ListReleases list releases of a repository
-func (c *Client) ListReleases(owner, repo string, opt ListReleasesOptions) ([]*Release, *Response, error) {
+func (c *ReleasesService) ListReleases(ctx context.Context, owner, repo string, opt ListReleasesOptions) ([]*Release, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
 	opt.setDefaults()
 	releases := make([]*Release, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET",
+	resp, err := c.getParsedResponse(ctx, "GET",
 		fmt.Sprintf("/repos/%s/%s/releases?%s", owner, repo, opt.QueryEncode()),
 		nil, nil, &releases)
 	return releases, resp, err
 }
 
 // GetRelease get a release of a repository by id
-func (c *Client) GetRelease(owner, repo string, id int64) (*Release, *Response, error) {
+func (c *ReleasesService) GetRelease(ctx context.Context, owner, repo string, id int64) (*Release, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
 	r := new(Release)
-	resp, err := c.getParsedResponse("GET",
+	resp, err := c.getParsedResponse(ctx, "GET",
 		fmt.Sprintf("/repos/%s/%s/releases/%d", owner, repo, id),
 		jsonHeader, nil, &r)
 	return r, resp, err
 }
 
 // GetLatestRelease get the latest release of a repository
-func (c *Client) GetLatestRelease(owner, repo string) (*Release, *Response, error) {
+func (c *ReleasesService) GetLatestRelease(ctx context.Context, owner, repo string) (*Release, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
 	r := new(Release)
-	resp, err := c.getParsedResponse("GET",
+	resp, err := c.getParsedResponse(ctx, "GET",
 		fmt.Sprintf("/repos/%s/%s/releases/latest", owner, repo),
 		jsonHeader, nil, &r)
 	return r, resp, err
 }
 
 // GetReleaseByTag get a release of a repository by tag
-func (c *Client) GetReleaseByTag(owner, repo, tag string) (*Release, *Response, error) {
-	if c.checkServerVersionGreaterThanOrEqual(version1_13_0) != nil {
-		return c.fallbackGetReleaseByTag(owner, repo, tag)
+func (c *ReleasesService) GetReleaseByTag(ctx context.Context, owner, repo, tag string) (*Release, *Response, error) {
+	if c.checkServerVersionGreaterThanOrEqual(ctx, version1_13_0) != nil {
+		return c.fallbackGetReleaseByTag(ctx, owner, repo, tag)
 	}
 	if err := escapeValidatePathSegments(&owner, &repo, &tag); err != nil {
 		return nil, nil, err
 	}
 	r := new(Release)
-	resp, err := c.getParsedResponse("GET",
+	resp, err := c.getParsedResponse(ctx, "GET",
 		fmt.Sprintf("/repos/%s/%s/releases/tags/%s", owner, repo, tag),
 		nil, nil, &r)
 	return r, resp, err
@@ -124,7 +127,7 @@ func (opt CreateReleaseOption) Validate() error {
 }
 
 // CreateRelease create a release
-func (c *Client) CreateRelease(owner, repo string, opt CreateReleaseOption) (*Release, *Response, error) {
+func (c *ReleasesService) CreateRelease(ctx context.Context, owner, repo string, opt CreateReleaseOption) (*Release, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
@@ -136,7 +139,7 @@ func (c *Client) CreateRelease(owner, repo string, opt CreateReleaseOption) (*Re
 		return nil, nil, err
 	}
 	r := new(Release)
-	resp, err := c.getParsedResponse("POST",
+	resp, err := c.getParsedResponse(ctx, "POST",
 		fmt.Sprintf("/repos/%s/%s/releases", owner, repo),
 		jsonHeader, bytes.NewReader(body), r)
 	return r, resp, err
@@ -153,7 +156,7 @@ type EditReleaseOption struct {
 }
 
 // EditRelease edit a release
-func (c *Client) EditRelease(owner, repo string, id int64, form EditReleaseOption) (*Release, *Response, error) {
+func (c *ReleasesService) EditRelease(ctx context.Context, owner, repo string, id int64, form EditReleaseOption) (*Release, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
@@ -162,39 +165,39 @@ func (c *Client) EditRelease(owner, repo string, id int64, form EditReleaseOptio
 		return nil, nil, err
 	}
 	r := new(Release)
-	resp, err := c.getParsedResponse("PATCH",
+	resp, err := c.getParsedResponse(ctx, "PATCH",
 		fmt.Sprintf("/repos/%s/%s/releases/%d", owner, repo, id),
 		jsonHeader, bytes.NewReader(body), r)
 	return r, resp, err
 }
 
 // DeleteRelease delete a release from a repository, keeping its tag
-func (c *Client) DeleteRelease(user, repo string, id int64) (*Response, error) {
+func (c *ReleasesService) DeleteRelease(ctx context.Context, user, repo string, id int64) (*Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("DELETE",
+	return c.doRequestWithStatusHandle(ctx, "DELETE",
 		fmt.Sprintf("/repos/%s/%s/releases/%d", user, repo, id),
 		nil, nil)
 }
 
 // DeleteReleaseByTag deletes a release frm a repository by tag
-func (c *Client) DeleteReleaseByTag(user, repo, tag string) (*Response, error) {
+func (c *ReleasesService) DeleteReleaseByTag(ctx context.Context, user, repo, tag string) (*Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo, &tag); err != nil {
 		return nil, err
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_14_0); err != nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_14_0); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("DELETE",
+	return c.doRequestWithStatusHandle(ctx, "DELETE",
 		fmt.Sprintf("/repos/%s/%s/releases/tags/%s", user, repo, tag),
 		nil, nil)
 }
 
 // fallbackGetReleaseByTag is fallback for old gitea installations ( < 1.13.0 )
-func (c *Client) fallbackGetReleaseByTag(owner, repo, tag string) (*Release, *Response, error) {
+func (c *ReleasesService) fallbackGetReleaseByTag(ctx context.Context, owner, repo, tag string) (*Release, *Response, error) {
 	for i := 1; ; i++ {
-		rl, resp, err := c.ListReleases(owner, repo, ListReleasesOptions{ListOptions: ListOptions{Page: i}})
+		rl, resp, err := c.ListReleases(ctx, owner, repo, ListReleasesOptions{ListOptions: ListOptions{Page: i}})
 		if err != nil {
 			return nil, resp, err
 		}
@@ -209,4 +212,100 @@ func (c *Client) fallbackGetReleaseByTag(owner, repo, tag string) (*Release, *Re
 			}
 		}
 	}
+}
+
+// Attachment a generic attachment
+type Attachment struct {
+	ID            int64     `json:"id"`
+	Name          string    `json:"name"`
+	Size          int64     `json:"size"`
+	DownloadCount int64     `json:"download_count"`
+	Created       time.Time `json:"created_at"`
+	UUID          string    `json:"uuid"`
+	DownloadURL   string    `json:"browser_download_url"`
+}
+
+// ListReleaseAttachmentsOptions options for listing release's attachments
+type ListReleaseAttachmentsOptions struct {
+	ListOptions
+}
+
+// ListReleaseAttachments list release's attachments
+func (c *ReleasesService) ListReleaseAttachments(ctx context.Context, user, repo string, release int64, opt ListReleaseAttachmentsOptions) ([]*Attachment, *Response, error) {
+	if err := escapeValidatePathSegments(&user, &repo); err != nil {
+		return nil, nil, err
+	}
+	opt.setDefaults()
+	attachments := make([]*Attachment, 0, opt.PageSize)
+	resp, err := c.getParsedResponse(ctx, "GET",
+		fmt.Sprintf("/repos/%s/%s/releases/%d/assets?%s", user, repo, release, opt.getURLQuery().Encode()),
+		nil, nil, &attachments)
+	return attachments, resp, err
+}
+
+// GetReleaseAttachment returns the requested attachment
+func (c *ReleasesService) GetReleaseAttachment(ctx context.Context, user, repo string, release, id int64) (*Attachment, *Response, error) {
+	if err := escapeValidatePathSegments(&user, &repo); err != nil {
+		return nil, nil, err
+	}
+	a := new(Attachment)
+	resp, err := c.getParsedResponse(ctx, "GET",
+		fmt.Sprintf("/repos/%s/%s/releases/%d/assets/%d", user, repo, release, id),
+		nil, nil, &a)
+	return a, resp, err
+}
+
+// CreateReleaseAttachment creates an attachment for the given release
+func (c *ReleasesService) CreateReleaseAttachment(ctx context.Context, user, repo string, release int64, file io.Reader, filename string) (*Attachment, *Response, error) {
+	if err := escapeValidatePathSegments(&user, &repo); err != nil {
+		return nil, nil, err
+	}
+	// Write file to body
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("attachment", filename)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if _, err = io.Copy(part, file); err != nil {
+		return nil, nil, err
+	}
+	if err = writer.Close(); err != nil {
+		return nil, nil, err
+	}
+
+	// Send request
+	attachment := new(Attachment)
+	resp, err := c.getParsedResponse(ctx, "POST",
+		fmt.Sprintf("/repos/%s/%s/releases/%d/assets", user, repo, release),
+		http.Header{"Content-Type": []string{writer.FormDataContentType()}}, body, &attachment)
+	return attachment, resp, err
+}
+
+// EditAttachmentOptions options for editing attachments
+type EditAttachmentOptions struct {
+	Name string `json:"name"`
+}
+
+// EditReleaseAttachment updates the given attachment with the given options
+func (c *ReleasesService) EditReleaseAttachment(ctx context.Context, user, repo string, release, attachment int64, form EditAttachmentOptions) (*Attachment, *Response, error) {
+	if err := escapeValidatePathSegments(&user, &repo); err != nil {
+		return nil, nil, err
+	}
+	body, err := json.Marshal(&form)
+	if err != nil {
+		return nil, nil, err
+	}
+	attach := new(Attachment)
+	resp, err := c.getParsedResponse(ctx, "PATCH", fmt.Sprintf("/repos/%s/%s/releases/%d/assets/%d", user, repo, release, attachment), jsonHeader, bytes.NewReader(body), attach)
+	return attach, resp, err
+}
+
+// DeleteReleaseAttachment deletes the given attachment including the uploaded file
+func (c *ReleasesService) DeleteReleaseAttachment(ctx context.Context, user, repo string, release, id int64) (*Response, error) {
+	if err := escapeValidatePathSegments(&user, &repo); err != nil {
+		return nil, err
+	}
+	return c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/repos/%s/%s/releases/%d/assets/%d", user, repo, release, id), nil, nil)
 }

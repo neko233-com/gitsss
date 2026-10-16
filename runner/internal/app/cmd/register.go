@@ -19,10 +19,10 @@ import (
 	"github.com/neko233-com/gitsss/runner/internal/pkg/labels"
 	"github.com/neko233-com/gitsss/runner/internal/pkg/ver"
 
-	pingv1 "github.com/neko233-com/gitsss/packages/actions-proto-go/ping/v1"
-	runnerv1 "github.com/neko233-com/gitsss/packages/actions-proto-go/runner/v1"
 	"connectrpc.com/connect"
 	"github.com/mattn/go-isatty"
+	pingv1 "github.com/neko233-com/gitsss/packages/actions-proto-go/ping/v1"
+	runnerv1 "github.com/neko233-com/gitsss/packages/actions-proto-go/runner/v1"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -325,7 +325,6 @@ func doRegister(ctx context.Context, cfg *config.Config, inputs *registerInputs)
 		cfg.Runner.Insecure,
 		"",
 		"",
-		ver.Version(),
 	)
 
 	for {
@@ -366,12 +365,11 @@ func doRegister(ctx context.Context, cfg *config.Config, inputs *registerInputs)
 	}
 	// register new runner.
 	resp, err := cli.Register(ctx, connect.NewRequest(&runnerv1.RegisterRequest{
-		Name:        reg.Name,
-		Token:       reg.Token,
-		Version:     ver.Version(),
-		AgentLabels: ls, // Could be removed after Gitea 1.20
-		Labels:      ls,
-		Ephemeral:   reg.Ephemeral,
+		Name:      reg.Name,
+		Token:     reg.Token,
+		Version:   ver.Version(),
+		Labels:    ls,
+		Ephemeral: reg.Ephemeral,
 	}))
 	if err != nil {
 		log.WithError(err).Error("poller: cannot register new runner")

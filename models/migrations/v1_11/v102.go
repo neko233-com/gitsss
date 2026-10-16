@@ -4,12 +4,11 @@
 package v1_11
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/base"
-
-	"xorm.io/xorm"
 )
 
-func DropColumnHeadUserNameOnPullRequest(x *xorm.Engine) error {
+func DropColumnHeadUserNameOnPullRequest(x db.EngineMigration) error {
 	sess := x.NewSession()
 	defer sess.Close()
 	if err := sess.Begin(); err != nil {

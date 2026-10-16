@@ -6,7 +6,7 @@ package v1_25
 import (
 	"testing"
 
-	"github.com/neko233-com/gitsss/models/migrations/base"
+	"github.com/neko233-com/gitsss/models/migrations/migrationtest"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/timeutil"
 
@@ -44,12 +44,12 @@ func Test_UseLongTextInSomeColumnsAndFixBugs(t *testing.T) {
 	}
 
 	// Prepare and load the testing database
-	x, deferrable := base.PrepareTestEnv(t, 0, new(ReviewState), new(PackageProperty), new(Notice))
+	x, deferrable := migrationtest.PrepareTestEnv(t, 0, new(ReviewState), new(PackageProperty), new(Notice))
 	defer deferrable()
 
 	require.NoError(t, UseLongTextInSomeColumnsAndFixBugs(x))
 
-	tables := base.LoadTableSchemasMap(t, x)
+	tables := migrationtest.LoadTableSchemasMap(t, x)
 	table := tables["review_state"]
 	column := table.GetColumn("updated_files")
 	assert.Equal(t, "LONGTEXT", column.SQLType.Name)

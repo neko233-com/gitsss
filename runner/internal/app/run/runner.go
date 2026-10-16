@@ -19,6 +19,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	runnerv1 "github.com/neko233-com/gitsss/packages/actions-proto-go/runner/v1"
 	"github.com/neko233-com/gitsss/runner/act/artifactcache"
 	"github.com/neko233-com/gitsss/runner/act/common"
 	"github.com/neko233-com/gitsss/runner/act/model"
@@ -31,14 +32,14 @@ import (
 	"github.com/neko233-com/gitsss/runner/internal/pkg/ver"
 
 	"connectrpc.com/connect"
-	"github.com/docker/docker/api/types/container"
-	runnerv1 "github.com/neko233-com/gitsss/packages/actions-proto-go/runner/v1"
+	"github.com/moby/moby/api/types/container"
 	log "github.com/sirupsen/logrus"
 )
 
 // Runner runs the pipeline.
 type Runner struct {
-	name string
+	name    string
+	version string
 
 	cfg *config.Config
 
@@ -53,7 +54,11 @@ type Runner struct {
 	now                     func() time.Time
 }
 
-func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) *Runner {
+func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client, versions ...string) *Runner {
+	version := ver.Version()
+	if len(versions) > 0 && versions[0] != "" {
+		version = versions[0]
+	}
 	ls := labels.Labels{}
 	for _, v := range reg.Labels {
 		if l, err := labels.Parse(v); err == nil {
@@ -95,12 +100,13 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) 
 
 	// Set specific environments to distinguish between Gitea and GitHub
 	envs["GITEA_ACTIONS"] = "true"
-	envs["GITEA_ACTIONS_RUNNER_VERSION"] = ver.Version()
+	envs["GITEA_ACTIONS_RUNNER_VERSION"] = version
 	envs["GITSSS_ACTIONS"] = "true"
-	envs["GITSSS_ACTIONS_RUNNER_VERSION"] = ver.Version()
+	envs["GITSSS_ACTIONS_RUNNER_VERSION"] = version
 
 	runner := &Runner{
 		name:         reg.Name,
+		version:      version,
 		cfg:          cfg,
 		client:       cli,
 		labels:       ls,
@@ -229,6 +235,14 @@ func (r *Runner) Run(ctx context.Context, task *runnerv1.Task) error {
 	return nil
 }
 
+func (r *Runner) cloneEnvs() map[string]string {
+	// +3 reserves space for the per-task keys injected by run():
+	// ACTIONS_ID_TOKEN_REQUEST_URL, ACTIONS_ID_TOKEN_REQUEST_TOKEN, ACTIONS_RUNTIME_TOKEN.
+	envs := make(map[string]string, len(r.envs)+3)
+	maps.Copy(envs, r.envs)
+	return envs
+}
+
 // getDefaultActionsURL
 // when DEFAULT_ACTIONS_URL == "https://github.com" and GithubMirror is not blank,
 // it should be set to GithubMirror first.
@@ -262,6 +276,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 	reporter.ResetSteps(len(job.Steps))
 
 	taskContext := task.Context.Fields
+	envs := r.cloneEnvs()
 
 	log.Infof("task %v repo is %v %v %v", task.Id, taskContext["repository"].GetStringValue(),
 		r.getDefaultActionsURL(task),
@@ -292,9 +307,9 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 	}
 
 	if actionsIDTokenRequestURL := taskContext["actions_id_token_request_url"].GetStringValue(); actionsIDTokenRequestURL != "" {
-		r.envs["ACTIONS_ID_TOKEN_REQUEST_URL"] = actionsIDTokenRequestURL
-		r.envs["ACTIONS_ID_TOKEN_REQUEST_TOKEN"] = taskContext["actions_id_token_request_token"].GetStringValue()
-		task.Secrets["ACTIONS_ID_TOKEN_REQUEST_TOKEN"] = r.envs["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]
+		envs["ACTIONS_ID_TOKEN_REQUEST_URL"] = actionsIDTokenRequestURL
+		envs["ACTIONS_ID_TOKEN_REQUEST_TOKEN"] = taskContext["actions_id_token_request_token"].GetStringValue()
+		task.Secrets["ACTIONS_ID_TOKEN_REQUEST_TOKEN"] = envs["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]
 	}
 
 	giteaRuntimeToken := taskContext["gitea_runtime_token"].GetStringValue()
@@ -302,7 +317,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		// use task token to action api token for previous Gitea Server Versions
 		giteaRuntimeToken = preset.Token
 	}
-	r.envs["ACTIONS_RUNTIME_TOKEN"] = giteaRuntimeToken
+	envs["ACTIONS_RUNTIME_TOKEN"] = giteaRuntimeToken
 	// Mask the runtime token so it cannot be echoed in user step output; it is
 	// now also the cache server's bearer credential and leaking it would let
 	// any reader of the log impersonate this job against the cache.
@@ -344,14 +359,15 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		Workdir:           workdir,
 		BindWorkdir:       r.cfg.Container.BindWorkdir,
 		ActionCacheDir:    filepath.FromSlash(r.cfg.Host.WorkdirParent),
-		ActionOfflineMode: r.cfg.Runner.Offline,
+		AllocatePTY:       r.cfg.Runner.AllocatePTY,
+		ActionOfflineMode: r.cfg.Runner.Offline || r.cfg.Cache.OfflineMode,
 
 		ReuseContainers:       false,
 		ForcePull:             r.cfg.Container.ForcePull,
 		ForceRebuild:          r.cfg.Container.ForceRebuild,
 		LogOutput:             true,
 		JSONLogger:            false,
-		Env:                   r.envs,
+		Env:                   envs,
 		Secrets:               task.Secrets,
 		GitHubInstance:        jobInstanceURLForTask(r.cfg, r.client.Address()),
 		AutoRemove:            true,
@@ -360,6 +376,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		EventJSON:             string(eventJSON),
 		ContainerNamePrefix:   fmt.Sprintf("GITEA-ACTIONS-TASK-%d", task.Id),
 		ContainerMaxLifetime:  maxLifetime,
+		CleanWorkdir:          true,
 		ContainerNetworkMode:  container.NetworkMode(r.cfg.Container.Network),
 		ContainerOptions:      r.cfg.Container.Options,
 		ContainerDaemonSocket: jobContainerDaemonSocket(r.cfg),
@@ -496,7 +513,7 @@ func (r *Runner) RunningCount() int64 {
 
 func (r *Runner) Declare(ctx context.Context, labels []string) (*connect.Response[runnerv1.DeclareResponse], error) {
 	return r.client.Declare(ctx, connect.NewRequest(&runnerv1.DeclareRequest{
-		Version: ver.Version(),
+		Version: r.version,
 		Labels:  labels,
 	}))
 }

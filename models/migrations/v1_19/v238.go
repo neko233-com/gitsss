@@ -4,13 +4,12 @@
 package v1_19
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
 // AddUpdatedUnixToLFSMetaObject adds an updated column to the LFSMetaObject to allow for garbage collection
-func AddUpdatedUnixToLFSMetaObject(x *xorm.Engine) error {
+func AddUpdatedUnixToLFSMetaObject(x db.EngineMigration) error {
 	// Drop the table introduced in `v211`, it's considered badly designed and doesn't look like to be used.
 	// See: https://github.com/go-gitea/gitea/issues/21086#issuecomment-1318217453
 	// LFSMetaObject stores metadata for LFS tracked files.

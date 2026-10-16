@@ -9,19 +9,15 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/neko233-com/gitsss/models/avatars"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	user_model "github.com/neko233-com/gitsss/models/user"
-	"github.com/neko233-com/gitsss/modules/cache"
-	"github.com/neko233-com/gitsss/modules/cachegroup"
 	"github.com/neko233-com/gitsss/modules/git"
 	"github.com/neko233-com/gitsss/modules/gitrepo"
-	"github.com/neko233-com/gitsss/modules/log"
-	"github.com/neko233-com/gitsss/modules/setting"
 	api "github.com/neko233-com/gitsss/modules/structs"
 )
 
 // PushCommit represents a commit in a push operation.
+// This struct is marshaled as JSON (see ActionContent2Commits)
 type PushCommit struct {
 	Sha1           string
 	Message        string
@@ -33,6 +29,7 @@ type PushCommit struct {
 }
 
 // PushCommits represents list of commits in a push operation.
+// This struct is marshaled as JSON (see ActionContent2Commits)
 type PushCommits struct {
 	Commits    []*PushCommit
 	HeadCommit *PushCommit
@@ -128,31 +125,11 @@ func (pc *PushCommits) ToAPIPayloadCommits(ctx context.Context, repo *repo_model
 	return commits, headCommit, nil
 }
 
-// AvatarLink tries to match user in database with e-mail
-// in order to show custom avatar, and falls back to general avatar link.
-func (pc *PushCommits) AvatarLink(ctx context.Context, email string) string {
-	size := avatars.DefaultAvatarPixelSize * setting.Avatar.RenderedSizeFactor
-
-	v, _ := cache.GetWithContextCache(ctx, cachegroup.EmailAvatarLink, email, func(ctx context.Context, email string) (string, error) {
-		u, err := user_model.GetUserByEmail(ctx, email)
-		if err != nil {
-			if !user_model.IsErrUserNotExist(err) {
-				log.Error("GetUserByEmail: %v", err)
-				return "", err
-			}
-			return avatars.GenerateEmailAvatarFastLink(ctx, email, size), nil
-		}
-		return u.AvatarLinkWithSize(ctx, size), nil
-	})
-
-	return v
-}
-
 // CommitToPushCommit transforms a git.Commit to PushCommit type.
 func CommitToPushCommit(commit *git.Commit) *PushCommit {
 	return &PushCommit{
 		Sha1:           commit.ID.String(),
-		Message:        commit.Message(),
+		Message:        commit.MessageUTF8(),
 		AuthorEmail:    commit.Author.Email,
 		AuthorName:     commit.Author.Name,
 		CommitterEmail: commit.Committer.Email,

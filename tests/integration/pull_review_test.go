@@ -10,6 +10,7 @@ import (
 	"path"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/neko233-com/gitsss/models/db"
 	issues_model "github.com/neko233-com/gitsss/models/issues"
@@ -17,6 +18,7 @@ import (
 	"github.com/neko233-com/gitsss/models/unittest"
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/git"
+	"github.com/neko233-com/gitsss/modules/gitrepo"
 	"github.com/neko233-com/gitsss/modules/test"
 	issue_service "github.com/neko233-com/gitsss/services/issue"
 	repo_service "github.com/neko233-com/gitsss/services/repository"
@@ -24,6 +26,7 @@ import (
 	"github.com/neko233-com/gitsss/tests"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPullView_ReviewerMissed(t *testing.T) {
@@ -95,6 +98,14 @@ func TestPullView_CodeOwner(t *testing.T) {
 			unittest.AssertExistsAndLoadBean(t, &issues_model.Review{IssueID: pr.IssueID, Type: issues_model.ReviewTypeRequest, ReviewerID: 5})
 			assert.NoError(t, pr.LoadIssue(t.Context()))
 
+			// capture the current PR head ref so we can wait for the async
+			// refs/pull/N/head sync triggered by the next push to complete
+			baseGitRepo, err := gitrepo.OpenRepository(t.Context(), repo)
+			require.NoError(t, err)
+			defer baseGitRepo.Close()
+			headRefBefore, err := baseGitRepo.GetRefCommitID(pr.GetGitHeadRefName())
+			require.NoError(t, err)
+
 			// update the file on the pr branch
 			_, err = files_service.ChangeRepoFiles(t.Context(), repo, user2, &files_service.ChangeRepoFilesOptions{
 				OldBranch: "codeowner-basebranch",
@@ -108,9 +119,17 @@ func TestPullView_CodeOwner(t *testing.T) {
 			})
 			assert.NoError(t, err)
 
+			// refs/pull/N/head is refreshed asynchronously by the push hook; wait for
+			// it before evaluating code owners, otherwise the changed-file set may not
+			// yet include user8-file.md and the review request would be missed
+			require.Eventually(t, func() bool {
+				headRefAfter, err := baseGitRepo.GetRefCommitID(pr.GetGitHeadRefName())
+				return err == nil && headRefAfter != headRefBefore
+			}, 30*time.Second, 100*time.Millisecond)
+
 			reviewNotifiers, err := issue_service.PullRequestCodeOwnersReview(t.Context(), pr)
-			assert.NoError(t, err)
-			assert.Len(t, reviewNotifiers, 1)
+			require.NoError(t, err)
+			require.Len(t, reviewNotifiers, 1)
 			assert.EqualValues(t, 8, reviewNotifiers[0].Reviewer.ID)
 
 			err = issue_service.ChangeTitle(t.Context(), pr.Issue, user2, "[WIP] Test Pull Request")
@@ -264,13 +283,13 @@ func testSubmitReview(t *testing.T, session *TestSession, owner, repo, pullNumbe
 		"type":      reviewType,
 	}
 
-	submitURL := path.Join(owner, repo, "pulls", pullNumber, "files", "reviews", "submit")
+	submitURL := "/" + path.Join(owner, repo, "pulls", pullNumber, "files", "reviews", "submit")
 	req := NewRequestWithValues(t, "POST", submitURL, options)
 	return session.MakeRequest(t, req, expectedSubmitStatus)
 }
 
 func testIssueClose(t *testing.T, session *TestSession, owner, repo, issueNumber string) *httptest.ResponseRecorder {
-	closeURL := path.Join(owner, repo, "issues", issueNumber, "comments")
+	closeURL := "/" + path.Join(owner, repo, "issues", issueNumber, "comments")
 
 	options := map[string]string{
 		"status": "close",

@@ -13,13 +13,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/neko233-com/gitsss/runner/act/runner"
 	"github.com/neko233-com/gitsss/runner/internal/pkg/client"
 	"github.com/neko233-com/gitsss/runner/internal/pkg/config"
 	"github.com/neko233-com/gitsss/runner/internal/pkg/metrics"
 
-	runnerv1 "github.com/neko233-com/gitsss/packages/actions-proto-go/runner/v1"
 	"connectrpc.com/connect"
-	"github.com/avast/retry-go/v4"
+	"github.com/avast/retry-go/v5"
+	runnerv1 "github.com/neko233-com/gitsss/packages/actions-proto-go/runner/v1"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -58,6 +59,9 @@ type Reporter struct {
 	logReportMaxLatency time.Duration
 	logBatchSize        int
 	stateReportInterval time.Duration
+	// closeTimeout bounds each RPC attempt in the final flush, on a context
+	// detached from r.ctx so a server cancel can't abort the acknowledgement.
+	closeTimeout time.Duration
 
 	// Event notification channels (non-blocking, buffered 1)
 	logNotify   chan struct{} // signal: new log rows arrived
@@ -70,13 +74,13 @@ type Reporter struct {
 func NewReporter(ctx context.Context, cancel context.CancelFunc, client client.Client, task *runnerv1.Task, cfg *config.Config) *Reporter {
 	var oldnew []string
 	if v := task.Context.Fields["token"].GetStringValue(); v != "" {
-		oldnew = append(oldnew, v, "***")
+		oldnew = runner.AppendSecretMasker(oldnew, v)
 	}
 	if v := task.Context.Fields["gitea_runtime_token"].GetStringValue(); v != "" {
-		oldnew = append(oldnew, v, "***")
+		oldnew = runner.AppendSecretMasker(oldnew, v)
 	}
 	for _, v := range task.Secrets {
-		oldnew = append(oldnew, v, "***")
+		oldnew = runner.AppendSecretMasker(oldnew, v)
 	}
 
 	rv := &Reporter{
@@ -89,6 +93,7 @@ func NewReporter(ctx context.Context, cancel context.CancelFunc, client client.C
 		logReportMaxLatency: cfg.Runner.LogReportMaxLatency,
 		logBatchSize:        cfg.Runner.LogReportBatchSize,
 		stateReportInterval: cfg.Runner.StateReportInterval,
+		closeTimeout:        cfg.Runner.ReportCloseTimeout,
 		logNotify:           make(chan struct{}, 1),
 		stateNotify:         make(chan struct{}, 1),
 		state: &runnerv1.TaskState{
@@ -205,7 +210,7 @@ func (r *Reporter) Fire(entry *log.Entry) error {
 				urgentState = true
 			}
 		}
-		if !r.duringSteps() {
+		if r.shouldAppendLogRow(entry) {
 			r.logRows = appendIfNotNil(r.logRows, r.parseLogRow(entry))
 		}
 		r.unlockAndNotify(urgentState)
@@ -219,7 +224,7 @@ func (r *Reporter) Fire(entry *log.Entry) error {
 		}
 	}
 	if step == nil {
-		if !r.duringSteps() {
+		if r.shouldAppendLogRow(entry) {
 			r.logRows = appendIfNotNil(r.logRows, r.parseLogRow(entry))
 		}
 		r.unlockAndNotify(false)
@@ -246,7 +251,7 @@ func (r *Reporter) Fire(entry *log.Entry) error {
 				r.logRows = append(r.logRows, row)
 			}
 		}
-	} else if !r.duringSteps() {
+	} else if r.shouldAppendLogRow(entry) {
 		r.logRows = appendIfNotNil(r.logRows, r.parseLogRow(entry))
 	}
 	if v, ok := entry.Data["stepResult"]; ok && isJobStepEntry(entry) {
@@ -329,6 +334,9 @@ func (r *Reporter) runDaemonLoop() {
 			_ = r.ReportLog(false)
 
 		case <-r.ctx.Done():
+			// Stop heartbeating on cancel so Gitea sees the runner as offline
+			// during cleanup and won't assign an overlapping task. Close() still
+			// delivers the final flush on a detached context (flushFinal).
 			close(r.daemon)
 			return
 		}
@@ -416,15 +424,56 @@ func (r *Reporter) Close(lastWords string) error {
 		log.Error("No Response from RunDaemon for 60s, continue best effort")
 	}
 
-	// Report the job outcome even when all log upload retry attempts have been exhausted
+	// Gitea's UpdateLog short-circuits on len(Rows)==0 before honoring NoMore,
+	// so a final empty request never runs TransferLogs and dbfs_data leaks.
+	// Inject a sentinel row after the daemon has exited so it can't be flushed
+	// before ReportLog(true).
+	// TODO: Remove after https://github.com/go-gitea/gitea/pull/37631 is in all
+	// supported branches, e.g. v1.28+.
+	r.stateMu.Lock()
+	if len(r.logRows) == 0 {
+		r.logRows = append(r.logRows, &runnerv1.LogRow{
+			Time:    timestamppb.Now(),
+			Content: "",
+		})
+	}
+	r.stateMu.Unlock()
+
+	// Separate budgets so a slow ReportLog can't starve the ReportState that
+	// carries the cancel acknowledgement.
 	return errors.Join(
-		retry.Do(func() error {
-			return r.ReportLog(true)
-		}, retry.Context(r.ctx)),
-		retry.Do(func() error {
-			return r.ReportState(true)
-		}, retry.Context(r.ctx)),
+		r.flushFinal(func() error { return r.ReportLog(true) }),
+		r.flushFinal(func() error { return r.ReportState(true) }),
 	)
+}
+
+// flushFinal retries fn on a detached, bounded context so a cancelled r.ctx
+// does not abort the final flush. Each call gets its own fresh budget.
+func (r *Reporter) flushFinal(fn func() error) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*r.effectiveCloseTimeout())
+	defer cancel()
+	return retry.New(retry.Context(ctx)).Do(fn)
+}
+
+// effectiveCloseTimeout returns closeTimeout, or 10s when unset, so a zero
+// value can't produce an already-expired context for the final flush.
+func (r *Reporter) effectiveCloseTimeout() time.Duration {
+	if r.closeTimeout <= 0 {
+		return 10 * time.Second
+	}
+	return r.closeTimeout
+}
+
+// rpcCtx returns the context for an outbound RPC plus a cancel func. While
+// r.ctx is alive it's used directly; once cancelled (server RESULT_CANCELLED),
+// RPCs switch to a fresh bounded context so Close()'s final flush still lands.
+func (r *Reporter) rpcCtx() (context.Context, context.CancelFunc) {
+	select {
+	case <-r.ctx.Done():
+		return context.WithTimeout(context.Background(), r.effectiveCloseTimeout())
+	default:
+		return r.ctx, func() {}
+	}
 }
 
 func (r *Reporter) ReportLog(noMore bool) error {
@@ -439,8 +488,11 @@ func (r *Reporter) ReportLog(noMore bool) error {
 		return nil
 	}
 
+	rpcCtx, rpcCancel := r.rpcCtx()
+	defer rpcCancel()
+
 	start := time.Now()
-	resp, err := r.client.UpdateLog(r.ctx, connect.NewRequest(&runnerv1.UpdateLogRequest{
+	resp, err := r.client.UpdateLog(rpcCtx, connect.NewRequest(&runnerv1.UpdateLogRequest{
 		TaskId: r.state.Id,
 		Index:  int64(r.logOffset),
 		Rows:   rows,
@@ -511,8 +563,11 @@ func (r *Reporter) ReportState(reportResult bool) error {
 		state.Result = runnerv1.Result_RESULT_UNSPECIFIED
 	}
 
+	rpcCtx, rpcCancel := r.rpcCtx()
+	defer rpcCancel()
+
 	start := time.Now()
-	resp, err := r.client.UpdateTask(r.ctx, connect.NewRequest(&runnerv1.UpdateTaskRequest{
+	resp, err := r.client.UpdateTask(rpcCtx, connect.NewRequest(&runnerv1.UpdateTaskRequest{
 		State:   state,
 		Outputs: outputs,
 	}))
@@ -559,6 +614,13 @@ func (r *Reporter) duringSteps() bool {
 		return false
 	}
 	return true
+}
+
+// shouldAppendLogRow reports whether a non-raw_output entry should be written
+// to the job log: only when we are between steps and the entry's level is
+// within the globally configured log level.
+func (r *Reporter) shouldAppendLogRow(entry *log.Entry) bool {
+	return !r.duringSteps() && entry.Level <= log.GetLevel()
 }
 
 var stringToResult = map[string]runnerv1.Result{
@@ -624,11 +686,11 @@ func (r *Reporter) handleCommand(originalContent, command, value string) *string
 }
 
 func (r *Reporter) parseLogRow(entry *log.Entry) *runnerv1.LogRow {
-	content := strings.TrimRightFunc(entry.Message, func(r rune) bool { return r == '\r' || r == '\n' })
+	content := strings.TrimRight(entry.Message, "\r\n")
 
 	matches := cmdRegex.FindStringSubmatch(content)
 	if matches != nil {
-		if output := r.handleCommand(content, matches[1], matches[3]); output != nil {
+		if output := r.handleCommand(content, matches[1], runner.UnescapeCommandData(matches[3])); output != nil {
 			content = *output
 		} else {
 			return nil
@@ -644,6 +706,6 @@ func (r *Reporter) parseLogRow(entry *log.Entry) *runnerv1.LogRow {
 }
 
 func (r *Reporter) addMask(msg string) {
-	r.oldnew = append(r.oldnew, msg, "***")
+	r.oldnew = runner.AppendSecretMasker(r.oldnew, msg)
 	r.logReplacer = strings.NewReplacer(r.oldnew...)
 }

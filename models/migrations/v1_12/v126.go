@@ -4,11 +4,12 @@
 package v1_12
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
+
 	"xorm.io/builder"
-	"xorm.io/xorm"
 )
 
-func FixTopicRepositoryCount(x *xorm.Engine) error {
+func FixTopicRepositoryCount(x db.EngineMigration) error {
 	_, err := x.Exec(builder.Delete(builder.NotIn("`repo_id`", builder.Select("`id`").From("`repository`"))).From("`repo_topic`"))
 	if err != nil {
 		return err
@@ -19,6 +20,7 @@ func FixTopicRepositoryCount(x *xorm.Engine) error {
 			"`repo_count`": builder.Select("count(*)").From("`repo_topic`").Where(builder.Eq{
 				"`repo_topic`.`topic_id`": builder.Expr("`topic`.`id`"),
 			}),
-		}).From("`topic`").Where(builder.Eq{"'1'": "1"}))
+		},
+	).From("`topic`").Where(builder.Eq{"'1'": "1"}))
 	return err
 }

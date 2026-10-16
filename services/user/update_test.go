@@ -10,7 +10,9 @@ import (
 	user_model "github.com/neko233-com/gitsss/models/user"
 	password_module "github.com/neko233-com/gitsss/modules/auth/password"
 	"github.com/neko233-com/gitsss/modules/optional"
+	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/structs"
+	"github.com/neko233-com/gitsss/modules/test"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -120,4 +122,34 @@ func TestUpdateAuth(t *testing.T) {
 	assert.ErrorIs(t, UpdateAuth(t.Context(), user, &UpdateAuthOptions{
 		Password: optional.Some("aaaa"),
 	}), password_module.ErrMinLength)
+}
+
+func TestUpdateUserVisibility(t *testing.T) {
+	assert.NoError(t, unittest.PrepareTestDatabase())
+
+	// user28's current visibility is public, e.g. an account created before public was disallowed
+	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 28})
+	assert.Equal(t, structs.VisibleTypePublic, user.Visibility)
+
+	// public is no longer an allowed visibility mode, e.g. ALLOWED_USER_VISIBILITY_MODES = limited, private
+	defer test.MockVariableValue(&setting.Service.AllowedUserVisibilityModesSlice, setting.AllowedVisibility{false, true, true})()
+
+	// re-submitting the unchanged (now-disallowed) visibility must not fail the whole update
+	assert.NoError(t, UpdateUser(t.Context(), user, &UpdateOptions{
+		FullName:   optional.Some("Changed Name"),
+		Visibility: optional.Some(structs.VisibleTypePublic),
+	}))
+	assert.Equal(t, "Changed Name", user.FullName)
+	assert.Equal(t, structs.VisibleTypePublic, user.Visibility)
+
+	// changing to an allowed visibility still works
+	assert.NoError(t, UpdateUser(t.Context(), user, &UpdateOptions{
+		Visibility: optional.Some(structs.VisibleTypePrivate),
+	}))
+	assert.Equal(t, structs.VisibleTypePrivate, user.Visibility)
+
+	// genuinely changing to a disallowed visibility is still rejected
+	assert.Error(t, UpdateUser(t.Context(), user, &UpdateOptions{
+		Visibility: optional.Some(structs.VisibleTypePublic),
+	}))
 }

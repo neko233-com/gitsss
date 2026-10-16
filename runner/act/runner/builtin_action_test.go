@@ -5,10 +5,32 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
+
+	"github.com/neko233-com/gitsss/runner/pkg/builtinassets"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestMaterializeBuiltinActionFromServerResources(t *testing.T) {
+	if _, err := os.Stat(defaultBuiltinActionsDir); err == nil {
+		t.Skip("external Actions directory takes precedence")
+	}
+	t.Setenv("GITSSS_BUILTIN_ACTIONS_DIR", "")
+	previous := builtinassets.Fallback()
+	t.Cleanup(func() { builtinassets.SetFallback(previous) })
+	builtinassets.SetFallback(fstest.MapFS{
+		"actions/checkout/v4/action.yml":    &fstest.MapFile{Data: []byte("name: checkout\n")},
+		"actions/checkout/v4/dist/index.js": &fstest.MapFile{Data: []byte("// embedded checkout\n")},
+	})
+	dir, ok, err := materializeBuiltinAction(newRemoteAction("actions/checkout@v4"), filepath.Join(t.TempDir(), "action"))
+	require.NoError(t, err)
+	require.True(t, ok)
+	content, err := os.ReadFile(filepath.Join(dir, "dist", "index.js"))
+	require.NoError(t, err)
+	assert.Equal(t, "// embedded checkout\n", string(content))
+}
 
 func TestMaterializeBuiltinAction(t *testing.T) {
 	root := t.TempDir()

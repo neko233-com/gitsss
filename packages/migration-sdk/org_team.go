@@ -6,6 +6,7 @@ package gitea
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -56,28 +57,28 @@ type ListTeamsOptions struct {
 }
 
 // ListOrgTeams lists all teams of an organization
-func (c *Client) ListOrgTeams(org string, opt ListTeamsOptions) ([]*Team, *Response, error) {
+func (c *OrganizationsService) ListOrgTeams(ctx context.Context, org string, opt ListTeamsOptions) ([]*Team, *Response, error) {
 	if err := escapeValidatePathSegments(&org); err != nil {
 		return nil, nil, err
 	}
 	opt.setDefaults()
 	teams := make([]*Team, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/orgs/%s/teams?%s", org, opt.getURLQuery().Encode()), nil, nil, &teams)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/orgs/%s/teams?%s", org, opt.getURLQuery().Encode()), nil, nil, &teams)
 	return teams, resp, err
 }
 
 // ListMyTeams lists all the teams of the current user
-func (c *Client) ListMyTeams(opt *ListTeamsOptions) ([]*Team, *Response, error) {
+func (c *OrganizationsService) ListMyTeams(ctx context.Context, opt *ListTeamsOptions) ([]*Team, *Response, error) {
 	opt.setDefaults()
 	teams := make([]*Team, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/user/teams?%s", opt.getURLQuery().Encode()), nil, nil, &teams)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/user/teams?%s", opt.getURLQuery().Encode()), nil, nil, &teams)
 	return teams, resp, err
 }
 
 // GetTeam gets a team by ID
-func (c *Client) GetTeam(id int64) (*Team, *Response, error) {
+func (c *OrganizationsService) GetTeam(ctx context.Context, id int64) (*Team, *Response, error) {
 	t := new(Team)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/teams/%d", id), nil, nil, t)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/teams/%d", id), nil, nil, t)
 	return t, resp, err
 }
 
@@ -106,10 +107,10 @@ type TeamSearchResults struct {
 }
 
 // SearchOrgTeams search for teams in a org.
-func (c *Client) SearchOrgTeams(org string, opt *SearchTeamsOptions) ([]*Team, *Response, error) {
+func (c *OrganizationsService) SearchOrgTeams(ctx context.Context, org string, opt *SearchTeamsOptions) ([]*Team, *Response, error) {
 	responseBody := TeamSearchResults{}
 	opt.setDefaults()
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/orgs/%s/teams/search?%s", org, opt.getURLQuery().Encode()), nil, nil, &responseBody)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/orgs/%s/teams/search?%s", org, opt.getURLQuery().Encode()), nil, nil, &responseBody)
 	if err != nil {
 		return nil, resp, err
 	}
@@ -150,7 +151,7 @@ func (opt *CreateTeamOption) Validate() error {
 }
 
 // CreateTeam creates a team for an organization
-func (c *Client) CreateTeam(org string, opt CreateTeamOption) (*Team, *Response, error) {
+func (c *OrganizationsService) CreateTeam(ctx context.Context, org string, opt CreateTeamOption) (*Team, *Response, error) {
 	if err := escapeValidatePathSegments(&org); err != nil {
 		return nil, nil, err
 	}
@@ -162,7 +163,7 @@ func (c *Client) CreateTeam(org string, opt CreateTeamOption) (*Team, *Response,
 		return nil, nil, err
 	}
 	t := new(Team)
-	resp, err := c.getParsedResponse("POST", fmt.Sprintf("/orgs/%s/teams", org), jsonHeader, bytes.NewReader(body), t)
+	resp, err := c.getParsedResponse(ctx, "POST", fmt.Sprintf("/orgs/%s/teams", org), jsonHeader, bytes.NewReader(body), t)
 	return t, resp, err
 }
 
@@ -197,7 +198,7 @@ func (opt *EditTeamOption) Validate() error {
 }
 
 // EditTeam edits a team of an organization
-func (c *Client) EditTeam(id int64, opt EditTeamOption) (*Response, error) {
+func (c *OrganizationsService) EditTeam(ctx context.Context, id int64, opt EditTeamOption) (*Response, error) {
 	if err := (&opt).Validate(); err != nil {
 		return nil, err
 	}
@@ -205,12 +206,12 @@ func (c *Client) EditTeam(id int64, opt EditTeamOption) (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("PATCH", fmt.Sprintf("/teams/%d", id), jsonHeader, bytes.NewReader(body))
+	return c.doRequestWithStatusHandle(ctx, "PATCH", fmt.Sprintf("/teams/%d", id), jsonHeader, bytes.NewReader(body))
 }
 
 // DeleteTeam deletes a team of an organization
-func (c *Client) DeleteTeam(id int64) (*Response, error) {
-	return c.doRequestWithStatusHandle("DELETE", fmt.Sprintf("/teams/%d", id), nil, nil)
+func (c *OrganizationsService) DeleteTeam(ctx context.Context, id int64) (*Response, error) {
+	return c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/teams/%d", id), nil, nil)
 }
 
 // ListTeamMembersOptions options for listing team's members
@@ -219,37 +220,37 @@ type ListTeamMembersOptions struct {
 }
 
 // ListTeamMembers lists all members of a team
-func (c *Client) ListTeamMembers(id int64, opt ListTeamMembersOptions) ([]*User, *Response, error) {
+func (c *OrganizationsService) ListTeamMembers(ctx context.Context, id int64, opt ListTeamMembersOptions) ([]*User, *Response, error) {
 	opt.setDefaults()
 	members := make([]*User, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/teams/%d/members?%s", id, opt.getURLQuery().Encode()), nil, nil, &members)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/teams/%d/members?%s", id, opt.getURLQuery().Encode()), nil, nil, &members)
 	return members, resp, err
 }
 
 // GetTeamMember gets a member of a team
-func (c *Client) GetTeamMember(id int64, user string) (*User, *Response, error) {
+func (c *OrganizationsService) GetTeamMember(ctx context.Context, id int64, user string) (*User, *Response, error) {
 	if err := escapeValidatePathSegments(&user); err != nil {
 		return nil, nil, err
 	}
 	m := new(User)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/teams/%d/members/%s", id, user), nil, nil, m)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/teams/%d/members/%s", id, user), nil, nil, m)
 	return m, resp, err
 }
 
 // AddTeamMember adds a member to a team
-func (c *Client) AddTeamMember(id int64, user string) (*Response, error) {
+func (c *OrganizationsService) AddTeamMember(ctx context.Context, id int64, user string) (*Response, error) {
 	if err := escapeValidatePathSegments(&user); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("PUT", fmt.Sprintf("/teams/%d/members/%s", id, user), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "PUT", fmt.Sprintf("/teams/%d/members/%s", id, user), nil, nil)
 }
 
 // RemoveTeamMember removes a member from a team
-func (c *Client) RemoveTeamMember(id int64, user string) (*Response, error) {
+func (c *OrganizationsService) RemoveTeamMember(ctx context.Context, id int64, user string) (*Response, error) {
 	if err := escapeValidatePathSegments(&user); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("DELETE", fmt.Sprintf("/teams/%d/members/%s", id, user), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/teams/%d/members/%s", id, user), nil, nil)
 }
 
 // ListTeamRepositoriesOptions options for listing team's repositories
@@ -258,35 +259,35 @@ type ListTeamRepositoriesOptions struct {
 }
 
 // ListTeamRepositories lists all repositories of a team
-func (c *Client) ListTeamRepositories(id int64, opt ListTeamRepositoriesOptions) ([]*Repository, *Response, error) {
+func (c *OrganizationsService) ListTeamRepositories(ctx context.Context, id int64, opt ListTeamRepositoriesOptions) ([]*Repository, *Response, error) {
 	opt.setDefaults()
 	repos := make([]*Repository, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/teams/%d/repos?%s", id, opt.getURLQuery().Encode()), nil, nil, &repos)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/teams/%d/repos?%s", id, opt.getURLQuery().Encode()), nil, nil, &repos)
 	return repos, resp, err
 }
 
 // GetTeamRepository gets a repository that belongs to a team.
-func (c *Client) GetTeamRepository(id int64, org, repo string) (*Repository, *Response, error) {
+func (c *OrganizationsService) GetTeamRepository(ctx context.Context, id int64, org, repo string) (*Repository, *Response, error) {
 	if err := escapeValidatePathSegments(&org, &repo); err != nil {
 		return nil, nil, err
 	}
 	result := new(Repository)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/teams/%d/repos/%s/%s", id, org, repo), nil, nil, result)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/teams/%d/repos/%s/%s", id, org, repo), nil, nil, result)
 	return result, resp, err
 }
 
 // AddTeamRepository adds a repository to a team
-func (c *Client) AddTeamRepository(id int64, org, repo string) (*Response, error) {
+func (c *OrganizationsService) AddTeamRepository(ctx context.Context, id int64, org, repo string) (*Response, error) {
 	if err := escapeValidatePathSegments(&org, &repo); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("PUT", fmt.Sprintf("/teams/%d/repos/%s/%s", id, org, repo), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "PUT", fmt.Sprintf("/teams/%d/repos/%s/%s", id, org, repo), nil, nil)
 }
 
 // RemoveTeamRepository removes a repository from a team
-func (c *Client) RemoveTeamRepository(id int64, org, repo string) (*Response, error) {
+func (c *OrganizationsService) RemoveTeamRepository(ctx context.Context, id int64, org, repo string) (*Response, error) {
 	if err := escapeValidatePathSegments(&org, &repo); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("DELETE", fmt.Sprintf("/teams/%d/repos/%s/%s", id, org, repo), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/teams/%d/repos/%s/%s", id, org, repo), nil, nil)
 }

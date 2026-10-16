@@ -5,6 +5,8 @@ package setting
 
 import (
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -142,16 +144,25 @@ type testLocalStoragePathCase struct {
 }
 
 func testLocalStoragePath(t *testing.T, appDataPath, iniStr string, cases []testLocalStoragePathCase) {
+	nativePath := func(path string) string {
+		absolute, err := filepath.Abs(filepath.FromSlash(path))
+		assert.NoError(t, err)
+		return absolute
+	}
+	iniStr = regexp.MustCompile(`(?m)(=\s*)(/[^\r\n]*)`).ReplaceAllStringFunc(iniStr, func(line string) string {
+		prefix, path, _ := strings.Cut(line, "=")
+		return prefix + "= " + nativePath(strings.TrimSpace(path))
+	})
 	cfg, err := NewConfigProviderFromData(iniStr)
 	assert.NoError(t, err)
-	AppDataPath = appDataPath
+	AppDataPath = nativePath(appDataPath)
 	for _, c := range cases {
 		assert.NoError(t, c.loader(cfg))
 		storage := *c.storagePtr
 
 		assert.EqualValues(t, "local", storage.Type)
 		assert.True(t, filepath.IsAbs(storage.Path))
-		assert.Equal(t, filepath.Clean(c.expectedPath), filepath.Clean(storage.Path))
+		assert.Equal(t, nativePath(c.expectedPath), filepath.Clean(storage.Path))
 	}
 }
 

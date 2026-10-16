@@ -15,6 +15,7 @@ import (
 	auth_model "github.com/neko233-com/gitsss/models/auth"
 	"github.com/neko233-com/gitsss/modules/git/gitcmd"
 	"github.com/neko233-com/gitsss/modules/setting"
+	"github.com/neko233-com/gitsss/modules/test"
 	"github.com/neko233-com/gitsss/modules/web"
 	"github.com/neko233-com/gitsss/routers/common"
 	"github.com/neko233-com/gitsss/services/context"
@@ -45,7 +46,7 @@ func TestGitLFSSSH(t *testing.T) {
 			cfg, err := setting.CfgProvider.PrepareSaving()
 			require.NoError(t, err)
 			cfg.Section("server").Key("LFS_ALLOW_PURE_SSH").SetValue("true")
-			setting.LFS.AllowPureSSH = true
+			defer test.MockVariableValue(&setting.LFS.AllowPureSSH, true)()
 			require.NoError(t, cfg.Save())
 
 			_, _, cmdErr := gitcmd.NewCommand("config", "lfs.sshtransfer", "always").

@@ -3,9 +3,9 @@
 
 package v1_10
 
-import "xorm.io/xorm"
+import "github.com/neko233-com/gitsss/models/db"
 
-func ChangeSomeColumnsLengthOfRepo(x *xorm.Engine) error {
+func ChangeSomeColumnsLengthOfRepo(x db.EngineMigration) error {
 	type Repository struct {
 		ID          int64  `xorm:"pk autoincr"`
 		Description string `xorm:"TEXT"`

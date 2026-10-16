@@ -61,6 +61,7 @@ if [ "$dry" -eq 0 ]; then
 fi
 
 status=0
+pids=()
 for spec in "${platforms[@]}"; do
 	if [ "$status" -ne 0 ]; then
 		break
@@ -70,21 +71,25 @@ for spec in "${platforms[@]}"; do
 		build_one $spec
 		continue
 	fi
-	while [ "$(jobs -rp | wc -l)" -ge "$jobs" ]; do
-		wait -n || status=1
-	done
+	if [ "${#pids[@]}" -ge "$jobs" ]; then
+		wait "${pids[0]}" || status=1
+		pids=("${pids[@]:1}")
+	fi
 	if [ "$status" -ne 0 ]; then
 		break
 	fi
 	# shellcheck disable=SC2086
 	build_one $spec &
+	pids+=("$!")
 done
 
 if [ "$dry" -eq 1 ]; then
 	exit 0
 fi
 
-wait || status=1
+for pid in "${pids[@]}"; do
+	wait "$pid" || status=1
+done
 if [ "$status" -ne 0 ]; then
 	exit "$status"
 fi
@@ -97,18 +102,23 @@ compress_one() {
 	sha256sum "$file.xz" | awk -v name="$(basename "$file.xz")" '{print $1"  "name}' > "$file.xz.sha256"
 }
 status=0
+pids=()
 for file in "$out_dir"/*; do
 	case $file in
 	*.xz | *.sha256) continue ;;
 	esac
 	[ -f "$file" ] || continue
-	while [ "$(jobs -rp | wc -l)" -ge "$jobs" ]; do
-		wait -n || status=1
-	done
+	if [ "${#pids[@]}" -ge "$jobs" ]; then
+		wait "${pids[0]}" || status=1
+		pids=("${pids[@]:1}")
+	fi
 	if [ "$status" -ne 0 ]; then
 		break
 	fi
 	compress_one "$file" &
+	pids+=("$!")
 done
-wait || status=1
+for pid in "${pids[@]}"; do
+	wait "$pid" || status=1
+done
 exit "$status"

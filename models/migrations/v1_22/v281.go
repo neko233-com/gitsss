@@ -4,12 +4,11 @@
 package v1_22
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func CreateAuthTokenTable(x *xorm.Engine) error {
+func CreateAuthTokenTable(x db.EngineMigration) error {
 	type AuthToken struct {
 		ID          string `xorm:"pk"`
 		TokenHash   string

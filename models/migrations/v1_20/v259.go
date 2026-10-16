@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/log"
-
-	"xorm.io/xorm"
 )
 
 // unknownAccessTokenScope represents the scope for an access token that isn't
@@ -319,7 +318,7 @@ type AccessToken struct {
 	Scope string
 }
 
-func ConvertScopedAccessTokens(x *xorm.Engine) error {
+func ConvertScopedAccessTokens(x db.EngineMigration) error {
 	var tokens []*AccessToken
 
 	if err := x.Find(&tokens); err != nil {

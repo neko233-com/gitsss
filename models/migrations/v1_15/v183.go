@@ -7,12 +7,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func CreatePushMirrorTable(x *xorm.Engine) error {
+func CreatePushMirrorTable(x db.EngineMigration) error {
 	type PushMirror struct {
 		ID         int64 `xorm:"pk autoincr"`
 		RepoID     int64 `xorm:"INDEX"`

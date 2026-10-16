@@ -240,7 +240,9 @@ func TestReadWriteRegularPathFile(t *testing.T) {
 	_ = os.WriteFile(tmpDir+"/other-file", []byte("other-content"), 0o755)
 	_ = os.Mkdir(rootDir+"/real-dir", 0o755)
 	_ = os.WriteFile(rootDir+"/real-dir/real-file", []byte("dummy-content"), 0o644)
-	_ = os.Symlink(rootDir+"/real-dir", rootDir+"/link-dir")
+	if err := os.Symlink(rootDir+"/real-dir", rootDir+"/link-dir"); err != nil {
+		t.Skipf("filesystem symlink support is required: %v", err)
+	}
 	_ = os.Symlink(rootDir+"/real-dir/real-file", rootDir+"/real-dir/link-file")
 
 	t.Run("Read", func(t *testing.T) {

@@ -4,12 +4,11 @@
 package v1_20
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/log"
-
-	"xorm.io/xorm"
 )
 
-func FixIncorrectAdminTeamUnitAccessMode(x *xorm.Engine) error {
+func FixIncorrectAdminTeamUnitAccessMode(x db.EngineMigration) error {
 	type UnitType int
 	type AccessMode int
 

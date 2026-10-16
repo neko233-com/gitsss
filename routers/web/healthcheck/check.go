@@ -111,16 +111,10 @@ func checkDatabase(ctx context.Context, checks checks) status {
 	}
 
 	if setting.Database.Type.IsSQLite3() && st.Status == pass {
-		if !setting.EnableSQLite3 {
+		if _, err := os.Stat(setting.Database.Path); err != nil {
 			st.Status = fail
 			st.Time = getCheckTime()
-			log.Error("SQLite3 health check failed with error: %v", "this gitsss binary is built without SQLite3 enabled")
-		} else {
-			if _, err := os.Stat(setting.Database.Path); err != nil {
-				st.Status = fail
-				st.Time = getCheckTime()
-				log.Error("SQLite3 file exists check failed with error: %v", err)
-			}
+			log.Error("SQLite3 file exists check failed with error: %v", err)
 		}
 	}
 
@@ -131,7 +125,9 @@ func checkDatabase(ctx context.Context, checks checks) status {
 // cache checks gitea cache status
 func checkCache(checks checks) status {
 	st := componentStatus{}
-	if err := cache.GetCache().Ping(); err != nil {
+	if cache.GetCache() == nil {
+		st = componentStatus{Status: fail, Time: getCheckTime(), Output: "cache not initialized"}
+	} else if err := cache.GetCache().Ping(); err != nil {
 		st.Status = fail
 		st.Time = getCheckTime()
 		log.Error("cache ping failed with error: %v", err)

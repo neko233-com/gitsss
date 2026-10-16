@@ -4,13 +4,12 @@
 package v1_13
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/base"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func AddPrimaryKeyToRepoTopic(x *xorm.Engine) error {
+func AddPrimaryKeyToRepoTopic(x db.EngineMigration) error {
 	// Topic represents a topic of repositories
 	type Topic struct {
 		ID          int64  `xorm:"pk autoincr"`

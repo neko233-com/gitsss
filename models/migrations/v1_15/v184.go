@@ -7,13 +7,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/base"
 	"github.com/neko233-com/gitsss/modules/setting"
-
-	"xorm.io/xorm"
 )
 
-func RenameTaskErrorsToMessage(x *xorm.Engine) error {
+func RenameTaskErrorsToMessage(x db.EngineMigration) error {
 	type Task struct {
 		Errors string `xorm:"TEXT"` // if task failed, saved the error reason
 		Type   int

@@ -6,13 +6,12 @@ package v1_17
 import (
 	"time"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/repo"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func AddSyncOnCommitColForPushMirror(x *xorm.Engine) error {
+func AddSyncOnCommitColForPushMirror(x db.EngineMigration) error {
 	type PushMirror struct {
 		ID         int64            `xorm:"pk autoincr"`
 		RepoID     int64            `xorm:"INDEX"`

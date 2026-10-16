@@ -7,7 +7,7 @@ param(
     [string]$ImageArchive = "",
     [string]$DataDir = "",
     [ValidateRange(1, 65535)]
-    [int]$HttpPort = 5300,
+    [int]$HttpPort = 5030,
     [ValidateRange(1, 65535)]
     [int]$GitSshPort = 2222,
     [switch]$KeepRunning

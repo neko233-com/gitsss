@@ -8,16 +8,16 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/base"
 	"github.com/neko233-com/gitsss/modules/timeutil"
 
 	"github.com/tstranex/u2f"
-	"xorm.io/xorm"
 	"xorm.io/xorm/schemas"
 )
 
 // v208 migration was completely broken
-func RemigrateU2FCredentials(x *xorm.Engine) error {
+func RemigrateU2FCredentials(x db.EngineMigration) error {
 	// Create webauthnCredential table
 	type webauthnCredential struct {
 		ID              int64 `xorm:"pk autoincr"`

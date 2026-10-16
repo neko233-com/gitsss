@@ -18,12 +18,16 @@ import (
 	"github.com/neko233-com/gitsss/models/unittest"
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/migration"
+	"github.com/neko233-com/gitsss/modules/setting"
 	api "github.com/neko233-com/gitsss/modules/structs"
+	"github.com/neko233-com/gitsss/modules/test"
+	migrations_service "github.com/neko233-com/gitsss/services/migrations"
 	mirror_service "github.com/neko233-com/gitsss/services/mirror"
 	repo_service "github.com/neko233-com/gitsss/services/repository"
 	files_service "github.com/neko233-com/gitsss/services/repository/files"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestScheduleUpdate(t *testing.T) {
@@ -144,6 +148,11 @@ jobs:
 
 func testScheduleUpdateMirrorSync(t *testing.T) {
 	doTestScheduleUpdate(t, func(t *testing.T, u *url.URL, testContext APITestContext, user *user_model.User, repo *repo_model.Repository) (commitID, expectedSpec string) {
+		// the mirror sync re-validates the remote URL, which rejects the local test server unless local
+		// networks are allowed; migrations.Init rebuilds the host allow-list from the setting
+		defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
+		require.NoError(t, migrations_service.Init())
+
 		// create mirror repo
 		opts := migration.MigrateOptions{
 			RepoName:    "actions-schedule-mirror",

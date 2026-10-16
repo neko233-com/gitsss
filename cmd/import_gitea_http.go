@@ -23,8 +23,9 @@ func newImportGiteaHTTPCommand() *cli.Command {
 Authenticate with a site-admin token file, or with a username plus a password file. Do not put passwords on the command line.
 Source password hashes, access tokens, SSH keys, and 2FA secrets are not available through the Gitea API.
 New local accounts receive random temporary passwords and must change them on first login.
-Issues, comments, labels, milestones, pull requests, and release notes are copied onto repositories created in this run.
-Merged pull requests are closed on the target; the merge is not replayed. Wiki, release attachment bytes, packages, and other attachments are not copied.`,
+The initial import copies repository Git data, LFS objects, issues, comments, labels, milestones, pull requests, reviews, releases, wiki, and supported packages.
+Use --sync-existing-git to incrementally fetch Git refs and LFS updates for repositories already imported. Fast-forward updates and source deletions are applied atomically; divergent target refs fail without being overwritten. That mode does not sync repository metadata, issues, pull requests, or packages.
+Merged pull requests are closed on the target; the merge is not replayed.`,
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "source-url", Usage: "Source Gitea root URL", Required: true},
 			&cli.StringFlag{Name: "source-user", Usage: "Source site-admin username, used with --source-password-file"},
@@ -37,6 +38,8 @@ Merged pull requests are closed on the target; the merge is not replayed. Wiki, 
 			&cli.StringSliceFlag{Name: "repo", Usage: "Repository owner/name or source URL; repeat for each repository"},
 			&cli.BoolFlag{Name: "all-repos", Usage: "Import every repository visible to the source site administrator, with its owner accounts, organizations, teams, and permissions"},
 			&cli.StringFlag{Name: "conflict", Usage: "Existing target object policy: fail or skip", Value: string(giteahttpmigration.ConflictFail)},
+			&cli.BoolFlag{Name: "sync-existing-git", Usage: "Update Git refs and LFS objects on existing target repositories only"},
+			&cli.StringFlag{Name: "mirror-cache-dir", Usage: "Persistent bare-repository cache used to fetch only new Git objects; defaults to the user's cache directory"},
 			&cli.DurationFlag{Name: "timeout", Usage: "Whole discovery/import timeout", Value: 30 * time.Minute},
 			&cli.BoolFlag{Name: "apply", Usage: "Write discovered objects to target; omitted means dry-run"},
 			&cli.StringFlag{Name: "credentials-file", Usage: "New 0600 JSONL file for one-time temporary passwords", TakesFile: true},
@@ -77,6 +80,8 @@ func runImportGiteaHTTP(ctx context.Context, c *cli.Command) (returnErr error) {
 		Repositories:    c.StringSlice("repo"),
 		AllRepositories: c.Bool("all-repos"),
 		ConflictPolicy:  giteahttpmigration.ConflictPolicy(c.String("conflict")),
+		MirrorCacheDir:  c.String("mirror-cache-dir"),
+		SyncExistingGit: c.Bool("sync-existing-git"),
 	})
 	if err != nil {
 		return err
@@ -89,6 +94,13 @@ func runImportGiteaHTTP(ctx context.Context, c *cli.Command) (returnErr error) {
 	}
 	if !c.Bool("apply") {
 		return writeIndentedJSON(c.Writer, plan)
+	}
+	if c.Bool("sync-existing-git") {
+		result, err := migrator.SyncGitRepositories(operationCtx, plan)
+		if err != nil {
+			return err
+		}
+		return writeIndentedJSON(c.Writer, result)
 	}
 	if strings.TrimSpace(c.String("credentials-file")) == "" {
 		return errors.New("--credentials-file is required with --apply")

@@ -4,12 +4,11 @@
 package v1_11
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/base"
-
-	"xorm.io/xorm"
 )
 
-func RemoveLabelUneededCols(x *xorm.Engine) error {
+func RemoveLabelUneededCols(x db.EngineMigration) error {
 	// Make sure the columns exist before dropping them
 	type Label struct {
 		QueryString string

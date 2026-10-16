@@ -3,11 +3,9 @@
 
 package v1_16
 
-import (
-	"xorm.io/xorm"
-)
+import "github.com/neko233-com/gitsss/models/db"
 
-func AddRepoIDForAttachment(x *xorm.Engine) error {
+func AddRepoIDForAttachment(x db.EngineMigration) error {
 	type Attachment struct {
 		ID         int64  `xorm:"pk autoincr"`
 		UUID       string `xorm:"uuid UNIQUE"`

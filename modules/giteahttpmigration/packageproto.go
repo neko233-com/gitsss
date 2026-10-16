@@ -406,7 +406,7 @@ func cargoPublishBody(name, version string, crate []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(meta) > int(^uint32(0)) || len(crate) > int(^uint32(0)) {
+	if uint64(len(meta)) > uint64(^uint32(0)) || uint64(len(crate)) > uint64(^uint32(0)) {
 		return nil, errors.New("cargo publish body is too large")
 	}
 	body := bytes.NewBuffer(make([]byte, 0, 8+len(meta)+len(crate)))

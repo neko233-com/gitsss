@@ -3,8 +3,8 @@
 		<div class="item">
 			<div class="ui floating dropdown jump">
 				<span class="text">
-					{{ctx.AvatarUtils.Avatar .ContextUser 24 "tw-mr-1"}}
-					<span class="gt-ellipsis">{{.ContextUser.ShortName 40}}</span>
+					{{if .OrganizationHome}}{{svg "octicon-organization" 24}}{{else}}{{ctx.AvatarUtils.Avatar .ContextUser 24 "tw-mr-1"}}{{end}}
+					<span class="gt-ellipsis">{{if .OrganizationHome}}{{ctx.Locale.Tr "explore.organizations"}}{{else}}{{.ContextUser.ShortName 40}}{{end}}</span>
 					<span class="org-visibility">
 						{{if .ContextUser.Visibility.IsLimited}}<div class="ui basic tiny horizontal label">{{ctx.Locale.Tr "org.settings.visibility.limited_shortname"}}</div>{{end}}
 						{{if .ContextUser.Visibility.IsPrivate}}<div class="ui basic tiny horizontal label">{{ctx.Locale.Tr "org.settings.visibility.private_shortname"}}</div>{{end}}
@@ -16,7 +16,7 @@
 						{{ctx.Locale.Tr "home.switch_dashboard_context"}}
 					</div>
 					<div class="scrolling menu">
-						<a class="{{if eq .ContextUser.ID .SignedUser.ID}}active selected{{end}} item" href="{{AppSubUrl}}/{{if .PageIsIssues}}issues{{else if .PageIsPulls}}pulls{{else if .PageIsMilestonesDashboard}}milestones{{end}}">
+						<a class="{{if eq .ContextUser.ID .SignedUser.ID}}active selected{{end}} item" href="{{AppSubUrl}}/{{if .PageIsIssues}}issues{{else if .PageIsPulls}}pulls{{else if .PageIsMilestonesDashboard}}milestones{{else}}?view=personal{{end}}">
 							{{ctx.AvatarUtils.Avatar .SignedUser}}
 							<span class="gt-ellipsis">{{.SignedUser.ShortName 40}}</span>
 							<span class="org-visibility">
@@ -49,7 +49,7 @@
 					<span class="text">
 						{{svg "octicon-people" 18}}
 						{{if .Team}}
-							{{.Team.Name}}
+							{{.Team.DisplayLabel}}
 						{{else}}
 							{{ctx.Locale.Tr "org.teams"}}
 						{{end}}
@@ -66,7 +66,7 @@
 							{{range .Teams}}
 								{{if not .IncludesAllRepositories}}
 									<a class="{{if $.Team}}{{if eq $.Team.ID .ID}}active selected{{end}}{{end}} item" title="{{.Name}}" href="{{$.Org.OrganisationLink}}/{{if $.PageIsIssues}}issues{{else if $.PageIsPulls}}pulls{{else if $.PageIsMilestonesDashboard}}milestones{{else}}dashboard{{end}}/{{.Name}}">
-										{{.Name}}
+										{{.DisplayLabel}}
 									</a>
 								{{end}}
 							{{end}}

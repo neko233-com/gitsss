@@ -13,7 +13,7 @@ import (
 	"github.com/neko233-com/gitsss/modules/log"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // schemaLoader implements jsonschema.URLLoader

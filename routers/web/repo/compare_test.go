@@ -6,12 +6,11 @@ package repo
 import (
 	"strings"
 	"testing"
-	"unicode/utf8"
 
 	asymkey_model "github.com/neko233-com/gitsss/models/asymkey"
 	git_model "github.com/neko233-com/gitsss/models/git"
+	"github.com/neko233-com/gitsss/models/gituser"
 	issues_model "github.com/neko233-com/gitsss/models/issues"
-	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/git"
 	"github.com/neko233-com/gitsss/modules/setting"
 	git_service "github.com/neko233-com/gitsss/services/git"
@@ -53,9 +52,9 @@ func TestNewPullRequestTitleContent(t *testing.T) {
 	mockCommit := func(msg string) *git_model.SignCommitWithStatuses {
 		return &git_model.SignCommitWithStatuses{
 			SignCommit: &asymkey_model.SignCommit{
-				UserCommit: &user_model.UserCommit{
-					Commit: &git.Commit{
-						CommitMessage: msg,
+				UserCommit: &gituser.UserCommit{
+					GitCommit: &git.Commit{
+						MessageRaw: msg,
 					},
 				},
 			},
@@ -99,9 +98,9 @@ func TestNewPullRequestTitleContent(t *testing.T) {
 	assert.Equal(t, "title-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa…", title)
 	assert.Equal(t, "…aaaaaaaaa\n", content)
 
-	title, content = prepareNewPullRequestTitleContent(ci, []*git_model.SignCommitWithStatuses{mockCommit("a\xf0\xf0\xf0\nb\xf0\xf0\xf0")}, setting.RepoPRTitleSourceFirstCommit)
-	assert.Equal(t, "a?", title) // FIXME: GIT-COMMIT-MESSAGE-ENCODING: "title" doesn't use the same charset converting logic as "content"
-	assert.Equal(t, "b"+string(utf8.RuneError)+string(utf8.RuneError), content)
+	title, content = prepareNewPullRequestTitleContent(ci, []*git_model.SignCommitWithStatuses{mockCommit("title \xf0\nbody \xf0")}, setting.RepoPRTitleSourceFirstCommit)
+	assert.Equal(t, "title ð", title)
+	assert.Equal(t, "body ð", content)
 }
 
 func TestAutoTitleFromBranchName(t *testing.T) {

@@ -22,7 +22,7 @@ import (
 	"github.com/hashicorp/go-version"
 )
 
-const RequiredVersion = "2.6.0" // the minimum Git version required
+const RequiredVersion = "2.13.0" // the minimum Git version required
 
 type Features struct {
 	gitVersion *version.Version
@@ -36,7 +36,14 @@ type Features struct {
 	SupportGitMergeTree        bool           // >= 2.40 // we also need "--merge-base"
 }
 
-var defaultFeatures *Features
+type GlobalConfigStruct struct {
+	DiffOrderFile string
+}
+
+var (
+	defaultFeatures *Features
+	GlobalConfig    *GlobalConfigStruct
+)
 
 func (f *Features) CheckVersionAtLeast(atLeast string) bool {
 	return f.gitVersion.Compare(version.Must(version.NewVersion(atLeast))) >= 0
@@ -173,13 +180,6 @@ func InitFull() (err error) {
 	if err = InitSimple(); err != nil {
 		return err
 	}
-
-	if setting.LFS.StartServer {
-		if !DefaultFeatures().CheckVersionAtLeast("2.1.2") {
-			return errors.New("LFS server support requires Git >= 2.1.2")
-		}
-	}
-
 	return syncGitConfig(context.Background())
 }
 
@@ -192,13 +192,13 @@ func RunGitTests(m interface{ Run() int }) {
 func runGitTests(m interface{ Run() int }) int {
 	gitHomePath, cleanup, err := tempdir.OsTempDir("gitea-test").MkdirTempRandom("git-home")
 	if err != nil {
-		testlogger.Panicf("unable to create temp dir: %s", err.Error())
+		return testlogger.MainErrorf("unable to create temp dir: %v", err)
 	}
 	defer cleanup()
 
 	setting.Git.HomePath = gitHomePath
 	if err = InitFull(); err != nil {
-		testlogger.Panicf("failed to call Init: %s", err.Error())
+		return testlogger.MainErrorf("failed to call Init: %v", err)
 	}
 	return m.Run()
 }

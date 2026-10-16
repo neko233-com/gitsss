@@ -6,15 +6,15 @@ package v1_11
 import (
 	"path/filepath"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/util"
 
 	"xorm.io/builder"
-	"xorm.io/xorm"
 )
 
-func RemoveAttachmentMissedRepo(x *xorm.Engine) error {
+func RemoveAttachmentMissedRepo(x db.EngineMigration) error {
 	type Attachment struct {
 		UUID string `xorm:"uuid"`
 	}

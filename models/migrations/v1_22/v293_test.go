@@ -6,7 +6,7 @@ package v1_22
 import (
 	"testing"
 
-	"github.com/neko233-com/gitsss/models/migrations/base"
+	"github.com/neko233-com/gitsss/models/migrations/migrationtest"
 	"github.com/neko233-com/gitsss/models/project"
 
 	"github.com/stretchr/testify/assert"
@@ -14,7 +14,7 @@ import (
 
 func Test_CheckProjectColumnsConsistency(t *testing.T) {
 	// Prepare and load the testing database
-	x, deferable := base.PrepareTestEnv(t, 0, new(project.Project), new(project.Column))
+	x, deferable := migrationtest.PrepareTestEnv(t, 0, new(project.Project), new(project.Column))
 	defer deferable()
 	if x == nil || t.Failed() {
 		return

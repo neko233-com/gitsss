@@ -12,8 +12,19 @@ import (
 	"strings"
 
 	"github.com/neko233-com/gitsss/modules/json"
+	"github.com/neko233-com/gitsss/modules/proxy"
 	"github.com/neko233-com/gitsss/modules/setting"
+	"github.com/neko233-com/gitsss/modules/util"
 )
+
+// httpClient returns an HTTP client that honors Gitea's proxy configuration.
+var httpClient = util.OnceValue[*http.Client]{
+	Func: func() *http.Client {
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.Proxy = proxy.Proxy()
+		return &http.Client{Transport: transport}
+	},
+}
 
 // Response is the structure of JSON returned from API
 type Response struct {
@@ -40,7 +51,7 @@ func Verify(ctx context.Context, response string) (bool, error) {
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Value().Do(req)
 	if err != nil {
 		return false, fmt.Errorf("Failed to send CAPTCHA response: %w", err)
 	}

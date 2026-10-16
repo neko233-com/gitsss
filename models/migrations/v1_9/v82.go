@@ -7,14 +7,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/neko233-com/gitsss/models/db"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	"github.com/neko233-com/gitsss/modules/git"
 	"github.com/neko233-com/gitsss/modules/gitrepo"
-
-	"xorm.io/xorm"
 )
 
-func FixReleaseSha1OnReleaseTable(ctx context.Context, x *xorm.Engine) error {
+func FixReleaseSha1OnReleaseTable(ctx context.Context, x db.EngineMigration) error {
 	type Release struct {
 		ID      int64
 		RepoID  int64

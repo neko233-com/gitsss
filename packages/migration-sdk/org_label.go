@@ -6,6 +6,7 @@ package gitea
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -19,7 +20,7 @@ type ListOrgLabelsOptions struct {
 }
 
 // ListOrgLabels returns the labels defined at the org level
-func (c *Client) ListOrgLabels(orgName string, opt ListOrgLabelsOptions) ([]*Label, *Response, error) {
+func (c *OrganizationsService) ListOrgLabels(ctx context.Context, orgName string, opt ListOrgLabelsOptions) ([]*Label, *Response, error) {
 	if err := escapeValidatePathSegments(&orgName); err != nil {
 		return nil, nil, err
 	}
@@ -27,7 +28,7 @@ func (c *Client) ListOrgLabels(orgName string, opt ListOrgLabelsOptions) ([]*Lab
 	labels := make([]*Label, 0, opt.PageSize)
 	link, _ := url.Parse(fmt.Sprintf("/orgs/%s/labels", orgName))
 	link.RawQuery = opt.getURLQuery().Encode()
-	resp, err := c.getParsedResponse("GET", link.String(), jsonHeader, nil, &labels)
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), jsonHeader, nil, &labels)
 	return labels, resp, err
 }
 
@@ -58,7 +59,7 @@ func (opt CreateOrgLabelOption) Validate() error {
 }
 
 // CreateOrgLabel creates a new label under an organization
-func (c *Client) CreateOrgLabel(orgName string, opt CreateOrgLabelOption) (*Label, *Response, error) {
+func (c *OrganizationsService) CreateOrgLabel(ctx context.Context, orgName string, opt CreateOrgLabelOption) (*Label, *Response, error) {
 	if err := escapeValidatePathSegments(&orgName); err != nil {
 		return nil, nil, err
 	}
@@ -67,17 +68,17 @@ func (c *Client) CreateOrgLabel(orgName string, opt CreateOrgLabelOption) (*Labe
 		return nil, nil, err
 	}
 	label := new(Label)
-	resp, err := c.getParsedResponse("POST", fmt.Sprintf("/orgs/%s/labels", orgName), jsonHeader, bytes.NewReader(body), label)
+	resp, err := c.getParsedResponse(ctx, "POST", fmt.Sprintf("/orgs/%s/labels", orgName), jsonHeader, bytes.NewReader(body), label)
 	return label, resp, err
 }
 
 // GetOrgLabel get one label of organization by org it
-func (c *Client) GetOrgLabel(orgName string, labelID int64) (*Label, *Response, error) {
+func (c *OrganizationsService) GetOrgLabel(ctx context.Context, orgName string, labelID int64) (*Label, *Response, error) {
 	if err := escapeValidatePathSegments(&orgName); err != nil {
 		return nil, nil, err
 	}
 	label := new(Label)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/orgs/%s/labels/%d", orgName, labelID), nil, nil, label)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/orgs/%s/labels/%d", orgName, labelID), nil, nil, label)
 	return label, resp, err
 }
 
@@ -93,7 +94,7 @@ type EditOrgLabelOption struct {
 }
 
 // EditOrgLabel edits an existing org-level label by ID
-func (c *Client) EditOrgLabel(orgName string, labelID int64, opt EditOrgLabelOption) (*Label, *Response, error) {
+func (c *OrganizationsService) EditOrgLabel(ctx context.Context, orgName string, labelID int64, opt EditOrgLabelOption) (*Label, *Response, error) {
 	if err := escapeValidatePathSegments(&orgName); err != nil {
 		return nil, nil, err
 	}
@@ -102,15 +103,15 @@ func (c *Client) EditOrgLabel(orgName string, labelID int64, opt EditOrgLabelOpt
 		return nil, nil, err
 	}
 	label := new(Label)
-	resp, err := c.getParsedResponse("PATCH", fmt.Sprintf("/orgs/%s/labels/%d", orgName, labelID), jsonHeader, bytes.NewReader(body), label)
+	resp, err := c.getParsedResponse(ctx, "PATCH", fmt.Sprintf("/orgs/%s/labels/%d", orgName, labelID), jsonHeader, bytes.NewReader(body), label)
 	return label, resp, err
 }
 
 // DeleteOrgLabel deletes a org label by ID
-func (c *Client) DeleteOrgLabel(orgName string, labelID int64) (*Response, error) {
+func (c *OrganizationsService) DeleteOrgLabel(ctx context.Context, orgName string, labelID int64) (*Response, error) {
 	if err := escapeValidatePathSegments(&orgName); err != nil {
 		return nil, err
 	}
-	_, resp, err := c.getResponse("DELETE", fmt.Sprintf("/orgs/%s/labels/%d", orgName, labelID), jsonHeader, nil)
+	_, resp, err := c.getResponse(ctx, "DELETE", fmt.Sprintf("/orgs/%s/labels/%d", orgName, labelID), jsonHeader, nil)
 	return resp, err
 }

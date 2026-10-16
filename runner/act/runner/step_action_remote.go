@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -20,6 +21,7 @@ import (
 	"github.com/neko233-com/gitsss/runner/act/common"
 	"github.com/neko233-com/gitsss/runner/act/common/git"
 	"github.com/neko233-com/gitsss/runner/act/model"
+	"github.com/neko233-com/gitsss/runner/pkg/builtinassets"
 
 	gogit "github.com/go-git/go-git/v5"
 )
@@ -129,12 +131,23 @@ func materializeBuiltinAction(remote *remoteAction, actionDir string) (string, b
 	actionDir += "-builtin-" + definition.revision
 
 	root := os.Getenv("GITSSS_BUILTIN_ACTIONS_DIR")
+	var sourceFS fs.FS
 	if root == "" {
 		root = defaultBuiltinActionsDir
+		if _, err := os.Stat(root); errors.Is(err, os.ErrNotExist) {
+			sourceFS = builtinassets.Fallback()
+		}
 	}
-	source := filepath.Join(root, "actions", remote.Repo, definition.directory)
-	if _, err := os.Stat(filepath.Join(source, remote.Path, "action.yml")); err != nil {
+	if sourceFS == nil {
+		sourceFS = os.DirFS(root)
+	}
+	source := path.Join("actions", remote.Repo, definition.directory)
+	if _, err := fs.Stat(sourceFS, path.Join(source, remote.Path, "action.yml")); err != nil {
 		return actionDir, true, fmt.Errorf("built-in actions/%s source is unavailable: %w", remote.Repo, err)
+	}
+	actionFS, err := fs.Sub(sourceFS, source)
+	if err != nil {
+		return actionDir, true, err
 	}
 	if _, err := os.Stat(filepath.Join(actionDir, "action.yml")); err == nil {
 		return actionDir, true, nil
@@ -151,7 +164,7 @@ func materializeBuiltinAction(remote *remoteAction, actionDir string) (string, b
 	defer os.RemoveAll(tempRoot)
 
 	staged := filepath.Join(tempRoot, "action")
-	if err := os.CopyFS(staged, os.DirFS(source)); err != nil {
+	if err := os.CopyFS(staged, actionFS); err != nil {
 		return actionDir, true, fmt.Errorf("copy built-in actions/%s: %w", remote.Repo, err)
 	}
 	if err := os.Rename(staged, actionDir); err != nil {
@@ -245,9 +258,9 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 		if builtin {
 			common.Logger(ctx).Infof("Using bundled %s at %s", sar.Step.Uses, sar.remoteAction.Ref)
 		} else {
-			token := getGitCloneToken(sar.getRunContext().Config, sar.remoteAction.CloneURL(sar.RunContext.Config.DefaultActionInstance))
+			token := getGitCloneToken(sar.getRunContext().Config, sar.remoteAction.CloneURL(sar.RunContext.Config.DefaultActionURL()))
 			gitClone := stepActionRemoteNewCloneExecutor(git.NewGitCloneExecutorInput{
-				URL:         sar.remoteAction.CloneURL(sar.RunContext.Config.DefaultActionInstance),
+				URL:         sar.remoteAction.CloneURL(sar.RunContext.Config.DefaultActionURL()),
 				Ref:         sar.remoteAction.Ref,
 				Dir:         actionDir,
 				Token:       token,
@@ -278,6 +291,7 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 		return common.NewPipelineExecutor(
 			ntErr,
 			func(ctx context.Context) error {
+				defer git.AcquireCloneLock(actionDir)()
 				actionModel, err := sar.readAction(ctx, sar.Step, actionDir, sar.remoteAction.Path, remoteReader(ctx), os.WriteFile)
 				sar.action = actionModel
 				return err
@@ -411,7 +425,7 @@ func (sar *stepActionRemote) cloneSkipTLS() bool {
 	if sar.remoteAction.URL == "" {
 		// Empty URL means the default action instance should be used
 		// Return true if the URL of the Gitea instance is the same as the URL of the default action instance
-		return sar.RunContext.Config.DefaultActionInstance == sar.RunContext.Config.GitHubInstance
+		return sar.RunContext.Config.DefaultActionURL() == sar.RunContext.Config.GitHubInstance
 	}
 	// Return true if the URL of the remote action is the same as the URL of the Gitea instance
 	return sar.remoteAction.URL == sar.RunContext.Config.GitHubInstance
@@ -427,7 +441,9 @@ type remoteAction struct {
 
 func (ra *remoteAction) CloneURL(u string) string {
 	if ra.URL == "" {
-		if !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
+		// keep an absolute local path as-is (used by tests to resolve actions from a local
+		// repo); only bare host names get the https:// scheme prepended
+		if !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") && !filepath.IsAbs(u) {
 			u = "https://" + u
 		}
 	} else {

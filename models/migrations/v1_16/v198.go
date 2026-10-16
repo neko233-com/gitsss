@@ -6,12 +6,11 @@ package v1_16
 import (
 	"fmt"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func AddTableIssueContentHistory(x *xorm.Engine) error {
+func AddTableIssueContentHistory(x db.EngineMigration) error {
 	type IssueContentHistory struct {
 		ID             int64 `xorm:"pk autoincr"`
 		PosterID       int64

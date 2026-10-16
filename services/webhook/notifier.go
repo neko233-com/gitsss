@@ -17,7 +17,6 @@ import (
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/git"
-	"github.com/neko233-com/gitsss/modules/gitrepo"
 	"github.com/neko233-com/gitsss/modules/httplib"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/repository"
@@ -818,7 +817,7 @@ func (m *webhookNotifier) CreateRef(ctx context.Context, pusher *user_model.User
 	}
 }
 
-func (m *webhookNotifier) PullRequestSynchronized(ctx context.Context, doer *user_model.User, pr *issues_model.PullRequest) {
+func (m *webhookNotifier) PullRequestSynchronized(ctx context.Context, doer *user_model.User, pr *issues_model.PullRequest, before, after string) {
 	if err := pr.LoadIssue(ctx); err != nil {
 		log.Error("LoadIssue: %v", err)
 		return
@@ -830,6 +829,8 @@ func (m *webhookNotifier) PullRequestSynchronized(ctx context.Context, doer *use
 
 	if err := PrepareWebhooks(ctx, EventSource{Repository: pr.Issue.Repo}, webhook_module.HookEventPullRequestSync, &api.PullRequestPayload{
 		Action:      api.HookIssueSynchronized,
+		Before:      before,
+		After:       after,
 		Index:       pr.Issue.Index,
 		PullRequest: convert.ToAPIPullRequest(ctx, pr, doer),
 		Repository:  convert.ToRepo(ctx, pr.Issue.Repo, access_model.Permission{AccessMode: perm.AccessModeOwner}),
@@ -1027,23 +1028,19 @@ func (*webhookNotifier) WorkflowRunStatusUpdate(ctx context.Context, repo *repo_
 
 	status := convert.ToWorkflowRunAction(run.Status)
 
-	gitRepo, err := gitrepo.OpenRepository(ctx, repo)
+	// Resolve the workflow definition from its source repo.
+	convertedWorkflow, err := convert.ResolveActionWorkflowForRun(ctx, repo, run)
 	if err != nil {
-		log.Error("OpenRepository: %v", err)
-		return
-	}
-	defer gitRepo.Close()
-
-	convertedWorkflow, err := convert.GetActionWorkflowByRef(ctx, gitRepo, repo, run.WorkflowID, git.RefName(run.Ref))
-	if err != nil && errors.Is(err, util.ErrNotExist) {
-		convertedWorkflow, err = convert.GetActionWorkflow(ctx, gitRepo, repo, run.WorkflowID)
-	}
-	if err != nil {
-		log.Error("GetActionWorkflow: %v", err)
+		if errors.Is(err, util.ErrNotExist) {
+			log.Debug("WorkflowRunStatusUpdate: workflow %q for run %d not found: %v", run.WorkflowID, run.ID, err)
+			return
+		}
+		log.Error("ResolveActionWorkflowForRun: %v", err)
 		return
 	}
 
-	convertedRun, err := convert.ToActionWorkflowRun(ctx, repo, run)
+	run.Repo = repo
+	convertedRun, err := convert.ToActionWorkflowRun(ctx, run, nil, false)
 	if err != nil {
 		log.Error("ToActionWorkflowRun: %v", err)
 		return

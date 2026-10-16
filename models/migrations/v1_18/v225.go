@@ -4,12 +4,11 @@
 package v1_18
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/setting"
-
-	"xorm.io/xorm"
 )
 
-func AlterPublicGPGKeyContentFieldsToMediumText(x *xorm.Engine) error {
+func AlterPublicGPGKeyContentFieldsToMediumText(x db.EngineMigration) error {
 	sess := x.NewSession()
 	defer sess.Close()
 	if err := sess.Begin(); err != nil {

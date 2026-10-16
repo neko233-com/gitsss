@@ -17,6 +17,7 @@ import (
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/gitrepo"
 	"github.com/neko233-com/gitsss/modules/setting"
+	"github.com/neko233-com/gitsss/modules/test"
 	"github.com/neko233-com/gitsss/services/migrations"
 	mirror_service "github.com/neko233-com/gitsss/services/mirror"
 	repo_service "github.com/neko233-com/gitsss/services/repository"
@@ -35,7 +36,7 @@ func TestMirrorPushWikiDefaultBranchMismatch(t *testing.T) {
 }
 
 func testMirrorPush(t *testing.T, u *url.URL) {
-	setting.Migrations.AllowLocalNetworks = true
+	defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 	assert.NoError(t, migrations.Init())
 
 	_ = db.TruncateBeans(t.Context(), &repo_model.PushMirror{})
@@ -83,7 +84,7 @@ func testMirrorPush(t *testing.T, u *url.URL) {
 }
 
 func testMirrorPushWikiDefaultBranchMismatch(t *testing.T, u *url.URL) {
-	setting.Migrations.AllowLocalNetworks = true
+	defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 	assert.NoError(t, migrations.Init())
 
 	_ = db.TruncateBeans(t.Context(), &repo_model.PushMirror{})
@@ -154,7 +155,7 @@ func doUpdatePushMirror(t *testing.T, session *TestSession, owner, repo string, 
 
 func TestRepoSettingPushMirrorUpdate(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
-	setting.Migrations.AllowLocalNetworks = true
+	defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 	assert.NoError(t, migrations.Init())
 
 	session := loginUser(t, "user2")

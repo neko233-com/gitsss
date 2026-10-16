@@ -166,6 +166,14 @@ jobs:
 		assert.Equal(t, addFileToForkedResp.Commit.SHA, actionRun.CommitSHA)
 		assert.Equal(t, actions_module.GithubEventPullRequestTarget, actionRun.TriggerEvent)
 
+		// require the workflow's status check on the base branch, so a filtered-out run posts a skipped status to satisfy it
+		require.NoError(t, git_model.UpdateProtectBranch(t.Context(), baseRepo, &git_model.ProtectedBranch{
+			RepoID:              baseRepo.ID,
+			RuleName:            "main",
+			EnableStatusCheck:   true,
+			StatusCheckContexts: []string{"*"},
+		}, git_model.WhitelistOptions{}))
+
 		// add another file whose name cannot match the specified path
 		addFileToForkedResp, err = files_service.ChangeRepoFiles(t.Context(), forkedRepo, user4, &files_service.ChangeRepoFilesOptions{
 			Files: []*files_service.ChangeRepoFile{
@@ -215,8 +223,68 @@ jobs:
 		err = pull_service.NewPullRequest(t.Context(), prOpts)
 		assert.NoError(t, err)
 
-		// the new pull request cannot trigger actions, so there is still only 1 record
+		// the new pull request is filtered by paths, so no run is created; a skipped commit status is posted instead
 		assert.Equal(t, 1, unittest.GetCount(t, &actions_model.ActionRun{RepoID: baseRepo.ID}))
+		assertSkippedCommitStatusExists(t, baseRepo.ID, addFileToForkedResp.Commit.SHA, "pull_request_target")
+
+		// delete the branch protection rule: with nothing required, a filtered-out run must post no skipped status
+		pb, err := git_model.GetProtectedBranchRuleByName(t.Context(), baseRepo.ID, "main")
+		require.NoError(t, err)
+		require.NotNil(t, pb)
+		require.NoError(t, git_model.DeleteProtectedBranch(t.Context(), baseRepo, pb.ID))
+
+		// add another file whose name cannot match the specified path
+		addFileToForkedResp, err = files_service.ChangeRepoFiles(t.Context(), forkedRepo, user4, &files_service.ChangeRepoFilesOptions{
+			Files: []*files_service.ChangeRepoFile{
+				{
+					Operation:     "create",
+					TreePath:      "bar.txt",
+					ContentReader: strings.NewReader("bar"),
+				},
+			},
+			Message:   "add bar.txt",
+			OldBranch: "main",
+			NewBranch: "fork-branch-3",
+			Author: &files_service.IdentityOptions{
+				GitUserName:  user4.Name,
+				GitUserEmail: user4.Email,
+			},
+			Committer: &files_service.IdentityOptions{
+				GitUserName:  user4.Name,
+				GitUserEmail: user4.Email,
+			},
+			Dates: &files_service.CommitDateOptions{
+				Author:    time.Now(),
+				Committer: time.Now(),
+			},
+		})
+		assert.NoError(t, err)
+		assert.NotEmpty(t, addFileToForkedResp)
+
+		// create Pull
+		pullIssue = &issues_model.Issue{
+			RepoID:   baseRepo.ID,
+			Title:    "A mismatched path with no required status check posts no skipped status",
+			PosterID: user4.ID,
+			Poster:   user4,
+			IsPull:   true,
+		}
+		pullRequest = &issues_model.PullRequest{
+			HeadRepoID: forkedRepo.ID,
+			BaseRepoID: baseRepo.ID,
+			HeadBranch: "fork-branch-3",
+			BaseBranch: "main",
+			HeadRepo:   forkedRepo,
+			BaseRepo:   baseRepo,
+			Type:       issues_model.PullRequestGitea,
+		}
+		prOpts = &pull_service.NewPullRequestOptions{Repo: baseRepo, Issue: pullIssue, PullRequest: pullRequest}
+		err = pull_service.NewPullRequest(t.Context(), prOpts)
+		assert.NoError(t, err)
+
+		// filtered by paths and no required status check remains, so no run and no skipped commit status
+		assert.Equal(t, 1, unittest.GetCount(t, &actions_model.ActionRun{RepoID: baseRepo.ID}))
+		assertNoSkippedCommitStatusExists(t, baseRepo.ID, addFileToForkedResp.Commit.SHA, "pull_request_target")
 	})
 }
 
@@ -338,6 +406,10 @@ jobs:
 		})
 		assert.NoError(t, err)
 		assert.NotEmpty(t, addFileToBranchResp)
+		// the push to test-skip-ci is filtered by branches, so no run is created;
+		// its context is not a required status check either, so no skipped commit status is posted.
+		assert.Equal(t, 1, unittest.GetCount(t, &actions_model.ActionRun{RepoID: repo.ID}))
+		assertNoSkippedCommitStatusExists(t, repo.ID, addFileToBranchResp.Commit.SHA, "push")
 
 		resp := testPullCreate(t, session, "user2", "skip-ci", true, "master", "test-skip-ci", "[skip ci] test-skip-ci")
 
@@ -345,7 +417,7 @@ jobs:
 		url := test.RedirectURL(resp)
 		assert.Regexp(t, "^/user2/skip-ci/pulls/[0-9]*$", url)
 
-		// the pr title contains a configured skip-ci string, so there is still only 1 record
+		// the pr title contains a configured skip-ci string, so no run and no skipped status are created
 		assert.Equal(t, 1, unittest.GetCount(t, &actions_model.ActionRun{RepoID: repo.ID}))
 	})
 }
@@ -638,7 +710,7 @@ jobs:
 				return false
 			}
 			if latestCommitStatuses[0].State == commitstatus.CommitStatusPending {
-				insertFakeStatus(t, repo, sha, latestCommitStatuses[0].TargetURL, latestCommitStatuses[0].Context)
+				insertFakeStatus(t, repo, sha, latestCommitStatuses[0])
 				return true
 			}
 			return false
@@ -680,14 +752,18 @@ func checkCommitStatusAndInsertFakeStatus(t *testing.T, repo *repo_model.Reposit
 	assert.Len(t, latestCommitStatuses, 1)
 	assert.Equal(t, commitstatus.CommitStatusPending, latestCommitStatuses[0].State)
 
-	insertFakeStatus(t, repo, sha, latestCommitStatuses[0].TargetURL, latestCommitStatuses[0].Context)
+	insertFakeStatus(t, repo, sha, latestCommitStatuses[0])
 }
 
-func insertFakeStatus(t *testing.T, repo *repo_model.Repository, sha, targetURL, context string) {
+// insertFakeStatus inserts a success status that lands in the same dedupe
+// group as `prev` — the actions runner mixes the workflow file path into
+// ContextHash, so we must reuse it (rather than recomputing from Context).
+func insertFakeStatus(t *testing.T, repo *repo_model.Repository, sha string, prev *git_model.CommitStatus) {
 	err := commitstatus_service.CreateCommitStatus(t.Context(), repo, user_model.NewActionsUser(), sha, &git_model.CommitStatus{
-		State:     commitstatus.CommitStatusSuccess,
-		TargetURL: targetURL,
-		Context:   context,
+		State:       commitstatus.CommitStatusSuccess,
+		TargetURL:   prev.TargetURL,
+		Context:     prev.Context,
+		ContextHash: prev.ContextHash,
 	})
 	assert.NoError(t, err)
 }
@@ -822,7 +898,7 @@ jobs:
 				return false
 			}
 			if latestCommitStatuses[0].State == commitstatus.CommitStatusPending {
-				insertFakeStatus(t, repo, sha, latestCommitStatuses[0].TargetURL, latestCommitStatuses[0].Context)
+				insertFakeStatus(t, repo, sha, latestCommitStatuses[0])
 				return true
 			}
 			return false
@@ -931,6 +1007,76 @@ jobs:
 	})
 }
 
+func TestWorkflowDispatchPublicApiRequiresWorkflowDispatchTrigger(t *testing.T) {
+	onGiteaRun(t, func(t *testing.T, u *url.URL) {
+		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+		session := loginUser(t, user2.Name)
+		token := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeWriteRepository)
+
+		repo, err := repo_service.CreateRepository(t.Context(), user2, user2, repo_service.CreateRepoOptions{
+			Name:          "workflow-dispatch-requires-trigger",
+			Description:   "test workflow dispatch requires workflow_dispatch",
+			AutoInit:      true,
+			Gitignores:    "Go",
+			License:       "MIT",
+			Readme:        "Default",
+			DefaultBranch: "main",
+			IsPrivate:     false,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, repo)
+
+		addWorkflowToBaseResp, err := files_service.ChangeRepoFiles(t.Context(), repo, user2, &files_service.ChangeRepoFilesOptions{
+			Files: []*files_service.ChangeRepoFile{
+				{
+					Operation: "create",
+					TreePath:  ".gitea/workflows/push-only.yml",
+					ContentReader: strings.NewReader(`
+on:
+  push:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo helloworld
+`),
+				},
+			},
+			Message:   "add workflow",
+			OldBranch: "main",
+			NewBranch: "main",
+			Author: &files_service.IdentityOptions{
+				GitUserName:  user2.Name,
+				GitUserEmail: user2.Email,
+			},
+			Committer: &files_service.IdentityOptions{
+				GitUserName:  user2.Name,
+				GitUserEmail: user2.Email,
+			},
+			Dates: &files_service.CommitDateOptions{
+				Author:    time.Now(),
+				Committer: time.Now(),
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, addWorkflowToBaseResp)
+
+		values := url.Values{}
+		values.Set("ref", "main")
+		req := NewRequestWithURLValues(t, "POST", fmt.Sprintf("/api/v1/repos/%s/actions/workflows/push-only.yml/dispatches", repo.FullName()), values).
+			AddTokenAuth(token)
+		resp := MakeRequest(t, req, http.StatusUnprocessableEntity)
+		apiError := DecodeJSON(t, resp, &api.APIError{})
+		assert.Contains(t, apiError.Message, "has no workflow_dispatch event trigger")
+
+		unittest.AssertNotExistsBean(t, &actions_model.ActionRun{
+			RepoID:     repo.ID,
+			Event:      "workflow_dispatch",
+			WorkflowID: "push-only.yml",
+		})
+	})
+}
+
 func TestWorkflowDispatchPublicApiWithInputs(t *testing.T) {
 	onGiteaRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -1018,7 +1164,7 @@ jobs:
 		assert.Contains(t, dispatchPayload.Inputs, "myinput3")
 		assert.Equal(t, "val0", dispatchPayload.Inputs["myinput"])
 		assert.Equal(t, "def2", dispatchPayload.Inputs["myinput2"])
-		assert.Equal(t, "true", dispatchPayload.Inputs["myinput3"])
+		assert.Equal(t, true, dispatchPayload.Inputs["myinput3"])
 	})
 }
 
@@ -1198,7 +1344,7 @@ jobs:
 		assert.Contains(t, dispatchPayload.Inputs, "myinput3")
 		assert.Equal(t, "val0", dispatchPayload.Inputs["myinput"])
 		assert.Equal(t, "def2", dispatchPayload.Inputs["myinput2"])
-		assert.Equal(t, "true", dispatchPayload.Inputs["myinput3"])
+		assert.Equal(t, true, dispatchPayload.Inputs["myinput3"])
 	})
 }
 
@@ -1329,7 +1475,7 @@ jobs:
 		assert.Contains(t, dispatchPayload.Inputs, "myinput3")
 		assert.Equal(t, "val0", dispatchPayload.Inputs["myinput"])
 		assert.Equal(t, "def2", dispatchPayload.Inputs["myinput2"])
-		assert.Equal(t, "true", dispatchPayload.Inputs["myinput3"])
+		assert.Equal(t, true, dispatchPayload.Inputs["myinput3"])
 	})
 }
 
@@ -1526,7 +1672,7 @@ jobs:
 		assert.Contains(t, dispatchPayload.Inputs, "myinput3")
 		assert.Equal(t, "val0", dispatchPayload.Inputs["myinput"])
 		assert.Equal(t, "def2", dispatchPayload.Inputs["myinput2"])
-		assert.Equal(t, "true", dispatchPayload.Inputs["myinput3"])
+		assert.Equal(t, true, dispatchPayload.Inputs["myinput3"])
 	})
 }
 
@@ -1568,8 +1714,7 @@ jobs:
 				Name: new("close-pull-request-with-path-fork"),
 			}).AddTokenAuth(user4Token)
 		resp := MakeRequest(t, req, http.StatusAccepted)
-		var apiForkRepo api.Repository
-		DecodeJSON(t, resp, &apiForkRepo)
+		apiForkRepo := DecodeJSON(t, resp, &api.Repository{})
 		forkRepo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: apiForkRepo.ID})
 		user4APICtx := NewAPITestContext(t, user4.Name, forkRepo.Name, auth_model.AccessTokenScopeWriteRepository)
 
@@ -1802,7 +1947,33 @@ jobs:
 		testEditFile(t, session, "user2", repoName, repo.DefaultBranch, "dir1/dir1.txt", "11")
 		// update by rebase
 		req := NewRequest(t, "POST", fmt.Sprintf("/%s/%s/pulls/%d/update?style=rebase", "user2", repoName, apiPull.Index))
-		session.MakeRequest(t, req, http.StatusSeeOther)
+		session.MakeRequest(t, req, http.StatusOK)
 		runner.fetchNoTask(t)
 	})
+}
+
+// assertSkippedCommitStatusExists asserts that a filtered-out required workflow posted a skipped commit status on sha
+func assertSkippedCommitStatusExists(t *testing.T, repoID int64, sha, eventSuffix string) {
+	t.Helper()
+	assert.Truef(t, hasSkippedCommitStatus(t, repoID, sha, eventSuffix), "missing skipped commit status with event %q on %s", eventSuffix, sha)
+}
+
+// assertNoSkippedCommitStatusExists asserts that no skipped commit status for the given event was posted on sha,
+// e.g. a filtered-out workflow whose context is not a required status check must not leave one behind.
+func assertNoSkippedCommitStatusExists(t *testing.T, repoID int64, sha, eventSuffix string) {
+	t.Helper()
+	assert.Falsef(t, hasSkippedCommitStatus(t, repoID, sha, eventSuffix), "unexpected skipped commit status with event %q on %s", eventSuffix, sha)
+}
+
+// hasSkippedCommitStatus reports whether a skipped commit status for the given event was posted on sha.
+func hasSkippedCommitStatus(t *testing.T, repoID int64, sha, eventSuffix string) bool {
+	t.Helper()
+	statuses, err := git_model.GetLatestCommitStatus(t.Context(), repoID, sha, db.ListOptionsAll)
+	require.NoError(t, err)
+	for _, s := range statuses {
+		if s.State == commitstatus.CommitStatusSkipped && strings.Contains(s.Context, "("+eventSuffix+")") {
+			return true
+		}
+	}
+	return false
 }

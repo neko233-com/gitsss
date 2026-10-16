@@ -4,11 +4,12 @@
 package v1_7
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
+
 	"xorm.io/builder"
-	"xorm.io/xorm"
 )
 
-func ClearNonusedData(x *xorm.Engine) error {
+func ClearNonusedData(x db.EngineMigration) error {
 	condDelete := func(colName string) builder.Cond {
 		return builder.NotIn(colName, builder.Select("id").From("`user`"))
 	}

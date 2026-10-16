@@ -38,9 +38,11 @@ var (
 	ErrNoRepo   = errors.New("unable to find git repo")
 )
 
-// acquireCloneLock returns an unlock function after locking the per-directory mutex for dir.
-// Only concurrent operations targeting the same directory are erialized; clones into different directories run in parallel.
-func acquireCloneLock(dir string) func() {
+// AcquireCloneLock returns an unlock function after locking the per-directory mutex for dir.
+// Only concurrent operations targeting the same directory are serialized; clones into different directories run in parallel.
+// Callers reading files inside dir (e.g. tarring a checked-out action into a job container) must hold this lock too,
+// otherwise a concurrent NewGitCloneExecutor on the same dir can mutate the worktree mid-read.
+func AcquireCloneLock(dir string) func() {
 	v, _ := cloneLocks.LoadOrStore(dir, &sync.Mutex{})
 	mu := v.(*sync.Mutex)
 	mu.Lock()
@@ -64,8 +66,21 @@ func (e *Error) Commit() string {
 	return e.commit
 }
 
+// goGitMu serializes go-git repository access across the process. go-git is not safe for
+// concurrent use of the same repository (even read access decodes packfiles into shared
+// state), so parallel jobs inspecting the shared workdir repo race without this. The guarded
+// operations are fast local reads; gitea runs one job per process, so the lock is effectively
+// uncontended in production.
+var goGitMu sync.Mutex
+
 // FindGitRevision get the current git revision
 func FindGitRevision(ctx context.Context, file string) (shortSha, sha string, err error) {
+	goGitMu.Lock()
+	defer goGitMu.Unlock()
+	return findGitRevision(ctx, file)
+}
+
+func findGitRevision(ctx context.Context, file string) (shortSha, sha string, err error) {
 	logger := common.Logger(ctx)
 
 	gitDir, err := git.PlainOpenWithOptions(
@@ -97,10 +112,13 @@ func FindGitRevision(ctx context.Context, file string) (shortSha, sha string, er
 
 // FindGitRef get the current git ref
 func FindGitRef(ctx context.Context, file string) (string, error) {
+	goGitMu.Lock()
+	defer goGitMu.Unlock()
+
 	logger := common.Logger(ctx)
 
 	logger.Debugf("Loading revision from git directory")
-	_, ref, err := FindGitRevision(ctx, file)
+	_, ref, err := findGitRevision(ctx, file)
 	if err != nil {
 		return "", err
 	}
@@ -172,6 +190,8 @@ func FindGitRef(ctx context.Context, file string) (string, error) {
 
 // FindGithubRepo get the repo
 func FindGithubRepo(ctx context.Context, file, githubInstance, remoteName string) (string, error) {
+	goGitMu.Lock()
+	defer goGitMu.Unlock()
 	if remoteName == "" {
 		remoteName = "origin"
 	}
@@ -241,47 +261,50 @@ type NewGitCloneExecutorInput struct {
 	InsecureSkipTLS bool
 }
 
-// CloneIfRequired ...
-func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input NewGitCloneExecutorInput, logger log.FieldLogger) (*git.Repository, error) {
+// CloneIfRequired returns the repository and a boolean indicating whether an existing local clone was reused.
+func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input NewGitCloneExecutorInput, logger log.FieldLogger) (*git.Repository, bool, error) {
 	r, err := git.PlainOpen(input.Dir)
-	if err != nil {
-		var progressWriter io.Writer
-		if isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()) {
-			if entry, ok := logger.(*log.Entry); ok {
-				progressWriter = entry.WriterLevel(log.DebugLevel)
-			} else if lgr, ok := logger.(*log.Logger); ok {
-				progressWriter = lgr.WriterLevel(log.DebugLevel)
-			} else {
-				log.Errorf("Unable to get writer from logger (type=%T)", logger)
-				progressWriter = os.Stdout
-			}
-		}
+	if err == nil {
+		// Reuse existing clone
+		return r, true, nil
+	}
 
-		cloneOptions := git.CloneOptions{
-			URL:      input.URL,
-			Progress: progressWriter,
-
-			InsecureSkipTLS: input.InsecureSkipTLS, // For Gitea
-		}
-		if input.Token != "" {
-			cloneOptions.Auth = &http.BasicAuth{
-				Username: "token",
-				Password: input.Token,
-			}
-		}
-
-		r, err = git.PlainCloneContext(ctx, input.Dir, false, &cloneOptions)
-		if err != nil {
-			logger.Errorf("Unable to clone %v %s: %v", input.URL, refName, err)
-			return nil, err
-		}
-
-		if err = os.Chmod(input.Dir, 0o755); err != nil {
-			return nil, err
+	var progressWriter io.Writer
+	if isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()) {
+		if entry, ok := logger.(*log.Entry); ok {
+			progressWriter = entry.WriterLevel(log.DebugLevel)
+		} else if lgr, ok := logger.(*log.Logger); ok {
+			progressWriter = lgr.WriterLevel(log.DebugLevel)
+		} else {
+			log.Errorf("Unable to get writer from logger (type=%T)", logger)
+			progressWriter = os.Stdout
 		}
 	}
 
-	return r, nil
+	cloneOptions := git.CloneOptions{
+		URL:      input.URL,
+		Progress: progressWriter,
+
+		InsecureSkipTLS: input.InsecureSkipTLS, // For Gitea
+	}
+	if input.Token != "" {
+		cloneOptions.Auth = &http.BasicAuth{
+			Username: "token",
+			Password: input.Token,
+		}
+	}
+
+	r, err = git.PlainCloneContext(ctx, input.Dir, false, &cloneOptions)
+	if err != nil {
+		logger.Errorf("Unable to clone %v %s: %v", input.URL, refName, err)
+		return nil, false, err
+	}
+
+	if err = os.Chmod(input.Dir, 0o755); err != nil {
+		return nil, false, err
+	}
+
+	return r, false, nil
 }
 
 func gitOptions(token string) (fetchOptions git.FetchOptions, pullOptions git.PullOptions) {
@@ -305,13 +328,13 @@ func gitOptions(token string) (fetchOptions git.FetchOptions, pullOptions git.Pu
 func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
-		logger.Infof("  \u2601  git clone '%s' # ref=%s", input.URL, input.Ref)
+		logger.Infof("git clone '%s' # ref=%s", input.URL, input.Ref)
 		logger.Debugf("  cloning %s to %s", input.URL, input.Dir)
 
-		defer acquireCloneLock(input.Dir)()
+		defer AcquireCloneLock(input.Dir)()
 
 		refName := plumbing.ReferenceName("refs/heads/" + input.Ref)
-		r, err := CloneIfRequired(ctx, refName, input, logger)
+		r, reused, err := CloneIfRequired(ctx, refName, input, logger)
 		if err != nil {
 			return err
 		}
@@ -336,10 +359,10 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 		var hash *plumbing.Hash
 		rev := plumbing.Revision(input.Ref)
 		if hash, err = r.ResolveRevision(rev); err != nil {
+			// ResolveRevision returns a nil hash on error, and a branch ref legitimately fails
+			// here (no local refs/heads/<ref>); the duck-typing below resolves it.
 			logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
-		}
-
-		if hash.String() != input.Ref && strings.HasPrefix(hash.String(), input.Ref) {
+		} else if hash.String() != input.Ref && strings.HasPrefix(hash.String(), input.Ref) {
 			return &Error{
 				err:    ErrShortRef,
 				commit: hash.String(),
@@ -390,12 +413,18 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 				return err
 			}
 		}
+
+		reusedMsg := ""
+
 		if !isOfflineMode {
 			if err = w.Pull(&pullOptions); err != nil && err != git.NoErrAlreadyUpToDate {
 				logger.Debugf("Unable to pull %s: %v", refName, err)
 			}
+		} else if reused {
+			reusedMsg = " (reused in offline mode)"
 		}
-		logger.Debugf("Cloned %s to %s", input.URL, input.Dir)
+
+		logger.Debugf("Cloned %s to %s%s", input.URL, input.Dir, reusedMsg)
 
 		if hash.String() != input.Ref && refType == "branch" {
 			logger.Debugf("Provided ref is not a sha. Updating branch ref after pull")

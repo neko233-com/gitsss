@@ -31,8 +31,9 @@ type MigrateOptions = base.MigrateOptions
 var (
 	factories []base.DownloaderFactory
 
-	allowList *hostmatcher.HostMatchList
-	blockList *hostmatcher.HostMatchList
+	allowList         *hostmatcher.HostMatchList
+	blockList         *hostmatcher.HostMatchList
+	migrationLookupIP = net.LookupIP
 )
 
 // RegisterDownloaderFactory registers a downloader factory
@@ -43,20 +44,30 @@ func RegisterDownloaderFactory(factory base.DownloaderFactory) {
 // IsMigrateURLAllowed checks if an URL is allowed to be migrated from
 func IsMigrateURLAllowed(remoteURL string, doer *user_model.User) error {
 	// Remote address can be HTTP/HTTPS/Git URL or local path.
+	if filepath.IsAbs(remoteURL) {
+		remoteURL = util.FilePathToURL(remoteURL)
+	}
 	u, err := url.Parse(remoteURL)
 	if err != nil {
 		return &git.ErrInvalidCloneAddr{IsURLError: true, Host: remoteURL}
 	}
 
 	if u.Scheme == "file" || u.Scheme == "" {
+		localPath := u.Host + u.Path
+		if u.Scheme == "file" && u.Host == "" {
+			localPath, err = util.FileURLToPath(u)
+			if err != nil {
+				return err
+			}
+		}
 		if !doer.CanImportLocal() {
 			return &git.ErrInvalidCloneAddr{Host: "<LOCAL_FILESYSTEM>", IsPermissionDenied: true, LocalPath: true}
 		}
-		isAbs := filepath.IsAbs(u.Host + u.Path)
+		isAbs := filepath.IsAbs(localPath)
 		if !isAbs {
 			return &git.ErrInvalidCloneAddr{Host: "<LOCAL_FILESYSTEM>", IsInvalidPath: true, LocalPath: true}
 		}
-		isDir, err := util.IsDir(u.Host + u.Path)
+		isDir, err := util.IsDir(localPath)
 		if err != nil {
 			log.Error("Unable to check if %s is a directory: %v", u.Host+u.Path, err)
 			return err
@@ -82,20 +93,19 @@ func IsMigrateURLAllowed(remoteURL string, doer *user_model.User) error {
 	}
 
 	// some users only use proxy, there is no DNS resolver. it's safe to ignore the LookupIP error
-	addrList, _ := net.LookupIP(hostName)
+	addrList, _ := migrationLookupIP(hostName)
 	return checkByAllowBlockList(hostName, addrList)
 }
 
 func checkByAllowBlockList(hostName string, addrList []net.IP) error {
-	var ipAllowed bool
+	ipAllowed := len(addrList) > 0
 	var ipBlocked bool
 	for _, addr := range addrList {
-		ipAllowed = ipAllowed || allowList.MatchIPAddr(addr)
+		ipAllowed = ipAllowed && allowList.MatchIPAddr(addr)
 		ipBlocked = ipBlocked || blockList.MatchIPAddr(addr)
 	}
-	var blockedError error
 	if blockList.MatchHostName(hostName) || ipBlocked {
-		blockedError = &git.ErrInvalidCloneAddr{Host: hostName, IsPermissionDenied: true}
+		return &git.ErrInvalidCloneAddr{Host: hostName, IsPermissionDenied: true}
 	}
 	// if we have an allow-list, check the allow-list before return to get the more accurate error
 	if !allowList.IsEmpty() {
@@ -104,7 +114,7 @@ func checkByAllowBlockList(hostName string, addrList []net.IP) error {
 		}
 	}
 	// otherwise, we always follow the blocked list
-	return blockedError
+	return nil
 }
 
 // MigrateRepository migrate repository according MigrateOptions
@@ -524,9 +534,14 @@ func Init() error {
 	if setting.Migrations.AllowLocalNetworks {
 		allowList.AppendBuiltin(hostmatcher.MatchBuiltinPrivate)
 		allowList.AppendBuiltin(hostmatcher.MatchBuiltinLoopback)
+	} else {
+		blockList.AppendBuiltin(hostmatcher.MatchBuiltinPrivate)
+		blockList.AppendBuiltin(hostmatcher.MatchBuiltinLoopback)
 	}
-	// TODO: at the moment, if ALLOW_LOCALNETWORKS=false, ALLOWED_DOMAINS=domain.com, and domain.com has IP 127.0.0.1, then it's still allowed.
-	// if we want to block such case, the private&loopback should be added to the blockList when ALLOW_LOCALNETWORKS=false
+
+	// reset the shared client so it is rebuilt from the freshly parsed lists on next use; download paths
+	// then reuse one connection pool instead of creating a client (and pool) per request
+	migrationHTTPClient.Reset()
 
 	return nil
 }

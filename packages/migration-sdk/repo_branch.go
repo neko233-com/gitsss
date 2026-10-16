@@ -7,6 +7,7 @@ package gitea
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -63,24 +64,24 @@ type ListRepoBranchesOptions struct {
 }
 
 // ListRepoBranches list all the branches of one repository
-func (c *Client) ListRepoBranches(user, repo string, opt ListRepoBranchesOptions) ([]*Branch, *Response, error) {
+func (c *RepositoriesService) ListRepoBranches(ctx context.Context, user, repo string, opt ListRepoBranchesOptions) ([]*Branch, *Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo); err != nil {
 		return nil, nil, err
 	}
 	opt.setDefaults()
 	branches := make([]*Branch, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/repos/%s/%s/branches?%s", user, repo, opt.getURLQuery().Encode()), nil, nil, &branches)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/branches?%s", user, repo, opt.getURLQuery().Encode()), nil, nil, &branches)
 	return branches, resp, err
 }
 
 // GetRepoBranch get one branch's information of one repository
-func (c *Client) GetRepoBranch(user, repo, branch string) (*Branch, *Response, error) {
+func (c *RepositoriesService) GetRepoBranch(ctx context.Context, user, repo, branch string) (*Branch, *Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo); err != nil {
 		return nil, nil, err
 	}
 	branch = pathEscapeSegments(branch)
 	b := new(Branch)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/repos/%s/%s/branches/%s", user, repo, branch), nil, nil, &b)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/branches/%s", user, repo, branch), nil, nil, &b)
 	if err != nil {
 		return nil, resp, err
 	}
@@ -88,15 +89,15 @@ func (c *Client) GetRepoBranch(user, repo, branch string) (*Branch, *Response, e
 }
 
 // DeleteRepoBranch delete a branch in a repository
-func (c *Client) DeleteRepoBranch(user, repo, branch string) (bool, *Response, error) {
+func (c *RepositoriesService) DeleteRepoBranch(ctx context.Context, user, repo, branch string) (bool, *Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo); err != nil {
 		return false, nil, err
 	}
 	branch = pathEscapeSegments(branch)
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_12_0); err != nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); err != nil {
 		return false, nil, err
 	}
-	status, resp, err := c.getStatusCode("DELETE", fmt.Sprintf("/repos/%s/%s/branches/%s", user, repo, branch), nil, nil)
+	status, resp, err := c.getStatusCode(ctx, "DELETE", fmt.Sprintf("/repos/%s/%s/branches/%s", user, repo, branch), nil, nil)
 	if err != nil {
 		return false, resp, err
 	}
@@ -144,12 +145,12 @@ func (opt UpdateRepoBranchRefOption) Validate() error {
 }
 
 // RenameRepoBranch renames a branch in a repository.
-func (c *Client) RenameRepoBranch(user, repo, branch string, opt RenameRepoBranchOption) (successful bool, resp *Response, err error) {
+func (c *RepositoriesService) RenameRepoBranch(ctx context.Context, user, repo, branch string, opt RenameRepoBranchOption) (successful bool, resp *Response, err error) {
 	if err := escapeValidatePathSegments(&user, &repo); err != nil {
 		return false, nil, err
 	}
 	branch = pathEscapeSegments(branch)
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_24_0); err != nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_24_0); err != nil {
 		return false, nil, err
 	}
 	if err := opt.Validate(); err != nil {
@@ -159,13 +160,14 @@ func (c *Client) RenameRepoBranch(user, repo, branch string, opt RenameRepoBranc
 	if err != nil {
 		return false, nil, err
 	}
-	status, resp, err := c.getStatusCode("PATCH", fmt.Sprintf("/repos/%s/%s/branches/%s", user, repo, branch), jsonHeader, bytes.NewReader(body))
+	status, resp, err := c.getStatusCode(ctx, "PATCH", fmt.Sprintf("/repos/%s/%s/branches/%s", user, repo, branch), jsonHeader, bytes.NewReader(body))
 	return status == 204, resp, err
 }
 
 // UpdateRepoBranchRef updates the commit a branch points to.
-// This endpoint is not yet available in any released Gitea version.
-func (c *Client) UpdateRepoBranchRef(user, repo, branch string, opt UpdateRepoBranchRefOption) (successful bool, resp *Response, err error) {
+// Available on Gitea main/nightly; first released version not assigned yet.
+// Upstream: gitea/gitea#35951 (a440116a16c42956f21031bea8422ffbb003c732).
+func (c *RepositoriesService) UpdateRepoBranchRef(ctx context.Context, user, repo, branch string, opt UpdateRepoBranchRefOption) (successful bool, resp *Response, err error) {
 	if err := escapeValidatePathSegments(&user, &repo); err != nil {
 		return false, nil, err
 	}
@@ -177,16 +179,8 @@ func (c *Client) UpdateRepoBranchRef(user, repo, branch string, opt UpdateRepoBr
 	if err != nil {
 		return false, nil, err
 	}
-	status, resp, err := c.getStatusCode("PUT", fmt.Sprintf("/repos/%s/%s/branches/%s", user, repo, branch), jsonHeader, bytes.NewReader(body))
+	status, resp, err := c.getStatusCode(ctx, "PUT", fmt.Sprintf("/repos/%s/%s/branches/%s", user, repo, branch), jsonHeader, bytes.NewReader(body))
 	return status == 204, resp, err
-}
-
-// UpdateRepoBranch renames a branch in a repository.
-//
-// Deprecated: Use RenameRepoBranch instead (identical behavior, clearer name).
-// For updating the commit a branch points to, use UpdateRepoBranchRef (PUT).
-func (c *Client) UpdateRepoBranch(user, repo, branch string, opt UpdateRepoBranchOption) (sucessful bool, resp *Response, err error) {
-	return c.RenameRepoBranch(user, repo, branch, RenameRepoBranchOption(opt))
 }
 
 // CreateBranchOption options when creating a branch in a repository
@@ -212,11 +206,11 @@ func (opt CreateBranchOption) Validate() error {
 }
 
 // CreateBranch creates a branch for a user's repository
-func (c *Client) CreateBranch(owner, repo string, opt CreateBranchOption) (*Branch, *Response, error) {
+func (c *RepositoriesService) CreateBranch(ctx context.Context, owner, repo string, opt CreateBranchOption) (*Branch, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_13_0); err != nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_13_0); err != nil {
 		return nil, nil, err
 	}
 	if err := opt.Validate(); err != nil {
@@ -227,6 +221,6 @@ func (c *Client) CreateBranch(owner, repo string, opt CreateBranchOption) (*Bran
 		return nil, nil, err
 	}
 	branch := new(Branch)
-	resp, err := c.getParsedResponse("POST", fmt.Sprintf("/repos/%s/%s/branches", owner, repo), jsonHeader, bytes.NewReader(body), branch)
+	resp, err := c.getParsedResponse(ctx, "POST", fmt.Sprintf("/repos/%s/%s/branches", owner, repo), jsonHeader, bytes.NewReader(body), branch)
 	return branch, resp, err
 }

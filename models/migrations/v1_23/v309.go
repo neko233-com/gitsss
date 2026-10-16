@@ -4,9 +4,9 @@
 package v1_23
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
 
-	"xorm.io/xorm"
 	"xorm.io/xorm/schemas"
 )
 
@@ -72,6 +72,6 @@ func (*improveNotificationTableIndicesAction) TableIndices() []*schemas.Index {
 	return indices
 }
 
-func ImproveNotificationTableIndices(x *xorm.Engine) error {
+func ImproveNotificationTableIndices(x db.EngineMigration) error {
 	return x.Sync(&improveNotificationTableIndicesAction{})
 }

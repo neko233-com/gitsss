@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/neko233-com/gitsss/modules/graceful"
 	"github.com/neko233-com/gitsss/modules/setting"
@@ -41,6 +42,52 @@ func Apply(rawPort string) error {
 	return nil
 }
 
+// AddAlias keeps the current listener open, adds another HTTP port, and makes
+// that port the public URL for clone and web links.
+func AddAlias(rawPort string) error {
+	port, err := ValidatePort(rawPort)
+	if err != nil {
+		return err
+	}
+	if setting.Protocol != setting.HTTP {
+		return errors.New("live port aliases are available for HTTP; HTTPS still needs a restart")
+	}
+	if port == setting.HTTPPort {
+		return fmt.Errorf("port %s is already the primary HTTP listener", port)
+	}
+	nextURL, err := RewriteRootURL(setting.AppURL, port)
+	if err != nil {
+		return err
+	}
+	for _, current := range setting.HTTPAdditionalPorts {
+		if current == port {
+			if setting.AppURL == nextURL {
+				return nil
+			}
+			if err := saveAdditional(setting.HTTPAdditionalPorts, nextURL); err != nil {
+				return err
+			}
+			setting.AppURL = nextURL
+			return nil
+		}
+	}
+	address := net.JoinHostPort(setting.HTTPAddr, port)
+	if err := graceful.AddWebListener("tcp", address); err != nil {
+		return fmt.Errorf("bind additional HTTP port %s: %w", port, err)
+	}
+	additionalPorts := append(append([]string(nil), setting.HTTPAdditionalPorts...), port)
+	if err := saveAdditional(additionalPorts, nextURL); err != nil {
+		removeErr := graceful.RemoveWebListener(address)
+		if removeErr != nil {
+			return fmt.Errorf("save HTTP port configuration: %w; rollback listener: %v", err, removeErr)
+		}
+		return err
+	}
+	setting.HTTPAdditionalPorts = additionalPorts
+	setting.AppURL = nextURL
+	return nil
+}
+
 func save(port, rootURL string) error {
 	if setting.CfgProvider == nil {
 		return errors.New("config is not loaded")
@@ -57,9 +104,31 @@ func save(port, rootURL string) error {
 	return nil
 }
 
+func saveAdditional(ports []string, rootURL string) error {
+	if setting.CfgProvider == nil {
+		return errors.New("config is not loaded")
+	}
+	saving, err := setting.CfgProvider.PrepareSaving()
+	if err != nil {
+		return err
+	}
+	setAdditionalKeys(saving, ports, rootURL)
+	if err := saving.Save(); err != nil {
+		return err
+	}
+	setAdditionalKeys(setting.CfgProvider, ports, rootURL)
+	return nil
+}
+
 func setKeys(cfg setting.ConfigProvider, port, rootURL string) {
 	section := cfg.Section("server")
 	writeKey(section, "HTTP_PORT", port)
+	writeKey(section, "ROOT_URL", rootURL)
+}
+
+func setAdditionalKeys(cfg setting.ConfigProvider, ports []string, rootURL string) {
+	section := cfg.Section("server")
+	writeKey(section, "HTTP_ADDITIONAL_PORTS", strings.Join(ports, ","))
 	writeKey(section, "ROOT_URL", rootURL)
 }
 

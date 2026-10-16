@@ -3,10 +3,8 @@
 
 package v1_21
 
-import (
-	"xorm.io/xorm"
-)
+import "github.com/neko233-com/gitsss/models/db"
 
-func DropDeletedBranchTable(x *xorm.Engine) error {
+func DropDeletedBranchTable(x db.EngineMigration) error {
 	return x.DropTables("deleted_branch")
 }

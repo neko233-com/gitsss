@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/neko233-com/gitsss/modules/git/gitcmd"
+	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/util"
 )
 
@@ -86,8 +87,11 @@ func (repo *Repository) UnstableGuessRefByShortName(shortName string) RefName {
 	commit, err := repo.GetCommit(shortName)
 	if err == nil {
 		commitIDString := commit.ID.String()
-		if strings.HasPrefix(commitIDString, shortName) {
+		// make sure the "shortName" is either partial commit ID, or it is HEAD
+		if strings.HasPrefix(commitIDString, shortName) || shortName == RefNameHead {
 			return RefName(commitIDString)
+		} else {
+			setting.PanicInDevOrTesting("abuse of UnstableGuessRefByShortName, queried %s, got %s", shortName, commitIDString)
 		}
 	}
 	return ""

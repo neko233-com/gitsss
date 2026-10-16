@@ -5,28 +5,29 @@
 package gitea
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 )
 
 // ListRepoPinnedIssues lists a repo's pinned issues
-func (c *Client) ListRepoPinnedIssues(owner, repo string) ([]*Issue, *Response, error) {
+func (c *IssuesService) ListRepoPinnedIssues(ctx context.Context, owner, repo string) ([]*Issue, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
 	issues := make([]*Issue, 0, 5)
-	resp, err := c.getParsedResponse("GET",
+	resp, err := c.getParsedResponse(ctx, "GET",
 		fmt.Sprintf("/repos/%s/%s/issues/pinned", owner, repo),
 		jsonHeader, nil, &issues)
 	return issues, resp, err
 }
 
 // PinIssue pins an issue
-func (c *Client) PinIssue(owner, repo string, index int64) (*Response, error) {
+func (c *IssuesService) PinIssue(ctx context.Context, owner, repo string, index int64) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	status, resp, err := c.getStatusCode("POST",
+	status, resp, err := c.getStatusCode(ctx, "POST",
 		fmt.Sprintf("/repos/%s/%s/issues/%d/pin", owner, repo, index),
 		jsonHeader, nil)
 	if err != nil {
@@ -39,11 +40,11 @@ func (c *Client) PinIssue(owner, repo string, index int64) (*Response, error) {
 }
 
 // UnpinIssue unpins an issue
-func (c *Client) UnpinIssue(owner, repo string, index int64) (*Response, error) {
+func (c *IssuesService) UnpinIssue(ctx context.Context, owner, repo string, index int64) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	status, resp, err := c.getStatusCode("DELETE",
+	status, resp, err := c.getStatusCode(ctx, "DELETE",
 		fmt.Sprintf("/repos/%s/%s/issues/%d/pin", owner, repo, index),
 		jsonHeader, nil)
 	if err != nil {
@@ -56,11 +57,11 @@ func (c *Client) UnpinIssue(owner, repo string, index int64) (*Response, error) 
 }
 
 // MoveIssuePin moves a pinned issue to the given position
-func (c *Client) MoveIssuePin(owner, repo string, index, position int64) (*Response, error) {
+func (c *IssuesService) MoveIssuePin(ctx context.Context, owner, repo string, index, position int64) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	status, resp, err := c.getStatusCode("PATCH",
+	status, resp, err := c.getStatusCode(ctx, "PATCH",
 		fmt.Sprintf("/repos/%s/%s/issues/%d/pin/%d", owner, repo, index, position),
 		jsonHeader, nil)
 	if err != nil {

@@ -6,8 +6,8 @@ services:
     environment:
       USER_UID: ${GITSSS_UID:-1000}
       USER_GID: ${GITSSS_GID:-1000}
-      GITSSS__server__ROOT_URL: ${GITSSS_ROOT_URL:-http://localhost:5300/}
-      GITSSS__server__HTTP_PORT: ${GITSSS_HTTP_PORT:-5300}
+      GITSSS__server__ROOT_URL: ${GITSSS_ROOT_URL:-http://localhost:5030/}
+      GITSSS__server__HTTP_PORT: ${GITSSS_HTTP_PORT:-5030}
       GITSSS__server__LFS_START_SERVER: "true"
       GITSSS__server__SSH_PORT: ${GITSSS_SSH_PORT:-2222}
       GITSSS__server__SSH_LISTEN_PORT: 22
@@ -21,10 +21,10 @@ services:
       GITSSS_INITIAL_ADMIN_EMAIL: ${GITSSS_INITIAL_ADMIN_EMAIL:-root@localhost.invalid}
       GITSSS_INITIAL_ADMIN_MUST_CHANGE_PASSWORD: ${GITSSS_INITIAL_ADMIN_MUST_CHANGE_PASSWORD:-true}
       GITSSS_ACTIONS_JOB_IMAGE: ${GITSSS_ACTIONS_JOB_IMAGE:-gitsss/gitsss:latest}
-      GITSSS_ACTIONS_JOB_INSTANCE_URL: ${GITSSS_ACTIONS_JOB_INSTANCE_URL:-http://host.docker.internal:5300}
+      GITSSS_ACTIONS_JOB_INSTANCE_URL: ${GITSSS_ACTIONS_JOB_INSTANCE_URL:-http://host.docker.internal:5030}
       GITSSS_ACTIONS_CONTAINER_OPTIONS: ${GITSSS_ACTIONS_CONTAINER_OPTIONS:---cpus=4 --memory=8g --pids-limit=2048}
     ports:
-      - "${GITSSS_HTTP_BIND:-0.0.0.0}:${GITSSS_HTTP_PORT:-5300}:${GITSSS_HTTP_PORT:-5300}"
+      - "${GITSSS_HTTP_BIND:-0.0.0.0}:${GITSSS_HTTP_PORT:-5030}:${GITSSS_HTTP_PORT:-5030}"
       - "${GITSSS_SSH_BIND:-0.0.0.0}:${GITSSS_SSH_PORT:-2222}:22"
       - "127.0.0.1:8088:8088"
     volumes:
@@ -35,7 +35,7 @@ services:
     expose:
       - "8088"
     healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:${GITSSS_HTTP_PORT:-5300}/api/healthz"]
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:${GITSSS_HTTP_PORT:-5030}/api/healthz"]
       interval: 15s
       timeout: 5s
       retries: 8

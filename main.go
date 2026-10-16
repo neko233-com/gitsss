@@ -15,9 +15,9 @@ import (
 	"github.com/neko233-com/gitsss/modules/setting"
 
 	// register supported doc types
-	_ "github.com/neko233-com/gitsss/modules/markup/asciicast"
 	_ "github.com/neko233-com/gitsss/modules/markup/console"
 	_ "github.com/neko233-com/gitsss/modules/markup/csv"
+	_ "github.com/neko233-com/gitsss/modules/markup/jupyter"
 	_ "github.com/neko233-com/gitsss/modules/markup/markdown"
 	_ "github.com/neko233-com/gitsss/modules/markup/orgmode"
 

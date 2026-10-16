@@ -5,6 +5,7 @@
 package gitea
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -16,23 +17,23 @@ type ListUserBlocksOptions struct {
 }
 
 // ListMyBlocks lists users blocked by the authenticated user
-func (c *Client) ListMyBlocks(opt ListUserBlocksOptions) ([]*User, *Response, error) {
+func (c *UsersService) ListMyBlocks(ctx context.Context, opt ListUserBlocksOptions) ([]*User, *Response, error) {
 	opt.setDefaults()
 
 	link, _ := url.Parse("/user/blocks")
 	link.RawQuery = opt.getURLQuery().Encode()
 
 	users := make([]*User, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", link.String(), jsonHeader, nil, &users)
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), jsonHeader, nil, &users)
 	return users, resp, err
 }
 
 // CheckUserBlock checks if a user is blocked by the authenticated user
-func (c *Client) CheckUserBlock(username string) (bool, *Response, error) {
+func (c *UsersService) CheckUserBlock(ctx context.Context, username string) (bool, *Response, error) {
 	if err := escapeValidatePathSegments(&username); err != nil {
 		return false, nil, err
 	}
-	status, resp, err := c.getStatusCode("GET",
+	status, resp, err := c.getStatusCode(ctx, "GET",
 		fmt.Sprintf("/user/blocks/%s", username),
 		jsonHeader, nil)
 	if err != nil {
@@ -42,11 +43,11 @@ func (c *Client) CheckUserBlock(username string) (bool, *Response, error) {
 }
 
 // BlockUser blocks a user
-func (c *Client) BlockUser(username string) (*Response, error) {
+func (c *UsersService) BlockUser(ctx context.Context, username string) (*Response, error) {
 	if err := escapeValidatePathSegments(&username); err != nil {
 		return nil, err
 	}
-	status, resp, err := c.getStatusCode("PUT",
+	status, resp, err := c.getStatusCode(ctx, "PUT",
 		fmt.Sprintf("/user/blocks/%s", username),
 		jsonHeader, nil)
 	if err != nil {
@@ -59,11 +60,11 @@ func (c *Client) BlockUser(username string) (*Response, error) {
 }
 
 // UnblockUser unblocks a user
-func (c *Client) UnblockUser(username string) (*Response, error) {
+func (c *UsersService) UnblockUser(ctx context.Context, username string) (*Response, error) {
 	if err := escapeValidatePathSegments(&username); err != nil {
 		return nil, err
 	}
-	status, resp, err := c.getStatusCode("DELETE",
+	status, resp, err := c.getStatusCode(ctx, "DELETE",
 		fmt.Sprintf("/user/blocks/%s", username),
 		jsonHeader, nil)
 	if err != nil {

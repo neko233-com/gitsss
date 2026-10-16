@@ -3,11 +3,9 @@
 
 package v1_21
 
-import (
-	"xorm.io/xorm"
-)
+import "github.com/neko233-com/gitsss/models/db"
 
-func AddVersionToActionRunTable(x *xorm.Engine) error {
+func AddVersionToActionRunTable(x db.EngineMigration) error {
 	type ActionRun struct {
 		Version int `xorm:"version default 0"`
 	}

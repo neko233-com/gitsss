@@ -11,6 +11,7 @@ import (
 	"github.com/neko233-com/gitsss/models/auth"
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/log"
+	"github.com/neko233-com/gitsss/modules/session"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/templates"
 	"github.com/neko233-com/gitsss/modules/util"
@@ -105,16 +106,6 @@ func handleSignInError(ctx *context.Context, userName string, ptrForm any, tmpl 
 		log.Info("Failed authentication attempt for %s from %s: %v", userName, ctx.RemoteAddr(), err)
 		ctx.Data["Title"] = ctx.Tr("auth.prohibit_login")
 		ctx.HTML(http.StatusOK, "user/auth/prohibit_login")
-	} else if user_model.IsErrUserInactive(err) {
-		ctx.Data["user_exists"] = true
-		if setting.Service.RegisterEmailConfirm {
-			ctx.Data["Title"] = ctx.Tr("auth.active_your_account")
-			ctx.HTML(http.StatusOK, TplActivate)
-		} else {
-			log.Info("Failed authentication attempt for %s from %s: %v", userName, ctx.RemoteAddr(), err)
-			ctx.Data["Title"] = ctx.Tr("auth.prohibit_login")
-			ctx.HTML(http.StatusOK, "user/auth/prohibit_login")
-		}
 	} else {
 		ctx.ServerError(invoker, err)
 	}
@@ -174,11 +165,17 @@ func oauth2LinkAccount(ctx *context.Context, u *user_model.User, linkAccountData
 		return
 	}
 
-	if err := updateSession(ctx, nil, map[string]any{
+	if err := Oauth2SetLinkAccountData(ctx, *linkAccountData); err != nil {
+		ctx.ServerError("Oauth2SetLinkAccountData", err)
+		return
+	}
+
+	if err := regenerateSession(ctx, nil, map[string]any{
 		// User needs to use 2FA, save data and redirect to 2FA page.
-		"twofaUid":      u.ID,
-		"twofaRemember": remember,
-		"linkAccount":   true,
+		"twofaUid":              u.ID,
+		"twofaRemember":         remember,
+		"linkAccount":           true,
+		session.KeySignInMethod: session.SignInMethodOAuth2,
 	}); err != nil {
 		ctx.ServerError("RegenerateSession", err)
 		return

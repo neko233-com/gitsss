@@ -7,6 +7,7 @@ package gitea
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 )
@@ -66,11 +67,11 @@ func (opt *AdminListUsersOptions) QueryEncode() string {
 	return query.Encode()
 }
 
-// AdminListUsers lists all users
-func (c *Client) AdminListUsers(opt AdminListUsersOptions) ([]*User, *Response, error) {
+// ListUsers lists all users
+func (c *AdminService) ListUsers(ctx context.Context, opt AdminListUsersOptions) ([]*User, *Response, error) {
 	opt.setDefaults()
 	users := make([]*User, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/admin/users?%s", opt.QueryEncode()), nil, nil, &users)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/admin/users?%s", opt.QueryEncode()), nil, nil, &users)
 	return users, resp, err
 }
 
@@ -98,8 +99,8 @@ func (opt CreateUserOption) Validate() error {
 	return nil
 }
 
-// AdminCreateUser create a user
-func (c *Client) AdminCreateUser(opt CreateUserOption) (*User, *Response, error) {
+// CreateUser create a user
+func (c *AdminService) CreateUser(ctx context.Context, opt CreateUserOption) (*User, *Response, error) {
 	if err := opt.Validate(); err != nil {
 		return nil, nil, err
 	}
@@ -108,7 +109,7 @@ func (c *Client) AdminCreateUser(opt CreateUserOption) (*User, *Response, error)
 		return nil, nil, err
 	}
 	user := new(User)
-	resp, err := c.getParsedResponse("POST", "/admin/users", jsonHeader, bytes.NewReader(body), user)
+	resp, err := c.getParsedResponse(ctx, "POST", "/admin/users", jsonHeader, bytes.NewReader(body), user)
 	return user, resp, err
 }
 
@@ -134,8 +135,8 @@ type EditUserOption struct {
 	Visibility              *VisibleType `json:"visibility"`
 }
 
-// AdminEditUser modify user informations
-func (c *Client) AdminEditUser(user string, opt EditUserOption) (*Response, error) {
+// EditUser modify user informations
+func (c *AdminService) EditUser(ctx context.Context, user string, opt EditUserOption) (*Response, error) {
 	if err := escapeValidatePathSegments(&user); err != nil {
 		return nil, err
 	}
@@ -143,19 +144,19 @@ func (c *Client) AdminEditUser(user string, opt EditUserOption) (*Response, erro
 	if err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("PATCH", fmt.Sprintf("/admin/users/%s", user), jsonHeader, bytes.NewReader(body))
+	return c.doRequestWithStatusHandle(ctx, "PATCH", fmt.Sprintf("/admin/users/%s", user), jsonHeader, bytes.NewReader(body))
 }
 
-// AdminDeleteUser delete one user according name
-func (c *Client) AdminDeleteUser(user string) (*Response, error) {
+// DeleteUser delete one user according name
+func (c *AdminService) DeleteUser(ctx context.Context, user string) (*Response, error) {
 	if err := escapeValidatePathSegments(&user); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("DELETE", fmt.Sprintf("/admin/users/%s", user), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/admin/users/%s", user), nil, nil)
 }
 
-// AdminCreateUserPublicKey adds a public key for the user
-func (c *Client) AdminCreateUserPublicKey(user string, opt CreateKeyOption) (*PublicKey, *Response, error) {
+// CreateUserPublicKey adds a public key for the user
+func (c *AdminService) CreateUserPublicKey(ctx context.Context, user string, opt CreateKeyOption) (*PublicKey, *Response, error) {
 	if err := escapeValidatePathSegments(&user); err != nil {
 		return nil, nil, err
 	}
@@ -164,16 +165,16 @@ func (c *Client) AdminCreateUserPublicKey(user string, opt CreateKeyOption) (*Pu
 		return nil, nil, err
 	}
 	key := new(PublicKey)
-	resp, err := c.getParsedResponse("POST", fmt.Sprintf("/admin/users/%s/keys", user), jsonHeader, bytes.NewReader(body), key)
+	resp, err := c.getParsedResponse(ctx, "POST", fmt.Sprintf("/admin/users/%s/keys", user), jsonHeader, bytes.NewReader(body), key)
 	return key, resp, err
 }
 
-// AdminDeleteUserPublicKey deletes a user's public key
-func (c *Client) AdminDeleteUserPublicKey(user string, keyID int) (*Response, error) {
+// DeleteUserPublicKey deletes a user's public key
+func (c *AdminService) DeleteUserPublicKey(ctx context.Context, user string, keyID int) (*Response, error) {
 	if err := escapeValidatePathSegments(&user); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("DELETE", fmt.Sprintf("/admin/users/%s/keys/%d", user, keyID), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/admin/users/%s/keys/%d", user, keyID), nil, nil)
 }
 
 // RenameUserOption options for renaming a user
@@ -181,8 +182,8 @@ type RenameUserOption struct {
 	NewUsername string `json:"new_username"`
 }
 
-// AdminRenameUser renames a user
-func (c *Client) AdminRenameUser(username string, opt RenameUserOption) (*Response, error) {
+// RenameUser renames a user
+func (c *AdminService) RenameUser(ctx context.Context, username string, opt RenameUserOption) (*Response, error) {
 	if err := escapeValidatePathSegments(&username); err != nil {
 		return nil, err
 	}
@@ -190,7 +191,7 @@ func (c *Client) AdminRenameUser(username string, opt RenameUserOption) (*Respon
 	if err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("POST",
+	return c.doRequestWithStatusHandle(ctx, "POST",
 		fmt.Sprintf("/admin/users/%s/rename", username),
 		jsonHeader, bytes.NewReader(body))
 }

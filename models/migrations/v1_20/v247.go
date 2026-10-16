@@ -4,13 +4,12 @@
 package v1_20
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/log"
-
-	"xorm.io/xorm"
 )
 
 // FixIncorrectProjectType: set individual project's type from 3(TypeOrganization) to 1(TypeIndividual)
-func FixIncorrectProjectType(x *xorm.Engine) error {
+func FixIncorrectProjectType(x db.EngineMigration) error {
 	type User struct {
 		ID   int64 `xorm:"pk autoincr"`
 		Type int

@@ -53,7 +53,7 @@ repository is not overwritten, and its issues are left untouched.
 ## Rehearsal
 
 Run target temporarily on another port or host, for example source port `3000`
-and target port `3001`. Create site-administrator tokens on both systems and
+and target port `5030`. Create site-administrator tokens on both systems and
 store them in protected files:
 
 ```sh
@@ -62,7 +62,7 @@ chmod 600 source.token target.token
 gitsss import-gitea-http \
   --source-url http://git.example.internal:3000 \
   --source-token-file source.token \
-  --target-url http://127.0.0.1:5300 \
+  --target-url http://127.0.0.1:5030 \
   --target-token-file target.token \
   --repo engineering/service-api \
   --repo engineering/config-service
@@ -78,7 +78,7 @@ gitsss import-gitea-http \
   --source-url http://git.example.internal:3000 \
   --source-user root \
   --source-password-file source.password \
-  --target-url http://127.0.0.1:5300 \
+  --target-url http://127.0.0.1:5030 \
   --target-user root \
   --target-password-file target.password \
   --all-repos
@@ -89,15 +89,16 @@ and repositories. Dry-run does not create target records.
 
 ## Apply
 
-Prevent pushes to the selected source repositories during the short apply and
-verification window. The importer is a one-shot snapshot, not continuous
-replication. Use a fresh target for final cutover:
+The initial import is a snapshot. Keep Gitea running and unchanged during the
+rehearsal. Git updates made after this snapshot can be copied with the
+Git-only sync mode below; collaboration metadata is not continuously
+replicated. Use a separate target data directory:
 
 ```sh
 gitsss import-gitea-http \
   --source-url http://git.example.internal:3000 \
   --source-token-file source.token \
-  --target-url http://127.0.0.1:5300 \
+  --target-url http://127.0.0.1:5030 \
   --target-token-file target.token \
   --repo engineering/service-api \
   --repo engineering/config-service \
@@ -116,15 +117,51 @@ LFS content, organization/team membership, team repository grants, direct
 collaborator permissions, account state, labels, milestones, issues, comments,
 pull-request head and base, and mode `0600` credentials output.
 
-## Cutover to port 3000
+## Incremental Git synchronization
 
+After initial import, repeat this command to fetch changed Git objects and LFS
+content for existing repositories:
+
+```sh
+gitsss import-gitea-http \
+  --source-url http://git.example.internal:3000 \
+  --source-token-file source.token \
+  --target-url http://127.0.0.1:5030 \
+  --target-token-file target.token \
+  --repo engineering/service-api \
+  --repo engineering/config-service \
+  --sync-existing-git --apply
+```
+
+This mode discovers only repository metadata and Git refs. It incrementally
+fetches branches, tags, notes, and LFS objects using a persistent bare cache in
+the current user's cache directory; use `--mirror-cache-dir` to select a cache
+location with enough free space. Source ref deletions are pruned from the
+target. Updates are atomic. A private per-target checkpoint in the cache rejects
+independent destination ref changes, including destination-only branches, before
+writing. Reuse the same cache between runs; a missing checkpoint can initialize
+only when target refs already match the source. Non-fast-forward updates fail
+without force-overwriting them. The cache avoids repeatedly downloading existing Git
+objects but occupies space proportional to the mirrored Git data.
+
+It does not synchronize issues, pull requests, repository settings, access
+permissions, releases, wiki, or packages after initial import. Keep one side
+authoritative during the evaluation period. Avoid edits on both servers.
+
+## Two-port evaluation and later cutover
+
+During the evaluation period, keep Gitea on `3000` and GitSSS on `5030`.
 After acceptance:
 
-1. Keep source rollback data intact.
-2. Stop source Gitea only during the approved cutover window.
-3. Change gitsss published HTTP port/root URL from the temporary port, usually `5300`, to `3000`.
-4. Start gitsss and verify `/api/healthz`, web login, clone, push, LFS, issues, and RBAC.
-5. Remove source tokens and securely archive or destroy temporary credentials.
+1. Run a final Git sync and retain the source rollback data.
+2. Stop source Gitea to release port `3000`.
+3. From GitSSS at `5030`, add port `3000` from `/-/admin/takeover` or `POST /api/v1/admin/listen-port/alias` with `{"port":"3000"}`.
+4. GitSSS keeps serving `5030` and now also serves `3000`; the public `ROOT_URL` points to `3000`.
+5. Keep the Gitea data intact until post-cutover verification is complete.
+
+The listener alias only helps GitSSS claim the source port after the source service
+has been stopped. Do not add it while Gitea still owns port `3000`; binding will
+fail and the original service remains untouched.
 
 The stopped-volume takeover helper remains an optional full-fidelity fallback
 when password hashes, TOTP, SSH keys, wiki, releases, or other database state

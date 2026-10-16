@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/neko233-com/gitsss/models/db"
 	git_model "github.com/neko233-com/gitsss/models/git"
@@ -23,7 +24,7 @@ import (
 	"github.com/neko233-com/gitsss/modules/timeutil"
 	"github.com/neko233-com/gitsss/modules/util"
 
-	"github.com/dlclark/regexp2"
+	"github.com/dlclark/regexp2/v2"
 	"xorm.io/builder"
 )
 
@@ -413,7 +414,7 @@ func (pr *PullRequest) getReviewedByLines(ctx context.Context, writer io.Writer)
 }
 
 // GetGitHeadRefName returns git ref for hidden pull request branch
-func (pr *PullRequest) GetGitHeadRefName() string {
+func (pr *PullRequest) GetGitHeadRefName() string { // TODO: make it return RefName but not string
 	return fmt.Sprintf("%s%d/head", git.PullPrefix, pr.Index)
 }
 
@@ -437,8 +438,8 @@ func (pr *PullRequest) IsChecking() bool {
 	return pr.Status == PullRequestStatusChecking
 }
 
-// CanAutoMerge returns true if this pull request can be merged automatically.
-func (pr *PullRequest) CanAutoMerge() bool {
+// IsStatusMergeable returns true if this pull request is mergeable to its base
+func (pr *PullRequest) IsStatusMergeable() bool {
 	return pr.Status == PullRequestStatusMergeable
 }
 
@@ -475,7 +476,7 @@ func NewPullRequest(ctx context.Context, repo *repo_model.Repository, issue *Iss
 			LabelIDs:    labelIDs,
 			Attachments: uuids,
 		}); err != nil {
-			if repo_model.IsErrUserDoesNotHaveAccessToRepo(err) || IsErrNewIssueInsert(err) {
+			if repo_model.IsErrUserDoesNotHaveAccessToRepo(err) {
 				return err
 			}
 			return fmt.Errorf("newIssue: %w", err)
@@ -534,12 +535,8 @@ func GetPullRequestByIndex(ctx context.Context, repoID, index int64) (*PullReque
 	if index < 1 {
 		return nil, ErrPullRequestNotExist{}
 	}
-	pr := &PullRequest{
-		BaseRepoID: repoID,
-		Index:      index,
-	}
 
-	has, err := db.GetEngine(ctx).Get(pr)
+	pr, has, err := db.Get[PullRequest](ctx, builder.Eq{"base_repo_id": repoID, "`index`": index})
 	if err != nil {
 		return nil, err
 	} else if !has {
@@ -860,6 +857,11 @@ func GetCodeOwnersFromContent(ctx context.Context, data string) ([]*CodeOwnerRul
 	return rules, warnings
 }
 
+// codeOwnerMatchTimeout bounds a single pattern match so a crafted pattern
+// cannot stall via catastrophic backtracking. See also the aggregate budget
+// enforced by the caller across the whole rules×files match loop.
+const codeOwnerMatchTimeout = 150 * time.Millisecond
+
 type CodeOwnerRule struct {
 	Rule     *regexp2.Regexp // it supports negative lookahead, does better for end users
 	Negative bool
@@ -888,6 +890,8 @@ func ParseCodeOwnersLine(ctx context.Context, tokens []string) (*CodeOwnerRule, 
 		warnings = append(warnings, fmt.Sprintf("incorrect codeowner regexp: %s", err))
 		return nil, warnings
 	}
+	// Bound matching time so user-supplied patterns cannot stall PR creation via catastrophic backtracking.
+	rule.Rule.MatchTimeout = codeOwnerMatchTimeout
 
 	for _, user := range tokens[1:] {
 		user = strings.TrimPrefix(user, "@")

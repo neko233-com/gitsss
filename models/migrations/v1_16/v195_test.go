@@ -6,7 +6,7 @@ package v1_16
 import (
 	"testing"
 
-	"github.com/neko233-com/gitsss/models/migrations/base"
+	"github.com/neko233-com/gitsss/models/migrations/migrationtest"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -21,7 +21,7 @@ func Test_AddTableCommitStatusIndex(t *testing.T) {
 	}
 
 	// Prepare and load the testing database
-	x, deferable := base.PrepareTestEnv(t, 0, new(CommitStatus))
+	x, deferable := migrationtest.PrepareTestEnv(t, 0, new(CommitStatus))
 	if x == nil || t.Failed() {
 		defer deferable()
 		return

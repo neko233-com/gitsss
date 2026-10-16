@@ -20,7 +20,6 @@ import (
 	"github.com/neko233-com/gitsss/modules/gitrepo"
 	"github.com/neko233-com/gitsss/modules/globallock"
 	"github.com/neko233-com/gitsss/modules/log"
-	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/util"
 	notify_service "github.com/neko233-com/gitsss/services/notify"
 )
@@ -62,8 +61,7 @@ func AcceptTransferOwnership(ctx context.Context, repo *repo_model.Repository, d
 		}
 
 		if !doer.CanCreateRepoIn(repoTransfer.Recipient) {
-			limit := util.Iif(repoTransfer.Recipient.MaxRepoCreation >= 0, repoTransfer.Recipient.MaxRepoCreation, setting.Repository.MaxCreationLimit)
-			return LimitReachedError{Limit: limit}
+			return LimitReachedError{Limit: repoTransfer.Recipient.MaxCreationLimit()}
 		}
 
 		if !repoTransfer.CanUserAcceptOrRejectTransfer(ctx, doer) {
@@ -120,7 +118,7 @@ func transferOwnership(ctx context.Context, doer *user_model.User, newOwnerName 
 		if repoRenamed {
 			oldRelativePath, newRelativePath := repo_model.RelativePath(newOwnerName, repo.Name), repo_model.RelativePath(oldOwnerName, repo.Name)
 			if err := gitrepo.RenameRepository(ctx, repo_model.StorageRepo(oldRelativePath), repo_model.StorageRepo(newRelativePath)); err != nil {
-				log.Critical("Unable to move repository %s/%s directory from %s back to correct place %s: %v", oldOwnerName, repo.Name,
+				log.Error("Unable to move repository %s/%s directory from %s back to correct place %s: %v", oldOwnerName, repo.Name,
 					oldRelativePath, newRelativePath, err)
 			}
 		}
@@ -128,7 +126,7 @@ func transferOwnership(ctx context.Context, doer *user_model.User, newOwnerName 
 		if wikiRenamed {
 			oldRelativePath, newRelativePath := repo_model.RelativeWikiPath(newOwnerName, repo.Name), repo_model.RelativeWikiPath(oldOwnerName, repo.Name)
 			if err := gitrepo.RenameRepository(ctx, repo_model.StorageRepo(oldRelativePath), repo_model.StorageRepo(newRelativePath)); err != nil {
-				log.Critical("Unable to move wiki for repository %s/%s directory from %s back to correct place %s: %v", oldOwnerName, repo.Name,
+				log.Error("Unable to move wiki for repository %s/%s directory from %s back to correct place %s: %v", oldOwnerName, repo.Name,
 					oldRelativePath, newRelativePath, err)
 			}
 		}
@@ -434,8 +432,7 @@ func StartRepositoryTransfer(ctx context.Context, doer, newOwner *user_model.Use
 	}
 
 	if !doer.CanForkRepoIn(newOwner) {
-		limit := util.Iif(newOwner.MaxRepoCreation >= 0, newOwner.MaxRepoCreation, setting.Repository.MaxCreationLimit)
-		return LimitReachedError{Limit: limit}
+		return LimitReachedError{Limit: newOwner.MaxCreationLimit()}
 	}
 
 	var isDirectTransfer bool

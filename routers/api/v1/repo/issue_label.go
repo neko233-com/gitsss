@@ -173,18 +173,17 @@ func DeleteIssueLabel(ctx *context.APIContext) {
 		return
 	}
 
-	if !ctx.Repo.CanWriteIssuesOrPulls(issue.IsPull) {
+	if !ctx.Repo.Permission.CanWriteIssuesOrPulls(issue.IsPull) {
 		ctx.Status(http.StatusForbidden)
 		return
 	}
 
-	label, err := issues_model.GetLabelByID(ctx, ctx.PathParamInt64("id"))
+	// the label must belong to this repo (or its owning org); otherwise a foreign label ID
+	// is rejected the same way as a nonexistent one, closing a cross-repo enumeration oracle
+	labelID := ctx.PathParamInt64("id")
+	label, err := issues_model.GetLabelInRepoOrOrgByID(ctx, ctx.Repo.Repository.ID, ctx.Repo.Owner.ID, ctx.Repo.Owner.IsOrganization(), labelID)
 	if err != nil {
-		if issues_model.IsErrLabelNotExist(err) {
-			ctx.APIError(http.StatusUnprocessableEntity, err)
-		} else {
-			ctx.APIErrorInternal(err)
-		}
+		ctx.APIErrorAuto(err)
 		return
 	}
 
@@ -295,7 +294,7 @@ func ClearIssueLabels(ctx *context.APIContext) {
 		return
 	}
 
-	if !ctx.Repo.CanWriteIssuesOrPulls(issue.IsPull) {
+	if !ctx.Repo.Permission.CanWriteIssuesOrPulls(issue.IsPull) {
 		ctx.Status(http.StatusForbidden)
 		return
 	}
@@ -319,7 +318,7 @@ func prepareForReplaceOrAdd(ctx *context.APIContext, form api.IssueLabelsOption)
 		return nil, nil, err
 	}
 
-	if !ctx.Repo.CanWriteIssuesOrPulls(issue.IsPull) {
+	if !ctx.Repo.Permission.CanWriteIssuesOrPulls(issue.IsPull) {
 		ctx.APIError(http.StatusForbidden, "write permission is required")
 		return nil, nil, errors.New("permission denied")
 	}

@@ -12,6 +12,8 @@ import (
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/timeutil"
 	"github.com/neko233-com/gitsss/modules/util"
+
+	"xorm.io/builder"
 )
 
 // ErrMirrorNotExist mirror does not exist error
@@ -27,6 +29,7 @@ type Mirror struct {
 
 	UpdatedUnix    timeutil.TimeStamp `xorm:"INDEX"`
 	NextUpdateUnix timeutil.TimeStamp `xorm:"INDEX"`
+	LastSyncUnix   timeutil.TimeStamp `xorm:"INDEX"`
 
 	LFS         bool   `xorm:"lfs_enabled NOT NULL DEFAULT false"`
 	LFSEndpoint string `xorm:"lfs_endpoint TEXT"`
@@ -75,8 +78,7 @@ func (m *Mirror) ScheduleNextUpdate() {
 
 // GetMirrorByRepoID returns mirror information of a repository.
 func GetMirrorByRepoID(ctx context.Context, repoID int64) (*Mirror, error) {
-	m := &Mirror{RepoID: repoID}
-	has, err := db.GetEngine(ctx).Get(m)
+	m, has, err := db.Get[Mirror](ctx, builder.Eq{"repo_id": repoID})
 	if err != nil {
 		return nil, err
 	} else if !has {

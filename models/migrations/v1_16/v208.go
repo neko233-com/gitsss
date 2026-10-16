@@ -3,11 +3,9 @@
 
 package v1_16
 
-import (
-	"xorm.io/xorm"
-)
+import "github.com/neko233-com/gitsss/models/db"
 
-func UseBase32HexForCredIDInWebAuthnCredential(x *xorm.Engine) error {
+func UseBase32HexForCredIDInWebAuthnCredential(x db.EngineMigration) error {
 	// noop
 	return nil
 }

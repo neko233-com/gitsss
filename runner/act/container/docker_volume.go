@@ -11,8 +11,7 @@ import (
 
 	"github.com/neko233-com/gitsss/runner/act/common"
 
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/volume"
+	"github.com/moby/moby/client"
 )
 
 func NewDockerVolumeRemoveExecutor(volumeName string, force bool) common.Executor {
@@ -23,12 +22,12 @@ func NewDockerVolumeRemoveExecutor(volumeName string, force bool) common.Executo
 		}
 		defer cli.Close()
 
-		list, err := cli.VolumeList(ctx, volume.ListOptions{Filters: filters.NewArgs()})
+		list, err := cli.VolumeList(ctx, client.VolumeListOptions{})
 		if err != nil {
 			return err
 		}
 
-		for _, vol := range list.Volumes {
+		for _, vol := range list.Items {
 			if vol.Name == volumeName {
 				return removeExecutor(volumeName, force)(ctx)
 			}
@@ -42,7 +41,7 @@ func NewDockerVolumeRemoveExecutor(volumeName string, force bool) common.Executo
 func removeExecutor(volume string, force bool) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
-		logger.Debugf("%sdocker volume rm %s", logPrefix, volume)
+		logger.Debugf("docker volume rm %s", volume)
 
 		if common.Dryrun(ctx) {
 			return nil
@@ -54,6 +53,7 @@ func removeExecutor(volume string, force bool) common.Executor {
 		}
 		defer cli.Close()
 
-		return cli.VolumeRemove(ctx, volume, force)
+		_, err = cli.VolumeRemove(ctx, volume, client.VolumeRemoveOptions{Force: force})
+		return err
 	}
 }

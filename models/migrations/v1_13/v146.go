@@ -4,12 +4,11 @@
 package v1_13
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func AddProjectsInfo(x *xorm.Engine) error {
+func AddProjectsInfo(x db.EngineMigration) error {
 	// Create new tables
 	type (
 		ProjectType      uint8

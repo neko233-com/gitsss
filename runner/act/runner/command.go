@@ -51,7 +51,7 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 			logger.Infof("%s", line)
 			return false
 		}
-		arg = unescapeCommandData(arg)
+		arg = UnescapeCommandData(arg)
 		kvPairs = unescapeKvPairs(kvPairs)
 		switch command {
 		case "set-env":
@@ -120,7 +120,7 @@ func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, 
 
 	result, ok := rc.StepResults[stepID]
 	if !ok {
-		logger.Infof("  \U00002757  no outputs used step '%s'", stepID)
+		logger.Infof("No outputs registered for step '%s'", stepID)
 		return
 	}
 
@@ -151,7 +151,7 @@ func parseKeyValuePairs(kvPairs, separator string) map[string]string {
 	return rtn
 }
 
-func unescapeCommandData(arg string) string {
+func UnescapeCommandData(arg string) string {
 	escapeMap := map[string]string{
 		"%25": "%",
 		"%0D": "\r",

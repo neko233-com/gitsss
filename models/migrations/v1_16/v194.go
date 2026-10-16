@@ -6,10 +6,10 @@ package v1_16
 import (
 	"fmt"
 
-	"xorm.io/xorm"
+	"github.com/neko233-com/gitsss/models/db"
 )
 
-func AddBranchProtectionUnprotectedFilesColumn(x *xorm.Engine) error {
+func AddBranchProtectionUnprotectedFilesColumn(x db.EngineMigration) error {
 	type ProtectedBranch struct {
 		UnprotectedFilePatterns string `xorm:"TEXT"`
 	}

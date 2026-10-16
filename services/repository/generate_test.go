@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	repo_model "github.com/neko233-com/gitsss/models/repo"
@@ -56,9 +57,13 @@ text/*.txt
 func TestFilePathSanitize(t *testing.T) {
 	// path clean
 	assert.Equal(t, "a", filePathSanitize("//a/"))
-	assert.Equal(t, "_a", filePathSanitize(`\a`))
-	assert.Equal(t, "__/a/__", filePathSanitize(".. /a/ .."))
-	assert.Equal(t, "__/a/_git/b_", filePathSanitize("./../a/.git/ b: "))
+	backslashName := "_a"
+	if runtime.GOOS == "windows" {
+		backslashName = "a"
+	}
+	assert.Equal(t, backslashName, filePathSanitize(`\a`))
+	assert.Equal(t, filepath.FromSlash("__/a/__"), filePathSanitize(".. /a/ .."))
+	assert.Equal(t, filepath.FromSlash("__/a/_git/b_"), filePathSanitize("./../a/.git/ b: "))
 
 	// Windows reserved names
 	assert.Equal(t, "_", filePathSanitize("CoN"))
@@ -76,6 +81,9 @@ func TestFilePathSanitize(t *testing.T) {
 
 func TestProcessGiteaTemplateFileGenerate(t *testing.T) {
 	tmpDir := filepath.Join(t.TempDir(), "gitea-template-test")
+	if err := os.Symlink(t.TempDir(), filepath.Join(t.TempDir(), "symlink-probe")); err != nil {
+		t.Skipf("filesystem symlink support is required: %v", err)
+	}
 
 	assertFileContent := func(path, expected string) {
 		data, err := os.ReadFile(filepath.Join(tmpDir, path))
@@ -222,7 +230,9 @@ func TestProcessGiteaTemplateFileRead(t *testing.T) {
 	require.ErrorIs(t, err, fs.ErrNotExist)
 
 	_ = os.WriteFile(templateFilePath+".target", []byte("test-data-target"), 0o644)
-	_ = os.Symlink(templateFilePath+".target", templateFilePath)
+	if err := os.Symlink(templateFilePath+".target", templateFilePath); err != nil {
+		t.Skipf("filesystem symlink support is required: %v", err)
+	}
 	content, _ := os.ReadFile(templateFilePath)
 	require.Equal(t, "test-data-target", string(content))
 	_, err = readGiteaTemplateFile(tmpDir) // symlinked template file

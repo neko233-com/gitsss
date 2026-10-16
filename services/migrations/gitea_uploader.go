@@ -102,6 +102,7 @@ func (g *GiteaLocalUploader) CreateRepo(ctx context.Context, repo *base.Reposito
 		r, err = repo_service.CreateRepositoryDirectly(ctx, g.doer, owner, repo_service.CreateRepoOptions{
 			Name:           g.repoName,
 			Description:    repo.Description,
+			Website:        repo.Website,
 			OriginalURL:    repo.OriginalURL,
 			GitServiceType: opts.GitServiceType,
 			IsPrivate:      opts.Private || setting.Repository.ForcePrivate,
@@ -116,6 +117,7 @@ func (g *GiteaLocalUploader) CreateRepo(ctx context.Context, repo *base.Reposito
 	}
 	r.DefaultBranch = repo.DefaultBranch
 	r.Description = repo.Description
+	r.Website = repo.Website
 
 	r, err = repo_service.MigrateRepositoryGitData(ctx, owner, r, base.MigrateOptions{
 		RepoName:       g.repoName,
@@ -338,7 +340,9 @@ func (g *GiteaLocalUploader) CreateReleases(ctx context.Context, releases ...*ba
 						return err
 					}
 				} else if asset.DownloadURL != nil {
-					rc, err = uri.Open(*asset.DownloadURL)
+					// use the migration client so the fetch (including any redirect) is
+					// validated against the migration host allow/block list
+					rc, err = uri.OpenWithClient(*asset.DownloadURL, getMigrationHTTPClient())
 					if err != nil {
 						return err
 					}
@@ -583,8 +587,10 @@ func (g *GiteaLocalUploader) updateGitForPullRequest(ctx context.Context, pr *ba
 		}
 
 		// SECURITY: We will assume that the pr.PatchURL has been checked
-		// pr.PatchURL maybe a local file - but note EnsureSafe should be asserting that this safe
-		ret, err := uri.Open(pr.PatchURL) // TODO: This probably needs to use the downloader as there may be rate limiting issues here
+		// pr.PatchURL maybe a local file - but note EnsureSafe should be asserting that this safe.
+		// Use the migration client so an http(s) PatchURL (and any redirect it follows) is
+		// validated against the migration host allow/block list at dial time.
+		ret, err := uri.OpenWithClient(pr.PatchURL, getMigrationHTTPClient())
 		if err != nil {
 			return err
 		}

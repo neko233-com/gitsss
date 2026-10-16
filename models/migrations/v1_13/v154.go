@@ -4,12 +4,11 @@
 package v1_13
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func AddTimeStamps(x *xorm.Engine) error {
+func AddTimeStamps(x db.EngineMigration) error {
 	// this will add timestamps where it is useful to have
 
 	// Star represents a starred repo by an user.

@@ -4,12 +4,11 @@
 package v1_21
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func CreateVariableTable(x *xorm.Engine) error {
+func CreateVariableTable(x db.EngineMigration) error {
 	type ActionVariable struct {
 		ID          int64              `xorm:"pk autoincr"`
 		OwnerID     int64              `xorm:"UNIQUE(owner_repo_name)"`

@@ -4,12 +4,13 @@
 package v1_23
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
 
 	"xorm.io/xorm"
 )
 
-func AddIndexToActionTaskStoppedLogExpired(x *xorm.Engine) error {
+func AddIndexToActionTaskStoppedLogExpired(x db.EngineMigration) error {
 	type ActionTask struct {
 		Stopped    timeutil.TimeStamp `xorm:"index(stopped_log_expired)"`
 		LogExpired bool               `xorm:"index(stopped_log_expired)"`

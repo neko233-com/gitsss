@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/neko233-com/gitsss/models/issues"
-	"github.com/neko233-com/gitsss/models/migrations/base"
+	"github.com/neko233-com/gitsss/models/migrations/migrationtest"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -16,7 +16,7 @@ func Test_UpdateOpenMilestoneCounts(t *testing.T) {
 	type ExpectedMilestone issues.Milestone
 
 	// Prepare and load the testing database
-	x, deferable := base.PrepareTestEnv(t, 0, new(issues.Milestone), new(ExpectedMilestone), new(issues.Issue))
+	x, deferable := migrationtest.PrepareTestEnv(t, 0, new(issues.Milestone), new(ExpectedMilestone), new(issues.Issue))
 	defer deferable()
 	if x == nil || t.Failed() {
 		return

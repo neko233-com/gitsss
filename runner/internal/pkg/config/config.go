@@ -39,10 +39,12 @@ type Runner struct {
 	LogReportMaxLatency time.Duration     `yaml:"log_report_max_latency"` // LogReportMaxLatency specifies the max time a log row can wait before being sent.
 	LogReportBatchSize  int               `yaml:"log_report_batch_size"`  // LogReportBatchSize triggers immediate log flush when buffer reaches this size.
 	StateReportInterval time.Duration     `yaml:"state_report_interval"`  // StateReportInterval specifies the interval for state reporting.
+	ReportCloseTimeout  time.Duration     `yaml:"report_close_timeout"`   // ReportCloseTimeout caps each RPC attempt when flushing the final logs and task state at job completion, on a detached context so a server cancel can't block the acknowledgement.
 	Labels              []string          `yaml:"labels"`                 // Labels specify the labels of the runner. Labels are declared on each startup
 	GithubMirror        string            `yaml:"github_mirror"`          // GithubMirror defines what mirrors should be used when using github
 	Offline             bool              `yaml:"offline"`                // Offline prevents action and reusable-workflow downloads from the public network.
 	JobInstanceURL      string            `yaml:"job_instance_url"`       // JobInstanceURL is the instance URL advertised inside job containers.
+	AllocatePTY         bool              `yaml:"allocate_pty"`           // AllocatePTY allocates a pseudo-TTY for each step's process. Default is false, matching GitHub's actions/runner. Enable only for jobs that need an interactive terminal; tools like docker build emit redrawing progress frames into the captured log when a TTY is present. Applies to both host and docker backends.
 }
 
 // Cache represents the configuration for caching.
@@ -53,6 +55,7 @@ type Cache struct {
 	Port           uint16 `yaml:"port"`            // Port specifies the caching port.
 	ExternalServer string `yaml:"external_server"` // ExternalServer specifies the URL of external cache server
 	ExternalSecret string `yaml:"external_secret"` // ExternalSecret is a shared secret between this runner and an external gitea-runner cache-server, enabling per-job ACTIONS_RUNTIME_TOKEN authentication and repo scoping over the network. Leave empty to keep the legacy unauthenticated behavior.
+	OfflineMode    bool   `yaml:"offline_mode"`    // OfflineMode reuses a cached action without fetching from the remote; a moved tag or branch stays at the cached commit until the cache entry is removed.
 }
 
 // Container represents the configuration for the container.
@@ -111,7 +114,6 @@ func LoadDefault(file string) (*Config, error) {
 			return nil, fmt.Errorf("parse config file %q for defaults metadata: %w", file, err)
 		}
 	}
-	compatibleWithOldEnvs(file != "", cfg)
 
 	if cfg.Runner.EnvFile != "" {
 		if stat, err := os.Stat(cfg.Runner.EnvFile); err == nil && !stat.IsDir() {
@@ -184,6 +186,9 @@ func LoadDefault(file string) (*Config, error) {
 	}
 	if cfg.Runner.StateReportInterval <= 0 {
 		cfg.Runner.StateReportInterval = 5 * time.Second
+	}
+	if cfg.Runner.ReportCloseTimeout <= 0 {
+		cfg.Runner.ReportCloseTimeout = 10 * time.Second
 	}
 	if cfg.Metrics.Addr == "" {
 		cfg.Metrics.Addr = "127.0.0.1:9101"

@@ -7,7 +7,6 @@ package wiki
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/neko233-com/gitsss/models/db"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
@@ -21,6 +20,7 @@ import (
 	"github.com/neko233-com/gitsss/modules/graceful"
 	"github.com/neko233-com/gitsss/modules/log"
 	repo_module "github.com/neko233-com/gitsss/modules/repository"
+	"github.com/neko233-com/gitsss/modules/util"
 	asymkey_service "github.com/neko233-com/gitsss/services/asymkey"
 	repo_service "github.com/neko233-com/gitsss/services/repository"
 )
@@ -59,7 +59,7 @@ func prepareGitPath(gitRepo *git.Repository, defaultWikiBranch string, wikiPath 
 	// Look for both files
 	filesInIndex, err := gitRepo.LsTree(defaultWikiBranch, unescaped, gitPath)
 	if err != nil {
-		if gitcmd.IsStdErrorNotValidObjectName(err) {
+		if gitcmd.IsStderr(err, gitcmd.StderrNotValidObjectName) {
 			return false, gitPath, nil // branch doesn't exist
 		}
 		log.Error("Wiki LsTree failed, err: %v", err)
@@ -304,7 +304,7 @@ func DeleteWikiPage(ctx context.Context, doer *user_model.User, repo *repo_model
 			return err
 		}
 	} else {
-		return os.ErrNotExist
+		return util.ErrNotExist
 	}
 
 	// FIXME: The wiki doesn't have lfs support at present - if this changes need to check attributes here

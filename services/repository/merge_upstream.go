@@ -8,7 +8,9 @@ import (
 	"fmt"
 
 	issue_model "github.com/neko233-com/gitsss/models/issues"
+	access_model "github.com/neko233-com/gitsss/models/perm/access"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
+	"github.com/neko233-com/gitsss/models/unit"
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/git"
 	"github.com/neko233-com/gitsss/modules/gitrepo"
@@ -26,6 +28,17 @@ func MergeUpstream(ctx reqctx.RequestContext, doer *user_model.User, repo *repo_
 	if err = repo.GetBaseRepo(ctx); err != nil {
 		return "", err
 	}
+
+	// The doer must still be able to read the base repository's code. Otherwise a fork created
+	// while the base repo was public could keep pulling commits after it turned private.
+	basePerm, err := access_model.GetDoerRepoPermission(ctx, repo.BaseRepo, doer)
+	if err != nil {
+		return "", err
+	}
+	if !basePerm.CanRead(unit.TypeCode) {
+		return "", util.NewPermissionDeniedErrorf("permission denied to read base repo %d", repo.BaseRepo.ID)
+	}
+
 	divergingInfo, err := GetUpstreamDivergingInfo(ctx, repo, branch)
 	if err != nil {
 		return "", err

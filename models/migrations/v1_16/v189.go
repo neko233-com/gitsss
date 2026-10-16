@@ -7,13 +7,12 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/base"
 	"github.com/neko233-com/gitsss/modules/json"
-
-	"xorm.io/xorm"
 )
 
-func UnwrapLDAPSourceCfg(x *xorm.Engine) error {
+func UnwrapLDAPSourceCfg(x db.EngineMigration) error {
 	jsonUnmarshalHandleDoubleEncode := func(bs []byte, v any) error {
 		err := json.Unmarshal(bs, v)
 		if err != nil {

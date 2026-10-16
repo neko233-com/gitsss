@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/neko233-com/gitsss/modules/test"
@@ -75,7 +76,10 @@ func testCatFileBatch(t *testing.T) {
 		readError(t, c.respReader, errAfterPipeClose)  // then caller will read on a closed pipe
 	}
 	t.Run("QueryTerminated", func(t *testing.T) {
-		simulateQueryTerminated(t, io.EOF, nil)       // reader is faster
+		// Windows pipe handles remain open until Close; POSIX can report EOF first.
+		if runtime.GOOS != "windows" {
+			simulateQueryTerminated(t, io.EOF, nil) // reader is faster
+		}
 		simulateQueryTerminated(t, nil, os.ErrClosed) // pipes are closed faster
 	})
 

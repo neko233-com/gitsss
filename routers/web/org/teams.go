@@ -21,7 +21,9 @@ import (
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/setting"
+	"github.com/neko233-com/gitsss/modules/structs"
 	"github.com/neko233-com/gitsss/modules/templates"
+	"github.com/neko233-com/gitsss/modules/util"
 	"github.com/neko233-com/gitsss/modules/web"
 	shared_user "github.com/neko233-com/gitsss/routers/web/shared/user"
 	"github.com/neko233-com/gitsss/services/context"
@@ -54,13 +56,56 @@ func Teams(ctx *context.Context) {
 	ctx.Data["Title"] = org.FullName
 	ctx.Data["PageIsOrgTeams"] = true
 
-	for _, t := range ctx.Org.Teams {
+	keyword := ctx.FormTrim("q")
+	page := max(ctx.FormInt("page"), 1)
+	pagingNum := setting.UI.MembersPagingNum
+
+	searchTeams := func() (teams []*org_model.Team, count int64, err error) {
+		if keyword == "" {
+			// fast path, use existing teams in context if no need to filter from database
+			count = int64(len(ctx.Org.Teams))
+			start := (page - 1) * pagingNum
+			if start > len(ctx.Org.Teams) {
+				return nil, count, nil
+			}
+			end := min(start+pagingNum, len(ctx.Org.Teams))
+			return ctx.Org.Teams[start:end], count, nil
+		}
+
+		shouldSeeAllOrgTeams, err := context.UserShouldSeeAllOrgTeams(ctx)
+		if err != nil {
+			return nil, 0, err
+		}
+		opts := &org_model.SearchTeamOptions{
+			OrgID:       org.ID,
+			UserID:      util.Iif(shouldSeeAllOrgTeams, 0, ctx.Doer.ID),
+			Keyword:     keyword,
+			IncludeDesc: true,
+			IncludeVisibilities: util.Iif(shouldSeeAllOrgTeams, nil,
+				org_model.VisibleTeamVisibilitiesFor(ctx.Org.IsMember, ctx.IsSigned)),
+			Page: page, PageSize: pagingNum,
+		}
+		return org_model.SearchTeam(ctx, opts)
+	}
+
+	teams, count, err := searchTeams()
+	if err != nil {
+		ctx.ServerError("SearchTeam", err)
+		return
+	}
+
+	for _, t := range teams {
 		if err := t.LoadMembers(ctx); err != nil {
 			ctx.ServerError("GetMembers", err)
 			return
 		}
 	}
-	ctx.Data["Teams"] = ctx.Org.Teams
+
+	ctx.Data["OrgListTeams"] = teams
+	ctx.Data["Keyword"] = keyword
+	pager := context.NewPagination(count, setting.UI.MembersPagingNum, page, 5)
+	pager.AddParamFromRequest(ctx.Req)
+	ctx.Data["Page"] = pager
 
 	ctx.HTML(http.StatusOK, tplTeams)
 }
@@ -213,7 +258,7 @@ func checkIsOrgMemberAndRedirect(ctx *context.Context, defaultRedirect string) {
 	if isOrgMember, err := org_model.IsOrganizationMember(ctx, ctx.Org.Organization.ID, ctx.Doer.ID); err != nil {
 		ctx.ServerError("IsOrganizationMember", err)
 		return
-	} else if !isOrgMember {
+	} else if !isOrgMember && !ctx.Doer.IsAdmin {
 		if ctx.Org.Organization.Visibility.IsPrivate() {
 			defaultRedirect = setting.AppSubURL + "/"
 		} else {
@@ -331,10 +376,12 @@ func NewTeamPost(ctx *context.Context) {
 	t := &org_model.Team{
 		OrgID:                   ctx.Org.Organization.ID,
 		Name:                    form.TeamName,
+		DisplayName:             form.DisplayName,
 		Description:             form.Description,
 		AccessMode:              teamPermission,
 		IncludesAllRepositories: includesAllRepositories,
 		CanCreateOrgRepo:        form.CanCreateOrgRepo,
+		Visibility:              org_model.NormalizeTeamVisibility(form.Visibility),
 	}
 
 	units := make([]*org_model.TeamUnit, 0, len(unitPerms))
@@ -448,12 +495,21 @@ func SearchTeam(ctx *context.Context) {
 		PageSize: convert.ToCorrectPageSize(ctx.FormInt("limit")),
 	}
 
+	shouldSeeAll, err := context.UserShouldSeeAllOrgTeams(ctx)
+	if err != nil {
+		ctx.ServerError("UserShouldSeeAllOrgTeams", err)
+		return
+	}
+
 	opts := &org_model.SearchTeamOptions{
-		// UserID is not set because the router already requires the doer to be an org admin. Thus, we don't need to restrict to teams that the user belongs in
 		Keyword:     ctx.FormTrim("q"),
 		OrgID:       ctx.Org.Organization.ID,
 		IncludeDesc: ctx.FormString("include_desc") == "" || ctx.FormBool("include_desc"),
 		ListOptions: listOptions,
+	}
+	if !shouldSeeAll {
+		opts.UserID = ctx.Doer.ID
+		opts.IncludeVisibilities = org_model.VisibleTeamVisibilitiesFor(ctx.Org.IsMember, ctx.IsSigned)
 	}
 
 	teams, maxResults, err := org_model.SearchTeam(ctx, opts)
@@ -527,11 +583,15 @@ func EditTeamPost(ctx *context.Context) {
 			t.IncludesAllRepositories = includesAllRepositories
 		}
 		t.CanCreateOrgRepo = form.CanCreateOrgRepo
+		t.Visibility = org_model.NormalizeTeamVisibility(form.Visibility)
 	} else {
 		t.CanCreateOrgRepo = true
+		// The owner team must remain listable to all org members.
+		t.Visibility = structs.VisibleTypeLimited
 	}
 
 	t.Description = form.Description
+	t.DisplayName = form.DisplayName
 	units := make([]*org_model.TeamUnit, 0, len(unitPerms))
 	for tp, perm := range unitPerms {
 		units = append(units, &org_model.TeamUnit{
@@ -580,6 +640,8 @@ func DeleteTeam(ctx *context.Context) {
 // TeamInvite renders the team invite page
 func TeamInvite(ctx *context.Context) {
 	invite, org, team, inviter, err := getTeamInviteFromContext(ctx)
+	// TODO: to quickly debug the UI, can uncomment this (don't worry, it won't pass CI lint)
+	// invite, org, team, inviter, err = &org_model.TeamInvite{}, &org_model.Organization{}, &org_model.Team{}, ctx.Doer, nil
 	if err != nil {
 		if org_model.IsErrTeamInviteNotFound(err) {
 			ctx.NotFound(err)

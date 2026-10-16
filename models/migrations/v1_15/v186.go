@@ -4,12 +4,11 @@
 package v1_15
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func CreateProtectedTagTable(x *xorm.Engine) error {
+func CreateProtectedTagTable(x db.EngineMigration) error {
 	type ProtectedTag struct {
 		ID               int64 `xorm:"pk autoincr"`
 		RepoID           int64

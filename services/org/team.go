@@ -109,8 +109,8 @@ func UpdateTeam(ctx context.Context, t *organization.Team, authChanged, includeA
 		}
 
 		sess := db.GetEngine(ctx)
-		if _, err = sess.ID(t.ID).Cols("name", "lower_name", "description",
-			"can_create_org_repo", "authorize", "includes_all_repositories").Update(t); err != nil {
+		if _, err = sess.ID(t.ID).Cols("name", "lower_name", "display_name", "description",
+			"can_create_org_repo", "authorize", "includes_all_repositories", "visibility").Update(t); err != nil {
 			return fmt.Errorf("update: %w", err)
 		}
 

@@ -134,8 +134,8 @@ func Start(ctx context.Context, opts Options) (*Handle, error) {
 		Labels:    parsedLabels.ToStrings(),
 		Ephemeral: opts.Registration.Ephemeral,
 	}
-	cli := client.New(opts.Address, opts.Insecure, reg.UUID, reg.Token, version(opts.Registration.Version))
-	runner := run.NewRunner(cfg, reg, cli)
+	cli := client.New(opts.Address, opts.Insecure, reg.UUID, reg.Token)
+	runner := run.NewRunner(cfg, reg, cli, version(opts.Registration.Version))
 
 	runCtx, cancel := context.WithCancel(ctx)
 	handle := &Handle{cancel: cancel, done: make(chan struct{})}

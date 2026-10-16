@@ -5,6 +5,7 @@
 package gitea
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -82,12 +83,12 @@ const (
 )
 
 // GetIssueTemplates lists all issue templates of the repository
-func (c *Client) GetIssueTemplates(owner, repo string) ([]*IssueTemplate, *Response, error) {
+func (c *IssuesService) GetIssueTemplates(ctx context.Context, owner, repo string) ([]*IssueTemplate, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
 	templates := new([]*IssueTemplate)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/repos/%s/%s/issue_templates", owner, repo), nil, nil, templates)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/issue_templates", owner, repo), nil, nil, templates)
 	return *templates, resp, err
 }
 

@@ -20,24 +20,18 @@ import (
 	base "github.com/neko233-com/gitsss/modules/migration"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/structs"
+	"github.com/neko233-com/gitsss/modules/test"
 	"github.com/neko233-com/gitsss/services/migrations"
 
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 func TestDumpRestore(t *testing.T) {
 	onGiteaRun(t, func(t *testing.T, u *url.URL) {
-		AllowLocalNetworks := setting.Migrations.AllowLocalNetworks
-		setting.Migrations.AllowLocalNetworks = true
-		AppVer := setting.AppVer
 		// Gitea SDK (go-sdk) need to parse the AppVer from server response, so we must set it to a valid version string.
-		setting.AppVer = "1.16.0"
-		defer func() {
-			setting.Migrations.AllowLocalNetworks = AllowLocalNetworks
-			setting.AppVer = AppVer
-		}()
-
+		defer test.MockVariableValue(&setting.AppVer, "1.16.0")()
+		defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 		assert.NoError(t, migrations.Init())
 
 		reponame := "repo1"

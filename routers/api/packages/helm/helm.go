@@ -23,7 +23,7 @@ import (
 	"github.com/neko233-com/gitsss/services/context"
 	packages_service "github.com/neko233-com/gitsss/services/packages"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 func apiError(ctx *context.Context, status int, obj any) {

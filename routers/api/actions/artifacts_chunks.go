@@ -20,6 +20,7 @@ import (
 	"github.com/neko233-com/gitsss/models/actions"
 	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/log"
+	"github.com/neko233-com/gitsss/modules/optional"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/storage"
 )
@@ -257,10 +258,11 @@ func listOrderedChunksForArtifact(st storage.ObjectStorage, runID, artifactID in
 	return emptyListAsError(chunks)
 }
 
-func mergeChunksForRun(ctx *ArtifactContext, st storage.ObjectStorage, runID int64, artifactName string) error {
+func mergeChunksForRun(ctx *ArtifactContext, st storage.ObjectStorage, runID, runAttemptID int64, artifactName string) error {
 	// read all db artifacts by name
 	artifacts, err := db.Find[actions.ActionArtifact](ctx, actions.FindArtifactsOptions{
 		RunID:        runID,
+		RunAttemptID: optional.Some(runAttemptID),
 		ArtifactName: artifactName,
 	})
 	if err != nil {

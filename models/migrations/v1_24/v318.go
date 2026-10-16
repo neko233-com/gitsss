@@ -4,12 +4,13 @@
 package v1_24
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/perm"
 
 	"xorm.io/xorm"
 )
 
-func AddRepoUnitAnonymousAccessMode(x *xorm.Engine) error {
+func AddRepoUnitAnonymousAccessMode(x db.EngineMigration) error {
 	type RepoUnit struct { //revive:disable-line:exported
 		AnonymousAccessMode perm.AccessMode `xorm:"NOT NULL DEFAULT 0"`
 	}

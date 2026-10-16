@@ -3,11 +3,9 @@
 
 package v1_13
 
-import (
-	"xorm.io/xorm"
-)
+import "github.com/neko233-com/gitsss/models/db"
 
-func AddTeamReviewRequestSupport(x *xorm.Engine) error {
+func AddTeamReviewRequestSupport(x db.EngineMigration) error {
 	type Review struct {
 		ReviewerTeamID int64 `xorm:"NOT NULL DEFAULT 0"`
 	}

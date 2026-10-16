@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -26,7 +25,7 @@ import (
 	"github.com/neko233-com/gitsss/modules/structs"
 
 	"github.com/google/uuid"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 var _ base.Uploader = &RepositoryDumper{}
@@ -115,6 +114,7 @@ func (g *RepositoryDumper) CreateRepo(ctx context.Context, repo *base.Repository
 		"name":         repo.Name,
 		"owner":        repo.Owner,
 		"description":  repo.Description,
+		"website":      repo.Website,
 		"clone_addr":   opts.CloneAddr,
 		"original_url": repo.OriginalURL,
 		"is_private":   opts.Private,
@@ -309,7 +309,9 @@ func (g *RepositoryDumper) CreateReleases(_ context.Context, releases ...*base.R
 						}
 						defer rc.Close()
 					} else {
-						resp, err := http.Get(*asset.DownloadURL)
+						// use the migration client so the fetch (including any redirect) is
+						// validated against the migration host allow/block list
+						resp, err := getMigrationHTTPClient().Get(*asset.DownloadURL)
 						if err != nil {
 							return err
 						}
@@ -449,8 +451,10 @@ func (g *RepositoryDumper) handlePullRequest(ctx context.Context, pr *base.PullR
 		}
 
 		// SECURITY: We will assume that the pr.PatchURL has been checked
-		// pr.PatchURL maybe a local file - but note EnsureSafe should be asserting that this safe
-		resp, err := http.Get(u) // TODO: This probably needs to use the downloader as there may be rate limiting issues here
+		// pr.PatchURL maybe a local file - but note EnsureSafe should be asserting that this safe.
+		// Use the migration client so an http(s) PatchURL (and any redirect it follows) is
+		// validated against the migration host allow/block list at dial time.
+		resp, err := getMigrationHTTPClient().Get(u)
 		if err != nil {
 			return err
 		}

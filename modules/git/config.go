@@ -22,14 +22,6 @@ func syncGitConfig(ctx context.Context) (err error) {
 		return fmt.Errorf("unable to prepare git home directory %s, err: %w", gitcmd.HomeDir(), err)
 	}
 
-	// first, write user's git config options to git config file
-	// user config options could be overwritten by builtin values later, because if a value is builtin, it must have some special purposes
-	for k, v := range setting.GitConfig.Options {
-		if err = configSet(ctx, strings.ToLower(k), v); err != nil {
-			return err
-		}
-	}
-
 	// Git requires setting user.name and user.email in order to commit changes - old comment: "if they're not set just add some defaults"
 	// TODO: need to confirm whether users really need to change these values manually. It seems that these values are dummy only and not really used.
 	// If these values are not really used, then they can be set (overwritten) directly without considering about existence.
@@ -47,10 +39,8 @@ func syncGitConfig(ctx context.Context) (err error) {
 		return err
 	}
 
-	if DefaultFeatures().CheckVersionAtLeast("2.10") {
-		if err := configSet(ctx, "receive.advertisePushOptions", "true"); err != nil {
-			return err
-		}
+	if err := configSet(ctx, "receive.advertisePushOptions", "true"); err != nil {
+		return err
 	}
 
 	if DefaultFeatures().CheckVersionAtLeast("2.18") {
@@ -102,7 +92,7 @@ func syncGitConfig(ctx context.Context) (err error) {
 		}
 	}
 
-	// By default partial clones are disabled, enable them from git v2.22
+	// By default, partial clones are disabled, enable them from git v2.22
 	if !setting.Git.DisablePartialClone && DefaultFeatures().CheckVersionAtLeast("2.22") {
 		if err = configSet(ctx, "uploadpack.allowfilter", "true"); err != nil {
 			return err
@@ -114,32 +104,51 @@ func syncGitConfig(ctx context.Context) (err error) {
 		}
 		err = configUnsetAll(ctx, "uploadpack.allowAnySHA1InWant", "true")
 	}
+	if err != nil {
+		return err
+	}
 
 	if DefaultFeatures().CheckVersionAtLeast("2.38") {
-		if err = configSet(ctx, "pack.useBitmapBoundaryTraversal", "true"); err != nil {
+		if err := configSet(ctx, "pack.useBitmapBoundaryTraversal", "true"); err != nil {
 			return err
 		}
 	}
-	threads := runtime.NumCPU()
-	if threads < 1 {
-		threads = 1
-	}
-	if err = configSet(ctx, "pack.threads", strconv.Itoa(threads)); err != nil {
+	threads := max(runtime.NumCPU(), 1)
+	if err := configSetNonExist(ctx, "pack.threads", strconv.Itoa(threads)); err != nil {
 		return err
 	}
-	// Game repositories push many LFS objects. Cap the fan-out so a large host
-	// does not open one HTTP transfer per core.
-	transfers := min(threads, 8)
-	if err = configSet(ctx, "lfs.concurrenttransfers", strconv.Itoa(transfers)); err != nil {
+	// Bound LFS transfers on large hosts while respecting explicit operator settings.
+	if err := configSetNonExist(ctx, "lfs.concurrenttransfers", strconv.Itoa(min(threads, 8))); err != nil {
 		return err
 	}
 	if DefaultFeatures().CheckVersionAtLeast("2.21") {
-		if err = configSet(ctx, "core.multiPackIndex", "true"); err != nil {
+		if err := configSetNonExist(ctx, "core.multiPackIndex", "true"); err != nil {
 			return err
 		}
 	}
 
-	return err
+	// Apply user's git config options last so they take precedence over builtin defaults
+	for k, v := range setting.GitConfig.Options {
+		if err = configSet(ctx, strings.ToLower(k), v); err != nil {
+			return err
+		}
+	}
+
+	GlobalConfig = &GlobalConfigStruct{}
+	// HINT: GIT-DIFF-TREE-UI-CONFIG: Git's bug: git-diff-tree loads config with /* no "diff" UI options */ (since 20 years ago).
+	// https://github.com/git/git/blame/5d2e7709234afea1b6ddb25cd4f60d3d5fb3c200/builtin/diff-tree.c#L127
+	// Although document and manual say that "git-diff-tree" supports "diff.orderfile" option, but it is not actually supported.
+	// So we need to apply the diff.orderfile explicitly in our code.
+	GlobalConfig.DiffOrderFile, _ = configGet(ctx, "diff.orderfile")
+	return nil
+}
+
+func configGet(ctx context.Context, key string) (string, error) {
+	stdout, _, err := gitcmd.NewCommand("config", "--global", "--get").AddDynamicArguments(key).RunStdString(ctx)
+	if err != nil && !gitcmd.IsErrorExitCode(err, 1) {
+		return "", fmt.Errorf("failed to get git config %s, err: %w", key, err)
+	}
+	return strings.TrimRight(stdout, "\r\n"), nil
 }
 
 func configSet(ctx context.Context, key, value string) error {

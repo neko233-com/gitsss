@@ -1,6 +1,30 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content dashboard feeds">
 	{{template "user/dashboard/navbar" .}}
+	{{if .OrganizationHome}}
+	<div class="ui container">
+		{{template "base/alert" .}}
+		<h2>{{ctx.Locale.Tr "explore.organizations"}}</h2>
+		<p>{{ctx.Locale.Tr "home.organizations_first_help"}}</p>
+		<div class="ui stackable three cards">
+			{{range .Orgs}}
+			<a class="ui card" href="{{.OrganisationLink}}/dashboard">
+				<div class="content flex-text-block">
+					{{ctx.AvatarUtils.Avatar . 40}}
+					<div><div class="header">{{.DisplayName}}</div><div class="meta">{{.NumRepos}} {{ctx.Locale.Tr "org.lower_repositories"}}</div></div>
+				</div>
+			</a>
+			{{else}}
+			<p>{{ctx.Locale.Tr "home.organizations_empty"}}</p>
+			{{end}}
+		</div>
+		<div class="ui divider"></div>
+		<div class="flex-text-block">
+			{{if .SignedUser.CanCreateOrganization}}<a class="ui primary button" href="{{AppSubUrl}}/org/create">{{ctx.Locale.Tr "new_org"}}</a>{{end}}
+			<a href="{{AppSubUrl}}/?view=personal">{{ctx.Locale.Tr "home.personal_dashboard"}}</a>
+		</div>
+	</div>
+	{{else}}
 	<div class="ui container flex-container">
 		<div class="flex-container-main">
 			{{template "base/alert" .}}
@@ -25,5 +49,6 @@
 		</div>
 		{{template "user/dashboard/repolist" .}}
 	</div>
+	{{end}}
 </div>
 {{template "base/footer" .}}

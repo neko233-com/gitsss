@@ -6,13 +6,12 @@ package v1_20
 import (
 	"context"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/base"
 	"github.com/neko233-com/gitsss/modules/setting"
-
-	"xorm.io/xorm"
 )
 
-func RenameWebhookOrgToOwner(x *xorm.Engine) error {
+func RenameWebhookOrgToOwner(x db.EngineMigration) error {
 	type Webhook struct {
 		OrgID int64 `xorm:"INDEX"`
 	}

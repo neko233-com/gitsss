@@ -20,9 +20,11 @@ import (
 	"github.com/neko233-com/gitsss/modules/graceful"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/repository"
+	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/storage"
 	"github.com/neko233-com/gitsss/modules/timeutil"
 	"github.com/neko233-com/gitsss/modules/util"
+	"github.com/neko233-com/gitsss/services/context/upload"
 	notify_service "github.com/neko233-com/gitsss/services/notify"
 )
 
@@ -319,13 +321,17 @@ func UpdateRelease(ctx context.Context, doer *user_model.User, gitRepo *git.Repo
 			}
 
 			for uuid, newName := range editAttachments {
-				if !deletedUUIDs.Contains(uuid) {
-					if err = repo_model.UpdateAttachmentByUUID(ctx, &repo_model.Attachment{
-						UUID: uuid,
-						Name: newName,
-					}, "name"); err != nil {
-						return err
-					}
+				if deletedUUIDs.Contains(uuid) {
+					continue
+				}
+				if err = upload.Verify(nil, newName, setting.Repository.Release.AllowedTypes); err != nil {
+					return err
+				}
+				if err = repo_model.UpdateAttachmentByUUID(ctx, &repo_model.Attachment{
+					UUID: uuid,
+					Name: newName,
+				}, "name"); err != nil {
+					return err
 				}
 			}
 		}

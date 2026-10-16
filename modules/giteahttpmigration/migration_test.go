@@ -26,6 +26,28 @@ func TestNewRejectsSameURL(t *testing.T) {
 	require.EqualError(t, err, "source and target URLs must differ")
 }
 
+func TestGitEnvironmentIsolatesAmbientURLRewritesAndCredentials(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", "unexpected")
+	t.Setenv("GIT_ALLOW_PROTOCOL", "ssh")
+	env := strings.Join(sanitizedGitEnvironment("Authorization: Basic test", "http://source.test/owner/repo.git"), "\n")
+	assert.Contains(t, env, "GIT_CONFIG_GLOBAL="+os.DevNull)
+	assert.Contains(t, env, "GIT_CONFIG_NOSYSTEM=1")
+	assert.Contains(t, env, "GIT_ALLOW_PROTOCOL=http:https")
+	assert.NotContains(t, env, "unexpected")
+	assert.NotContains(t, env, "GIT_ALLOW_PROTOCOL=ssh")
+	assert.Contains(t, env, "http.http://source.test/owner/repo.git.extraHeader")
+}
+
+func TestMirrorTargetGuard(t *testing.T) {
+	previous := map[string]string{"refs/heads/main": "old", "refs/heads/removed": "old"}
+	source := map[string]string{"refs/heads/main": "new"}
+	require.NoError(t, validateMirrorTarget(previous, source, previous))
+	require.NoError(t, validateMirrorTarget(previous, source, source))
+	require.NoError(t, validateMirrorTarget(nil, source, source))
+	require.Error(t, validateMirrorTarget(previous, source, map[string]string{"refs/heads/main": "old", "refs/heads/work": "local"}))
+	require.Error(t, validateMirrorTarget(previous, source, map[string]string{"refs/heads/main": "local"}))
+}
+
 func TestNewParsesRepositoryURL(t *testing.T) {
 	migrator, err := New(Options{
 		SourceURL: "http://source.test/gitea", SourceToken: "source",
@@ -43,6 +65,7 @@ func TestRequireSameOriginRejectsCredentialExfiltration(t *testing.T) {
 }
 
 func TestDiscoverUsesReadOnlySourceRequests(t *testing.T) {
+	disabledPulls := false
 	var source *httptest.Server
 	source = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, http.MethodGet, r.Method)
@@ -63,25 +86,29 @@ func TestDiscoverUsesReadOnlySourceRequests(t *testing.T) {
 			writeJSON(t, w, Repository{
 				Owner: &User{UserName: "engineering"}, Name: "repo-a", FullName: "engineering/repo-a",
 				CloneURL: source.URL + "/engineering/repo-a.git", DefaultBranch: "main",
+				HasPullRequests: &disabledPulls,
 			})
 		case "/api/v1/repos/engineering/repo-a/git/refs":
 			writeJSON(t, w, []Reference{{Ref: "refs/heads/main", Object: &GitObject{Type: "commit", SHA: "abc123"}}})
 		case "/api/v1/repos/engineering/repo-a/collaborators":
-			writeJSON(t, w, []User{{UserName: "alice"}})
+			writeJSON(t, w, []User{{UserName: "alice"}, {UserName: "owner-user"}})
 		case "/api/v1/repos/engineering/repo-a/collaborators/alice/permission":
 			writeJSON(t, w, map[string]string{"permission": "write"})
+		case "/api/v1/repos/engineering/repo-a/collaborators/owner-user/permission":
+			writeJSON(t, w, map[string]string{"permission": "owner"})
 		case "/api/v1/orgs/engineering/public_members":
 			writeJSON(t, w, []User{{UserName: "alice"}})
 		case "/api/v1/orgs/engineering/teams":
 			writeJSON(t, w, []Team{{ID: 1, Name: "Owners", Permission: "owner"}, {ID: 2, Name: "Developers", Permission: "write"}})
-		case "/api/v1/teams/1/members", "/api/v1/teams/2/members":
+		case "/api/v1/teams/1/members":
+			writeJSON(t, w, []User{{UserName: "alice"}, {UserName: "owner-user"}})
+		case "/api/v1/teams/2/members":
 			writeJSON(t, w, []User{{UserName: "alice"}})
 		case "/api/v1/teams/1/repos", "/api/v1/teams/2/repos":
 			writeJSON(t, w, []Repository{{Owner: &User{UserName: "engineering"}, Name: "repo-a", FullName: "engineering/repo-a"}})
 		case "/api/v1/repos/engineering/repo-a/labels",
 			"/api/v1/repos/engineering/repo-a/milestones",
 			"/api/v1/repos/engineering/repo-a/issues",
-			"/api/v1/repos/engineering/repo-a/pulls",
 			"/api/v1/repos/engineering/repo-a/releases":
 			writeJSON(t, w, []any{})
 		default:
@@ -108,6 +135,9 @@ func TestDiscoverUsesReadOnlySourceRequests(t *testing.T) {
 	require.Len(t, plan.Repositories, 1)
 	assert.Equal(t, "abc123", plan.Repositories[0].Refs[0].Object.SHA)
 	assert.Equal(t, []Collaborator{{UserName: "alice", Permission: "write"}}, plan.Repositories[0].Collaborators)
+	assert.Equal(t, []string{"owner-user"}, plan.Repositories[0].OwnerCollaborators)
+	require.Len(t, plan.Warnings, 1)
+	assert.Contains(t, plan.Warnings[0], "masked direct grant")
 	require.Len(t, plan.Organizations, 1)
 	assert.Equal(t, "alice", plan.Organizations[0].Owner)
 	assert.Equal(t, []string{"alice"}, plan.Organizations[0].PublicMembers)
@@ -183,6 +213,7 @@ func TestApplyUsesPlainGitHTTPAndVerifiesRefs(t *testing.T) {
 		SourceURL: source.URL, SourceToken: "source-token", TargetURL: target.URL, TargetToken: "target-token",
 		Repositories: []string{"engineering/repo-a"},
 		Mirror: func(_ context.Context, request MirrorRequest) error {
+			require.NotEmpty(t, request.CacheDir)
 			mirrorRequest = request
 			return nil
 		},
@@ -219,6 +250,145 @@ func TestApplyUsesPlainGitHTTPAndVerifiesRefs(t *testing.T) {
 	assert.Equal(t, "alice", credentials.credentials[0].UserName)
 	assert.True(t, credentials.credentials[0].MustChangePassword)
 	assert.GreaterOrEqual(t, len(credentials.credentials[0].TemporaryPassword), 40)
+}
+
+func TestSyncGitRepositoriesUpdatesOnlyExistingRepositoryGitData(t *testing.T) {
+	var mirrorRequest MirrorRequest
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/user":
+			writeJSON(t, w, User{UserName: "target-admin", IsAdmin: true})
+		case "/api/v1/repos/engineering/repo-a":
+			writeJSON(t, w, Repository{Owner: &User{UserName: "engineering"}, Name: "repo-a", Empty: false})
+		case "/api/v1/repos/engineering/repo-a/git/refs":
+			writeJSON(t, w, []Reference{{Ref: "refs/heads/main", Object: &GitObject{Type: "commit", SHA: "abc123"}}})
+		default:
+			http.Error(w, r.Method+" "+r.URL.Path, http.StatusNotFound)
+		}
+	}))
+	defer target.Close()
+	source := httptest.NewServer(http.NotFoundHandler())
+	defer source.Close()
+	migrator, err := New(Options{
+		SourceURL: source.URL, SourceToken: "source-token", TargetURL: target.URL, TargetToken: "target-token",
+		Repositories: []string{"engineering/repo-a"}, SyncExistingGit: true,
+		MirrorCacheDir: t.TempDir(),
+		Mirror: func(_ context.Context, request MirrorRequest) error {
+			mirrorRequest = request
+			return nil
+		},
+	})
+	require.NoError(t, err)
+	plan := &Plan{
+		SourceURL: source.URL, TargetURL: target.URL, SourceLogin: "source-admin", GitOnlySync: true,
+		Repositories: []RepositoryPlan{{
+			Repository: Repository{Owner: &User{UserName: "engineering"}, Name: "repo-a", CloneURL: source.URL + "/engineering/repo-a.git"},
+			Refs:       []Reference{{Ref: "refs/heads/main", Object: &GitObject{Type: "commit", SHA: "abc123"}}},
+		}},
+	}
+	result, err := migrator.SyncGitRepositories(context.Background(), plan)
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.GitRepositoriesSynced)
+	assert.Equal(t, 1, result.RefsVerified)
+	assert.True(t, mirrorRequest.UpdateExisting)
+	assert.NotEmpty(t, mirrorRequest.CacheDir)
+	assert.Equal(t, target.URL+"/engineering/repo-a.git", mirrorRequest.TargetURL)
+}
+
+func TestDiscoverGitSyncSkipsCollaborationMetadata(t *testing.T) {
+	var sourceURL string
+	var unexpectedRequests int
+	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/user":
+			writeJSON(t, w, User{UserName: "source-admin", IsAdmin: true})
+		case "/api/v1/repos/acme/repo":
+			writeJSON(t, w, Repository{
+				Owner: &User{UserName: "acme"}, Name: "repo", FullName: "acme/repo",
+				CloneURL: sourceURL + "/acme/repo.git",
+				Empty:    true,
+			})
+		case "/api/v1/repos/acme/repo/git/refs":
+			writeJSON(t, w, []Reference{{Ref: "refs/heads/main", Object: &GitObject{Type: "commit", SHA: "abc123"}}})
+		default:
+			unexpectedRequests++
+			http.Error(w, "unexpected endpoint", http.StatusInternalServerError)
+		}
+	}))
+	defer source.Close()
+	sourceURL = source.URL
+	migrator, err := New(Options{
+		SourceURL: source.URL, SourceToken: "source-token", TargetURL: "http://target.example.test", TargetToken: "target-token",
+		Repositories: []string{"acme/repo"}, SyncExistingGit: true,
+	})
+	require.NoError(t, err)
+	plan, err := migrator.Discover(context.Background())
+	require.NoError(t, err)
+	assert.True(t, plan.GitOnlySync)
+	assert.Empty(t, plan.Users)
+	require.Len(t, plan.Repositories, 1)
+	assert.Equal(t, "refs/heads/main", plan.Repositories[0].Refs[0].Ref)
+	assert.False(t, plan.Repositories[0].Repository.Empty)
+	assert.Zero(t, unexpectedRequests)
+}
+
+func TestCreateTeamsPreservesVisibility(t *testing.T) {
+	for _, visibility := range []string{"private", "limited", "public"} {
+		t.Run(visibility, func(t *testing.T) {
+			target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodGet {
+					if r.URL.Query().Get("page") != "1" {
+						writeJSON(t, w, []Team{})
+						return
+					}
+					writeJSON(t, w, []Team{{ID: 1, Name: "Owners", Permission: "owner"}})
+					return
+				}
+				var team Team
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&team))
+				assert.Equal(t, visibility, team.Visibility)
+				assert.Equal(t, "Development", team.DisplayName)
+				team.ID = 2
+				w.WriteHeader(http.StatusCreated)
+				writeJSON(t, w, team)
+			}))
+			defer target.Close()
+			migrator, err := New(Options{SourceURL: "http://source.example.test", SourceToken: "source-token", TargetURL: target.URL, TargetToken: "target-token", Repositories: []string{"acme/repo"}})
+			require.NoError(t, err)
+			_, created, _, err := migrator.createTeams(t.Context(), OrganizationPlan{
+				Organization: Organization{Name: "acme"},
+				Teams:        []TeamPlan{{Team: Team{Name: "developers", DisplayName: "Development", Permission: "write", Visibility: visibility}}},
+			})
+			require.NoError(t, err)
+			assert.Equal(t, 1, created)
+		})
+	}
+}
+
+func TestSyncGitRepositoriesRequiresExistingTarget(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/user" {
+			writeJSON(t, w, User{UserName: "target-admin", IsAdmin: true})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer target.Close()
+	source := httptest.NewServer(http.NotFoundHandler())
+	defer source.Close()
+	migrator, err := New(Options{
+		SourceURL: source.URL, SourceToken: "source-token", TargetURL: target.URL, TargetToken: "target-token",
+		Repositories: []string{"engineering/repo-a"}, SyncExistingGit: true,
+		Mirror: func(context.Context, MirrorRequest) error { return nil },
+	})
+	require.NoError(t, err)
+	_, err = migrator.SyncGitRepositories(context.Background(), &Plan{
+		SourceURL: source.URL, TargetURL: target.URL, SourceLogin: "source-admin", GitOnlySync: true,
+		Repositories: []RepositoryPlan{{Repository: Repository{Owner: &User{UserName: "engineering"}, Name: "repo-a"}}},
+	})
+	require.ErrorContains(t, err, "does not exist; run the initial import first")
 }
 
 func TestJSONLCredentialFileIsExclusive(t *testing.T) {

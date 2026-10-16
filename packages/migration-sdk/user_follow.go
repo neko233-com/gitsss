@@ -4,7 +4,10 @@
 
 package gitea
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 // ListFollowersOptions options for listing followers
 type ListFollowersOptions struct {
@@ -12,21 +15,21 @@ type ListFollowersOptions struct {
 }
 
 // ListMyFollowers list all the followers of current user
-func (c *Client) ListMyFollowers(opt ListFollowersOptions) ([]*User, *Response, error) {
+func (c *UsersService) ListMyFollowers(ctx context.Context, opt ListFollowersOptions) ([]*User, *Response, error) {
 	opt.setDefaults()
 	users := make([]*User, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/user/followers?%s", opt.getURLQuery().Encode()), nil, nil, &users)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/user/followers?%s", opt.getURLQuery().Encode()), nil, nil, &users)
 	return users, resp, err
 }
 
 // ListFollowers list all the followers of one user
-func (c *Client) ListFollowers(user string, opt ListFollowersOptions) ([]*User, *Response, error) {
+func (c *UsersService) ListFollowers(ctx context.Context, user string, opt ListFollowersOptions) ([]*User, *Response, error) {
 	if err := escapeValidatePathSegments(&user); err != nil {
 		return nil, nil, err
 	}
 	opt.setDefaults()
 	users := make([]*User, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/users/%s/followers?%s", user, opt.getURLQuery().Encode()), nil, nil, &users)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/users/%s/followers?%s", user, opt.getURLQuery().Encode()), nil, nil, &users)
 	return users, resp, err
 }
 
@@ -36,58 +39,58 @@ type ListFollowingOptions struct {
 }
 
 // ListMyFollowing list all the users current user followed
-func (c *Client) ListMyFollowing(opt ListFollowingOptions) ([]*User, *Response, error) {
+func (c *UsersService) ListMyFollowing(ctx context.Context, opt ListFollowingOptions) ([]*User, *Response, error) {
 	opt.setDefaults()
 	users := make([]*User, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/user/following?%s", opt.getURLQuery().Encode()), nil, nil, &users)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/user/following?%s", opt.getURLQuery().Encode()), nil, nil, &users)
 	return users, resp, err
 }
 
 // ListFollowing list all the users the user followed
-func (c *Client) ListFollowing(user string, opt ListFollowingOptions) ([]*User, *Response, error) {
+func (c *UsersService) ListFollowing(ctx context.Context, user string, opt ListFollowingOptions) ([]*User, *Response, error) {
 	if err := escapeValidatePathSegments(&user); err != nil {
 		return nil, nil, err
 	}
 	opt.setDefaults()
 	users := make([]*User, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/users/%s/following?%s", user, opt.getURLQuery().Encode()), nil, nil, &users)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/users/%s/following?%s", user, opt.getURLQuery().Encode()), nil, nil, &users)
 	return users, resp, err
 }
 
 // IsFollowing if current user followed the target
-func (c *Client) IsFollowing(target string) (bool, *Response) {
+func (c *UsersService) IsFollowing(ctx context.Context, target string) (bool, *Response) {
 	if err := escapeValidatePathSegments(&target); err != nil {
 		// ToDo return err
 		return false, nil
 	}
-	resp, err := c.doRequestWithStatusHandle("GET", fmt.Sprintf("/user/following/%s", target), nil, nil)
+	resp, err := c.doRequestWithStatusHandle(ctx, "GET", fmt.Sprintf("/user/following/%s", target), nil, nil)
 	return err == nil, resp
 }
 
 // IsUserFollowing if the user followed the target
-func (c *Client) IsUserFollowing(user, target string) (bool, *Response) {
+func (c *UsersService) IsUserFollowing(ctx context.Context, user, target string) (bool, *Response) {
 	if err := escapeValidatePathSegments(&user, &target); err != nil {
 		// ToDo return err
 		return false, nil
 	}
-	resp, err := c.doRequestWithStatusHandle("GET", fmt.Sprintf("/users/%s/following/%s", user, target), nil, nil)
+	resp, err := c.doRequestWithStatusHandle(ctx, "GET", fmt.Sprintf("/users/%s/following/%s", user, target), nil, nil)
 	return err == nil, resp
 }
 
 // Follow set current user follow the target
-func (c *Client) Follow(target string) (*Response, error) {
+func (c *UsersService) Follow(ctx context.Context, target string) (*Response, error) {
 	if err := escapeValidatePathSegments(&target); err != nil {
 		return nil, err
 	}
-	resp, err := c.doRequestWithStatusHandle("PUT", fmt.Sprintf("/user/following/%s", target), nil, nil)
+	resp, err := c.doRequestWithStatusHandle(ctx, "PUT", fmt.Sprintf("/user/following/%s", target), nil, nil)
 	return resp, err
 }
 
 // Unfollow set current user unfollow the target
-func (c *Client) Unfollow(target string) (*Response, error) {
+func (c *UsersService) Unfollow(ctx context.Context, target string) (*Response, error) {
 	if err := escapeValidatePathSegments(&target); err != nil {
 		return nil, err
 	}
-	resp, err := c.doRequestWithStatusHandle("DELETE", fmt.Sprintf("/user/following/%s", target), nil, nil)
+	resp, err := c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/user/following/%s", target), nil, nil)
 	return resp, err
 }

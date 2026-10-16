@@ -28,6 +28,7 @@
         <a href="index.html">文档首页</a>
         <a href="getting-started.html">快速开始</a>
         <a href="configuration.html">配置参考</a>
+        <a href="enterprise.html">企业与组织</a>
         <a href="storage.html">存储与 Git LFS</a>
       </div>
       <div class="sidebar-section">
@@ -110,7 +111,7 @@ chmod 600 source.password target.password</code></pre>
   --source-url http://git.example.internal:3000 \
   --source-user root \
   --source-password-file source.password \
-  --target-url http://127.0.0.1:5300 \
+  --target-url http://127.0.0.1:5030 \
   --target-user root \
   --target-password-file target.password \
   --all-repos</code></pre>
@@ -125,7 +126,7 @@ chmod 600 source.password target.password</code></pre>
   --source-url http://git.example.internal:3000 \
   --source-user root \
   --source-password-file source.password \
-  --target-url http://127.0.0.1:5300 \
+  --target-url http://127.0.0.1:5030 \
   --target-user root \
   --target-password-file target.password \
   --all-repos \
@@ -134,13 +135,28 @@ chmod 600 source.password target.password</code></pre>
   --credentials-file imported-users.jsonl</code></pre>
       </div>
 
-      <h3>Step 4: 切换到生产端口</h3>
+      <h3>增量同步 Git 与 LFS</h3>
+      <p>初次导入后可用 Git-only 模式增量更新已有仓库：</p>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <pre><code>gitsss import-gitea-http \
+  --source-url http://git.example.internal:3000 \
+  --source-user root --source-password-file source.password \
+  --target-url http://127.0.0.1:5030 \
+  --target-user root --target-password-file target.password \
+  --repo owner/repository \
+  --sync-existing-git --apply</code></pre>
+      </div>
+      <p>该模式只同步 Git refs 与 LFS 对象，不会重复创建仓库，也不会同步后续 Issue、Pull Request、权限或 Package 变化。快进更新和 refs 删除会原子应用；如果目标 refs 已分叉，任务会失败且不会强制覆盖。持久 bare cache 可减少重复下载，但会使用与 Git 对象量相近的空间。</p>
+
+      <h3>两端并行试运行与端口接管</h3>
+      <p>试运行期间，原 Gitea 继续运行在 <code>3000</code>，GitSSS 使用 <code>5030</code>。完成多个仓库和功能验收后，先停止 Gitea 释放 <code>3000</code>，再从 GitSSS 的 <code>/-/admin/takeover</code> 添加 <code>3000</code> 监听。GitSSS 会继续监听 <code>5030</code>，并开始同时服务 <code>5030</code> 与 <code>3000</code>。</p>
       <ol>
-        <li>保留源 Gitea 回滚数据</li>
-        <li>在审批窗口期内停止源 Gitea</li>
-        <li>将 gitsss 端口从临时 <code>3001</code> 改为 <code>3000</code></li>
-        <li>启动 gitsss 并验证 <code>/api/healthz</code>、登录、克隆、推送、LFS、RBAC</li>
-        <li>删除源 Token，安全归档或销毁临时凭据</li>
+        <li>评估期内保留 Gitea 进程、原数据和回滚路径</li>
+        <li>验收后完成最后一次 Git/LFS 同步并停止 Gitea</li>
+        <li>在 <code>5030</code> 上登录 GitSSS 管理员页面，添加空闲端口 <code>3000</code></li>
+        <li>验证两个端口上的登录、克隆、推送、LFS、Issue 与权限</li>
+        <li>确认切换稳定后再归档凭据与安排后续清理</li>
       </ol>
 
       <hr>

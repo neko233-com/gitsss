@@ -14,6 +14,7 @@ import (
 	asymkey_service "github.com/neko233-com/gitsss/services/asymkey"
 	"github.com/neko233-com/gitsss/services/auth/source/oauth2"
 	"github.com/neko233-com/gitsss/services/context"
+	user_service "github.com/neko233-com/gitsss/services/user"
 
 	"github.com/markbates/goth"
 )
@@ -47,6 +48,14 @@ func oauth2SignInSync(ctx *context.Context, authSourceID int64, u *user_model.Us
 		u.FullName = fullName
 		if err := user_model.UpdateUserCols(ctx, u, "full_name"); err != nil {
 			log.Error("Unable to sync OAuth2 user full name %s: %v", gothUser.Provider, err)
+		}
+	}
+
+	// sync user flags (admin/restricted)
+	isAdmin, isRestricted := getUserAdminAndRestrictedFromGroupClaims(oauth2Source, &gothUser)
+	if isAdmin.Has() || isRestricted.Has() {
+		if err = user_service.UpdateUser(ctx, u, &user_service.UpdateOptions{IsAdmin: isAdmin, IsRestricted: isRestricted}); err != nil {
+			log.Error("Unable to sync OAuth2 user admin or restricted status %s: %v", gothUser.Provider, err)
 		}
 	}
 

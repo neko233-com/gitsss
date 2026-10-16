@@ -3,11 +3,9 @@
 
 package v1_17
 
-import (
-	"xorm.io/xorm"
-)
+import "github.com/neko233-com/gitsss/models/db"
 
-func AddAutoMergeTable(x *xorm.Engine) error {
+func AddAutoMergeTable(x db.EngineMigration) error {
 	type MergeStyle string
 	type PullAutoMerge struct {
 		ID          int64      `xorm:"pk autoincr"`

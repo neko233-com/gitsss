@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/v1_10"
 	"github.com/neko233-com/gitsss/models/migrations/v1_11"
 	"github.com/neko233-com/gitsss/models/migrations/v1_12"
@@ -35,7 +36,6 @@ import (
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/setting"
 
-	"xorm.io/xorm"
 	"xorm.io/xorm/names"
 )
 
@@ -44,23 +44,23 @@ const minDBVersion = 70 // Gitea 1.5.3
 type migration struct {
 	idNumber    int64 // DB version is "the last migration's idNumber" + 1
 	description string
-	migrate     func(context.Context, *xorm.Engine) error
+	migrate     func(context.Context, db.EngineMigration) error
 }
 
 // newMigration creates a new migration
-func newMigration[T func(*xorm.Engine) error | func(context.Context, *xorm.Engine) error](idNumber int64, desc string, fn T) *migration {
+func newMigration[T func(db.EngineMigration) error | func(context.Context, db.EngineMigration) error](idNumber int64, desc string, fn T) *migration {
 	m := &migration{idNumber: idNumber, description: desc}
 	var ok bool
-	if m.migrate, ok = any(fn).(func(context.Context, *xorm.Engine) error); !ok {
-		m.migrate = func(ctx context.Context, x *xorm.Engine) error {
-			return any(fn).(func(*xorm.Engine) error)(x)
+	if m.migrate, ok = any(fn).(func(context.Context, db.EngineMigration) error); !ok {
+		m.migrate = func(ctx context.Context, x db.EngineMigration) error {
+			return any(fn).(func(db.EngineMigration) error)(x)
 		}
 	}
 	return m
 }
 
 // Migrate executes the migration
-func (m *migration) Migrate(ctx context.Context, x *xorm.Engine) error {
+func (m *migration) Migrate(ctx context.Context, x db.EngineMigration) error {
 	return m.migrate(ctx, x)
 }
 
@@ -71,7 +71,7 @@ type Version struct {
 }
 
 // Use noopMigration when there is a migration that has been no-oped
-var noopMigration = func(_ *xorm.Engine) error { return nil }
+var noopMigration = func(_ db.EngineMigration) error { return nil }
 
 var preparedMigrations []*migration
 
@@ -406,13 +406,26 @@ func prepareMigrationTasks() []*migration {
 		newMigration(328, "Add TokenPermissions column to ActionRunJob", v1_26.AddTokenPermissionsToActionRunJob),
 		newMigration(329, "Add unique constraint for user badge", v1_26.AddUniqueIndexForUserBadge),
 		newMigration(330, "Add name column to webhook", v1_26.AddNameToWebhook),
-		newMigration(331, "Add custom field definitions to project boards", v1_27.AddProjectFieldsJSON),
+		// Gitea 1.26.0 ends at migration ID number 330 (database version 331)
+
+		newMigration(331, "Add ActionRunAttempt model and related action fields", v1_27.AddActionRunAttemptModel),
+		newMigration(332, "Add last_sync_unix to mirror", v1_27.AddLastSyncUnixToMirror),
+		newMigration(333, "Add bypass allowlist to branch protection", v1_27.AddBranchProtectionBypassAllowlist),
+		newMigration(334, "Add cancelling support to action runners", v1_27.AddCancellingSupportToActionRunner),
+		newMigration(335, "Add reusable workflow fields and action_run_attempt_job_id_index table for ActionRunJob", v1_27.AddReusableWorkflowFieldsToActionRunJob),
+		newMigration(336, "Add ActionRunJobSummary table", v1_27.AddActionRunJobSummaryTable),
+		newMigration(337, "Add visibility to team", v1_27.AddVisibilityToTeam),
+		newMigration(338, "Expand legacy MSSQL issue/comment long-text columns", v1_27.ExpandIssueAndCommentLongTextFieldsForMSSQL),
+		newMigration(339, "Extend action c_u index to include created_unix for faster dashboard feed queries", v1_27.AddCreatedUnixToActionUserIsDeletedIndex),
+		newMigration(340, "Add ContinueOnError column to ActionRunJob", v1_27.AddContinueOnErrorToActionRunJob),
+		newMigration(341, "Convert legacy MSSQL DATETIME columns to DATETIME2", v1_27.FixLegacyMSSQLDateTimeColumns),
+		newMigration(342, "Add scoped workflows schema", v1_27.AddScopedWorkflowsSchema),
 	}
 	return preparedMigrations
 }
 
 // GetCurrentDBVersion returns the current db version
-func GetCurrentDBVersion(x *xorm.Engine) (int64, error) {
+func GetCurrentDBVersion(x db.EngineMigration) (int64, error) {
 	if err := x.Sync(new(Version)); err != nil {
 		return -1, fmt.Errorf("sync: %w", err)
 	}
@@ -445,7 +458,7 @@ func ExpectedDBVersion() int64 {
 }
 
 // EnsureUpToDate will check if the db is at the correct version
-func EnsureUpToDate(ctx context.Context, x *xorm.Engine) error {
+func EnsureUpToDate(ctx context.Context, x db.EngineMigration) error {
 	currentDB, err := GetCurrentDBVersion(x)
 	if err != nil {
 		return err
@@ -477,7 +490,7 @@ func migrationIDNumberToDBVersion(idNumber int64) int64 {
 }
 
 // Migrate database to current version
-func Migrate(ctx context.Context, x *xorm.Engine) error {
+func Migrate(ctx context.Context, x db.EngineMigration) error {
 	migrations := prepareMigrationTasks()
 	maxDBVer := calcDBVersion(migrations)
 
@@ -496,7 +509,7 @@ func Migrate(ctx context.Context, x *xorm.Engine) error {
 		// XORM model framework will create all tables when initializing.
 		currentVersion.ID = 0
 		currentVersion.Version = maxDBVer
-		if _, err = x.InsertOne(currentVersion); err != nil {
+		if _, err = x.Insert(currentVersion); err != nil {
 			return fmt.Errorf("insert: %w", err)
 		}
 	}
@@ -526,6 +539,9 @@ Please try upgrading to a lower version first (suggested v1.6.4), then upgrade t
 	}
 
 	// Migrate
+	if err := repairLegacyGitSSS332(ctx, x, curDBVer); err != nil {
+		return err
+	}
 	for _, m := range getPendingMigrations(curDBVer, migrations) {
 		log.Info("Migration[%d]: %s", m.idNumber, m.description)
 		// Reset the mapper between each migration - migrations are not supposed to depend on each other
@@ -538,5 +554,5 @@ Please try upgrading to a lower version first (suggested v1.6.4), then upgrade t
 			return err
 		}
 	}
-	return nil
+	return migrateGitSSSExtensions(x)
 }

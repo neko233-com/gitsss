@@ -70,7 +70,9 @@ func prepareTestFixturesLoaders(t testing.TB) unittest.FixturesOptions {
 	opts := unittest.FixturesOptions{Dir: filepath.Join(giteaRoot, "models", "fixtures"), Files: []string{
 		"user.yml",
 	}}
-	require.NoError(t, unittest.CreateTestEngine(opts))
+	require.NoError(t, unittest.CreateTestEngine(filepath.Join(t.TempDir(), "sqlite-test.db"), opts))
+	engine := unittest.GetXORMEngine()
+	t.Cleanup(func() { require.NoError(t, engine.Close()) })
 	return opts
 }
 
@@ -95,7 +97,7 @@ func TestFixturesLoader(t *testing.T) {
 
 func BenchmarkFixturesLoader(b *testing.B) {
 	opts := prepareTestFixturesLoaders(b)
-	require.NoError(b, unittest.CreateTestEngine(opts))
+	require.NoError(b, unittest.CreateTestEngine(filepath.Join(b.TempDir(), "sqlite-test.db"), opts))
 	loaderInternal, err := unittest.NewFixturesLoader(unittest.GetXORMEngine(), opts)
 	require.NoError(b, err)
 	loaderVendor, err := NewFixturesLoaderVendor(unittest.GetXORMEngine(), opts)

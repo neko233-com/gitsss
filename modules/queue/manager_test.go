@@ -13,11 +13,7 @@ import (
 )
 
 func TestManager(t *testing.T) {
-	oldAppDataPath := setting.AppDataPath
 	setting.AppDataPath = t.TempDir()
-	defer func() {
-		setting.AppDataPath = oldAppDataPath
-	}()
 
 	newQueueFromConfig := func(name, cfg string) (*WorkerPoolQueue[int], error) {
 		cfgProvider, err := setting.NewConfigProviderFromData(cfg)
@@ -28,7 +24,7 @@ func TestManager(t *testing.T) {
 		if err != nil {
 			return nil, err
 		}
-		return newWorkerPoolQueueForTest(name, qs, func(s ...int) (unhandled []int) { return nil }, false)
+		return newWorkerPoolQueueWithCleanup(t, name, qs, func(s ...int) (unhandled []int) { return nil }, false)
 	}
 
 	// test invalid CONN_STR
@@ -44,7 +40,7 @@ CONN_STR = redis://
 	assert.NoError(t, err)
 	assert.Equal(t, "default", q.GetName())
 	assert.Equal(t, "level", q.GetType())
-	assert.Equal(t, filepath.Join(setting.AppDataPath, "queues/common"), q.baseConfig.DataFullDir)
+	assert.Equal(t, filepath.ToSlash(filepath.Join(setting.AppDataPath, "queues/common")), q.baseConfig.DataFullDir)
 	assert.Equal(t, 100000, q.baseConfig.Length)
 	assert.Equal(t, 20, q.batchLength)
 	assert.Empty(t, q.baseConfig.ConnStr)
@@ -82,7 +78,7 @@ MAX_WORKERS = 123
 	q1 := createWorkerPoolQueue[string](t.Context(), "no-such", cfgProvider, nil, false)
 	assert.Equal(t, "no-such", q1.GetName())
 	assert.Equal(t, "dummy", q1.GetType()) // no handler, so it becomes dummy
-	assert.Equal(t, filepath.Join(setting.AppDataPath, "queues/dir1"), q1.baseConfig.DataFullDir)
+	assert.Equal(t, filepath.ToSlash(filepath.Join(setting.AppDataPath, "queues/dir1")), q1.baseConfig.DataFullDir)
 	assert.Equal(t, 100, q1.baseConfig.Length)
 	assert.Equal(t, 20, q1.batchLength)
 	assert.Equal(t, "addrs=127.0.0.1:6379 db=0", q1.baseConfig.ConnStr)
@@ -96,9 +92,10 @@ MAX_WORKERS = 123
 	qid1 := GetManager().qidCounter
 
 	q2 := createWorkerPoolQueue(t.Context(), "sub", cfgProvider, func(s ...int) (unhandled []int) { return nil }, false)
+	t.Cleanup(func() { assert.NoError(t, q2.baseQueue.Close()) })
 	assert.Equal(t, "sub", q2.GetName())
 	assert.Equal(t, "level", q2.GetType())
-	assert.Equal(t, filepath.Join(setting.AppDataPath, "queues/dir2"), q2.baseConfig.DataFullDir)
+	assert.Equal(t, filepath.ToSlash(filepath.Join(setting.AppDataPath, "queues/dir2")), q2.baseConfig.DataFullDir)
 	assert.Equal(t, 102, q2.baseConfig.Length)
 	assert.Equal(t, 22, q2.batchLength)
 	assert.Empty(t, q2.baseConfig.ConnStr)

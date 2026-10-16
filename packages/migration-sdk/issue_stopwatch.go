@@ -5,6 +5,7 @@
 package gitea
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"time"
@@ -26,45 +27,38 @@ type ListStopwatchesOptions struct {
 	ListOptions
 }
 
-// GetMyStopwatches list all stopwatches
-//
-// Deprecated: Use ListMyStopwatches instead, which supports pagination.
-func (c *Client) GetMyStopwatches() ([]*StopWatch, *Response, error) {
-	return c.ListMyStopwatches(ListStopwatchesOptions{})
-}
-
 // ListMyStopwatches list all stopwatches with pagination
-func (c *Client) ListMyStopwatches(opt ListStopwatchesOptions) ([]*StopWatch, *Response, error) {
+func (c *IssuesService) ListMyStopwatches(ctx context.Context, opt ListStopwatchesOptions) ([]*StopWatch, *Response, error) {
 	link, _ := url.Parse("/user/stopwatches")
 	opt.setDefaults()
 	link.RawQuery = opt.getURLQuery().Encode()
 	stopwatches := make([]*StopWatch, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", link.String(), nil, nil, &stopwatches)
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), nil, nil, &stopwatches)
 	return stopwatches, resp, err
 }
 
 // DeleteIssueStopwatch delete / cancel a specific stopwatch
-func (c *Client) DeleteIssueStopwatch(owner, repo string, index int64) (*Response, error) {
+func (c *IssuesService) DeleteIssueStopwatch(ctx context.Context, owner, repo string, index int64) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("DELETE", fmt.Sprintf("/repos/%s/%s/issues/%d/stopwatch/delete", owner, repo, index), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/repos/%s/%s/issues/%d/stopwatch/delete", owner, repo, index), nil, nil)
 }
 
 // StartIssueStopWatch starts a stopwatch for an existing issue for a given
 // repository
-func (c *Client) StartIssueStopWatch(owner, repo string, index int64) (*Response, error) {
+func (c *IssuesService) StartIssueStopWatch(ctx context.Context, owner, repo string, index int64) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("POST", fmt.Sprintf("/repos/%s/%s/issues/%d/stopwatch/start", owner, repo, index), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "POST", fmt.Sprintf("/repos/%s/%s/issues/%d/stopwatch/start", owner, repo, index), nil, nil)
 }
 
 // StopIssueStopWatch stops an existing stopwatch for an issue in a given
 // repository
-func (c *Client) StopIssueStopWatch(owner, repo string, index int64) (*Response, error) {
+func (c *IssuesService) StopIssueStopWatch(ctx context.Context, owner, repo string, index int64) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("POST", fmt.Sprintf("/repos/%s/%s/issues/%d/stopwatch/stop", owner, repo, index), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "POST", fmt.Sprintf("/repos/%s/%s/issues/%d/stopwatch/stop", owner, repo, index), nil, nil)
 }

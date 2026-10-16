@@ -11,15 +11,14 @@ import (
 	"image/color"
 	"image/png"
 
-	_ "image/gif"  // for processing gif images
-	_ "image/jpeg" // for processing jpeg images
-
 	"github.com/neko233-com/gitsss/modules/avatar/identicon"
 	"github.com/neko233-com/gitsss/modules/setting"
 
-	"golang.org/x/image/draw"
-
 	_ "golang.org/x/image/webp" // for processing webp images
+	_ "image/gif"               // for processing gif images
+	_ "image/jpeg"              // for processing jpeg images
+
+	"golang.org/x/image/draw"
 )
 
 // DefaultAvatarSize is the target CSS pixel size for avatar generation. It is

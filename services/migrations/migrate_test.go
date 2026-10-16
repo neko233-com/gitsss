@@ -11,11 +11,18 @@ import (
 	"github.com/neko233-com/gitsss/models/unittest"
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/setting"
+	"github.com/neko233-com/gitsss/modules/test"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestMigrateWhiteBlocklist(t *testing.T) {
+	defer test.MockVariableValue(&migrationLookupIP, func(host string) ([]net.IP, error) {
+		if address := net.ParseIP(host); address != nil {
+			return []net.IP{address}, nil
+		}
+		return []net.IP{net.ParseIP("1.1.1.1")}, nil
+	})()
 	assert.NoError(t, unittest.PrepareTestDatabase())
 
 	adminUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user1"})
@@ -93,23 +100,25 @@ func TestAllowBlockList(t *testing.T) {
 	assert.NoError(t, checkByAllowBlockList("domain.com", []net.IP{net.ParseIP("1.2.3.4")}))
 	assert.NoError(t, checkByAllowBlockList("domain.com", []net.IP{net.ParseIP("127.0.0.1")}))
 
-	// allow wildcard, block some subdomains. if the domain name is allowed, then the local network check is skipped
+	// allow wildcard, block some subdomains. every resolved address must still be allowed.
 	init("*.domain.com", "blocked.domain.com", false)
 	assert.NoError(t, checkByAllowBlockList("sub.domain.com", []net.IP{net.ParseIP("1.2.3.4")}))
-	assert.NoError(t, checkByAllowBlockList("sub.domain.com", []net.IP{net.ParseIP("127.0.0.1")}))
+	assert.Error(t, checkByAllowBlockList("sub.domain.com", []net.IP{net.ParseIP("127.0.0.1")}))
+	assert.Error(t, checkByAllowBlockList("sub.domain.com", []net.IP{net.ParseIP("1.2.3.4"), net.ParseIP("127.0.0.1")}))
 	assert.Error(t, checkByAllowBlockList("blocked.domain.com", []net.IP{net.ParseIP("1.2.3.4")}))
 	assert.Error(t, checkByAllowBlockList("sub.other.com", []net.IP{net.ParseIP("1.2.3.4")}))
 
-	// allow wildcard (it could lead to SSRF in production)
+	// allow wildcard still follows the local network policy for resolved addresses.
 	init("*", "", false)
 	assert.NoError(t, checkByAllowBlockList("domain.com", []net.IP{net.ParseIP("1.2.3.4")}))
-	assert.NoError(t, checkByAllowBlockList("domain.com", []net.IP{net.ParseIP("127.0.0.1")}))
+	assert.Error(t, checkByAllowBlockList("domain.com", []net.IP{net.ParseIP("127.0.0.1")}))
+	assert.Error(t, checkByAllowBlockList("domain.com", []net.IP{net.ParseIP("1.2.3.4"), net.ParseIP("127.0.0.1")}))
 
 	// local network can still be blocked
 	init("*", "127.0.0.*", false)
 	assert.NoError(t, checkByAllowBlockList("domain.com", []net.IP{net.ParseIP("1.2.3.4")}))
 	assert.Error(t, checkByAllowBlockList("domain.com", []net.IP{net.ParseIP("127.0.0.1")}))
 
-	// reset
-	init("", "", false)
+	// reset to allow local networks (mock servers use 127.0.0.1)
+	init("", "", true)
 }

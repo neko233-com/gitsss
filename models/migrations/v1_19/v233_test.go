@@ -6,7 +6,7 @@ package v1_19
 import (
 	"testing"
 
-	"github.com/neko233-com/gitsss/models/migrations/base"
+	"github.com/neko233-com/gitsss/models/migrations/migrationtest"
 	"github.com/neko233-com/gitsss/modules/json"
 	"github.com/neko233-com/gitsss/modules/secret"
 	"github.com/neko233-com/gitsss/modules/setting"
@@ -39,7 +39,7 @@ func Test_AddHeaderAuthorizationEncryptedColWebhook(t *testing.T) {
 	}
 
 	// Prepare and load the testing database
-	x, deferable := base.PrepareTestEnv(t, 0, new(Webhook), new(ExpectedWebhook), new(HookTask))
+	x, deferable := migrationtest.PrepareTestEnv(t, 0, new(Webhook), new(ExpectedWebhook), new(HookTask))
 	defer deferable()
 	if x == nil || t.Failed() {
 		return

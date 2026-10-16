@@ -11,7 +11,6 @@ import (
 	indexer_internal "github.com/neko233-com/gitsss/modules/indexer/internal"
 	inner_bleve "github.com/neko233-com/gitsss/modules/indexer/internal/bleve"
 	"github.com/neko233-com/gitsss/modules/indexer/issues/internal"
-	"github.com/neko233-com/gitsss/modules/optional"
 	"github.com/neko233-com/gitsss/modules/util"
 
 	"github.com/blevesearch/bleve/v2"
@@ -27,7 +26,7 @@ import (
 const (
 	issueIndexerAnalyzer      = "issueIndexer"
 	issueIndexerDocType       = "issueIndexerDocType"
-	issueIndexerLatestVersion = 5
+	issueIndexerLatestVersion = 7
 )
 
 const unicodeNormalizeName = "unicodeNormalize"
@@ -83,10 +82,11 @@ func generateIssueIndexMapping() (mapping.IndexMapping, error) {
 	docMapping.AddFieldMappingsAt("label_ids", numberFieldMapping)
 	docMapping.AddFieldMappingsAt("no_label", boolFieldMapping)
 	docMapping.AddFieldMappingsAt("milestone_id", numberFieldMapping)
-	docMapping.AddFieldMappingsAt("project_id", numberFieldMapping)
-	docMapping.AddFieldMappingsAt("project_board_id", numberFieldMapping)
+	docMapping.AddFieldMappingsAt("project_ids", numberFieldMapping)
+	docMapping.AddFieldMappingsAt("no_project", boolFieldMapping)
 	docMapping.AddFieldMappingsAt("poster_id", numberFieldMapping)
-	docMapping.AddFieldMappingsAt("assignee_id", numberFieldMapping)
+	docMapping.AddFieldMappingsAt("assignee_ids", numberFieldMapping)
+	docMapping.AddFieldMappingsAt("no_assignee", boolFieldMapping)
 	docMapping.AddFieldMappingsAt("mention_ids", numberFieldMapping)
 	docMapping.AddFieldMappingsAt("reviewed_ids", numberFieldMapping)
 	docMapping.AddFieldMappingsAt("review_requested_ids", numberFieldMapping)
@@ -241,11 +241,15 @@ func (b *Indexer) Search(ctx context.Context, options *internal.SearchOptions) (
 		queries = append(queries, bleve.NewDisjunctionQuery(milestoneQueries...))
 	}
 
-	if options.ProjectID.Has() {
-		queries = append(queries, inner_bleve.NumericEqualityQuery(options.ProjectID.Value(), "project_id"))
-	}
-	if options.ProjectColumnID.Has() {
-		queries = append(queries, inner_bleve.NumericEqualityQuery(options.ProjectColumnID.Value(), "project_board_id"))
+	if options.NoProjectOnly {
+		queries = append(queries, inner_bleve.BoolFieldQuery(true, "no_project"))
+	} else if len(options.ProjectIDs) > 0 {
+		var projectQueries []query.Query
+		for _, projectID := range options.ProjectIDs {
+			projectQueries = append(projectQueries, inner_bleve.NumericEqualityQuery(projectID, "project_ids"))
+		}
+		// FIXME: ISSUE-MULTIPLE-PROJECTS-FILTER: this logic is not right, it should use "AND" but not "OR"
+		queries = append(queries, bleve.NewDisjunctionQuery(projectQueries...))
 	}
 
 	if options.PosterID != "" {
@@ -254,14 +258,15 @@ func (b *Indexer) Search(ctx context.Context, options *internal.SearchOptions) (
 		queries = append(queries, inner_bleve.NumericEqualityQuery(posterIDInt64, "poster_id"))
 	}
 
-	if options.AssigneeID != "" {
-		if options.AssigneeID == "(any)" {
-			queries = append(queries, inner_bleve.NumericRangeInclusiveQuery(optional.Some[int64](1), optional.None[int64](), "assignee_id"))
-		} else {
-			// "(none)" becomes 0, it means no assignee
-			assigneeIDInt64, _ := strconv.ParseInt(options.AssigneeID, 10, 64)
-			queries = append(queries, inner_bleve.NumericEqualityQuery(assigneeIDInt64, "assignee_id"))
-		}
+	switch options.AssigneeID {
+	case "":
+	case "(any)":
+		queries = append(queries, inner_bleve.BoolFieldQuery(false, "no_assignee"))
+	case "(none)":
+		queries = append(queries, inner_bleve.BoolFieldQuery(true, "no_assignee"))
+	default:
+		assigneeIDInt64, _ := strconv.ParseInt(options.AssigneeID, 10, 64)
+		queries = append(queries, inner_bleve.NumericEqualityQuery(assigneeIDInt64, "assignee_ids"))
 	}
 
 	if options.MentionID.Has() {

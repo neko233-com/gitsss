@@ -47,12 +47,12 @@ and it takes care of all the other things for you`,
 			&cli.StringFlag{
 				Name:    "port",
 				Aliases: []string{"p"},
-				Value:   "3000",
+				Value:   "5030",
 				Usage:   "Temporary port number to prevent conflict",
 			},
 			&cli.StringFlag{
 				Name:  "install-port",
-				Value: "3000",
+				Value: "5030",
 				Usage: "Temporary port number to run the install page on to prevent conflict",
 			},
 			&cli.StringFlag{
@@ -151,7 +151,7 @@ func serveInstall(cmd *cli.Command) error {
 	c := install.Routes()
 	err := listen(c, false)
 	if err != nil {
-		log.Critical("Unable to open listener for installer. Is gitsss already running?")
+		log.Error("Unable to open listener for installer. Is GitSSS already running?")
 		graceful.GetManager().DoGracefulShutdown()
 	}
 	select {
@@ -350,7 +350,11 @@ func listen(m http.Handler, handleRedirector bool) error {
 		if handleRedirector {
 			NoHTTPRedirector()
 		}
-		err = runHTTP("tcp", listenAddr, "Web", m, setting.UseProxyProtocol)
+		additionalAddresses := make([]string, 0, len(setting.HTTPAdditionalPorts))
+		for _, port := range setting.HTTPAdditionalPorts {
+			additionalAddresses = append(additionalAddresses, net.JoinHostPort(setting.HTTPAddr, port))
+		}
+		err = graceful.HTTPListenAndServeWithAdditionalPorts("tcp", listenAddr, "Web", m, setting.UseProxyProtocol, additionalAddresses)
 	case setting.HTTPS:
 		if setting.EnableAcme {
 			err = runACME(listenAddr, m)
@@ -383,7 +387,7 @@ func listen(m http.Handler, handleRedirector bool) error {
 		log.Fatal("Invalid protocol: %s", setting.Protocol)
 	}
 	if err != nil {
-		log.Critical("Failed to start server: %v", err)
+		log.Error("Failed to start server: %v", err)
 	}
 	log.Info("HTTP Listener: %s Closed", listenAddr)
 	return err

@@ -23,6 +23,7 @@ import (
 	"github.com/neko233-com/gitsss/modules/base"
 	"github.com/neko233-com/gitsss/modules/git"
 	giturl "github.com/neko233-com/gitsss/modules/git/url"
+	"github.com/neko233-com/gitsss/modules/htmlutil"
 	"github.com/neko233-com/gitsss/modules/httplib"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/markup"
@@ -376,8 +377,9 @@ func (repo *Repository) CommitLink(commitID string) (result string) {
 }
 
 // APIURL returns the repository API URL
-func (repo *Repository) APIURL() string {
-	return setting.AppURL + "api/v1/repos/" + url.PathEscape(repo.OwnerName) + "/" + url.PathEscape(repo.Name)
+func (repo *Repository) APIURL(ctxOpt ...context.Context) string {
+	ctx := util.OptionalArg(ctxOpt, context.TODO())
+	return httplib.MakeAbsoluteURL(ctx, setting.AppSubURL+"/api/v1/repos/"+url.PathEscape(repo.OwnerName)+"/"+url.PathEscape(repo.Name))
 }
 
 // GetCommitsCountCacheKey returns cache key used for commits count caching.
@@ -640,12 +642,7 @@ func (repo *Repository) CanContentChange() bool {
 
 // DescriptionHTML does special handles to description and return HTML string.
 func (repo *Repository) DescriptionHTML(ctx context.Context) template.HTML {
-	desc, err := markup.PostProcessDescriptionHTML(markup.NewRenderContext(ctx), repo.Description)
-	if err != nil {
-		log.Error("Failed to render description for %s (ID: %d): %v", repo.Name, repo.ID, err)
-		return template.HTML(markup.SanitizeDescription(repo.Description))
-	}
-	return template.HTML(markup.SanitizeDescription(desc))
+	return markup.PostProcessDescriptionHTML(markup.NewRenderContext(ctx), htmlutil.EscapeString(repo.Description))
 }
 
 // CloneLink represents different types of clone URLs of repository.
@@ -852,9 +849,9 @@ func GetRepositoriesMapByIDs(ctx context.Context, ids []int64) (map[int64]*Repos
 }
 
 func IsRepositoryModelExist(ctx context.Context, u *user_model.User, repoName string) (bool, error) {
-	return db.GetEngine(ctx).Get(&Repository{
-		OwnerID:   u.ID,
-		LowerName: strings.ToLower(repoName),
+	return db.Exist[Repository](ctx, builder.Eq{
+		"owner_id":   u.ID,
+		"lower_name": strings.ToLower(repoName),
 	})
 }
 

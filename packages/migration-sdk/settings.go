@@ -4,6 +4,8 @@
 
 package gitea
 
+import "context"
+
 // GlobalUISettings represent the global ui settings of a gitea instance witch is exposed by API
 type GlobalUISettings struct {
 	DefaultTheme     string   `json:"default_theme"`
@@ -38,41 +40,41 @@ type GlobalAttachmentSettings struct {
 }
 
 // GetGlobalUISettings get global ui settings witch are exposed by API
-func (c *Client) GetGlobalUISettings() (*GlobalUISettings, *Response, error) {
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_13_0); err != nil {
+func (c *SettingsService) GetGlobalUISettings(ctx context.Context) (*GlobalUISettings, *Response, error) {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_13_0); err != nil {
 		return nil, nil, err
 	}
 	conf := new(GlobalUISettings)
-	resp, err := c.getParsedResponse("GET", "/settings/ui", jsonHeader, nil, &conf)
+	resp, err := c.getParsedResponse(ctx, "GET", "/settings/ui", jsonHeader, nil, &conf)
 	return conf, resp, err
 }
 
 // GetGlobalRepoSettings get global repository settings witch are exposed by API
-func (c *Client) GetGlobalRepoSettings() (*GlobalRepoSettings, *Response, error) {
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_13_0); err != nil {
+func (c *SettingsService) GetGlobalRepoSettings(ctx context.Context) (*GlobalRepoSettings, *Response, error) {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_13_0); err != nil {
 		return nil, nil, err
 	}
 	conf := new(GlobalRepoSettings)
-	resp, err := c.getParsedResponse("GET", "/settings/repository", jsonHeader, nil, &conf)
+	resp, err := c.getParsedResponse(ctx, "GET", "/settings/repository", jsonHeader, nil, &conf)
 	return conf, resp, err
 }
 
 // GetGlobalAPISettings get global api settings witch are exposed by it
-func (c *Client) GetGlobalAPISettings() (*GlobalAPISettings, *Response, error) {
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_13_0); err != nil {
+func (c *SettingsService) GetGlobalAPISettings(ctx context.Context) (*GlobalAPISettings, *Response, error) {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_13_0); err != nil {
 		return nil, nil, err
 	}
 	conf := new(GlobalAPISettings)
-	resp, err := c.getParsedResponse("GET", "/settings/api", jsonHeader, nil, &conf)
+	resp, err := c.getParsedResponse(ctx, "GET", "/settings/api", jsonHeader, nil, &conf)
 	return conf, resp, err
 }
 
 // GetGlobalAttachmentSettings get global repository settings witch are exposed by API
-func (c *Client) GetGlobalAttachmentSettings() (*GlobalAttachmentSettings, *Response, error) {
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_13_0); err != nil {
+func (c *SettingsService) GetGlobalAttachmentSettings(ctx context.Context) (*GlobalAttachmentSettings, *Response, error) {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_13_0); err != nil {
 		return nil, nil, err
 	}
 	conf := new(GlobalAttachmentSettings)
-	resp, err := c.getParsedResponse("GET", "/settings/attachment", jsonHeader, nil, &conf)
+	resp, err := c.getParsedResponse(ctx, "GET", "/settings/attachment", jsonHeader, nil, &conf)
 	return conf, resp, err
 }

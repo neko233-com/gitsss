@@ -4,7 +4,6 @@
 package integration
 
 import (
-	"archive/zip"
 	"bytes"
 	"fmt"
 	"io"
@@ -131,17 +130,6 @@ func TestPackageSwift(t *testing.T) {
 			MakeRequest(t, req, expectedStatus)
 		}
 
-		createArchive := func(files map[string]string) *bytes.Buffer {
-			var buf bytes.Buffer
-			zw := zip.NewWriter(&buf)
-			for filename, content := range files {
-				w, _ := zw.Create(filename)
-				w.Write([]byte(content))
-			}
-			zw.Close()
-			return &buf
-		}
-
 		for _, triple := range []string{"/sc_ope/package/1.0.0", "/scope/pack~age/1.0.0", "/scope/package/1_0.0"} {
 			req := NewRequestWithBody(t, "PUT", url+triple, bytes.NewReader([]byte{})).
 				AddBasicAuth(user.Name)
@@ -160,7 +148,7 @@ func TestPackageSwift(t *testing.T) {
 			t,
 			uploadURL,
 			http.StatusCreated,
-			createArchive(map[string]string{
+			test.WriteZipArchive(map[string]string{
 				"Package.swift":           contentManifest1,
 				"Package@swift-5.6.swift": contentManifest2,
 			}),
@@ -195,7 +183,7 @@ func TestPackageSwift(t *testing.T) {
 			t,
 			uploadURL,
 			http.StatusConflict,
-			createArchive(map[string]string{
+			test.WriteZipArchive(map[string]string{
 				"Package.swift": contentManifest1,
 			}),
 			"",
@@ -227,17 +215,6 @@ func TestPackageSwift(t *testing.T) {
 			MakeRequest(t, req, expectedStatus)
 		}
 
-		createArchive := func(files map[string]string) *bytes.Buffer {
-			var buf bytes.Buffer
-			zw := zip.NewWriter(&buf)
-			for filename, content := range files {
-				w, _ := zw.Create(filename)
-				w.Write([]byte(content))
-			}
-			zw.Close()
-			return &buf
-		}
-
 		uploadURL := fmt.Sprintf("%s/%s/%s/%s", url, packageScope, packageName, packageVersion2)
 
 		req := NewRequestWithBody(t, "PUT", uploadURL, bytes.NewReader([]byte{}))
@@ -248,7 +225,7 @@ func TestPackageSwift(t *testing.T) {
 			t,
 			uploadURL,
 			http.StatusCreated,
-			createArchive(map[string]string{
+			test.WriteZipArchive(map[string]string{
 				"Package.swift":           contentManifest1,
 				"Package@swift-5.6.swift": contentManifest2,
 			}),
@@ -283,7 +260,7 @@ func TestPackageSwift(t *testing.T) {
 			t,
 			uploadURL,
 			http.StatusConflict,
-			createArchive(map[string]string{
+			test.WriteZipArchive(map[string]string{
 				"Package.swift": contentManifest1,
 			}),
 			"",
@@ -325,8 +302,7 @@ func TestPackageSwift(t *testing.T) {
 
 		body := resp.Body.String()
 
-		var result *swift_router.EnumeratePackageVersionsResponse
-		DecodeJSON(t, resp, &result)
+		result := DecodeJSON(t, resp, &swift_router.EnumeratePackageVersionsResponse{})
 
 		assert.Len(t, result.Releases, 2)
 		assert.Contains(t, result.Releases, packageVersion2)
@@ -351,8 +327,7 @@ func TestPackageSwift(t *testing.T) {
 
 		body := resp.Body.String()
 
-		var result *swift_router.PackageVersionMetadataResponse
-		DecodeJSON(t, resp, &result)
+		result := DecodeJSON(t, resp, &swift_router.PackageVersionMetadataResponse{})
 
 		pv, err := packages.GetVersionByNameAndVersion(t.Context(), user.ID, packages.TypeSwift, packageID, packageVersion)
 		assert.NotNil(t, pv)
@@ -481,8 +456,7 @@ func TestPackageSwift(t *testing.T) {
 			SetHeader("Accept", swift_router.AcceptJSON)
 		resp = MakeRequest(t, req, http.StatusOK)
 
-		var result *swift_router.LookupPackageIdentifiersResponse
-		DecodeJSON(t, resp, &result)
+		result := DecodeJSON(t, resp, &swift_router.LookupPackageIdentifiersResponse{})
 
 		assert.Len(t, result.Identifiers, 1)
 		assert.Equal(t, packageID, result.Identifiers[0])

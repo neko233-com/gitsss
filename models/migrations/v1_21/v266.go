@@ -3,11 +3,9 @@
 
 package v1_21
 
-import (
-	"xorm.io/xorm"
-)
+import "github.com/neko233-com/gitsss/models/db"
 
-func ReduceCommitStatus(x *xorm.Engine) error {
+func ReduceCommitStatus(x db.EngineMigration) error {
 	sess := x.NewSession()
 	defer sess.Close()
 

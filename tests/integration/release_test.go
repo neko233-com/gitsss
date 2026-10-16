@@ -10,6 +10,7 @@ import (
 
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	"github.com/neko233-com/gitsss/models/unittest"
+	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/test"
 	"github.com/neko233-com/gitsss/modules/translation"
@@ -39,11 +40,10 @@ func createNewRelease(t *testing.T, session *TestSession, repoURL, tag, title st
 	if draft {
 		postData["draft"] = "1"
 	}
+
 	req = NewRequestWithValues(t, "POST", link, postData)
-
-	resp = session.MakeRequest(t, req, http.StatusSeeOther)
-
-	test.RedirectURL(resp) // check that redirect URL exists
+	resp = session.MakeRequest(t, req, http.StatusOK)
+	assert.NotEmpty(t, test.ParseJSONRedirect(resp.Body.Bytes()))
 }
 
 func checkLatestReleaseAndCount(t *testing.T, session *TestSession, repoURL, version, label string, count int) {
@@ -104,13 +104,7 @@ func TestCreateReleaseDraft(t *testing.T) {
 
 func TestCreateReleasePaging(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
-
-	oldAPIDefaultNum := setting.API.DefaultPagingNum
-	defer func() {
-		setting.API.DefaultPagingNum = oldAPIDefaultNum
-	}()
-	setting.API.DefaultPagingNum = 10
-
+	defer test.MockVariableValue(&setting.API.DefaultPagingNum, 10)()
 	session := loginUser(t, "user2")
 	// Create enough releases to have paging
 	for i := range 12 {
@@ -258,4 +252,28 @@ func TestDownloadReleaseAttachment(t *testing.T) {
 	req = NewRequest(t, "GET", url)
 	session := loginUser(t, "user2")
 	session.MakeRequest(t, req, http.StatusOK)
+}
+
+func TestEditReleaseAttachmentRejectsForbiddenRename(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	defer test.MockVariableValue(&setting.Repository.Release.AllowedTypes, ".zip")()
+
+	attachment := unittest.AssertExistsAndLoadBean(t, &repo_model.Attachment{ID: 9})
+	release := unittest.AssertExistsAndLoadBean(t, &repo_model.Release{ID: attachment.ReleaseID})
+	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: attachment.RepoID})
+	repoOwner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: repo.OwnerID})
+
+	session := loginUser(t, repoOwner.Name)
+	req := NewRequestWithValues(t, "POST", fmt.Sprintf("%s/releases/edit/%s", repo.Link(), release.TagName), map[string]string{
+		"title":                              release.Title,
+		"content":                            release.Note,
+		"attachment-edit-" + attachment.UUID: "evil.exe",
+	})
+
+	resp := session.MakeRequest(t, req, http.StatusBadRequest)
+	errMsg := test.ParseJSONError(resp.Body.Bytes()).ErrorMessage
+	assert.Equal(t, "This file cannot be uploaded or modified due to a forbidden file extension or type.", errMsg)
+
+	attachment = unittest.AssertExistsAndLoadBean(t, &repo_model.Attachment{ID: attachment.ID})
+	assert.NotEqual(t, "evil.exe", attachment.Name)
 }

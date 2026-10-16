@@ -4,6 +4,7 @@
 package queue
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/neko233-com/gitsss/modules/queue/lqinternal"
@@ -23,7 +24,7 @@ func TestBaseLevelDB(t *testing.T) {
 	assert.ErrorContains(t, err, "invalid leveldb data dir")
 
 	testQueueBasic(t, newBaseLevelQueueSimple, toBaseConfig("baseLevelQueue", setting.QueueSettings{Datadir: t.TempDir() + "/queue-test", Length: 10}), false)
-	testQueueBasic(t, newBaseLevelQueueUnique, toBaseConfig("baseLevelQueueUnique", setting.QueueSettings{ConnStr: "leveldb://" + t.TempDir() + "/queue-test", Length: 10}), true)
+	testQueueBasic(t, newBaseLevelQueueUnique, toBaseConfig("baseLevelQueueUnique", setting.QueueSettings{ConnStr: "leveldb://" + filepath.ToSlash(t.TempDir()) + "/queue-test", Length: 10}), true)
 }
 
 func TestCorruptedLevelQueue(t *testing.T) {

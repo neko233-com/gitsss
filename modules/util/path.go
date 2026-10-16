@@ -251,6 +251,11 @@ func isOSWindows() bool {
 
 var driveLetterRegexp = regexp.MustCompile("/[A-Za-z]:/")
 
+// FilePathToURL encodes a filesystem path without treating a Windows drive as a host.
+func FilePathToURL(path string) string {
+	return (&url.URL{Scheme: "file", Path: filepath.ToSlash(path)}).String()
+}
+
 // FileURLToPath extracts the path information from a file://... url.
 // It returns an error only if the URL is not a file URL.
 func FileURLToPath(u *url.URL) (string, error) {

@@ -21,12 +21,6 @@ type ErrExternalLoginUserAlreadyExist struct {
 	LoginSourceID int64
 }
 
-// IsErrExternalLoginUserAlreadyExist checks if an error is a ExternalLoginUserAlreadyExist.
-func IsErrExternalLoginUserAlreadyExist(err error) bool {
-	_, ok := err.(ErrExternalLoginUserAlreadyExist)
-	return ok
-}
-
 func (err ErrExternalLoginUserAlreadyExist) Error() string {
 	return fmt.Sprintf("external login user already exists [externalID: %s, userID: %d, loginSourceID: %d]", err.ExternalID, err.UserID, err.LoginSourceID)
 }
@@ -39,12 +33,6 @@ func (err ErrExternalLoginUserAlreadyExist) Unwrap() error {
 type ErrExternalLoginUserNotExist struct {
 	UserID        int64
 	LoginSourceID int64
-}
-
-// IsErrExternalLoginUserNotExist checks if an error is a ExternalLoginUserNotExist.
-func IsErrExternalLoginUserNotExist(err error) bool {
-	_, ok := err.(ErrExternalLoginUserNotExist)
-	return ok
 }
 
 func (err ErrExternalLoginUserNotExist) Error() string {
@@ -92,8 +80,11 @@ func init() {
 }
 
 // GetExternalLogin checks if a externalID in loginSourceID scope already exists
-func GetExternalLogin(ctx context.Context, externalLoginUser *ExternalLoginUser) (bool, error) {
-	return db.GetEngine(ctx).Get(externalLoginUser)
+func GetExternalLogin(ctx context.Context, loginSourceID int64, externalID string) (*ExternalLoginUser, bool, error) {
+	return db.Get[ExternalLoginUser](ctx, builder.Eq{
+		"external_id":     externalID,
+		"login_source_id": loginSourceID,
+	})
 }
 
 // LinkExternalToUser link the external user to the user
@@ -127,6 +118,12 @@ func RemoveAccountLink(ctx context.Context, user *User, loginSourceID int64) (in
 // RemoveAllAccountLinks will remove all external login sources for the given user
 func RemoveAllAccountLinks(ctx context.Context, user *User) error {
 	_, err := db.GetEngine(ctx).Delete(&ExternalLoginUser{UserID: user.ID})
+	return err
+}
+
+// RemoveExternalLoginByExternalID removes a specific external login link by its provider-side identifier.
+func RemoveExternalLoginByExternalID(ctx context.Context, loginSourceID int64, externalID string) error {
+	_, err := db.GetEngine(ctx).Where("external_id=? AND login_source_id=?", externalID, loginSourceID).Delete(new(ExternalLoginUser))
 	return err
 }
 

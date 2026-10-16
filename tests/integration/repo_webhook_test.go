@@ -10,12 +10,14 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	actions_model "github.com/neko233-com/gitsss/models/actions"
 	auth_model "github.com/neko233-com/gitsss/models/auth"
+	db_model "github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/perm"
 	"github.com/neko233-com/gitsss/models/repo"
 	"github.com/neko233-com/gitsss/models/unittest"
@@ -40,26 +42,28 @@ import (
 
 func TestNewWebHookLink(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
+	require.NoError(t, db_model.Insert(t.Context(), &webhook.Webhook{
+		RepoID:      1,
+		URL:         "http://localhost/gitea-test-webhook-link",
+		ContentType: webhook.ContentTypeJSON,
+		Events:      `{}`,
+		IsActive:    true,
+	}))
+	hook := unittest.AssertExistsAndLoadBean(t, &webhook.Webhook{RepoID: 1})
 	session := loginUser(t, "user2")
-
-	baseurl := "/user2/repo1/settings/hooks"
-	tests := []string{
-		// webhook list page
-		baseurl,
-		// new webhook page
-		baseurl + "/gitea/new",
-		// edit webhook page
-		baseurl + "/1",
+	webhooksBaseHref := "/user2/repo1/settings/hooks"
+	cases := []string{
+		webhooksBaseHref,
+		webhooksBaseHref + "/gitea/new",
+		webhooksBaseHref + "/" + strconv.FormatInt(hook.ID, 10), // edit webhook
 	}
-
-	for _, url := range tests {
-		resp := session.MakeRequest(t, NewRequest(t, "GET", url), http.StatusOK)
+	for _, reqHref := range cases {
+		resp := session.MakeRequest(t, NewRequest(t, "GET", reqHref), http.StatusOK)
 		htmlDoc := NewHTMLParser(t, resp.Body)
 		menus := htmlDoc.doc.Find(".ui.top.attached.header .ui.dropdown .menu a")
 		menus.Each(func(i int, menu *goquery.Selection) {
-			url, exist := menu.Attr("href")
-			assert.True(t, exist)
-			assert.True(t, strings.HasPrefix(url, baseurl))
+			foundHref := menu.AttrOr("href", "")
+			assert.True(t, strings.HasPrefix(foundHref, webhooksBaseHref))
 		})
 	}
 }

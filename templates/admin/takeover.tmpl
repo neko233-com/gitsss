@@ -3,7 +3,7 @@
 	<h4 class="ui top attached header">{{ctx.Locale.Tr "admin.takeover"}}</h4>
 	<div class="ui attached segment">
 		<p>{{ctx.Locale.Tr "admin.takeover.intro"}}</p>
-		<p>{{ctx.Locale.Tr "admin.takeover.current"}} <strong>{{.HTTPPort}}</strong> · <code>{{.AppURL}}</code></p>
+		<p>{{ctx.Locale.Tr "admin.takeover.current"}} <strong>{{.HTTPPort}}</strong>{{range .HTTPAdditionalPorts}} · <strong>{{.}}</strong>{{end}} · <code>{{.AppURL}}</code></p>
 		<form class="ui form" method="post" action="{{AppSubUrl}}/-/admin/takeover">
 			<div class="field">
 				<label for="listen-port">{{ctx.Locale.Tr "admin.takeover.port"}}</label>
@@ -12,6 +12,16 @@
 			<button class="ui primary button" type="submit">{{ctx.Locale.Tr "admin.takeover.apply"}}</button>
 		</form>
 		<p class="help">{{ctx.Locale.Tr "admin.takeover.help"}}</p>
+		<h5>{{ctx.Locale.Tr "admin.takeover.alias"}}</h5>
+		<p>{{ctx.Locale.Tr "admin.takeover.alias_help"}}</p>
+		<form class="ui form" method="post" action="{{AppSubUrl}}/-/admin/takeover">
+			<input type="hidden" name="mode" value="add-alias">
+			<div class="field">
+				<label for="listen-alias-port">{{ctx.Locale.Tr "admin.takeover.alias_port"}}</label>
+				<input id="listen-alias-port" name="port" value="3000" inputmode="numeric" autocomplete="off" required>
+			</div>
+			<button class="ui button" type="submit">{{ctx.Locale.Tr "admin.takeover.alias_apply"}}</button>
+		</form>
 	</div>
 	<h4 class="ui top attached header">{{ctx.Locale.Tr "dashboard.announcements"}}</h4>
 	<div class="ui attached segment">

@@ -6,12 +6,11 @@ package v1_13
 import (
 	"fmt"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/setting"
-
-	"xorm.io/xorm"
 )
 
-func IncreaseLanguageField(x *xorm.Engine) error {
+func IncreaseLanguageField(x db.EngineMigration) error {
 	type LanguageStat struct {
 		RepoID   int64  `xorm:"UNIQUE(s) INDEX NOT NULL"`
 		Language string `xorm:"VARCHAR(50) UNIQUE(s) INDEX NOT NULL"`

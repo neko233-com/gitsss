@@ -4,12 +4,11 @@
 package v1_19
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func CreatePackageCleanupRuleTable(x *xorm.Engine) error {
+func CreatePackageCleanupRuleTable(x db.EngineMigration) error {
 	type PackageCleanupRule struct {
 		ID            int64              `xorm:"pk autoincr"`
 		Enabled       bool               `xorm:"INDEX NOT NULL DEFAULT false"`

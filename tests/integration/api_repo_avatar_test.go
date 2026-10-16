@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"testing"
 
 	auth_model "github.com/neko233-com/gitsss/models/auth"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	"github.com/neko233-com/gitsss/models/unittest"
 	user_model "github.com/neko233-com/gitsss/models/user"
+	"github.com/neko233-com/gitsss/modules/setting"
 	api "github.com/neko233-com/gitsss/modules/structs"
 	"github.com/neko233-com/gitsss/tests"
 
@@ -28,7 +30,7 @@ func TestAPIUpdateRepoAvatar(t *testing.T) {
 	token := getUserToken(t, user2.LowerName, auth_model.AccessTokenScopeWriteRepository)
 
 	// Test what happens if you use a valid image
-	avatar, err := os.ReadFile("tests/integration/avatar.png")
+	avatar, err := os.ReadFile(filepath.Join(setting.GetGiteaTestSourceRoot(), "tests/integration/avatar.png"))
 	assert.NoError(t, err)
 	if err != nil {
 		assert.FailNow(t, "Unable to open avatar.png")
@@ -52,14 +54,8 @@ func TestAPIUpdateRepoAvatar(t *testing.T) {
 	MakeRequest(t, req, http.StatusBadRequest)
 
 	// Test what happens if you use a file that is not an image
-	text, err := os.ReadFile("tests/integration/README.md")
-	assert.NoError(t, err)
-	if err != nil {
-		assert.FailNow(t, "Unable to open README.md")
-	}
-
 	opts = api.UpdateRepoAvatarOption{
-		Image: base64.StdEncoding.EncodeToString(text),
+		Image: base64.StdEncoding.EncodeToString([]byte("This is not an image")),
 	}
 
 	req = NewRequestWithJSON(t, "POST", fmt.Sprintf("/api/v1/repos/%s/%s/avatar", repo.OwnerName, repo.Name), &opts).

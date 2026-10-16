@@ -43,7 +43,7 @@ func TestWithCacheContext(t *testing.T) {
 	assert.EqualValues(t, 1, v)
 
 	defer test.MockVariableValue(&timeNow, func() time.Time {
-		return time.Now().Add(5 * time.Minute)
+		return time.Now().Add(contextCacheLifetime + time.Nanosecond)
 	})()
 	v, _ = c.Get(field, "my_config1")
 	assert.Nil(t, v)

@@ -13,6 +13,7 @@ import (
 	"github.com/neko233-com/gitsss/modules/container"
 	"github.com/neko233-com/gitsss/modules/indexer/issues/internal"
 	"github.com/neko233-com/gitsss/modules/optional"
+	"github.com/neko233-com/gitsss/modules/util"
 )
 
 func ToDBOptions(ctx context.Context, options *internal.SearchOptions) (*issue_model.IssuesOptions, error) {
@@ -65,8 +66,7 @@ func ToDBOptions(ctx context.Context, options *internal.SearchOptions) (*issue_m
 		ReviewRequestedID:  convertID(options.ReviewRequestedID),
 		ReviewedID:         convertID(options.ReviewedID),
 		SubscriberID:       convertID(options.SubscriberID),
-		ProjectID:          convertID(options.ProjectID),
-		ProjectColumnID:    convertID(options.ProjectColumnID),
+		ProjectIDs:         util.Iif(options.NoProjectOnly, []int64{db.NoConditionID}, options.ProjectIDs),
 		IsClosed:           options.IsClosed,
 		IsPull:             options.IsPull,
 		IncludedLabelNames: nil,

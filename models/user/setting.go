@@ -50,12 +50,6 @@ func (err ErrUserSettingIsNotExist) Unwrap() error {
 	return util.ErrNotExist
 }
 
-// IsErrUserSettingIsNotExist return true if err is ErrSettingIsNotExist
-func IsErrUserSettingIsNotExist(err error) bool {
-	_, ok := err.(ErrUserSettingIsNotExist)
-	return ok
-}
-
 // genSettingCacheKey returns the cache key for some configuration
 func genSettingCacheKey(userID int64, key string) string {
 	return fmt.Sprintf("user_%d.setting.%s", userID, key)
@@ -131,8 +125,7 @@ func GetUserSetting(ctx context.Context, userID int64, key string, def ...string
 		return "", err
 	}
 
-	setting := &Setting{UserID: userID, SettingKey: key}
-	has, err := db.GetEngine(ctx).Get(setting)
+	setting, has, err := db.Get[Setting](ctx, builder.Eq{"user_id": userID, "setting_key": key})
 	if err != nil {
 		return "", err
 	}

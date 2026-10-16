@@ -4,12 +4,11 @@
 package v1_12
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/setting"
-
-	"xorm.io/xorm"
 )
 
-func PrependRefsHeadsToIssueRefs(x *xorm.Engine) error {
+func PrependRefsHeadsToIssueRefs(x db.EngineMigration) error {
 	var query string
 
 	switch {

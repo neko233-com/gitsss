@@ -4,9 +4,8 @@
 package v1_22
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
 type Blocking struct {
@@ -21,6 +20,6 @@ func (*Blocking) TableName() string {
 	return "user_blocking"
 }
 
-func AddUserBlockingTable(x *xorm.Engine) error {
+func AddUserBlockingTable(x db.EngineMigration) error {
 	return x.Sync(&Blocking{})
 }

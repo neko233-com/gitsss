@@ -4,9 +4,8 @@
 package v1_18
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
 type SystemSetting struct {
@@ -18,6 +17,6 @@ type SystemSetting struct {
 	Updated      timeutil.TimeStamp `xorm:"updated"`
 }
 
-func CreateSystemSettingsTable(x *xorm.Engine) error {
+func CreateSystemSettingsTable(x db.EngineMigration) error {
 	return x.Sync(new(SystemSetting))
 }

@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	_ "image/jpeg" // Needed for jpeg support
-
 	actions_model "github.com/neko233-com/gitsss/models/actions"
 	activities_model "github.com/neko233-com/gitsss/models/activities"
 	asymkey_model "github.com/neko233-com/gitsss/models/asymkey"
@@ -24,10 +22,12 @@ import (
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/setting"
 
+	_ "image/jpeg" // Needed for jpeg support
+
 	"xorm.io/builder"
 )
 
-// deleteUser deletes models associated to an user.
+// deleteUser deletes models associated to a user.
 func deleteUser(ctx context.Context, u *user_model.User, purge bool) (err error) {
 	e := db.GetEngine(ctx)
 
@@ -95,6 +95,11 @@ func deleteUser(ctx context.Context, u *user_model.User, purge bool) (err error)
 		&user_model.Blocking{BlockerID: u.ID},
 		&user_model.Blocking{BlockeeID: u.ID},
 		&actions_model.ActionRunnerToken{OwnerID: u.ID},
+		&actions_model.ActionScopedWorkflowSource{OwnerID: u.ID},
+		&auth_model.TwoFactor{UID: u.ID},
+		&auth_model.WebAuthnCredential{UserID: u.ID},
+		&activities_model.Notification{UserID: u.ID},
+		&issues_model.IssueWatch{UserID: u.ID},
 	); err != nil {
 		return fmt.Errorf("deleteBeans: %w", err)
 	}

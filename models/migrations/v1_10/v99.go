@@ -4,12 +4,11 @@
 package v1_10
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func AddTaskTable(x *xorm.Engine) error {
+func AddTaskTable(x db.EngineMigration) error {
 	// TaskType defines task type
 	type TaskType int
 

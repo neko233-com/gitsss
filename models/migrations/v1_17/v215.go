@@ -4,13 +4,12 @@
 package v1_17
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/pull"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func AddReviewViewedFiles(x *xorm.Engine) error {
+func AddReviewViewedFiles(x db.EngineMigration) error {
 	type ReviewState struct {
 		ID           int64                       `xorm:"pk autoincr"`
 		UserID       int64                       `xorm:"NOT NULL UNIQUE(pull_commit_user)"`

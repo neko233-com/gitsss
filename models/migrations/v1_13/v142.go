@@ -4,13 +4,13 @@
 package v1_13
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/log"
 
 	"xorm.io/builder"
-	"xorm.io/xorm"
 )
 
-func SetIsArchivedToFalse(x *xorm.Engine) error {
+func SetIsArchivedToFalse(x db.EngineMigration) error {
 	type Repository struct {
 		IsArchived bool `xorm:"INDEX"`
 	}

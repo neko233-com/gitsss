@@ -6,6 +6,7 @@ package gitea
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 )
@@ -25,10 +26,10 @@ type ListEmailsOptions struct {
 }
 
 // ListEmails all the email addresses of user
-func (c *Client) ListEmails(opt ListEmailsOptions) ([]*Email, *Response, error) {
+func (c *UsersService) ListEmails(ctx context.Context, opt ListEmailsOptions) ([]*Email, *Response, error) {
 	opt.setDefaults()
 	emails := make([]*Email, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/user/emails?%s", opt.getURLQuery().Encode()), nil, nil, &emails)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/user/emails?%s", opt.getURLQuery().Encode()), nil, nil, &emails)
 	return emails, resp, err
 }
 
@@ -39,13 +40,13 @@ type CreateEmailOption struct {
 }
 
 // AddEmail add one email to current user with options
-func (c *Client) AddEmail(opt CreateEmailOption) ([]*Email, *Response, error) {
+func (c *UsersService) AddEmail(ctx context.Context, opt CreateEmailOption) ([]*Email, *Response, error) {
 	body, err := json.Marshal(&opt)
 	if err != nil {
 		return nil, nil, err
 	}
 	emails := make([]*Email, 0, 3)
-	resp, err := c.getParsedResponse("POST", "/user/emails", jsonHeader, bytes.NewReader(body), &emails)
+	resp, err := c.getParsedResponse(ctx, "POST", "/user/emails", jsonHeader, bytes.NewReader(body), &emails)
 	return emails, resp, err
 }
 
@@ -56,10 +57,10 @@ type DeleteEmailOption struct {
 }
 
 // DeleteEmail delete one email of current users'
-func (c *Client) DeleteEmail(opt DeleteEmailOption) (*Response, error) {
+func (c *UsersService) DeleteEmail(ctx context.Context, opt DeleteEmailOption) (*Response, error) {
 	body, err := json.Marshal(&opt)
 	if err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("DELETE", "/user/emails", jsonHeader, bytes.NewReader(body))
+	return c.doRequestWithStatusHandle(ctx, "DELETE", "/user/emails", jsonHeader, bytes.NewReader(body))
 }

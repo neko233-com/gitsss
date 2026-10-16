@@ -4,12 +4,11 @@
 package v1_22
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/perm"
-
-	"xorm.io/xorm"
 )
 
-func AddRepoUnitEveryoneAccessMode(x *xorm.Engine) error {
+func AddRepoUnitEveryoneAccessMode(x db.EngineMigration) error {
 	type RepoUnit struct { //revive:disable-line:exported
 		EveryoneAccessMode perm.AccessMode `xorm:"NOT NULL DEFAULT 0"`
 	}

@@ -7,7 +7,8 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"io"
+	"crypto/sha1"
+	"encoding/base64"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -43,16 +44,18 @@ provides = gitea`)
 }
 
 func TestParsePackage(t *testing.T) {
-	createPackage := func(name string, content []byte) io.Reader {
+	createPackage := func(name string, content []byte) (*bytes.Buffer, string) {
 		names := []string{"first.stream", name}
 		contents := [][]byte{{0}, content}
 
 		var buf bytes.Buffer
 		zw := gzip.NewWriter(&buf)
+		controlOffset := 0
 
 		for i := range names {
 			if i != 0 {
 				zw.Close()
+				controlOffset = buf.Len()
 				zw.Reset(&buf)
 			}
 
@@ -69,11 +72,12 @@ func TestParsePackage(t *testing.T) {
 
 		zw.Close()
 
-		return &buf
+		checksum := sha1.Sum(buf.Bytes()[controlOffset:])
+		return &buf, "Q1" + base64.StdEncoding.EncodeToString(checksum[:])
 	}
 
 	t.Run("MissingPKGINFOFile", func(t *testing.T) {
-		data := createPackage("dummy.txt", []byte{})
+		data, _ := createPackage("dummy.txt", []byte{})
 
 		pp, err := ParsePackage(data)
 		assert.Nil(t, pp)
@@ -81,7 +85,7 @@ func TestParsePackage(t *testing.T) {
 	})
 
 	t.Run("InvalidPKGINFOFile", func(t *testing.T) {
-		data := createPackage(".PKGINFO", []byte{})
+		data, _ := createPackage(".PKGINFO", []byte{})
 
 		pp, err := ParsePackage(data)
 		assert.Nil(t, pp)
@@ -89,13 +93,13 @@ func TestParsePackage(t *testing.T) {
 	})
 
 	t.Run("Valid", func(t *testing.T) {
-		data := createPackage(".PKGINFO", createPKGINFOContent(packageName, packageVersion))
+		data, checksum := createPackage(".PKGINFO", createPKGINFOContent(packageName, packageVersion))
 
 		p, err := ParsePackage(data)
 		assert.NoError(t, err)
 		assert.NotNil(t, p)
 
-		assert.Equal(t, "Q1SRYURM5+uQDqfHSwTnNIOIuuDVQ=", p.FileMetadata.Checksum)
+		assert.Equal(t, checksum, p.FileMetadata.Checksum)
 	})
 }
 

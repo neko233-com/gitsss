@@ -5,6 +5,7 @@
 package runner
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -12,11 +13,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/neko233-com/gitsss/runner/act/common"
 	"github.com/neko233-com/gitsss/runner/act/exprparser"
 	"github.com/neko233-com/gitsss/runner/act/model"
 
 	log "github.com/sirupsen/logrus"
 	assert "github.com/stretchr/testify/assert"
+	require "github.com/stretchr/testify/require"
 	yaml "go.yaml.in/yaml/v4"
 )
 
@@ -276,6 +279,44 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestRunContextValidVolumes(t *testing.T) {
+	rc := &RunContext{
+		Name:   "job",
+		Run:    &model.Run{Workflow: &model.Workflow{Name: "wf"}},
+		Config: &Config{ValidVolumes: []string{"my-vol", "/host/path"}},
+	}
+	name := rc.jobContainerName()
+
+	got := rc.validVolumes()
+
+	// the configured volumes plus the four the runner mounts automatically
+	assert.Subset(t, got, []string{"my-vol", "/host/path", "act-toolcache", name, name + "-env", "/var/run/docker.sock"})
+
+	// deriving the list must never mutate or grow the shared Config slice: parallel matrix
+	// combinations share one *Config, and the previous in-place append was a data race.
+	assert.Equal(t, []string{"my-vol", "/host/path"}, rc.Config.ValidVolumes)
+	assert.Len(t, rc.validVolumes(), len(got), "repeated calls must be stable, not accumulate")
+}
+
+// TestInterpolateOutputsIsPerMatrixCombo guards the matrix-output fix: combinations share one
+// *model.Job, so each must interpolate from its own pristine snapshot. Otherwise the first
+// combo's resolved value freezes the shared template and later combos can't resolve their own.
+func TestInterpolateOutputsIsPerMatrixCombo(t *testing.T) {
+	job := &model.Job{Outputs: map[string]string{"o": "${{ matrix.v }}"}}
+	run := &model.Run{JobID: "j", Workflow: &model.Workflow{Name: "w", Jobs: map[string]*model.Job{"j": job}}}
+	r := &runnerImpl{config: &Config{}}
+	ctx := context.Background()
+
+	rcA := r.newRunContext(ctx, run, map[string]any{"v": "a"})
+	rcB := r.newRunContext(ctx, run, map[string]any{"v": "b"})
+
+	require.NoError(t, rcA.interpolateOutputs()(ctx))
+	require.NoError(t, rcB.interpolateOutputs()(ctx))
+
+	// Last combo wins (matching GitHub) instead of being frozen to combo A's "a".
+	require.Equal(t, "b", job.Outputs["o"])
 }
 
 func TestGetGitHubContext(t *testing.T) {
@@ -634,4 +675,76 @@ func TestCreateContainerNameBoundedForLongMatrixInput(t *testing.T) {
 	assert.LessOrEqual(t, len(name+"-env"), 255)
 	assert.LessOrEqual(t, len(name+"-network"), 255)
 	assert.LessOrEqual(t, len(name+"-job1234567890"), 255)
+}
+
+func TestPrintStartJobContainerGroupGolden(t *testing.T) {
+	buf := &bytes.Buffer{}
+	logger := log.New()
+	logger.SetOutput(buf)
+	logger.SetLevel(log.InfoLevel)
+	logger.SetFormatter(&jobLogFormatter{color: cyan})
+	entry := logger.WithFields(log.Fields{"job": "j1"})
+	ctx := common.WithLogger(context.Background(), entry)
+
+	printStartJobContainerGroup(ctx, "node:20", "GITEA-WORKFLOW-build-JOB-test", "gitea-runner-network")()
+
+	want := strings.Join([]string{
+		"[j1]   | ::group::Starting job container",
+		"[j1]   | image: node:20",
+		"[j1]   | name: GITEA-WORKFLOW-build-JOB-test",
+		"[j1]   | network: gitea-runner-network",
+		"[j1]   | ::endgroup::",
+		"",
+	}, "\n")
+	assert.Equal(t, want, buf.String())
+}
+
+func TestRunContext_cleanupFailedStart(t *testing.T) {
+	type ctxKey string
+	const sentinel = ctxKey("sentinel")
+
+	// the fresh context is cancelled via defer on return, so capture state inside the stub
+	type capture struct {
+		calls    int
+		err      error
+		sentinel any
+	}
+	newRC := func(c *capture) *RunContext {
+		return &RunContext{
+			JobName: "job",
+			cleanUpJobContainer: func(ctx context.Context) error {
+				c.calls++
+				c.err = ctx.Err()
+				c.sentinel = ctx.Value(sentinel)
+				return nil
+			},
+		}
+	}
+
+	t.Run("runs teardown on the live context", func(t *testing.T) {
+		var c capture
+		ctx := context.WithValue(context.Background(), sentinel, "v")
+
+		newRC(&c).cleanupFailedStart(ctx)
+
+		assert.Equal(t, 1, c.calls)
+		require.NoError(t, c.err)
+		assert.Equal(t, "v", c.sentinel)
+	})
+
+	t.Run("falls back to a fresh context when the input is done", func(t *testing.T) {
+		var c capture
+		ctx, cancel := context.WithCancel(context.WithValue(context.Background(), sentinel, "v"))
+		cancel()
+
+		newRC(&c).cleanupFailedStart(ctx)
+
+		assert.Equal(t, 1, c.calls)
+		require.NoError(t, c.err)
+		assert.Nil(t, c.sentinel)
+	})
+
+	t.Run("no-op when there is nothing to clean up", func(t *testing.T) {
+		assert.NotPanics(t, func() { (&RunContext{}).cleanupFailedStart(context.Background()) })
+	})
 }

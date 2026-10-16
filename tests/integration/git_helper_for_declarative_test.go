@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/neko233-com/gitsss/modules/generate"
 	"github.com/neko233-com/gitsss/modules/git"
 	"github.com/neko233-com/gitsss/modules/git/gitcmd"
 	"github.com/neko233-com/gitsss/modules/setting"
@@ -33,7 +34,7 @@ func withKeyFile(t *testing.T, keyname string, callback func(string)) {
 	assert.NoError(t, err)
 
 	keyFile := filepath.Join(tmpDir, keyname)
-	err = ssh.GenKeyPair(keyFile)
+	err = ssh.GenKeyPair(keyFile, generate.SSHKeyECDSA, 0)
 	assert.NoError(t, err)
 
 	err = os.WriteFile(filepath.Join(tmpDir, "ssh"), []byte("#!/bin/bash\n"+

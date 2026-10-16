@@ -5,6 +5,7 @@
 package gitea
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"time"
@@ -23,51 +24,83 @@ type NotificationThread struct {
 
 // NotificationSubject contains the notification subject (Issue/Pull/Commit)
 type NotificationSubject struct {
-	Title                string             `json:"title"`
-	URL                  string             `json:"url"`
-	HTMLURL              string             `json:"html_url"`
-	LatestCommentURL     string             `json:"latest_comment_url"`
-	LatestCommentHTMLURL string             `json:"latest_comment_html_url"`
-	Type                 NotifySubjectType  `json:"type"`
-	State                NotifySubjectState `json:"state"`
+	Title                string                   `json:"title"`
+	URL                  string                   `json:"url"`
+	HTMLURL              string                   `json:"html_url"`
+	LatestCommentURL     string                   `json:"latest_comment_url"`
+	LatestCommentHTMLURL string                   `json:"latest_comment_html_url"`
+	Type                 NotificationSubjectType  `json:"type"`
+	State                NotificationSubjectState `json:"state"`
 }
 
-// NotifyStatus notification status type
-type NotifyStatus string
+// NotificationStatus notification status type
+type NotificationStatus string
+
+// Deprecated: use NotificationStatus instead.
+type NotifyStatus = NotificationStatus
 
 const (
-	// NotifyStatusUnread was not read
-	NotifyStatusUnread NotifyStatus = "unread"
-	// NotifyStatusRead was already read by user
-	NotifyStatusRead NotifyStatus = "read"
-	// NotifyStatusPinned notification is pinned by user
-	NotifyStatusPinned NotifyStatus = "pinned"
+	// NotificationStatusUnread was not read
+	NotificationStatusUnread NotificationStatus = "unread"
+	// NotificationStatusRead was already read by user
+	NotificationStatusRead NotificationStatus = "read"
+	// NotificationStatusPinned notification is pinned by user
+	NotificationStatusPinned NotificationStatus = "pinned"
+
+	// Deprecated: use NotificationStatusUnread instead.
+	NotifyStatusUnread = NotificationStatusUnread
+	// Deprecated: use NotificationStatusRead instead.
+	NotifyStatusRead = NotificationStatusRead
+	// Deprecated: use NotificationStatusPinned instead.
+	NotifyStatusPinned = NotificationStatusPinned
 )
 
-// NotifySubjectType represent type of notification subject
-type NotifySubjectType string
+// NotificationSubjectType represent type of notification subject
+type NotificationSubjectType string
+
+// Deprecated: use NotificationSubjectType instead.
+type NotifySubjectType = NotificationSubjectType
 
 const (
-	// NotifySubjectIssue an issue is subject of an notification
-	NotifySubjectIssue NotifySubjectType = "Issue"
-	// NotifySubjectPull an pull is subject of an notification
-	NotifySubjectPull NotifySubjectType = "Pull"
-	// NotifySubjectCommit an commit is subject of an notification
-	NotifySubjectCommit NotifySubjectType = "Commit"
-	// NotifySubjectRepository an repository is subject of an notification
-	NotifySubjectRepository NotifySubjectType = "Repository"
+	// NotificationSubjectIssue an issue is subject of an notification
+	NotificationSubjectIssue NotificationSubjectType = "Issue"
+	// NotificationSubjectPull an pull is subject of an notification
+	NotificationSubjectPull NotificationSubjectType = "Pull"
+	// NotificationSubjectCommit an commit is subject of an notification
+	NotificationSubjectCommit NotificationSubjectType = "Commit"
+	// NotificationSubjectRepository an repository is subject of an notification
+	NotificationSubjectRepository NotificationSubjectType = "Repository"
+
+	// Deprecated: use NotificationSubjectIssue instead.
+	NotifySubjectIssue = NotificationSubjectIssue
+	// Deprecated: use NotificationSubjectPull instead.
+	NotifySubjectPull = NotificationSubjectPull
+	// Deprecated: use NotificationSubjectCommit instead.
+	NotifySubjectCommit = NotificationSubjectCommit
+	// Deprecated: use NotificationSubjectRepository instead.
+	NotifySubjectRepository = NotificationSubjectRepository
 )
 
-// NotifySubjectState reflect state of notification subject
-type NotifySubjectState string
+// NotificationSubjectState reflect state of notification subject
+type NotificationSubjectState string
+
+// Deprecated: use NotificationSubjectState instead.
+type NotifySubjectState = NotificationSubjectState
 
 const (
-	// NotifySubjectOpen if subject is a pull/issue and is open at the moment
-	NotifySubjectOpen NotifySubjectState = "open"
-	// NotifySubjectClosed if subject is a pull/issue and is closed at the moment
-	NotifySubjectClosed NotifySubjectState = "closed"
-	// NotifySubjectMerged if subject is a pull and got merged
-	NotifySubjectMerged NotifySubjectState = "merged"
+	// NotificationSubjectOpen if subject is a pull/issue and is open at the moment
+	NotificationSubjectOpen NotificationSubjectState = "open"
+	// NotificationSubjectClosed if subject is a pull/issue and is closed at the moment
+	NotificationSubjectClosed NotificationSubjectState = "closed"
+	// NotificationSubjectMerged if subject is a pull and got merged
+	NotificationSubjectMerged NotificationSubjectState = "merged"
+
+	// Deprecated: use NotificationSubjectOpen instead.
+	NotifySubjectOpen = NotificationSubjectOpen
+	// Deprecated: use NotificationSubjectClosed instead.
+	NotifySubjectClosed = NotificationSubjectClosed
+	// Deprecated: use NotificationSubjectMerged instead.
+	NotifySubjectMerged = NotificationSubjectMerged
 )
 
 // ListNotificationOptions represents the filter options
@@ -75,15 +108,15 @@ type ListNotificationOptions struct {
 	ListOptions
 	Since        time.Time
 	Before       time.Time
-	Status       []NotifyStatus
-	SubjectTypes []NotifySubjectType
+	Status       []NotificationStatus
+	SubjectTypes []NotificationSubjectType
 }
 
 // MarkNotificationOptions represents the filter & modify options
 type MarkNotificationOptions struct {
 	LastReadAt time.Time
-	Status     []NotifyStatus
-	ToStatus   NotifyStatus
+	Status     []NotificationStatus
+	ToStatus   NotificationStatus
 }
 
 // QueryEncode encode options to url query
@@ -105,9 +138,9 @@ func (opt *ListNotificationOptions) QueryEncode() string {
 }
 
 // Validate the CreateUserOption struct
-func (opt ListNotificationOptions) Validate(c *Client) error {
+func (opt ListNotificationOptions) Validate(ctx context.Context, c *Client) error {
 	if len(opt.Status) != 0 {
-		return c.checkServerVersionGreaterThanOrEqual(version1_12_3)
+		return c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_3)
 	}
 	return nil
 }
@@ -128,130 +161,130 @@ func (opt *MarkNotificationOptions) QueryEncode() string {
 }
 
 // Validate the CreateUserOption struct
-func (opt MarkNotificationOptions) Validate(c *Client) error {
+func (opt MarkNotificationOptions) Validate(ctx context.Context, c *Client) error {
 	if len(opt.Status) != 0 || len(opt.ToStatus) != 0 {
-		return c.checkServerVersionGreaterThanOrEqual(version1_12_3)
+		return c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_3)
 	}
 	return nil
 }
 
-// CheckNotifications list users's notification threads
-func (c *Client) CheckNotifications() (int64, *Response, error) {
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_12_0); err != nil {
+// Check list users's notification threads
+func (c *NotificationsService) Check(ctx context.Context) (int64, *Response, error) {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); err != nil {
 		return 0, nil, err
 	}
 	new := struct {
 		New int64 `json:"new"`
 	}{}
 
-	resp, err := c.getParsedResponse("GET", "/notifications/new", jsonHeader, nil, &new)
+	resp, err := c.getParsedResponse(ctx, "GET", "/notifications/new", jsonHeader, nil, &new)
 	return new.New, resp, err
 }
 
-// GetNotification get notification thread by ID
-func (c *Client) GetNotification(id int64) (*NotificationThread, *Response, error) {
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_12_0); err != nil {
+// GetByID get notification thread by ID
+func (c *NotificationsService) GetByID(ctx context.Context, id int64) (*NotificationThread, *Response, error) {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); err != nil {
 		return nil, nil, err
 	}
 	thread := new(NotificationThread)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/notifications/threads/%d", id), nil, nil, thread)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/notifications/threads/%d", id), nil, nil, thread)
 	return thread, resp, err
 }
 
-// ReadNotification mark notification thread as read by ID
+// MarkReadByID mark notification thread as read by ID
 // It optionally takes a second argument if status has to be set other than 'read'
 // The relevant notification will be returned as the first parameter when the Gitea server is 1.16.0 or higher.
-func (c *Client) ReadNotification(id int64, status ...NotifyStatus) (*NotificationThread, *Response, error) {
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_12_0); err != nil {
+func (c *NotificationsService) MarkReadByID(ctx context.Context, id int64, status ...NotificationStatus) (*NotificationThread, *Response, error) {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); err != nil {
 		return nil, nil, err
 	}
 	link := fmt.Sprintf("/notifications/threads/%d", id)
 	if len(status) != 0 {
 		link += fmt.Sprintf("?to-status=%s", status[0])
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_16_0); err == nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_16_0); err == nil {
 		thread := &NotificationThread{}
-		resp, err := c.getParsedResponse("PATCH", link, nil, nil, thread)
+		resp, err := c.getParsedResponse(ctx, "PATCH", link, nil, nil, thread)
 		return thread, resp, err
 	}
-	resp, err := c.doRequestWithStatusHandle("PATCH", link, nil, nil)
+	resp, err := c.doRequestWithStatusHandle(ctx, "PATCH", link, nil, nil)
 	return nil, resp, err
 }
 
-// ListNotifications list users's notification threads
-func (c *Client) ListNotifications(opt ListNotificationOptions) ([]*NotificationThread, *Response, error) {
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_12_0); err != nil {
+// List list users's notification threads
+func (c *NotificationsService) List(ctx context.Context, opt ListNotificationOptions) ([]*NotificationThread, *Response, error) {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); err != nil {
 		return nil, nil, err
 	}
-	if err := opt.Validate(c); err != nil {
+	if err := opt.Validate(ctx, c.Client); err != nil {
 		return nil, nil, err
 	}
 	link, _ := url.Parse("/notifications")
 	link.RawQuery = opt.QueryEncode()
 	threads := make([]*NotificationThread, 0, 10)
-	resp, err := c.getParsedResponse("GET", link.String(), nil, nil, &threads)
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), nil, nil, &threads)
 	return threads, resp, err
 }
 
-// ReadNotifications mark notification threads as read
+// MarkRead mark notification threads as read
 // The relevant notifications will only be returned as the first parameter when the Gitea server is 1.16.0 or higher.
-func (c *Client) ReadNotifications(opt MarkNotificationOptions) ([]*NotificationThread, *Response, error) {
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_12_0); err != nil {
+func (c *NotificationsService) MarkRead(ctx context.Context, opt MarkNotificationOptions) ([]*NotificationThread, *Response, error) {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); err != nil {
 		return nil, nil, err
 	}
-	if err := opt.Validate(c); err != nil {
+	if err := opt.Validate(ctx, c.Client); err != nil {
 		return nil, nil, err
 	}
 	link, _ := url.Parse("/notifications")
 	link.RawQuery = opt.QueryEncode()
 
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_16_0); err == nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_16_0); err == nil {
 		threads := make([]*NotificationThread, 0, 10)
-		resp, err := c.getParsedResponse("PUT", link.String(), nil, nil, &threads)
+		resp, err := c.getParsedResponse(ctx, "PUT", link.String(), nil, nil, &threads)
 		return threads, resp, err
 	}
-	resp, err := c.doRequestWithStatusHandle("PUT", link.String(), nil, nil)
+	resp, err := c.doRequestWithStatusHandle(ctx, "PUT", link.String(), nil, nil)
 	return nil, resp, err
 }
 
-// ListRepoNotifications list users's notification threads on a specific repo
-func (c *Client) ListRepoNotifications(owner, repo string, opt ListNotificationOptions) ([]*NotificationThread, *Response, error) {
+// ListByRepo list users's notification threads on a specific repo
+func (c *NotificationsService) ListByRepo(ctx context.Context, owner, repo string, opt ListNotificationOptions) ([]*NotificationThread, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_12_0); err != nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); err != nil {
 		return nil, nil, err
 	}
-	if err := opt.Validate(c); err != nil {
+	if err := opt.Validate(ctx, c.Client); err != nil {
 		return nil, nil, err
 	}
 	link, _ := url.Parse(fmt.Sprintf("/repos/%s/%s/notifications", owner, repo))
 	link.RawQuery = opt.QueryEncode()
 	threads := make([]*NotificationThread, 0, 10)
-	resp, err := c.getParsedResponse("GET", link.String(), nil, nil, &threads)
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), nil, nil, &threads)
 	return threads, resp, err
 }
 
-// ReadRepoNotifications mark notification threads as read on a specific repo
+// MarkReadByRepo mark notification threads as read on a specific repo
 // The relevant notifications will only be returned as the first parameter when the Gitea server is 1.16.0 or higher.
-func (c *Client) ReadRepoNotifications(owner, repo string, opt MarkNotificationOptions) ([]*NotificationThread, *Response, error) {
+func (c *NotificationsService) MarkReadByRepo(ctx context.Context, owner, repo string, opt MarkNotificationOptions) ([]*NotificationThread, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_12_0); err != nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); err != nil {
 		return nil, nil, err
 	}
-	if err := opt.Validate(c); err != nil {
+	if err := opt.Validate(ctx, c.Client); err != nil {
 		return nil, nil, err
 	}
 	link, _ := url.Parse(fmt.Sprintf("/repos/%s/%s/notifications", owner, repo))
 	link.RawQuery = opt.QueryEncode()
 
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_16_0); err == nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_16_0); err == nil {
 		threads := make([]*NotificationThread, 0, 10)
-		resp, err := c.getParsedResponse("PUT", link.String(), nil, nil, &threads)
+		resp, err := c.getParsedResponse(ctx, "PUT", link.String(), nil, nil, &threads)
 		return threads, resp, err
 	}
-	resp, err := c.doRequestWithStatusHandle("PUT", link.String(), nil, nil)
+	resp, err := c.doRequestWithStatusHandle(ctx, "PUT", link.String(), nil, nil)
 	return nil, resp, err
 }

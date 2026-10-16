@@ -6,10 +6,10 @@ package v1_14
 import (
 	"fmt"
 
-	"xorm.io/xorm"
+	"github.com/neko233-com/gitsss/models/db"
 )
 
-func AddDismissedReviewColumn(x *xorm.Engine) error {
+func AddDismissedReviewColumn(x db.EngineMigration) error {
 	type Review struct {
 		Dismissed bool `xorm:"NOT NULL DEFAULT false"`
 	}

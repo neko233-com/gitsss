@@ -16,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -50,10 +49,6 @@ func TestFindGitSlug(t *testing.T) {
 	}
 }
 
-func testDir(t *testing.T) string {
-	return t.TempDir()
-}
-
 func cleanGitHooks(dir string) error {
 	hooksDir := filepath.Join(dir, ".git", "hooks")
 	files, err := os.ReadDir(hooksDir)
@@ -78,8 +73,7 @@ func cleanGitHooks(dir string) error {
 func TestFindGitRemoteURL(t *testing.T) {
 	assert := assert.New(t)
 
-	basedir := testDir(t)
-	gitConfig()
+	basedir := t.TempDir()
 	err := gitCmd("init", basedir)
 	assert.NoError(err) //nolint:testifylint // pre-existing issue from nektos/act
 	err = cleanGitHooks(basedir)
@@ -102,8 +96,7 @@ func TestFindGitRemoteURL(t *testing.T) {
 }
 
 func TestGitFindRef(t *testing.T) {
-	basedir := testDir(t)
-	gitConfig()
+	basedir := t.TempDir()
 
 	for name, tt := range map[string]struct {
 		Prepare func(t *testing.T, dir string)
@@ -180,36 +173,55 @@ func TestGitFindRef(t *testing.T) {
 }
 
 func TestGitCloneExecutor(t *testing.T) {
+	// Build a local bare "remote" so this runs offline and fast. The cases below mirror
+	// the tag/branch/sha/short-sha ref paths the executor handles, formerly exercised by
+	// cloning actions/checkout and anchore/scan-action over the network.
+	remoteDir := t.TempDir()
+	require.NoError(t, gitCmd("init", "--bare", "--initial-branch=main", remoteDir))
+
+	workDir := t.TempDir()
+	require.NoError(t, gitCmd("clone", remoteDir, workDir))
+	require.NoError(t, gitCmd("-C", workDir, "checkout", "-b", "main"))
+	require.NoError(t, gitCmd("-C", workDir, "commit", "--allow-empty", "-m", "initial"))
+	require.NoError(t, gitCmd("-C", workDir, "tag", "v2"))
+	require.NoError(t, gitCmd("-C", workDir, "push", "-u", "origin", "main"))
+	require.NoError(t, gitCmd("-C", workDir, "push", "origin", "v2"))
+
+	// A branch with a dash in the name (mirrors the historical scan-action@act-fails case).
+	require.NoError(t, gitCmd("-C", workDir, "checkout", "-b", "act-fails"))
+	require.NoError(t, gitCmd("-C", workDir, "commit", "--allow-empty", "-m", "branch-commit"))
+	require.NoError(t, gitCmd("-C", workDir, "push", "origin", "act-fails"))
+
+	out, err := exec.Command("git", "-C", workDir, "rev-parse", "main").Output()
+	require.NoError(t, err)
+	fullSha := strings.TrimSpace(string(out))
+
 	for name, tt := range map[string]struct {
-		Err      error
-		URL, Ref string
+		Err error
+		Ref string
 	}{
 		"tag": {
 			Err: nil,
-			URL: "https://github.com/actions/checkout",
 			Ref: "v2",
 		},
 		"branch": {
 			Err: nil,
-			URL: "https://github.com/anchore/scan-action",
 			Ref: "act-fails",
 		},
 		"sha": {
 			Err: nil,
-			URL: "https://github.com/actions/checkout",
-			Ref: "5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f", // v2
+			Ref: fullSha,
 		},
 		"short-sha": {
-			Err: &Error{ErrShortRef, "5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f"},
-			URL: "https://github.com/actions/checkout",
-			Ref: "5a4ac90", // v2
+			Err: &Error{ErrShortRef, fullSha},
+			Ref: fullSha[:7],
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			clone := NewGitCloneExecutor(NewGitCloneExecutorInput{
-				URL: tt.URL,
+				URL: remoteDir,
 				Ref: tt.Ref,
-				Dir: testDir(t),
+				Dir: t.TempDir(),
 			})
 
 			err := clone(context.Background())
@@ -227,8 +239,6 @@ func TestGitCloneExecutorNonFastForwardRef(t *testing.T) {
 	// Simulate the scenario where a remote ref (e.g. a GitHub PR head ref) changes
 	// non-fast-forward between two fetches. Before the fix, the fetch used Force=false,
 	// causing go-git to return ErrForceNeeded and short-circuit the checkout.
-
-	gitConfig()
 
 	// Create a bare "remote" repo with an initial commit on main and a feature branch.
 	remoteDir := t.TempDir()
@@ -279,22 +289,67 @@ func TestGitCloneExecutorNonFastForwardRef(t *testing.T) {
 	assert.Equal(t, "second", strings.TrimSpace(string(out)), "working tree should be at the latest commit")
 }
 
-func gitConfig() {
-	if os.Getenv("GITHUB_ACTIONS") == "true" {
-		var err error
-		if err = gitCmd("config", "--global", "user.email", "test@test.com"); err != nil {
-			log.Error(err)
-		}
-		if err = gitCmd("config", "--global", "user.name", "Unit Test"); err != nil {
-			log.Error(err)
-		}
-	}
+func TestGitCloneExecutorOfflineMode(t *testing.T) {
+	// Build a local "remote" with a single commit on main.
+	remoteDir := t.TempDir()
+	require.NoError(t, gitCmd("init", "--bare", "--initial-branch=main", remoteDir))
+	workDir := t.TempDir()
+	require.NoError(t, gitCmd("clone", remoteDir, workDir))
+	require.NoError(t, gitCmd("-C", workDir, "checkout", "-b", "main"))
+	require.NoError(t, gitCmd("-C", workDir, "commit", "--allow-empty", "-m", "initial"))
+	require.NoError(t, gitCmd("-C", workDir, "push", "-u", "origin", "main"))
+
+	// Prime the cache with an online clone of main.
+	cacheDir := t.TempDir()
+	require.NoError(t, NewGitCloneExecutor(NewGitCloneExecutorInput{
+		URL: remoteDir,
+		Ref: "main",
+		Dir: cacheDir,
+	})(context.Background()))
+
+	t.Run("cached branch resolves without fetching", func(t *testing.T) {
+		// Offline reuse of a cached branch must succeed even though ResolveRevision(input.Ref)
+		// finds no local refs/heads/<ref>.
+		err := NewGitCloneExecutor(NewGitCloneExecutorInput{
+			URL:         remoteDir,
+			Ref:         "main",
+			Dir:         cacheDir,
+			OfflineMode: true,
+		})(context.Background())
+		require.NoError(t, err)
+
+		out, err := exec.Command("git", "-C", cacheDir, "log", "--oneline", "-1", "--format=%s").Output()
+		require.NoError(t, err)
+		assert.Equal(t, "initial", strings.TrimSpace(string(out)))
+	})
+
+	t.Run("unresolvable cached ref returns error", func(t *testing.T) {
+		// The ref was never cached; offline mode cannot resolve it and must return an error.
+		err := NewGitCloneExecutor(NewGitCloneExecutorInput{
+			URL:         remoteDir,
+			Ref:         "never-fetched",
+			Dir:         cacheDir,
+			OfflineMode: true,
+		})(context.Background())
+		require.Error(t, err)
+	})
 }
 
 func gitCmd(args ...string) error {
 	cmd := exec.Command("git", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	// Inject a deterministic identity and ignore the host's global/system config so commits
+	// succeed regardless of the host having no user.name/user.email (e.g. CI, GITHUB_ACTIONS
+	// unset) or a global commit.gpgsign, and without mutating the developer's ~/.gitconfig.
+	cmd.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME=Unit Test",
+		"GIT_AUTHOR_EMAIL=test@test.com",
+		"GIT_COMMITTER_NAME=Unit Test",
+		"GIT_COMMITTER_EMAIL=test@test.com",
+		"GIT_CONFIG_GLOBAL=/dev/null",
+		"GIT_CONFIG_SYSTEM=/dev/null",
+	)
 
 	err := cmd.Run()
 	if exitError, ok := err.(*exec.ExitError); ok {
@@ -310,11 +365,11 @@ func TestAcquireCloneLock(t *testing.T) {
 	t.Run("same directory serializes", func(t *testing.T) {
 		dir := t.TempDir()
 
-		unlock1 := acquireCloneLock(dir)
+		unlock1 := AcquireCloneLock(dir)
 
 		secondAcquired := make(chan struct{})
 		go func() {
-			unlock := acquireCloneLock(dir)
+			unlock := AcquireCloneLock(dir)
 			close(secondAcquired)
 			unlock()
 		}()
@@ -338,12 +393,12 @@ func TestAcquireCloneLock(t *testing.T) {
 		dirA := t.TempDir()
 		dirB := t.TempDir()
 
-		unlockA := acquireCloneLock(dirA)
+		unlockA := AcquireCloneLock(dirA)
 		defer unlockA()
 
 		done := make(chan struct{})
 		go func() {
-			unlock := acquireCloneLock(dirB)
+			unlock := AcquireCloneLock(dirB)
 			unlock()
 			close(done)
 		}()

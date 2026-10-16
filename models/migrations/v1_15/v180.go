@@ -4,14 +4,14 @@
 package v1_15
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/json"
 	"github.com/neko233-com/gitsss/modules/util"
 
 	"xorm.io/builder"
-	"xorm.io/xorm"
 )
 
-func DeleteMigrationCredentials(x *xorm.Engine) (err error) {
+func DeleteMigrationCredentials(x db.EngineMigration) (err error) {
 	// Task represents a task
 	type Task struct {
 		ID             int64

@@ -23,8 +23,8 @@ import (
 	"github.com/neko233-com/gitsss/runner/act/model"
 	"github.com/neko233-com/gitsss/runner/act/runner"
 
-	"github.com/docker/docker/api/types/container"
 	"github.com/joho/godotenv"
+	"github.com/moby/moby/api/types/container"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"

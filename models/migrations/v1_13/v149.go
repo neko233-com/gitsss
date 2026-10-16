@@ -6,12 +6,11 @@ package v1_13
 import (
 	"fmt"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func AddCreatedAndUpdatedToMilestones(x *xorm.Engine) error {
+func AddCreatedAndUpdatedToMilestones(x db.EngineMigration) error {
 	type Milestone struct {
 		CreatedUnix timeutil.TimeStamp `xorm:"INDEX created"`
 		UpdatedUnix timeutil.TimeStamp `xorm:"INDEX updated"`

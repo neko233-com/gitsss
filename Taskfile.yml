@@ -6,6 +6,27 @@ vars:
   DOCKER_TAG: '{{default "latest" .DOCKER_TAG}}'
 
 tasks:
+  verify:native:
+    desc: Rehearse a native SQLite takeover using an independent private snapshot
+    cmds:
+      - '{{.PYTHON}} tools/rehearse-native.py {{.CLI_ARGS}}'
+    vars:
+      PYTHON: '{{.PYTHON | default "python3"}}'
+
+  verify:git:
+    desc: Exercise GitSSS Git HTTP, LFS, permissions and optional SSH from this machine
+    cmds:
+      - '{{.PYTHON}} tools/verify-git.py {{.CLI_ARGS}}'
+    vars:
+      PYTHON: '{{.PYTHON | default "python3"}}'
+
+  agent:ops:
+    desc: Read GitSSS health/Actions status or explicitly dispatch/rerun work
+    cmds:
+      - '{{.PYTHON}} tools/agent-ops.py {{.CLI_ARGS}}'
+    vars:
+      PYTHON: '{{.PYTHON | default "python3"}}'
+
   default:
     desc: List available tasks
     cmds:

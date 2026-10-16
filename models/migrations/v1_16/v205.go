@@ -4,13 +4,13 @@
 package v1_16
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/base"
 
-	"xorm.io/xorm"
 	"xorm.io/xorm/schemas"
 )
 
-func MigrateUserPasswordSalt(x *xorm.Engine) error {
+func MigrateUserPasswordSalt(x db.EngineMigration) error {
 	dbType := x.Dialect().URI().DBType
 	// For SQLITE, the max length doesn't matter.
 	if dbType == schemas.SQLITE {

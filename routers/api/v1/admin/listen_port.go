@@ -14,6 +14,10 @@ import (
 
 // PostListenPort rebinds the HTTP port for an authenticated site administrator.
 func PostListenPort(ctx *context.APIContext) {
+	if !ctx.IsUserSiteAdmin() {
+		ctx.APIError(http.StatusForbidden, "user should be the site admin")
+		return
+	}
 	var body struct {
 		Port string `json:"port"`
 	}

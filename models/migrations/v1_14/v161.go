@@ -6,12 +6,11 @@ package v1_14
 import (
 	"context"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/base"
-
-	"xorm.io/xorm"
 )
 
-func ConvertTaskTypeToString(x *xorm.Engine) error {
+func ConvertTaskTypeToString(x db.EngineMigration) error {
 	const (
 		GOGS int = iota + 1
 		SLACK

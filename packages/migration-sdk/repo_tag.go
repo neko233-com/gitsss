@@ -6,6 +6,7 @@ package gitea
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 )
@@ -44,39 +45,39 @@ type ListRepoTagsOptions struct {
 }
 
 // ListRepoTags list all the branches of one repository
-func (c *Client) ListRepoTags(user, repo string, opt ListRepoTagsOptions) ([]*Tag, *Response, error) {
+func (c *RepositoriesService) ListRepoTags(ctx context.Context, user, repo string, opt ListRepoTagsOptions) ([]*Tag, *Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo); err != nil {
 		return nil, nil, err
 	}
 	opt.setDefaults()
 	tags := make([]*Tag, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/repos/%s/%s/tags?%s", user, repo, opt.getURLQuery().Encode()), nil, nil, &tags)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/tags?%s", user, repo, opt.getURLQuery().Encode()), nil, nil, &tags)
 	return tags, resp, err
 }
 
 // GetTag get the tag of a repository
-func (c *Client) GetTag(user, repo, tag string) (*Tag, *Response, error) {
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_15_0); err != nil {
+func (c *RepositoriesService) GetTag(ctx context.Context, user, repo, tag string) (*Tag, *Response, error) {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_15_0); err != nil {
 		return nil, nil, err
 	}
 	if err := escapeValidatePathSegments(&user, &repo, &tag); err != nil {
 		return nil, nil, err
 	}
 	t := new(Tag)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/repos/%s/%s/tags/%s", user, repo, tag), nil, nil, &t)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/tags/%s", user, repo, tag), nil, nil, &t)
 	return t, resp, err
 }
 
 // GetAnnotatedTag get the tag object of an annotated tag (not lightweight tags) of a repository
-func (c *Client) GetAnnotatedTag(user, repo, sha string) (*AnnotatedTag, *Response, error) {
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_15_0); err != nil {
+func (c *RepositoriesService) GetAnnotatedTag(ctx context.Context, user, repo, sha string) (*AnnotatedTag, *Response, error) {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_15_0); err != nil {
 		return nil, nil, err
 	}
 	if err := escapeValidatePathSegments(&user, &repo, &sha); err != nil {
 		return nil, nil, err
 	}
 	t := new(AnnotatedTag)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/repos/%s/%s/git/tags/%s", user, repo, sha), nil, nil, &t)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/git/tags/%s", user, repo, sha), nil, nil, &t)
 	return t, resp, err
 }
 
@@ -96,8 +97,8 @@ func (opt CreateTagOption) Validate() error {
 }
 
 // CreateTag create a new git tag in a repository
-func (c *Client) CreateTag(user, repo string, opt CreateTagOption) (*Tag, *Response, error) {
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_15_0); err != nil {
+func (c *RepositoriesService) CreateTag(ctx context.Context, user, repo string, opt CreateTagOption) (*Tag, *Response, error) {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_15_0); err != nil {
 		return nil, nil, err
 	}
 	if err := escapeValidatePathSegments(&user, &repo); err != nil {
@@ -111,19 +112,19 @@ func (c *Client) CreateTag(user, repo string, opt CreateTagOption) (*Tag, *Respo
 		return nil, nil, err
 	}
 	t := new(Tag)
-	resp, err := c.getParsedResponse("POST", fmt.Sprintf("/repos/%s/%s/tags", user, repo), jsonHeader, bytes.NewReader(body), &t)
+	resp, err := c.getParsedResponse(ctx, "POST", fmt.Sprintf("/repos/%s/%s/tags", user, repo), jsonHeader, bytes.NewReader(body), &t)
 	return t, resp, err
 }
 
 // DeleteTag deletes a tag from a repository, if no release refers to it
-func (c *Client) DeleteTag(user, repo, tag string) (*Response, error) {
+func (c *RepositoriesService) DeleteTag(ctx context.Context, user, repo, tag string) (*Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo, &tag); err != nil {
 		return nil, err
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_14_0); err != nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_14_0); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("DELETE",
+	return c.doRequestWithStatusHandle(ctx, "DELETE",
 		fmt.Sprintf("/repos/%s/%s/tags/%s", user, repo, tag),
 		nil, nil)
 }

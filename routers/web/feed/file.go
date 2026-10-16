@@ -4,7 +4,6 @@
 package feed
 
 import (
-	"strings"
 	"time"
 
 	"github.com/neko233-com/gitsss/models/repo"
@@ -17,11 +16,14 @@ import (
 
 // ShowFileFeed shows tags and/or releases on the repo as RSS / Atom feed
 func ShowFileFeed(ctx *context.Context, repo *repo.Repository, formatType string) {
+	if !checkRepoFeedTokenScope(ctx) {
+		return
+	}
 	fileName := ctx.Repo.TreePath
 	if len(fileName) == 0 {
 		return
 	}
-	commits, err := ctx.Repo.GitRepo.CommitsByFileAndRange(
+	commits, _, err := ctx.Repo.GitRepo.CommitsByFileAndRange(
 		git.CommitsByFileAndRangeOptions{
 			Revision: ctx.Repo.RefFullName.ShortName(), // FIXME: legacy code used ShortName
 			File:     fileName,
@@ -46,14 +48,14 @@ func ShowFileFeed(ctx *context.Context, repo *repo.Repository, formatType string
 	for _, commit := range commits {
 		feed.Items = append(feed.Items, &feeds.Item{
 			Id:    commit.ID.String(),
-			Title: strings.TrimSpace(strings.Split(commit.Message(), "\n")[0]),
+			Title: commit.MessageTitle(),
 			Link:  &feeds.Link{Href: repo.HTMLURL() + "/commit/" + commit.ID.String()},
 			Author: &feeds.Author{
 				Name:  commit.Author.Name,
 				Email: commit.Author.Email,
 			},
-			Description: commit.Message(),
-			Content:     commit.Message(),
+			Description: commit.MessageUTF8(), // TODO: description can be shorten content
+			Content:     commit.MessageUTF8(),
 			Created:     commit.Committer.When,
 		})
 	}

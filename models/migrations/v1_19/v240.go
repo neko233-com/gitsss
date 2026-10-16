@@ -6,11 +6,9 @@ package v1_19
 import (
 	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func AddActionsTables(x *xorm.Engine) error {
+func AddActionsTables(x db.EngineMigration) error {
 	type ActionRunner struct {
 		ID          int64
 		UUID        string `xorm:"CHAR(36) UNIQUE"`

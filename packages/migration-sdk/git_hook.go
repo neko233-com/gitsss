@@ -6,6 +6,7 @@ package gitea
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 )
@@ -23,23 +24,23 @@ type ListRepoGitHooksOptions struct {
 }
 
 // ListRepoGitHooks list all the Git hooks of one repository
-func (c *Client) ListRepoGitHooks(user, repo string, opt ListRepoGitHooksOptions) ([]*GitHook, *Response, error) {
+func (c *GitService) ListRepoGitHooks(ctx context.Context, user, repo string, opt ListRepoGitHooksOptions) ([]*GitHook, *Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo); err != nil {
 		return nil, nil, err
 	}
 	opt.setDefaults()
 	hooks := make([]*GitHook, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/repos/%s/%s/hooks/git?%s", user, repo, opt.getURLQuery().Encode()), nil, nil, &hooks)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/hooks/git?%s", user, repo, opt.getURLQuery().Encode()), nil, nil, &hooks)
 	return hooks, resp, err
 }
 
 // GetRepoGitHook get a Git hook of a repository
-func (c *Client) GetRepoGitHook(user, repo, id string) (*GitHook, *Response, error) {
+func (c *GitService) GetRepoGitHook(ctx context.Context, user, repo, id string) (*GitHook, *Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo, &id); err != nil {
 		return nil, nil, err
 	}
 	h := new(GitHook)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/repos/%s/%s/hooks/git/%s", user, repo, id), nil, nil, h)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/hooks/git/%s", user, repo, id), nil, nil, h)
 	return h, resp, err
 }
 
@@ -49,7 +50,7 @@ type EditGitHookOption struct {
 }
 
 // EditRepoGitHook modify one Git hook of a repository
-func (c *Client) EditRepoGitHook(user, repo, id string, opt EditGitHookOption) (*Response, error) {
+func (c *GitService) EditRepoGitHook(ctx context.Context, user, repo, id string, opt EditGitHookOption) (*Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo, &id); err != nil {
 		return nil, err
 	}
@@ -57,13 +58,13 @@ func (c *Client) EditRepoGitHook(user, repo, id string, opt EditGitHookOption) (
 	if err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("PATCH", fmt.Sprintf("/repos/%s/%s/hooks/git/%s", user, repo, id), jsonHeader, bytes.NewReader(body))
+	return c.doRequestWithStatusHandle(ctx, "PATCH", fmt.Sprintf("/repos/%s/%s/hooks/git/%s", user, repo, id), jsonHeader, bytes.NewReader(body))
 }
 
 // DeleteRepoGitHook delete one Git hook from a repository
-func (c *Client) DeleteRepoGitHook(user, repo, id string) (*Response, error) {
+func (c *GitService) DeleteRepoGitHook(ctx context.Context, user, repo, id string) (*Response, error) {
 	if err := escapeValidatePathSegments(&user, &repo, &id); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("DELETE", fmt.Sprintf("/repos/%s/%s/hooks/git/%s", user, repo, id), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/repos/%s/%s/hooks/git/%s", user, repo, id), nil, nil)
 }

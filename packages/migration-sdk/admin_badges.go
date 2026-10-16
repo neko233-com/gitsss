@@ -6,6 +6,7 @@ package gitea
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -20,12 +21,12 @@ type Badge struct {
 }
 
 // ListUserBadges lists badges of a user
-func (c *Client) ListUserBadges(username string) ([]*Badge, *Response, error) {
+func (c *AdminService) ListUserBadges(ctx context.Context, username string) ([]*Badge, *Response, error) {
 	if err := escapeValidatePathSegments(&username); err != nil {
 		return nil, nil, err
 	}
 	badges := make([]*Badge, 0, 5)
-	resp, err := c.getParsedResponse("GET",
+	resp, err := c.getParsedResponse(ctx, "GET",
 		fmt.Sprintf("/admin/users/%s/badges", username),
 		jsonHeader, nil, &badges)
 	return badges, resp, err
@@ -37,7 +38,7 @@ type UserBadgeOption struct {
 }
 
 // AddUserBadges adds badges to a user by their slugs
-func (c *Client) AddUserBadges(username string, opt UserBadgeOption) (*Response, error) {
+func (c *AdminService) AddUserBadges(ctx context.Context, username string, opt UserBadgeOption) (*Response, error) {
 	if err := escapeValidatePathSegments(&username); err != nil {
 		return nil, err
 	}
@@ -45,7 +46,7 @@ func (c *Client) AddUserBadges(username string, opt UserBadgeOption) (*Response,
 	if err != nil {
 		return nil, err
 	}
-	status, resp, err := c.getStatusCode("POST",
+	status, resp, err := c.getStatusCode(ctx, "POST",
 		fmt.Sprintf("/admin/users/%s/badges", username),
 		jsonHeader, bytes.NewReader(body))
 	if err != nil {
@@ -58,7 +59,7 @@ func (c *Client) AddUserBadges(username string, opt UserBadgeOption) (*Response,
 }
 
 // DeleteUserBadge deletes a user's badge
-func (c *Client) DeleteUserBadge(username string, opt UserBadgeOption) (*Response, error) {
+func (c *AdminService) DeleteUserBadge(ctx context.Context, username string, opt UserBadgeOption) (*Response, error) {
 	if err := escapeValidatePathSegments(&username); err != nil {
 		return nil, err
 	}
@@ -66,7 +67,7 @@ func (c *Client) DeleteUserBadge(username string, opt UserBadgeOption) (*Respons
 	if err != nil {
 		return nil, err
 	}
-	status, resp, err := c.getStatusCode("DELETE",
+	status, resp, err := c.getStatusCode(ctx, "DELETE",
 		fmt.Sprintf("/admin/users/%s/badges", username),
 		jsonHeader, bytes.NewReader(body))
 	if err != nil {

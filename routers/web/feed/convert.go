@@ -15,6 +15,7 @@ import (
 	activities_model "github.com/neko233-com/gitsss/models/activities"
 	"github.com/neko233-com/gitsss/models/renderhelper"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
+	"github.com/neko233-com/gitsss/modules/markup"
 	"github.com/neko233-com/gitsss/modules/markup/markdown"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/templates"
@@ -237,7 +238,7 @@ func feedActionsToFeedItems(ctx *context.Context, actions activities_model.Actio
 			}
 		}
 		if len(content) == 0 {
-			content = templates.SanitizeHTML(desc)
+			content = markup.Sanitize(desc)
 		}
 
 		items = append(items, &feeds.Item{

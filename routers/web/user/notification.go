@@ -4,6 +4,7 @@
 package user
 
 import (
+	stdCtx "context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -12,8 +13,10 @@ import (
 	"github.com/neko233-com/gitsss/models/db"
 	git_model "github.com/neko233-com/gitsss/models/git"
 	issues_model "github.com/neko233-com/gitsss/models/issues"
+	access_model "github.com/neko233-com/gitsss/models/perm/access"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	"github.com/neko233-com/gitsss/models/unit"
+	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/base"
 	"github.com/neko233-com/gitsss/modules/container"
 	"github.com/neko233-com/gitsss/modules/log"
@@ -97,6 +100,12 @@ func prepareUserNotificationsData(ctx *context.Context) {
 		return
 	}
 	failCount += len(failures)
+	notifications, failures, err = filterNotificationsByRepoAccess(ctx, ctx.Doer, notifications)
+	if err != nil {
+		ctx.ServerError("filterNotificationsByRepoAccess", err)
+		return
+	}
+	failCount += len(failures)
 
 	failures, err = notifications.LoadIssues(ctx)
 	if err != nil {
@@ -133,6 +142,23 @@ func prepareUserNotificationsData(ctx *context.Context) {
 	pager.AddParamFromRequest(ctx.Req)
 	pager.RemoveParam(container.SetOf("div-only", "sequence-number"))
 	ctx.Data["Page"] = pager
+}
+
+func filterNotificationsByRepoAccess(ctx stdCtx.Context, doer *user_model.User, notifications activities_model.NotificationList) (activities_model.NotificationList, []int, error) {
+	failures := make([]int, 0)
+	for i, notification := range notifications {
+		if notification.Repository == nil {
+			continue
+		}
+		perm, err := access_model.GetIndividualUserRepoPermission(ctx, notification.Repository, doer)
+		if err != nil {
+			return nil, nil, err
+		}
+		if !perm.HasAnyUnitAccessOrPublicAccess() {
+			failures = append(failures, i)
+		}
+	}
+	return notifications.Without(failures), failures, nil
 }
 
 // NotificationStatusPost is a route for changing the status of a notification
@@ -247,7 +273,7 @@ func NotificationSubscriptions(ctx *context.Context) {
 		ctx.ServerError("GetIssuesAllCommitStatus", err)
 		return
 	}
-	if !ctx.Repo.CanRead(unit.TypeActions) {
+	if !ctx.Repo.Permission.CanRead(unit.TypeActions) {
 		for key := range commitStatuses {
 			git_model.CommitStatusesHideActionsURL(ctx, commitStatuses[key])
 		}

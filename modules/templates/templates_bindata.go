@@ -10,9 +10,9 @@ package templates
 import (
 	"sync"
 
-	_ "embed"
-
 	"github.com/neko233-com/gitsss/modules/assetfs"
+
+	_ "embed"
 )
 
 //go:embed bindata.dat

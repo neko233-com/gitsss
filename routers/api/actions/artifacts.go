@@ -74,6 +74,7 @@ import (
 	"github.com/neko233-com/gitsss/modules/httplib"
 	"github.com/neko233-com/gitsss/modules/json"
 	"github.com/neko233-com/gitsss/modules/log"
+	"github.com/neko233-com/gitsss/modules/optional"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/storage"
 	"github.com/neko233-com/gitsss/modules/util"
@@ -119,6 +120,9 @@ func ArtifactsRoutes(prefix string) *web.Router {
 		m.Get("/{artifact_hash}/download_url", r.getDownloadArtifactURL)
 		m.Get("/{artifact_id}/download", r.downloadArtifact)
 	})
+
+	// Job summary upload endpoint (GITHUB_STEP_SUMMARY).
+	m.Put(jobSummaryRouteBase, uploadJobSummary)
 
 	return m
 }
@@ -310,7 +314,7 @@ func (ar artifactRoutes) confirmUploadArtifact(ctx *ArtifactContext) {
 		ctx.HTTPError(http.StatusBadRequest, "Error artifact name is empty")
 		return
 	}
-	if err := mergeChunksForRun(ctx, ar.fs, runID, artifactName); err != nil {
+	if err := mergeChunksForRun(ctx, ar.fs, runID, ctx.ActionTask.Job.RunAttemptID, artifactName); err != nil {
 		log.Error("Error merge chunks: %v", err)
 		ctx.HTTPError(http.StatusInternalServerError, "Error merge chunks")
 		return
@@ -338,8 +342,9 @@ func (ar artifactRoutes) listArtifacts(ctx *ArtifactContext) {
 	}
 
 	artifacts, err := db.Find[actions.ActionArtifact](ctx, actions.FindArtifactsOptions{
-		RunID:  runID,
-		Status: int(actions.ArtifactStatusUploadConfirmed),
+		RunID:        runID,
+		RunAttemptID: optional.Some(ctx.ActionTask.Job.RunAttemptID),
+		Status:       int(actions.ArtifactStatusUploadConfirmed),
 	})
 	if err != nil {
 		log.Error("Error getting artifacts: %v", err)
@@ -404,6 +409,7 @@ func (ar artifactRoutes) getDownloadArtifactURL(ctx *ArtifactContext) {
 
 	artifacts, err := db.Find[actions.ActionArtifact](ctx, actions.FindArtifactsOptions{
 		RunID:        runID,
+		RunAttemptID: optional.Some(ctx.ActionTask.Job.RunAttemptID),
 		ArtifactName: itemPath,
 		Status:       int(actions.ArtifactStatusUploadConfirmed),
 	})
@@ -474,6 +480,11 @@ func (ar artifactRoutes) downloadArtifact(ctx *ArtifactContext) {
 	}
 	if artifact.RunID != runID {
 		log.Error("Error mismatch runID and artifactID, task: %v, artifact: %v", runID, artifactID)
+		ctx.HTTPError(http.StatusBadRequest)
+		return
+	}
+	if ctx.ActionTask.Job.RunAttemptID > 0 && artifact.RunAttemptID != ctx.ActionTask.Job.RunAttemptID {
+		log.Error("Error mismatch runAttemptID and artifactID, task: %v, artifact: %v", ctx.ActionTask.Job.RunAttemptID, artifactID)
 		ctx.HTTPError(http.StatusBadRequest)
 		return
 	}

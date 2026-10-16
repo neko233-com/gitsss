@@ -12,9 +12,9 @@ import (
 	"path"
 	"sync"
 
-	_ "embed"
-
 	"github.com/neko233-com/gitsss/modules/assetfs"
+
+	_ "embed"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )

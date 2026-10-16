@@ -4,13 +4,13 @@
 package v1_15
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/base"
 
-	"xorm.io/xorm"
 	"xorm.io/xorm/schemas"
 )
 
-func ConvertAvatarURLToText(x *xorm.Engine) error {
+func ConvertAvatarURLToText(x db.EngineMigration) error {
 	dbType := x.Dialect().URI().DBType
 	if dbType == schemas.SQLITE { // For SQLITE, varchar or char will always be represented as TEXT
 		return nil

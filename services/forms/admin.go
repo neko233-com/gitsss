@@ -94,6 +94,7 @@ type AdminDashboardForm struct {
 // AdminTakeoverForm changes the live HTTP port.
 type AdminTakeoverForm struct {
 	Port string `binding:"Required" form:"port"`
+	Mode string `form:"mode"`
 }
 
 // Validate validates the port form.

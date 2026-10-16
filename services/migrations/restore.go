@@ -11,8 +11,9 @@ import (
 	"strconv"
 
 	base "github.com/neko233-com/gitsss/modules/migration"
+	"github.com/neko233-com/gitsss/modules/util"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // RepositoryRestorer implements an Downloader from the local directory
@@ -75,6 +76,7 @@ func (r *RepositoryRestorer) GetRepoInfo(_ context.Context) (*base.Repository, e
 		Name:          r.repoName,
 		IsPrivate:     isPrivate,
 		Description:   opts["description"],
+		Website:       opts["website"],
 		OriginalURL:   opts["original_url"],
 		CloneURL:      filepath.Join(r.baseDir, "git"),
 		DefaultBranch: opts["default_branch"],
@@ -143,7 +145,7 @@ func (r *RepositoryRestorer) GetReleases(_ context.Context) ([]*base.Release, er
 	for _, rel := range releases {
 		for _, asset := range rel.Assets {
 			if asset.DownloadURL != nil {
-				*asset.DownloadURL = "file://" + filepath.Join(r.baseDir, *asset.DownloadURL)
+				*asset.DownloadURL = util.FilePathToURL(util.FilePathJoinAbs(r.baseDir, *asset.DownloadURL))
 			}
 		}
 	}
@@ -234,8 +236,10 @@ func (r *RepositoryRestorer) GetPullRequests(_ context.Context, page, perPage in
 		return nil, false, err
 	}
 	for _, pr := range pulls {
-		pr.PatchURL = "file://" + filepath.Join(r.baseDir, pr.PatchURL)
-		CheckAndEnsureSafePR(pr, "", r)
+		if pr.PatchURL != "" {
+			pr.PatchURL = util.FilePathToURL(util.FilePathJoinAbs(r.baseDir, pr.PatchURL))
+		}
+		CheckAndEnsureSafePR(pr, util.FilePathToURL(r.baseDir), r)
 	}
 	return pulls, true, nil
 }

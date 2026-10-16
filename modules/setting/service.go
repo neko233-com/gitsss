@@ -148,7 +148,7 @@ func loadServiceFrom(rootCfg ConfigProvider) {
 	sec := rootCfg.Section("service")
 	Service.ActiveCodeLives = sec.Key("ACTIVE_CODE_LIVE_MINUTES").MustInt(180)
 	Service.ResetPwdCodeLives = sec.Key("RESET_PASSWD_CODE_LIVE_MINUTES").MustInt(180)
-	Service.DisableRegistration = sec.Key("DISABLE_REGISTRATION").MustBool()
+	Service.DisableRegistration = sec.Key("DISABLE_REGISTRATION").MustBool(true)
 	Service.AllowOnlyInternalRegistration = sec.Key("ALLOW_ONLY_INTERNAL_REGISTRATION").MustBool()
 	Service.AllowOnlyExternalRegistration = sec.Key("ALLOW_ONLY_EXTERNAL_REGISTRATION").MustBool()
 	if Service.AllowOnlyExternalRegistration && Service.AllowOnlyInternalRegistration {
@@ -170,6 +170,7 @@ func loadServiceFrom(rootCfg ConfigProvider) {
 
 	// boolean values are considered as "strict"
 	var err error
+	sec.Key("REQUIRE_SIGNIN_VIEW").MustString("true")
 	Service.RequireSignInViewStrict, err = sec.Key("REQUIRE_SIGNIN_VIEW").Bool()
 	if s := sec.Key("REQUIRE_SIGNIN_VIEW").String(); err != nil && s != "" {
 		// non-boolean value only supports "expensive" at the moment

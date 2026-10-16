@@ -7,7 +7,7 @@ import (
 	"encoding/base32"
 	"testing"
 
-	"github.com/neko233-com/gitsss/models/migrations/base"
+	"github.com/neko233-com/gitsss/models/migrations/migrationtest"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -38,7 +38,7 @@ func Test_StoreWebauthnCredentialIDAsBytes(t *testing.T) {
 	}
 
 	// Prepare and load the testing database
-	x, deferable := base.PrepareTestEnv(t, 0, new(WebauthnCredential), new(ExpectedWebauthnCredential))
+	x, deferable := migrationtest.PrepareTestEnv(t, 0, new(WebauthnCredential), new(ExpectedWebauthnCredential))
 	defer deferable()
 	if x == nil || t.Failed() {
 		return

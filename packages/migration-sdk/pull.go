@@ -7,8 +7,10 @@ package gitea
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -125,7 +127,7 @@ func (opt *ListPullRequestsOptions) QueryEncode() string {
 }
 
 // ListRepoPullRequests list PRs of one repository
-func (c *Client) ListRepoPullRequests(owner, repo string, opt ListPullRequestsOptions) ([]*PullRequest, *Response, error) {
+func (c *PullRequestsService) ListRepoPullRequests(ctx context.Context, owner, repo string, opt ListPullRequestsOptions) ([]*PullRequest, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
@@ -134,10 +136,10 @@ func (c *Client) ListRepoPullRequests(owner, repo string, opt ListPullRequestsOp
 
 	link, _ := url.Parse(fmt.Sprintf("/repos/%s/%s/pulls", owner, repo))
 	link.RawQuery = opt.QueryEncode()
-	resp, err := c.getParsedResponse("GET", link.String(), jsonHeader, nil, &prs)
-	if c.checkServerVersionGreaterThanOrEqual(version1_14_0) != nil {
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), jsonHeader, nil, &prs)
+	if c.checkServerVersionGreaterThanOrEqual(ctx, version1_14_0) != nil {
 		for i := range prs {
-			if err := fixPullHeadSha(c, prs[i]); err != nil {
+			if err := fixPullHeadSha(ctx, c.Client, prs[i]); err != nil {
 				return prs, resp, err
 			}
 		}
@@ -146,14 +148,14 @@ func (c *Client) ListRepoPullRequests(owner, repo string, opt ListPullRequestsOp
 }
 
 // GetPullRequest get information of one PR
-func (c *Client) GetPullRequest(owner, repo string, index int64) (*PullRequest, *Response, error) {
+func (c *PullRequestsService) GetPullRequest(ctx context.Context, owner, repo string, index int64) (*PullRequest, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
 	pr := new(PullRequest)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/repos/%s/%s/pulls/%d", owner, repo, index), nil, nil, pr)
-	if c.checkServerVersionGreaterThanOrEqual(version1_14_0) != nil {
-		if err := fixPullHeadSha(c, pr); err != nil {
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/pulls/%d", owner, repo, index), nil, nil, pr)
+	if c.checkServerVersionGreaterThanOrEqual(ctx, version1_14_0) != nil {
+		if err := fixPullHeadSha(ctx, c.Client, pr); err != nil {
 			return pr, resp, err
 		}
 	}
@@ -161,18 +163,18 @@ func (c *Client) GetPullRequest(owner, repo string, index int64) (*PullRequest, 
 }
 
 // GetPullRequestByBaseHead gets a pull request by its base and head branches.
-func (c *Client) GetPullRequestByBaseHead(owner, repo, base, head string) (*PullRequest, *Response, error) {
+func (c *PullRequestsService) GetPullRequestByBaseHead(ctx context.Context, owner, repo, base, head string) (*PullRequest, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo, &base); err != nil {
 		return nil, nil, err
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_22_0); err != nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_22_0); err != nil {
 		return nil, nil, err
 	}
 	head = pathEscapeSegments(head)
 	pr := new(PullRequest)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/repos/%s/%s/pulls/%s/%s", owner, repo, base, head), nil, nil, pr)
-	if c.checkServerVersionGreaterThanOrEqual(version1_14_0) != nil {
-		if err := fixPullHeadSha(c, pr); err != nil {
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/pulls/%s/%s", owner, repo, base, head), nil, nil, pr)
+	if c.checkServerVersionGreaterThanOrEqual(ctx, version1_14_0) != nil {
+		if err := fixPullHeadSha(ctx, c.Client, pr); err != nil {
 			return pr, resp, err
 		}
 	}
@@ -195,7 +197,7 @@ type CreatePullRequestOption struct {
 }
 
 // CreatePullRequest create pull request with options
-func (c *Client) CreatePullRequest(owner, repo string, opt CreatePullRequestOption) (*PullRequest, *Response, error) {
+func (c *PullRequestsService) CreatePullRequest(ctx context.Context, owner, repo string, opt CreatePullRequestOption) (*PullRequest, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
@@ -204,7 +206,7 @@ func (c *Client) CreatePullRequest(owner, repo string, opt CreatePullRequestOpti
 		return nil, nil, err
 	}
 	pr := new(PullRequest)
-	resp, err := c.getParsedResponse("POST",
+	resp, err := c.getParsedResponse(ctx, "POST",
 		fmt.Sprintf("/repos/%s/%s/pulls", owner, repo),
 		jsonHeader, bytes.NewReader(body), pr)
 	return pr, resp, err
@@ -226,12 +228,12 @@ type EditPullRequestOption struct {
 }
 
 // Validate the EditPullRequestOption struct
-func (opt EditPullRequestOption) Validate(c *Client) error {
+func (opt EditPullRequestOption) Validate(ctx context.Context, c *Client) error {
 	if len(opt.Title) != 0 && len(strings.TrimSpace(opt.Title)) == 0 {
 		return fmt.Errorf("title is empty")
 	}
 	if len(opt.Base) != 0 {
-		if err := c.checkServerVersionGreaterThanOrEqual(version1_12_0); err != nil {
+		if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); err != nil {
 			return fmt.Errorf("can not change base gitea to old")
 		}
 	}
@@ -239,11 +241,11 @@ func (opt EditPullRequestOption) Validate(c *Client) error {
 }
 
 // EditPullRequest modify pull request with PR id and options
-func (c *Client) EditPullRequest(owner, repo string, index int64, opt EditPullRequestOption) (*PullRequest, *Response, error) {
+func (c *PullRequestsService) EditPullRequest(ctx context.Context, owner, repo string, index int64, opt EditPullRequestOption) (*PullRequest, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
-	if err := opt.Validate(c); err != nil {
+	if err := opt.Validate(ctx, c.Client); err != nil {
 		return nil, nil, err
 	}
 	body, err := json.Marshal(&opt)
@@ -251,7 +253,7 @@ func (c *Client) EditPullRequest(owner, repo string, index int64, opt EditPullRe
 		return nil, nil, err
 	}
 	pr := new(PullRequest)
-	resp, err := c.getParsedResponse("PATCH",
+	resp, err := c.getParsedResponse(ctx, "PATCH",
 		fmt.Sprintf("/repos/%s/%s/pulls/%d", owner, repo, index),
 		jsonHeader, bytes.NewReader(body), pr)
 	return pr, resp, err
@@ -270,9 +272,9 @@ type MergePullRequestOption struct {
 }
 
 // Validate the MergePullRequestOption struct
-func (opt MergePullRequestOption) Validate(c *Client) error {
+func (opt MergePullRequestOption) Validate(ctx context.Context, c *Client) error {
 	if opt.Style == MergeStyleSquash {
-		if err := c.checkServerVersionGreaterThanOrEqual(version1_11_5); err != nil {
+		if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_11_5); err != nil {
 			return err
 		}
 	}
@@ -280,18 +282,27 @@ func (opt MergePullRequestOption) Validate(c *Client) error {
 }
 
 // MergePullRequest merge a PR to repository by PR id
-func (c *Client) MergePullRequest(owner, repo string, index int64, opt MergePullRequestOption) (bool, *Response, error) {
+func (c *PullRequestsService) MergePullRequest(ctx context.Context, owner, repo string, index int64, opt MergePullRequestOption) (bool, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return false, nil, err
 	}
-	if err := opt.Validate(c); err != nil {
+	if err := opt.Validate(ctx, c.Client); err != nil {
 		return false, nil, err
+	}
+	if opt.HeadCommitId == "" {
+		pr, _, err := c.GetPullRequest(ctx, owner, repo, index)
+		if err != nil {
+			return false, nil, err
+		}
+		if pr != nil && pr.Head != nil {
+			opt.HeadCommitId = pr.Head.Sha
+		}
 	}
 	body, err := json.Marshal(&opt)
 	if err != nil {
 		return false, nil, err
 	}
-	status, resp, err := c.getStatusCode("POST", fmt.Sprintf("/repos/%s/%s/pulls/%d/merge", owner, repo, index), jsonHeader, bytes.NewReader(body))
+	status, resp, err := c.getStatusCode(ctx, "POST", fmt.Sprintf("/repos/%s/%s/pulls/%d/merge", owner, repo, index), jsonHeader, bytes.NewReader(body))
 	if err != nil {
 		return false, resp, err
 	}
@@ -299,11 +310,11 @@ func (c *Client) MergePullRequest(owner, repo string, index int64, opt MergePull
 }
 
 // IsPullRequestMerged test if one PR is merged to one repository
-func (c *Client) IsPullRequestMerged(owner, repo string, index int64) (bool, *Response, error) {
+func (c *PullRequestsService) IsPullRequestMerged(ctx context.Context, owner, repo string, index int64) (bool, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return false, nil, err
 	}
-	status, resp, err := c.getStatusCode("GET", fmt.Sprintf("/repos/%s/%s/pulls/%d/merge", owner, repo, index), nil, nil)
+	status, resp, err := c.getStatusCode(ctx, "GET", fmt.Sprintf("/repos/%s/%s/pulls/%d/merge", owner, repo, index), nil, nil)
 	if err != nil {
 		return false, resp, err
 	}
@@ -332,12 +343,12 @@ const (
 )
 
 // getPullRequestDiffOrPatch gets the patch or diff file as bytes for a PR
-func (c *Client) getPullRequestDiffOrPatch(owner, repo string, kind pullRequestDiffType, index int64, opts PullRequestDiffOptions) ([]byte, *Response, error) {
+func (c *PullRequestsService) getPullRequestDiffOrPatch(ctx context.Context, owner, repo string, kind pullRequestDiffType, index int64, opts PullRequestDiffOptions) ([]byte, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_13_0); err != nil {
-		r, _, err2 := c.GetRepo(owner, repo)
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_13_0); err != nil {
+		r, _, err2 := c.GetRepo(ctx, owner, repo)
 		if err2 != nil {
 			return nil, nil, err
 		}
@@ -345,30 +356,30 @@ func (c *Client) getPullRequestDiffOrPatch(owner, repo string, kind pullRequestD
 			return nil, nil, err
 		}
 		url := fmt.Sprintf("/%s/%s/pulls/%d.%s?%s", owner, repo, index, kind, opts.QueryEncode())
-		return c.getWebResponse("GET", url, nil)
+		return c.getWebResponse(ctx, "GET", url, nil)
 	}
-	return c.getResponse("GET", fmt.Sprintf("/repos/%s/%s/pulls/%d.%s", owner, repo, index, kind), nil, nil)
+	return c.getResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/pulls/%d.%s", owner, repo, index, kind), nil, nil)
 }
 
 // GetPullRequestPatch gets the git patchset of a PR
-func (c *Client) GetPullRequestPatch(owner, repo string, index int64) ([]byte, *Response, error) {
-	return c.getPullRequestDiffOrPatch(owner, repo, pullRequestDiffTypePatch, index, PullRequestDiffOptions{})
+func (c *PullRequestsService) GetPullRequestPatch(ctx context.Context, owner, repo string, index int64) ([]byte, *Response, error) {
+	return c.getPullRequestDiffOrPatch(ctx, owner, repo, pullRequestDiffTypePatch, index, PullRequestDiffOptions{})
 }
 
 // GetPullRequestDiff gets the diff of a PR. For Gitea >= 1.16, you must set includeBinary to get an applicable diff
-func (c *Client) GetPullRequestDiff(owner, repo string, index int64, opts PullRequestDiffOptions) ([]byte, *Response, error) {
-	return c.getPullRequestDiffOrPatch(owner, repo, pullRequestDiffTypeDiff, index, opts)
+func (c *PullRequestsService) GetPullRequestDiff(ctx context.Context, owner, repo string, index int64, opts PullRequestDiffOptions) ([]byte, *Response, error) {
+	return c.getPullRequestDiffOrPatch(ctx, owner, repo, pullRequestDiffTypeDiff, index, opts)
 }
 
 // CancelScheduledAutoMerge cancels a scheduled automatic merge for a pull request.
-func (c *Client) CancelScheduledAutoMerge(owner, repo string, index int64) (*Response, error) {
+func (c *PullRequestsService) CancelScheduledAutoMerge(ctx context.Context, owner, repo string, index int64) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	if err := c.checkServerVersionGreaterThanOrEqual(version1_18_0); err != nil {
+	if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_18_0); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("DELETE", fmt.Sprintf("/repos/%s/%s/pulls/%d/merge", owner, repo, index), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/repos/%s/%s/pulls/%d/merge", owner, repo, index), nil, nil)
 }
 
 // ListPullRequestCommitsOptions options for listing pull requests
@@ -377,7 +388,7 @@ type ListPullRequestCommitsOptions struct {
 }
 
 // ListPullRequestCommits list commits for a pull request
-func (c *Client) ListPullRequestCommits(owner, repo string, index int64, opt ListPullRequestCommitsOptions) ([]*Commit, *Response, error) {
+func (c *PullRequestsService) ListPullRequestCommits(ctx context.Context, owner, repo string, index int64, opt ListPullRequestCommitsOptions) ([]*Commit, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
@@ -385,7 +396,7 @@ func (c *Client) ListPullRequestCommits(owner, repo string, index int64, opt Lis
 	opt.setDefaults()
 	commits := make([]*Commit, 0, opt.PageSize)
 	link.RawQuery = opt.getURLQuery().Encode()
-	resp, err := c.getParsedResponse("GET", link.String(), nil, nil, &commits)
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), nil, nil, &commits)
 	return commits, resp, err
 }
 
@@ -393,12 +404,12 @@ func (c *Client) ListPullRequestCommits(owner, repo string, index int64, opt Lis
 // When no head sha is available, this is because the branch got deleted in the base repo.
 // pr.Head.Ref points in this case not to the head repo branch name, but the base repo ref,
 // which stays available to resolve the commit sha. This is fixed for gitea >= 1.14.0
-func fixPullHeadSha(client *Client, pr *PullRequest) error {
+func fixPullHeadSha(ctx context.Context, client *Client, pr *PullRequest) error {
 	if pr.Base != nil && pr.Base.Repository != nil && pr.Base.Repository.Owner != nil &&
 		pr.Head != nil && pr.Head.Ref != "" && pr.Head.Sha == "" {
 		owner := pr.Base.Repository.Owner.UserName
 		repo := pr.Base.Repository.Name
-		refs, _, err := client.GetRepoRefs(owner, repo, pr.Head.Ref)
+		refs, _, err := client.GetRepoRefs(ctx, owner, repo, pr.Head.Ref)
 		if err != nil {
 			return err
 		} else if len(refs) == 0 {
@@ -415,7 +426,7 @@ type ListPullRequestFilesOptions struct {
 }
 
 // ListPullRequestFiles list changed files for a pull request
-func (c *Client) ListPullRequestFiles(owner, repo string, index int64, opt ListPullRequestFilesOptions) ([]*ChangedFile, *Response, error) {
+func (c *PullRequestsService) ListPullRequestFiles(ctx context.Context, owner, repo string, index int64, opt ListPullRequestFilesOptions) ([]*ChangedFile, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
@@ -423,6 +434,47 @@ func (c *Client) ListPullRequestFiles(owner, repo string, index int64, opt ListP
 	opt.setDefaults()
 	files := make([]*ChangedFile, 0, opt.PageSize)
 	link.RawQuery = opt.getURLQuery().Encode()
-	resp, err := c.getParsedResponse("GET", link.String(), nil, nil, &files)
+	resp, err := c.getParsedResponse(ctx, "GET", link.String(), nil, nil, &files)
 	return files, resp, err
+}
+
+// ListRepoPinnedPullRequests lists a repo's pinned pull requests.
+func (c *PullRequestsService) ListRepoPinnedPullRequests(ctx context.Context, owner, repo string) ([]*PullRequest, *Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return nil, nil, err
+	}
+	prs := make([]*PullRequest, 0, 5)
+	resp, err := c.getParsedResponse(ctx, "GET",
+		fmt.Sprintf("/repos/%s/%s/pulls/pinned", owner, repo),
+		jsonHeader, nil, &prs)
+	return prs, resp, err
+}
+
+// GetCommitPullRequest gets the pull request associated with a commit SHA
+func (c *PullRequestsService) GetCommitPullRequest(ctx context.Context, owner, repo, sha string) (*PullRequest, *Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo, &sha); err != nil {
+		return nil, nil, err
+	}
+	pr := new(PullRequest)
+	resp, err := c.getParsedResponse(ctx, "GET",
+		fmt.Sprintf("/repos/%s/%s/commits/%s/pull", owner, repo, sha),
+		jsonHeader, nil, &pr)
+	return pr, resp, err
+}
+
+// UpdatePullRequest updates a pull request with new commits from the base branch
+func (c *PullRequestsService) UpdatePullRequest(ctx context.Context, owner, repo string, index int64) (*Response, error) {
+	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
+		return nil, err
+	}
+	status, resp, err := c.getStatusCode(ctx, "POST",
+		fmt.Sprintf("/repos/%s/%s/pulls/%d/update", owner, repo, index),
+		jsonHeader, nil)
+	if err != nil {
+		return resp, err
+	}
+	if status != http.StatusOK {
+		return resp, fmt.Errorf("unexpected status: %d", status)
+	}
+	return resp, nil
 }

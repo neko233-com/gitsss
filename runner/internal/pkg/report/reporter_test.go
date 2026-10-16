@@ -15,8 +15,8 @@ import (
 	"github.com/neko233-com/gitsss/runner/internal/pkg/client/mocks"
 	"github.com/neko233-com/gitsss/runner/internal/pkg/config"
 
-	runnerv1 "github.com/neko233-com/gitsss/packages/actions-proto-go/runner/v1"
 	connect_go "connectrpc.com/connect"
+	runnerv1 "github.com/neko233-com/gitsss/packages/actions-proto-go/runner/v1"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -43,6 +43,19 @@ func TestReporter_parseLogRow(t *testing.T) {
 				"foo mysecret bar",
 				"::add-mask::mysecret",
 				"foo mysecret bar",
+			},
+			[]string{
+				"foo mysecret bar",
+				"<nil>",
+				"foo *** bar",
+			},
+		},
+		{
+			"Add-mask-multiline", false,
+			[]string{
+				"foo mysecret bar",
+				"::add-mask::LINE1%0ALINE2",
+				"foo LINE1 bar",
 			},
 			[]string{
 				"foo mysecret bar",
@@ -217,6 +230,59 @@ func TestReporter_Fire(t *testing.T) {
 
 		assert.Equal(t, int64(5), reporter.state.Steps[0].LogLength)
 	})
+}
+
+func TestReporter_LogLevelFiltering(t *testing.T) {
+	// Set global level to Info so Debug entries should be filtered.
+	origLevel := log.GetLevel()
+	log.SetLevel(log.InfoLevel)
+	defer log.SetLevel(origLevel)
+
+	client := mocks.NewClient(t)
+	client.On("UpdateLog", mock.Anything, mock.Anything).Return(func(_ context.Context, req *connect_go.Request[runnerv1.UpdateLogRequest]) (*connect_go.Response[runnerv1.UpdateLogResponse], error) {
+		return connect_go.NewResponse(&runnerv1.UpdateLogResponse{
+			AckIndex: req.Msg.Index + int64(len(req.Msg.Rows)),
+		}), nil
+	})
+	client.On("UpdateTask", mock.Anything, mock.Anything).Return(func(_ context.Context, req *connect_go.Request[runnerv1.UpdateTaskRequest]) (*connect_go.Response[runnerv1.UpdateTaskResponse], error) {
+		return connect_go.NewResponse(&runnerv1.UpdateTaskResponse{}), nil
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	taskCtx, err := structpb.NewStruct(map[string]any{})
+	require.NoError(t, err)
+	cfg, _ := config.LoadDefault("")
+	reporter := NewReporter(ctx, cancel, client, &runnerv1.Task{Context: taskCtx}, cfg)
+	reporter.RunDaemon()
+	defer func() {
+		require.NoError(t, reporter.Close(""))
+	}()
+	reporter.ResetSteps(2)
+
+	dataStep0 := log.Fields{"stage": "Main", "stepNumber": 0, "raw_output": true}
+	dataStep0Internal := log.Fields{"stage": "Main", "stepNumber": 0}
+
+	// raw_output entries always appear in job log regardless of level.
+	require.NoError(t, reporter.Fire(&log.Entry{Message: "step output", Data: dataStep0, Level: log.InfoLevel}))
+	require.NoError(t, reporter.Fire(&log.Entry{Message: "step debug output", Data: dataStep0, Level: log.DebugLevel}))
+	assert.Equal(t, int64(2), reporter.state.Steps[0].LogLength, "raw_output entries must always be forwarded")
+
+	// Non-raw_output entries during steps are not added to logRows regardless of level.
+	require.NoError(t, reporter.Fire(&log.Entry{Message: "internal info", Data: dataStep0Internal, Level: log.InfoLevel}))
+	require.NoError(t, reporter.Fire(&log.Entry{Message: "internal debug", Data: dataStep0Internal, Level: log.DebugLevel}))
+
+	// stepResult at DebugLevel (skipped step) must still update state even when filtered from log.
+	require.NoError(t, reporter.Fire(&log.Entry{
+		Message: "Skipping step",
+		Data: log.Fields{
+			"stage":      "Main",
+			"stepNumber": 1,
+			"stepResult": "skipped",
+		},
+		Level: log.DebugLevel,
+	}))
+	assert.Equal(t, runnerv1.Result_RESULT_SKIPPED, reporter.state.Steps[1].Result,
+		"stepResult at DebugLevel must update step state even when log entry is filtered from job log output")
 }
 
 // TestReporter_EphemeralRunnerDeletion reproduces the exact scenario from
@@ -598,6 +664,68 @@ func TestReporter_StateNotifyFlush(t *testing.T) {
 		"step transition should have triggered immediate state flush via stateNotify")
 }
 
+// Regression test for https://github.com/neko233-com/gitsss/runner/issues/950: Close() must
+// always send a final UpdateLog with NoMore=true carrying at least one row,
+// otherwise the server's len(Rows)==0 short-circuit skips TransferLogs.
+// TODO: Remove after https://github.com/go-gitea/gitea/pull/37631 is in all
+// supported branches, e.g. v1.28+.
+func TestReporter_CloseAlwaysSendsRowsWithNoMore(t *testing.T) {
+	var lastReq atomic.Pointer[runnerv1.UpdateLogRequest]
+	var noMoreCalls atomic.Int64
+
+	client := mocks.NewClient(t)
+	client.On("UpdateLog", mock.Anything, mock.Anything).Return(
+		func(_ context.Context, req *connect_go.Request[runnerv1.UpdateLogRequest]) (*connect_go.Response[runnerv1.UpdateLogResponse], error) {
+			lastReq.Store(req.Msg)
+			if req.Msg.NoMore {
+				noMoreCalls.Add(1)
+			}
+			return connect_go.NewResponse(&runnerv1.UpdateLogResponse{
+				AckIndex: req.Msg.Index + int64(len(req.Msg.Rows)),
+			}), nil
+		},
+	)
+	client.On("UpdateTask", mock.Anything, mock.Anything).Return(
+		func(_ context.Context, _ *connect_go.Request[runnerv1.UpdateTaskRequest]) (*connect_go.Response[runnerv1.UpdateTaskResponse], error) {
+			return connect_go.NewResponse(&runnerv1.UpdateTaskResponse{}), nil
+		},
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	taskCtx, err := structpb.NewStruct(map[string]any{})
+	require.NoError(t, err)
+
+	// Intervals large enough that no daemon-driven flush fires during the test.
+	cfg, _ := config.LoadDefault("")
+	cfg.Runner.LogReportInterval = 10 * time.Second
+	cfg.Runner.LogReportMaxLatency = 10 * time.Second
+	cfg.Runner.StateReportInterval = 10 * time.Second
+	cfg.Runner.LogReportBatchSize = 1000
+
+	reporter := NewReporter(ctx, cancel, client, &runnerv1.Task{Context: taskCtx}, cfg)
+	reporter.ResetSteps(1)
+	reporter.RunDaemon()
+
+	// Simulate a successful job whose log buffer was already drained by the
+	// daemon (logOffset > 0, logRows empty, terminal Result set). This is the
+	// state Close() lands in for the typical successful job under #819.
+	reporter.stateMu.Lock()
+	reporter.logOffset = 5
+	reporter.state.Result = runnerv1.Result_RESULT_SUCCESS
+	reporter.state.Steps[0].Result = runnerv1.Result_RESULT_SUCCESS
+	reporter.state.StoppedAt = timestamppb.Now()
+	reporter.stateMu.Unlock()
+
+	require.NoError(t, reporter.Close(""))
+
+	require.Equal(t, int64(1), noMoreCalls.Load(), "Close must send exactly one UpdateLog with NoMore=true")
+	final := lastReq.Load()
+	require.NotNil(t, final)
+	assert.True(t, final.NoMore, "final UpdateLog must carry NoMore=true")
+	assert.NotEmpty(t, final.Rows, "final UpdateLog must carry at least one row")
+}
+
 // TestReporter_StateHeartbeat verifies that ReportState sends a heartbeat
 // UpdateTask once stateReportInterval has elapsed since the last successful
 // report, even when nothing has changed. Without this, long-running silent
@@ -638,4 +766,87 @@ func TestReporter_StateHeartbeat(t *testing.T) {
 	time.Sleep(2 * cfg.Runner.StateReportInterval)
 	require.NoError(t, reporter.ReportState(false))
 	assert.Equal(t, int64(2), updateTaskCalls.Load(), "ReportState must heartbeat after stateReportInterval even with no state change")
+}
+
+// TestReporter_ServerCancelStillFlushesFinal asserts that when the Gitea server
+// returns RESULT_CANCELLED on an in-flight UpdateTask (which causes the
+// reporter to cancel the task context), Close() still successfully sends the
+// final UpdateLog{NoMore:true} and the final UpdateTask carrying the populated
+// final state. Before the fix this final flush used r.ctx, which was just
+// cancelled, so retry-go aborted on its context check and Gitea never received
+// the runner's acknowledgement of the cancel.
+func TestReporter_ServerCancelStillFlushesFinal(t *testing.T) {
+	var (
+		updateTaskCalls    atomic.Int64
+		finalLogNoMoreSeen atomic.Bool
+		finalTaskStateSeen atomic.Bool
+	)
+
+	client := mocks.NewClient(t)
+	client.On("UpdateLog", mock.Anything, mock.Anything).Return(
+		func(_ context.Context, req *connect_go.Request[runnerv1.UpdateLogRequest]) (*connect_go.Response[runnerv1.UpdateLogResponse], error) {
+			if req.Msg.NoMore {
+				finalLogNoMoreSeen.Store(true)
+			}
+			return connect_go.NewResponse(&runnerv1.UpdateLogResponse{
+				AckIndex: req.Msg.Index + int64(len(req.Msg.Rows)),
+			}), nil
+		},
+	)
+	// The first UpdateTask returns RESULT_CANCELLED — modelling a server-side
+	// cancellation; the reporter must call r.cancel() in response. The final
+	// UpdateTask issued by Close() must still arrive even though r.ctx is now
+	// cancelled.
+	client.On("UpdateTask", mock.Anything, mock.Anything).Return(
+		func(_ context.Context, req *connect_go.Request[runnerv1.UpdateTaskRequest]) (*connect_go.Response[runnerv1.UpdateTaskResponse], error) {
+			n := updateTaskCalls.Add(1)
+			if n == 1 {
+				return connect_go.NewResponse(&runnerv1.UpdateTaskResponse{
+					State: &runnerv1.TaskState{
+						Result: runnerv1.Result_RESULT_CANCELLED,
+					},
+				}), nil
+			}
+			if req.Msg.State != nil && req.Msg.State.Result != runnerv1.Result_RESULT_UNSPECIFIED {
+				finalTaskStateSeen.Store(true)
+			}
+			return connect_go.NewResponse(&runnerv1.UpdateTaskResponse{}), nil
+		},
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	taskCtx, err := structpb.NewStruct(map[string]any{})
+	require.NoError(t, err)
+	cfg, _ := config.LoadDefault("")
+	reporter := NewReporter(ctx, cancel, client, &runnerv1.Task{Context: taskCtx}, cfg)
+	reporter.ResetSteps(1)
+
+	// Force the first ReportState to actually call UpdateTask.
+	reporter.stateMu.Lock()
+	reporter.stateChanged = true
+	reporter.stateMu.Unlock()
+
+	// First ReportState — server returns RESULT_CANCELLED, reporter cancels r.ctx.
+	require.NoError(t, reporter.ReportState(false))
+	require.Equal(t, int64(1), updateTaskCalls.Load())
+
+	select {
+	case <-ctx.Done():
+		// Expected: reporter called cancel() because the server reported the task as cancelled.
+	case <-time.After(time.Second):
+		t.Fatal("expected r.ctx to be cancelled after server returned RESULT_CANCELLED")
+	}
+
+	// The test does not start the daemon goroutine; close(r.daemon) so Close()
+	// proceeds without waiting on its 60s timeout.
+	close(reporter.daemon)
+
+	// Now Close() runs. Before the fix, both final RPCs aborted on the cancelled
+	// r.ctx via retry.Context. After the fix, Close() uses a detached context and
+	// the per-RPC rpcCtx() falls back to a fresh ctx, so both calls succeed.
+	require.NoError(t, reporter.Close("cancelled"))
+
+	assert.True(t, finalLogNoMoreSeen.Load(), "Close() must send a final UpdateLog{NoMore:true} even after server-side cancellation")
+	assert.True(t, finalTaskStateSeen.Load(), "Close() must send a final UpdateTask with the populated final state even after server-side cancellation")
 }

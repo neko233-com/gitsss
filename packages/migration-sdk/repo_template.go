@@ -6,6 +6,7 @@ package gitea
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 )
@@ -46,7 +47,7 @@ func (opt CreateRepoFromTemplateOption) Validate() error {
 }
 
 // CreateRepoFromTemplate create a repository using a template
-func (c *Client) CreateRepoFromTemplate(templateOwner, templateRepo string, opt CreateRepoFromTemplateOption) (*Repository, *Response, error) {
+func (c *RepositoriesService) CreateRepoFromTemplate(ctx context.Context, templateOwner, templateRepo string, opt CreateRepoFromTemplateOption) (*Repository, *Response, error) {
 	if err := escapeValidatePathSegments(&templateOwner, &templateRepo); err != nil {
 		return nil, nil, err
 	}
@@ -60,6 +61,6 @@ func (c *Client) CreateRepoFromTemplate(templateOwner, templateRepo string, opt 
 	}
 
 	repo := new(Repository)
-	resp, err := c.getParsedResponse("POST", fmt.Sprintf("/repos/%s/%s/generate", templateOwner, templateRepo), jsonHeader, bytes.NewReader(body), &repo)
+	resp, err := c.getParsedResponse(ctx, "POST", fmt.Sprintf("/repos/%s/%s/generate", templateOwner, templateRepo), jsonHeader, bytes.NewReader(body), &repo)
 	return repo, resp, err
 }

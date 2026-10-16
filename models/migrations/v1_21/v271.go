@@ -4,12 +4,11 @@
 package v1_21
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/timeutil"
-
-	"xorm.io/xorm"
 )
 
-func AddArchivedUnixColumInLabelTable(x *xorm.Engine) error {
+func AddArchivedUnixColumInLabelTable(x db.EngineMigration) error {
 	type Label struct {
 		ArchivedUnix timeutil.TimeStamp `xorm:"DEFAULT NULL"`
 	}

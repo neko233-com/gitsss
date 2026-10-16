@@ -5,11 +5,18 @@ package renderhelper
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/neko233-com/gitsss/models/unittest"
 	"github.com/neko233-com/gitsss/modules/markup"
 )
+
+func testRenderString(ctx *markup.RenderContext, content string) (string, error) {
+	var buf strings.Builder
+	err := markup.Render(ctx, strings.NewReader(content), &buf)
+	return buf.String(), err
+}
 
 func TestMain(m *testing.M) {
 	unittest.MainTest(m, &unittest.TestOptions{

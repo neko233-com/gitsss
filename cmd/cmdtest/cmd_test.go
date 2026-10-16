@@ -1,0 +1,265 @@
+// Copyright 2026 The Gitea Authors. All rights reserved.
+// SPDX-License-Identifier: MIT
+
+// Tests here reload the config system multiple times with uncontrollable details.
+// So they must be in a separate package, to avoid affecting other tests
+
+package cmdtest
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"testing"
+
+	"github.com/neko233-com/gitsss/cmd"
+	"github.com/neko233-com/gitsss/models/unittest"
+	"github.com/neko233-com/gitsss/modules/setting"
+	"github.com/neko233-com/gitsss/modules/test"
+	"github.com/neko233-com/gitsss/modules/util"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/urfave/cli/v3"
+)
+
+func TestMain(m *testing.M) {
+	unittest.MainTest(m)
+}
+
+func nativeTestPaths(value string) string {
+	return regexp.MustCompile(`/\S*`).ReplaceAllStringFunc(value, func(path string) string {
+		if filepath.VolumeName(path) != "" {
+			return path
+		}
+		absolute, err := filepath.Abs(filepath.FromSlash(path))
+		if err != nil {
+			panic(err)
+		}
+		return absolute
+	})
+}
+
+func makePathOutput(workPath, customPath, customConf string) string {
+	return fmt.Sprintf("WorkPath=%s\nCustomPath=%s\nCustomConf=%s", workPath, customPath, customConf)
+}
+
+func newTestApp(testCmd cli.Command) *cli.Command {
+	app := cmd.NewMainApp(cmd.AppVersion{})
+	testCmd.Name = util.IfZero(testCmd.Name, "test-cmd")
+	cmd.PrepareSubcommandWithGlobalFlags(&testCmd)
+	app.Commands = append(app.Commands, &testCmd)
+	app.DefaultCommand = testCmd.Name
+	return app
+}
+
+type runResult struct {
+	Stdout   string
+	Stderr   string
+	ExitCode int
+}
+
+func runTestApp(app *cli.Command, args ...string) (runResult, error) {
+	outBuf := new(strings.Builder)
+	errBuf := new(strings.Builder)
+	app.Writer = outBuf
+	app.ErrWriter = errBuf
+	exitCode := -1
+	defer test.MockVariableValue(&cli.ErrWriter, app.ErrWriter)()
+	defer test.MockVariableValue(&cli.OsExiter, func(code int) {
+		if exitCode == -1 {
+			exitCode = code // save the exit code once and then reset the writer (to simulate the exit)
+			app.Writer, app.ErrWriter, cli.ErrWriter = io.Discard, io.Discard, io.Discard
+		}
+	})()
+	for i := range args {
+		args[i] = nativeTestPaths(args[i])
+	}
+	err := cmd.RunMainApp(app, args...)
+	return runResult{outBuf.String(), errBuf.String(), exitCode}, err
+}
+
+func TestCliCmd(t *testing.T) {
+	defaultWorkPath := nativeTestPaths("/tmp/mocked-work-path")
+	defaultCustomPath := filepath.Join(defaultWorkPath, "custom")
+	defaultCustomConf := filepath.Join(defaultCustomPath, "conf/app.ini")
+	defer setting.MockBuiltinPaths(defaultWorkPath, "", "")()
+
+	cli.CommandHelpTemplate = "(command help template)"
+	cli.RootCommandHelpTemplate = "(app help template)"
+	cli.SubcommandHelpTemplate = "(subcommand help template)"
+
+	cases := []struct {
+		env map[string]string
+		cmd string
+		exp string
+	}{
+		// help commands
+		{
+			cmd: "./gitsss -h",
+			exp: "DEFAULT CONFIGURATION:",
+		},
+		{
+			cmd: "./gitsss help",
+			exp: "DEFAULT CONFIGURATION:",
+		},
+
+		{
+			cmd: "./gitsss -c /dev/null -h",
+			exp: "ConfigFile: /dev/null",
+		},
+
+		{
+			cmd: "./gitsss -c /dev/null help",
+			exp: "ConfigFile: /dev/null",
+		},
+		{
+			cmd: "./gitsss help -c /dev/null",
+			exp: "ConfigFile: /dev/null",
+		},
+
+		{
+			cmd: "./gitsss -c /dev/null test-cmd -h",
+			exp: "ConfigFile: /dev/null",
+		},
+		{
+			cmd: "./gitsss test-cmd -c /dev/null -h",
+			exp: "ConfigFile: /dev/null",
+		},
+		{
+			cmd: "./gitsss test-cmd -h -c /dev/null",
+			exp: "ConfigFile: /dev/null",
+		},
+
+		{
+			cmd: "./gitsss -c /dev/null test-cmd help",
+			exp: "ConfigFile: /dev/null",
+		},
+		{
+			cmd: "./gitsss test-cmd -c /dev/null help",
+			exp: "ConfigFile: /dev/null",
+		},
+		{
+			cmd: "./gitsss test-cmd help -c /dev/null",
+			exp: "ConfigFile: /dev/null",
+		},
+
+		// parse paths
+		{
+			cmd: "./gitsss test-cmd",
+			exp: makePathOutput(defaultWorkPath, defaultCustomPath, defaultCustomConf),
+		},
+		{
+			cmd: "./gitsss -c /tmp/app.ini test-cmd",
+			exp: makePathOutput(defaultWorkPath, defaultCustomPath, "/tmp/app.ini"),
+		},
+		{
+			cmd: "./gitsss test-cmd -c /tmp/app.ini",
+			exp: makePathOutput(defaultWorkPath, defaultCustomPath, "/tmp/app.ini"),
+		},
+		{
+			env: map[string]string{"GITEA_WORK_DIR": "/tmp"},
+			cmd: "./gitsss test-cmd",
+			exp: makePathOutput("/tmp", "/tmp/custom", "/tmp/custom/conf/app.ini"),
+		},
+		{
+			env: map[string]string{"GITEA_WORK_DIR": "/tmp"},
+			cmd: "./gitsss test-cmd --work-path /tmp/other",
+			exp: makePathOutput("/tmp/other", "/tmp/other/custom", "/tmp/other/custom/conf/app.ini"),
+		},
+		{
+			env: map[string]string{"GITEA_WORK_DIR": "/tmp"},
+			cmd: "./gitsss test-cmd --config /tmp/app-other.ini",
+			exp: makePathOutput("/tmp", "/tmp/custom", "/tmp/app-other.ini"),
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.cmd, func(t *testing.T) {
+			app := newTestApp(cli.Command{
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					_, _ = fmt.Fprint(cmd.Root().Writer, makePathOutput(setting.AppWorkPath, setting.CustomPath, setting.CustomConf))
+					return nil
+				},
+			})
+			for k, v := range c.env {
+				t.Setenv(k, nativeTestPaths(v))
+			}
+			args := strings.Split(c.cmd, " ") // for test only, "split" is good enough
+			r, err := runTestApp(app, args...)
+			assert.NoError(t, err, c.cmd)
+			assert.NotEmpty(t, c.exp, c.cmd)
+			if !assert.Contains(t, r.Stdout, nativeTestPaths(c.exp), c.cmd) {
+				t.Log("Full output:\n" + r.Stdout)
+				t.Log("Expected:\n" + c.exp)
+			}
+		})
+	}
+}
+
+func TestCliCmdError(t *testing.T) {
+	app := newTestApp(cli.Command{Action: func(ctx context.Context, cmd *cli.Command) error { return errors.New("normal error") }})
+	r, err := runTestApp(app, "./gitsss", "test-cmd")
+	assert.Error(t, err)
+	assert.Equal(t, 1, r.ExitCode)
+	assert.Empty(t, r.Stdout)
+	assert.Equal(t, "Command error: normal error\n", r.Stderr)
+
+	app = newTestApp(cli.Command{Action: func(ctx context.Context, cmd *cli.Command) error { return cli.Exit("exit error", 2) }})
+	r, err = runTestApp(app, "./gitsss", "test-cmd")
+	assert.Error(t, err)
+	assert.Equal(t, 2, r.ExitCode)
+	assert.Empty(t, r.Stdout)
+	assert.Equal(t, "exit error\n", r.Stderr)
+
+	app = newTestApp(cli.Command{Action: func(ctx context.Context, cmd *cli.Command) error { return nil }})
+	r, err = runTestApp(app, "./gitsss", "test-cmd", "--no-such")
+	assert.Error(t, err)
+	assert.Equal(t, 1, r.ExitCode)
+	assert.Empty(t, r.Stdout)
+	assert.Equal(t, "Incorrect Usage: flag provided but not defined: -no-such\n", r.Stderr)
+
+	app = newTestApp(cli.Command{Action: func(ctx context.Context, cmd *cli.Command) error { return nil }})
+	r, err = runTestApp(app, "./gitsss", "test-cmd")
+	assert.NoError(t, err)
+	assert.Equal(t, -1, r.ExitCode) // the cli.OsExiter is not called
+	assert.Empty(t, r.Stdout)
+	assert.Empty(t, r.Stderr)
+}
+
+func TestCliCmdBefore(t *testing.T) {
+	ctxNew := context.WithValue(context.Background(), any("key"), "value")
+	configValues := map[string]string{}
+	setting.CustomConf = "/tmp/any.ini"
+	var actionCtx context.Context
+	app := newTestApp(cli.Command{
+		Before: func(context.Context, *cli.Command) (context.Context, error) {
+			configValues["before"] = setting.CustomConf
+			return ctxNew, nil
+		},
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			configValues["action"] = setting.CustomConf
+			actionCtx = ctx
+			return nil
+		},
+	})
+	_, err := runTestApp(app, "./gitsss", "--config", "/dev/null", "test-cmd")
+	assert.NoError(t, err)
+	assert.Equal(t, ctxNew, actionCtx)
+	assert.Equal(t, "/tmp/any.ini", configValues["before"], "BeforeFunc must be called before preparing config")
+	assert.Equal(t, nativeTestPaths("/dev/null"), configValues["action"])
+}
+
+func TestCliCmdCompletion(t *testing.T) {
+	app := newTestApp(cli.Command{
+		Action: func(ctx context.Context, cmd *cli.Command) error { return nil },
+	})
+	res, err := runTestApp(app, "./gitsss", "completion", "bash", "--nonexist")
+	assert.Error(t, err)
+	assert.Equal(t, 1, res.ExitCode)
+	assert.Empty(t, res.Stdout)
+	assert.Equal(t, "Incorrect Usage: flag provided but not defined: -nonexist\n", res.Stderr)
+}

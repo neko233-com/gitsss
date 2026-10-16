@@ -4,10 +4,7 @@
 package repo
 
 import (
-	"errors"
-
 	actions_model "github.com/neko233-com/gitsss/models/actions"
-	"github.com/neko233-com/gitsss/modules/util"
 	"github.com/neko233-com/gitsss/routers/common"
 	"github.com/neko233-com/gitsss/services/context"
 )
@@ -45,11 +42,7 @@ func DownloadActionsRunJobLogs(ctx *context.APIContext) {
 	jobID := ctx.PathParamInt64("job_id")
 	curJob, err := actions_model.GetRunJobByRepoAndID(ctx, ctx.Repo.Repository.ID, jobID)
 	if err != nil {
-		if errors.Is(err, util.ErrNotExist) {
-			ctx.APIErrorNotFound(err)
-		} else {
-			ctx.APIErrorInternal(err)
-		}
+		ctx.APIErrorAuto(err)
 		return
 	}
 	if err = curJob.LoadRepo(ctx); err != nil {
@@ -59,10 +52,6 @@ func DownloadActionsRunJobLogs(ctx *context.APIContext) {
 
 	err = common.DownloadActionsRunJobLogs(ctx.Base, ctx.Repo.Repository, curJob)
 	if err != nil {
-		if errors.Is(err, util.ErrNotExist) {
-			ctx.APIErrorNotFound(err)
-		} else {
-			ctx.APIErrorInternal(err)
-		}
+		ctx.APIErrorAuto(err)
 	}
 }

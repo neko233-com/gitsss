@@ -144,7 +144,7 @@ func CleanupEphemeralRunners(ctx context.Context) error {
 		From(builder.Select("*").From("`action_runner`"), "`action_runner`"). // mysql needs this redundant subquery
 		Join("INNER", "`action_task`", "`action_task`.`runner_id` = `action_runner`.`id`").
 		Where(builder.Eq{"`action_runner`.`ephemeral`": true}).
-		And(builder.NotIn("`action_task`.`status`", actions_model.StatusWaiting, actions_model.StatusRunning, actions_model.StatusBlocked))
+		And(builder.NotIn("`action_task`.`status`", actions_model.StatusWaiting, actions_model.StatusRunning, actions_model.StatusBlocked, actions_model.StatusCancelling))
 	b := builder.Delete(builder.In("id", subQuery)).From("`action_runner`")
 	res, err := db.GetEngine(ctx).Exec(b)
 	if err != nil {
@@ -179,7 +179,7 @@ func DeleteRun(ctx context.Context, run *actions_model.ActionRun) error {
 
 	repoID := run.RepoID
 
-	jobs, err := actions_model.GetRunJobsByRunID(ctx, run.ID)
+	jobs, err := actions_model.GetAllRunJobsByRepoAndRunID(ctx, run.RepoID, run.ID)
 	if err != nil {
 		return err
 	}
@@ -207,6 +207,10 @@ func DeleteRun(ctx context.Context, run *actions_model.ActionRun) error {
 		RepoID: repoID,
 		ID:     run.ID,
 	})
+	recordsToDelete = append(recordsToDelete, &actions_model.ActionRunAttempt{
+		RepoID: repoID,
+		RunID:  run.ID,
+	})
 	recordsToDelete = append(recordsToDelete, &actions_model.ActionRunJob{
 		RepoID: repoID,
 		RunID:  run.ID,
@@ -225,6 +229,10 @@ func DeleteRun(ctx context.Context, run *actions_model.ActionRun) error {
 		})
 	}
 	recordsToDelete = append(recordsToDelete, &actions_model.ActionArtifact{
+		RepoID: repoID,
+		RunID:  run.ID,
+	})
+	recordsToDelete = append(recordsToDelete, &actions_model.ActionRunJobSummary{
 		RepoID: repoID,
 		RunID:  run.ID,
 	})

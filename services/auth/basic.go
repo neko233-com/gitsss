@@ -5,6 +5,7 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 
 	actions_model "github.com/neko233-com/gitsss/models/actions"
@@ -68,7 +69,7 @@ func (b *Basic) parseAuthBasic(req *http.Request) (ret struct{ authToken, uname,
 
 // VerifyAuthToken only the access token provided as parameter, used by other auth methods that want to reuse access token verification logic
 func (b *Basic) VerifyAuthToken(req *http.Request, w http.ResponseWriter, store DataStore, sess SessionStore, authToken string) (*user_model.User, error) {
-	// get oauth2 token's user's ID and access scope
+	// get oauth2 token's user's ID
 	accessTokenScope, uid := GetOAuthAccessTokenScopeAndUserID(req.Context(), authToken)
 	if uid != 0 {
 		log.Trace("Basic Authorization: Valid OAuthAccessToken for user[%d]", uid)
@@ -104,8 +105,8 @@ func (b *Basic) VerifyAuthToken(req *http.Request, w http.ResponseWriter, store 
 		store.GetData()["IsApiToken"] = true
 		store.GetData()["ApiTokenScope"] = token.Scope
 		return u, nil
-	} else if !auth_model.IsErrAccessTokenNotExist(err) && !auth_model.IsErrAccessTokenEmpty(err) {
-		log.Error("GetAccessTokenBySha: %v", err)
+	} else if !errors.Is(err, util.ErrNotExist) {
+		log.Error("GetAccessTokenBySHA: %v", err)
 	}
 
 	// check task token
@@ -176,7 +177,8 @@ func validateTOTP(req *http.Request, u *user_model.User) error {
 		}
 		return err
 	}
-	if ok, err := twofa.ValidateTOTP(req.Header.Get("X-Gitea-OTP")); err != nil {
+	// Consume the passcode atomically so a captured OTP cannot be replayed within its validity window.
+	if ok, err := twofa.ValidateAndConsumeTOTP(req.Context(), req.Header.Get("X-Gitea-OTP")); err != nil {
 		return err
 	} else if !ok {
 		return util.NewInvalidArgumentErrorf("invalid provided OTP")

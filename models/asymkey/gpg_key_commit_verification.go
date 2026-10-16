@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"hash"
 
+	"github.com/neko233-com/gitsss/models/gituser"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/log"
@@ -32,8 +33,8 @@ type CommitVerification struct {
 
 // SignCommit represents a commit with validation of signature.
 type SignCommit struct {
-	Verification *CommitVerification
-	*user_model.UserCommit
+	Verification        *CommitVerification
+	*gituser.UserCommit // TODO: need to use a explicit field name, avoid anonymous field
 }
 
 const (

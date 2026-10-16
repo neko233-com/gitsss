@@ -10,6 +10,7 @@ import (
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	code_indexer "github.com/neko233-com/gitsss/modules/indexer/code"
 	"github.com/neko233-com/gitsss/modules/setting"
+	"github.com/neko233-com/gitsss/modules/test"
 	"github.com/neko233-com/gitsss/tests"
 
 	"github.com/PuerkitoBio/goquery"
@@ -35,8 +36,8 @@ func TestSearchRepo(t *testing.T) {
 
 	testSearch(t, "/user2/repo1/search?q=Description&page=1", []string{"README.md"})
 
-	setting.Indexer.IncludePatterns = setting.IndexerGlobFromString("**.txt")
-	setting.Indexer.ExcludePatterns = setting.IndexerGlobFromString("**/y/**")
+	defer test.MockVariableValue(&setting.Indexer.IncludePatterns, setting.IndexerGlobFromString("**.txt"))()
+	defer test.MockVariableValue(&setting.Indexer.ExcludePatterns, setting.IndexerGlobFromString("**/y/**"))()
 
 	repo, err = repo_model.GetRepositoryByOwnerAndName(t.Context(), "user2", "glob")
 	assert.NoError(t, err)

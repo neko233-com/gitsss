@@ -7,13 +7,12 @@ Compatibility code reads existing Gitea configuration and data formats solely
 to support administrator-controlled migration. gitsss is not affiliated with
 or endorsed by the Gitea project.
 
-Platform baseline: Gitea v1.26.2, commit
-2c749ce548b1da0a52835861a87b888e67842d29. The source was copied into this
+Platform baseline: Gitea v1.27.1, commit
+a62dfffbe7d3a454c2f2d3c4b2788ba432724a5f. The source was copied into this
 repository and is maintained under the gitsss module; it is not consumed as a
 Gitea application library. Upstream automation directories were not imported.
 
-Actions runner baseline: Gitea Runner v1.0.0, commit
-594c9ade7cccf7be6cd0f1cd18ae8d28bba878c2. Its MIT-licensed source and
+Actions runner baseline: Gitea Runner v1.0.8. Its MIT-licensed source and
 license are retained under runner/ and maintained as the independent
 github.com/neko233-com/gitsss/runner module. The runner is an internal gitsss
 service and is not published as a compatibility command.
@@ -52,3 +51,6 @@ references are served by these immutable Node.js 24 copies.
 
 The retained upstream copyright notices in LICENSE are legal attribution only
 and are not product branding.
+
+Compatibility packages: Gitea SDK v1.1.0 and actions-proto-go v0.6.0.
+Their original licenses remain under packages/.

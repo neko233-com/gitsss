@@ -11,7 +11,6 @@ import (
 
 	"github.com/neko233-com/gitsss/runner/act/exprparser"
 	"github.com/neko233-com/gitsss/runner/act/model"
-
 	"go.yaml.in/yaml/v4"
 )
 
@@ -70,6 +69,9 @@ func Parse(content []byte, options ...ParseOption) ([]*SingleWorkflow, error) {
 				runsOn[i] = evaluator.Interpolate(v)
 			}
 			job.RawRunsOn = encodeRunsOn(runsOn)
+			if err := evaluator.EvaluateYamlNode(&job.RawContinueOnError); err != nil {
+				return nil, fmt.Errorf("evaluate continue-on-error for job %q: %w", id, err)
+			}
 			swf := &SingleWorkflow{
 				Name:           workflow.Name,
 				RawOn:          workflow.RawOn,
@@ -85,12 +87,6 @@ func Parse(content []byte, options ...ParseOption) ([]*SingleWorkflow, error) {
 		}
 	}
 	return ret, nil
-}
-
-func WithJobResults(results map[string]string) ParseOption {
-	return func(c *parseContext) {
-		c.jobResults = results
-	}
 }
 
 func WithGitContext(context *model.GithubContext) ParseOption {

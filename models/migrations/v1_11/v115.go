@@ -12,15 +12,14 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/container"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/util"
-
-	"xorm.io/xorm"
 )
 
-func RenameExistingUserAvatarName(x *xorm.Engine) error {
+func RenameExistingUserAvatarName(x db.EngineMigration) error {
 	sess := x.NewSession()
 	defer sess.Close()
 
@@ -97,7 +96,8 @@ func RenameExistingUserAvatarName(x *xorm.Engine) error {
 					float64(migrated)/float64(count)*100,
 					len(deleteList),
 					int(math.Ceil(float64(migrated)/float64(50))),
-					count-int64(migrated))
+					count-int64(migrated),
+				)
 			default:
 			}
 		}
@@ -122,7 +122,8 @@ func RenameExistingUserAvatarName(x *xorm.Engine) error {
 				i,
 				deleteCount,
 				float64(i)/float64(deleteCount)*100,
-				deleteCount-i)
+				deleteCount-i,
+			)
 		default:
 		}
 	}

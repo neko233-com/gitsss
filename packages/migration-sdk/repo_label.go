@@ -6,6 +6,7 @@ package gitea
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -30,23 +31,23 @@ type ListLabelsOptions struct {
 }
 
 // ListRepoLabels list labels of one repository
-func (c *Client) ListRepoLabels(owner, repo string, opt ListLabelsOptions) ([]*Label, *Response, error) {
+func (c *RepositoriesService) ListRepoLabels(ctx context.Context, owner, repo string, opt ListLabelsOptions) ([]*Label, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
 	opt.setDefaults()
 	labels := make([]*Label, 0, opt.PageSize)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/repos/%s/%s/labels?%s", owner, repo, opt.getURLQuery().Encode()), nil, nil, &labels)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/labels?%s", owner, repo, opt.getURLQuery().Encode()), nil, nil, &labels)
 	return labels, resp, err
 }
 
 // GetRepoLabel get one label of repository by repo it
-func (c *Client) GetRepoLabel(owner, repo string, id int64) (*Label, *Response, error) {
+func (c *RepositoriesService) GetRepoLabel(ctx context.Context, owner, repo string, id int64) (*Label, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
 	label := new(Label)
-	resp, err := c.getParsedResponse("GET", fmt.Sprintf("/repos/%s/%s/labels/%d", owner, repo, id), nil, nil, label)
+	resp, err := c.getParsedResponse(ctx, "GET", fmt.Sprintf("/repos/%s/%s/labels/%d", owner, repo, id), nil, nil, label)
 	return label, resp, err
 }
 
@@ -76,7 +77,7 @@ func (opt CreateLabelOption) Validate() error {
 }
 
 // CreateLabel create one label of repository
-func (c *Client) CreateLabel(owner, repo string, opt CreateLabelOption) (*Label, *Response, error) {
+func (c *RepositoriesService) CreateLabel(ctx context.Context, owner, repo string, opt CreateLabelOption) (*Label, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
@@ -84,7 +85,7 @@ func (c *Client) CreateLabel(owner, repo string, opt CreateLabelOption) (*Label,
 		return nil, nil, err
 	}
 	if len(opt.Color) == 6 {
-		if err := c.checkServerVersionGreaterThanOrEqual(version1_12_0); err != nil {
+		if err := c.checkServerVersionGreaterThanOrEqual(ctx, version1_12_0); err != nil {
 			opt.Color = "#" + opt.Color
 		}
 	}
@@ -93,7 +94,7 @@ func (c *Client) CreateLabel(owner, repo string, opt CreateLabelOption) (*Label,
 		return nil, nil, err
 	}
 	label := new(Label)
-	resp, err := c.getParsedResponse("POST",
+	resp, err := c.getParsedResponse(ctx, "POST",
 		fmt.Sprintf("/repos/%s/%s/labels", owner, repo),
 		jsonHeader, bytes.NewReader(body), label)
 	return label, resp, err
@@ -128,7 +129,7 @@ func (opt EditLabelOption) Validate() error {
 }
 
 // EditLabel modify one label with options
-func (c *Client) EditLabel(owner, repo string, id int64, opt EditLabelOption) (*Label, *Response, error) {
+func (c *RepositoriesService) EditLabel(ctx context.Context, owner, repo string, id int64, opt EditLabelOption) (*Label, *Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, nil, err
 	}
@@ -140,14 +141,14 @@ func (c *Client) EditLabel(owner, repo string, id int64, opt EditLabelOption) (*
 		return nil, nil, err
 	}
 	label := new(Label)
-	resp, err := c.getParsedResponse("PATCH", fmt.Sprintf("/repos/%s/%s/labels/%d", owner, repo, id), jsonHeader, bytes.NewReader(body), label)
+	resp, err := c.getParsedResponse(ctx, "PATCH", fmt.Sprintf("/repos/%s/%s/labels/%d", owner, repo, id), jsonHeader, bytes.NewReader(body), label)
 	return label, resp, err
 }
 
 // DeleteLabel delete one label of repository by id
-func (c *Client) DeleteLabel(owner, repo string, id int64) (*Response, error) {
+func (c *RepositoriesService) DeleteLabel(ctx context.Context, owner, repo string, id int64) (*Response, error) {
 	if err := escapeValidatePathSegments(&owner, &repo); err != nil {
 		return nil, err
 	}
-	return c.doRequestWithStatusHandle("DELETE", fmt.Sprintf("/repos/%s/%s/labels/%d", owner, repo, id), nil, nil)
+	return c.doRequestWithStatusHandle(ctx, "DELETE", fmt.Sprintf("/repos/%s/%s/labels/%d", owner, repo, id), nil, nil)
 }

@@ -4,12 +4,11 @@
 package v1_24
 
 import (
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/base"
-
-	"xorm.io/xorm"
 )
 
-func MovePinOrderToTableIssuePin(x *xorm.Engine) error {
+func MovePinOrderToTableIssuePin(x db.EngineMigration) error {
 	type IssuePin struct {
 		ID       int64 `xorm:"pk autoincr"`
 		RepoID   int64 `xorm:"UNIQUE(s) NOT NULL"`

@@ -6,13 +6,12 @@ package versioned_migration
 import (
 	"context"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations"
 	"github.com/neko233-com/gitsss/modules/globallock"
-
-	"xorm.io/xorm"
 )
 
-func Migrate(ctx context.Context, x *xorm.Engine) error {
+func Migrate(ctx context.Context, x db.EngineMigration) error {
 	// only one instance can do the migration at the same time if there are multiple instances
 	release, err := globallock.Lock(ctx, "gitea_versioned_migration")
 	if err != nil {
