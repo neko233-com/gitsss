@@ -13,9 +13,11 @@ import {initImageDiff} from './features/imagediff.ts';
 import {initRepoMigration} from './features/repo-migration.ts';
 import {initRepoProjectsView} from './features/repo-projects.ts';
 import {initRepoSidebar} from './features/repo-sidebar.ts';
+import {initOrgDirectory} from './features/org-directory.ts';
 import {initTableSort} from './features/tablesort.ts';
 import {initAdminUserListSearchForm} from './features/admin/users.ts';
 import {initAdminConfigs} from './features/admin/config.ts';
+import {initAdminSidebar} from './features/admin/sidebar.ts';
 import {initAdminStorageAwareness} from './features/admin/storage-awareness.ts';
 import {initMarkupAnchors} from './markup/anchors.ts';
 import {initNotificationCount} from './features/notification.ts';
@@ -146,6 +148,8 @@ const initPerformanceTracer = callInitFunctions([
   initRepoMigrationStatusChecker,
   initRepoProjectsView,
   initRepoSidebar,
+  initOrgDirectory,
+  initAdminSidebar,
   initRepoPullRequestReview,
   initRepoReleaseNew,
   initRepoTopicBar,

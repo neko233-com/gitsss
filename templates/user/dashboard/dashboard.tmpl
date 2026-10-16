@@ -9,12 +9,13 @@
 		{{template "base/alert" .}}
 		<h2>{{ctx.Locale.Tr "explore.organizations"}}</h2>
 		<p>{{ctx.Locale.Tr "home.organizations_first_help"}}</p>
-		<div class="ui stackable three cards">
+		{{if .Orgs}}<div class="ui icon input org-directory-search">{{svg "octicon-search" 16}}<input type="search" data-org-directory-search placeholder="{{ctx.Locale.Tr "search.org_kind"}}" aria-label="{{ctx.Locale.Tr "search.org_kind"}}"></div>{{end}}
+		<div class="ui cards org-directory">
 			{{range .Orgs}}
-			<div class="ui card">
+			<div class="ui card" data-org-directory-item data-search="{{.Name}} {{.DisplayName}}">
 				<a class="content flex-text-block" href="{{.OrganisationLink}}/dashboard">
 					{{ctx.AvatarUtils.Avatar . 40}}
-					<div><div class="header">{{.DisplayName}}</div><div class="meta">{{.NumRepos}} {{ctx.Locale.Tr "org.lower_repositories"}}</div></div>
+					<div><div class="header">{{template "org/identity" .}}</div><div class="meta">{{.NumRepos}} {{ctx.Locale.Tr "org.lower_repositories"}}</div></div>
 				</a>
 				<div class="extra content"><div class="flex-text-block">
 					<a href="{{.HomeLink}}/-/kanban">{{ctx.Locale.Tr "org.global_kanban"}}</a>
@@ -25,6 +26,7 @@
 			<p>{{ctx.Locale.Tr "home.organizations_empty"}}</p>
 			{{end}}
 		</div>
+		<p data-org-directory-empty hidden>{{ctx.Locale.Tr "no_results_found"}}</p>
 		<div class="ui divider"></div>
 		<div class="flex-text-block">
 			{{if .SignedUser.CanCreateOrganization}}<a class="ui primary button" href="{{AppSubUrl}}/org/create">{{ctx.Locale.Tr "new_org"}}</a>{{end}}

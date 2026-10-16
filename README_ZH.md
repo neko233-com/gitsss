@@ -11,6 +11,8 @@
 ![GitSSS 首页](docs/site/assets/screenshots/home.png)
 
 - 首页充分利用桌面宽度，支持公共入口和个人快捷链接，多项添加、编辑、删除均在当前页完成。
+- 组织英文标识与备注同时显示，首页支持按两者搜索，不改变仓库地址或权限。
+- 仓库功能统一使用一套完整桌面界面，后台采用清晰字号和分组导航，不再提供经典/新版页面切换。
 
 ![GitSSS 仓库概览](docs/site/assets/screenshots/repository.png)
 

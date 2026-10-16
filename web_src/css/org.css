@@ -7,6 +7,18 @@
 .org-workspace-header .ui.dropdown > .text { display: inline-flex; align-items: center; gap: .5rem; }
 .org-workspace-header .ui.dropdown .menu { min-width: 18rem; }
 .org-workspace-header .ui.button { padding: 7px 10px; font-size: 12px; }
+.org-identity { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; min-width: 0; }
+.org-identity-name { font-weight: var(--font-weight-semibold); }
+.org-identity-note { color: var(--color-text-light-2); font-size: 13px; font-weight: var(--font-weight-normal); }
+.org-directory.ui.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin: 0; }
+.org-directory.ui.cards > .card { width: auto; margin: 0; box-shadow: none; }
+.org-directory.ui.cards > .card[hidden] { display: none; }
+.org-directory .content > div { min-width: 0; }
+.org-directory .org-identity { flex-direction: column; gap: 2px; }
+.org-directory-search { width: min(100%, 420px); margin: 0 0 12px; }
+.org-directory-search.ui.icon.input > .svg { position: absolute; left: 10px; top: 10px; color: var(--color-text-light-2); }
+.org-directory-search.ui.input > input { padding-left: 32px; }
+.org-directory-search:has(:focus-visible) { outline: 2px solid var(--color-primary-alpha-30); outline-offset: 2px; }
 .organization .ui.secondary.pointing.menu .item,
 .dashboard .ui.secondary.pointing.menu .item { padding-top: 9px !important; padding-bottom: 9px !important; }
 .org-members-table.ui.table { margin-top: 8px; }

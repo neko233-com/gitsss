@@ -9,7 +9,7 @@
 				</div>
 				<div class="flex-item-main">
 					<div class="flex-item-title tw-text-18">
-						<a class="muted tw-font-normal" href="{{.Owner.HomeLink}}">{{.Owner.Name}}</a>/<a class="muted" href="{{$.RepoLink}}">{{.Name}}</a>
+						<a class="muted tw-font-normal" href="{{.Owner.HomeLink}}">{{if .Owner.IsOrganization}}{{template "org/identity" .Owner}}{{else}}{{.Owner.Name}}{{end}}</a>/<a class="muted" href="{{$.RepoLink}}">{{.Name}}</a>
 					</div>
 				</div>
 				<div class="flex-item-trailing">
@@ -294,5 +294,3 @@
 		</aside>
 	{{end}}
 </div>
-<div id="gitsss-react-shell" hidden data-owner="{{.Repository.Owner.Name}}" data-repo="{{.Repository.Name}}" data-sub="{{AppSubUrl}}"></div>
-<script src="{{AssetUrlPrefix}}/js/gitsss-react.js" defer></script>

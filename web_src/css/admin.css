@@ -59,7 +59,7 @@
   justify-content: space-between;
   gap: 1rem;
   color: var(--color-text-light);
-  font-size: 0.875rem;
+  font-size: 13px;
 }
 
 .storage-capacity-progress-label strong {
@@ -73,7 +73,7 @@
 
 .storage-capacity-progress-detail {
   color: var(--color-text-light-2);
-  font-size: 0.8125rem;
+  font-size: 13px;
 }
 
 .storage-capacity-chart {
@@ -126,8 +126,8 @@
 .admin-sidebar-menu {
   overflow: hidden;
   border: 1px solid var(--color-light-border);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px var(--color-shadow);
+  border-radius: 6px;
+  box-shadow: none;
 }
 
 .admin-sidebar-heading {
@@ -135,7 +135,7 @@
   border-bottom: 1px solid var(--color-light-border) !important;
   background: var(--color-menu) !important;
   color: var(--color-text) !important;
-  font-size: 0.95rem;
+  font-size: 15px;
   font-weight: var(--font-weight-semibold) !important;
 }
 
@@ -150,11 +150,10 @@
 
 .admin-sidebar-menu details > summary {
   padding: 0.72rem 1rem;
-  color: var(--color-text-light);
-  font-size: 0.78rem;
+  color: var(--color-text-light-2);
+  font-size: 13px;
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: normal;
 }
 
 .admin-sidebar-menu details > summary:hover,
@@ -171,7 +170,24 @@
 .admin-sidebar-menu details > .menu .item,
 .admin-sidebar-menu > .item:not(.admin-sidebar-heading) {
   border-radius: 6px;
+  font-size: 14px;
+  line-height: 20px;
+  padding: 8px 10px;
 }
+
+.page-content.admin .flex-container-nav { flex: 0 0 230px; }
+.page-content.admin .admin-sidebar-nav { position: sticky; top: 64px; align-self: flex-start; max-height: calc(100vh - 80px); overflow-y: auto; overscroll-behavior: contain; }
+.page-content.admin .ui.menu.admin-sidebar-menu .menu .item { padding: 6px 10px; font-size: 14px; line-height: 20px; }
+.page-content.admin .flex-container-main { font-size: 14px; line-height: 1.6; }
+.page-content.admin .ui.header { font-size: 16px; }
+.page-content.admin .ui.form input,
+.page-content.admin .ui.form select,
+.page-content.admin .ui.form textarea,
+.page-content.admin .ui.form label,
+.page-content.admin .ui.table { font-size: 14px; }
+.page-content.admin .ui.form .help,
+.page-content.admin .muted,
+.page-content.admin .ui.button { font-size: 13px; }
 
 .admin-sidebar-menu details > .menu .item.active,
 .admin-sidebar-menu > .item.active {

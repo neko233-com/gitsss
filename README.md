@@ -17,6 +17,8 @@ Screenshots below show a demonstration instance captured on 2026-10-16; no produ
 - Run GitSSS on `5030` beside Gitea on `3000` during evaluation. After an approved cutover, GitSSS can also listen on `3000`.
 - Sign-in required and self-registration disabled by default; organizations appear first on the home page.
 - Editable team display names, independent of stable team identities and permissions.
+- Organization identifiers and editable notes displayed together, searchable by either.
+- One complete desktop interface for repository workflows, with readable administration and no classic/new page switch.
 - A consistent organization workspace with searchable organization/team menus and in-place team filtering.
 - One shared organization board: quick task cards, search, @member assignment and drag-to-change status; repository boards stay independent.
 - Automatic system/browser language, readable desktop themes, and 24 built-in avatars with automatic crop/compression for custom uploads.

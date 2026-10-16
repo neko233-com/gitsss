@@ -4,6 +4,8 @@
 package templates
 
 import (
+	"bytes"
+	"html/template"
 	"io/fs"
 	"os"
 	"reflect"
@@ -16,6 +18,32 @@ import (
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestOrganizationIdentityKeepsIdentifierAndNote(t *testing.T) {
+	source, err := os.ReadFile("../../templates/org/identity.tmpl")
+	require.NoError(t, err)
+	tmpl, err := template.New("identity").Parse(string(source))
+	require.NoError(t, err)
+	for _, name := range []string{"", "engineering", "研发团队", "<script>alert(1)</script>"} {
+		var output bytes.Buffer
+		require.NoError(t, tmpl.Execute(&output, &user_model.User{Name: "engineering", FullName: name}))
+		require.Contains(t, output.String(), ">engineering</span>")
+		if name == "" || name == "engineering" {
+			require.NotContains(t, output.String(), "org-identity-note")
+		} else {
+			require.Contains(t, output.String(), "org-identity-note")
+			require.Contains(t, output.String(), template.HTMLEscapeString(name))
+		}
+	}
+}
+
+func TestRepositoryUsesOneCompleteInterface(t *testing.T) {
+	header, err := os.ReadFile("../../templates/repo/header.tmpl")
+	require.NoError(t, err)
+	require.NotContains(t, string(header), "gitsss-react-shell")
+	require.NotContains(t, string(header), "gitsss-react.js")
+	require.Contains(t, string(header), `template "org/identity"`)
+}
 
 func TestOrganizationWorkspaceEntitySelectorsExist(t *testing.T) {
 	entities := map[string]reflect.Type{

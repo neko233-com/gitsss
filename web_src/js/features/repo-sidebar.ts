@@ -6,7 +6,9 @@ const sidebarStorageKey = 'gitsss-repo-sidebar-collapsed';
 function applySidebarState(toggle: HTMLButtonElement, collapsed: boolean): void {
   document.body.classList.toggle('repo-sidebar-collapsed', collapsed);
   toggle.setAttribute('aria-expanded', String(!collapsed));
-  toggle.setAttribute('title', collapsed ? toggle.getAttribute('data-expand-title')! : toggle.getAttribute('data-collapse-title')!);
+  const label = collapsed ? toggle.getAttribute('data-expand-title')! : toggle.getAttribute('data-collapse-title')!;
+  toggle.setAttribute('title', label);
+  toggle.setAttribute('aria-label', label);
   toggle.innerHTML = collapsed ? html`<svg class="svg octicon-chevron-right" width="16" height="16" aria-hidden="true"><path d="m6.22 3.97 4.03 4.03-4.03 4.03a.75.75 0 0 0 1.06 1.06l4.56-4.56a.75.75 0 0 0 0-1.06L7.28 2.91a.75.75 0 0 0-1.06 1.06Z"></path></svg>` : html`<svg class="svg octicon-chevron-left" width="16" height="16" aria-hidden="true"><path d="m9.78 3.97-4.03 4.03 4.03 4.03a.75.75 0 0 1-1.06 1.06l-4.56-4.56a.75.75 0 0 1 0-1.06l4.56-4.56a.75.75 0 0 1 1.06 1.06Z"></path></svg>`;
 }
 
@@ -14,6 +16,12 @@ export function initRepoSidebar(): void {
   const sidebar = document.querySelector<HTMLElement>('.repo-sidebar');
   const toggle = sidebar ? sidebar.querySelector<HTMLButtonElement>('[data-repo-sidebar-toggle]') : null;
   if (!sidebar || !toggle) return;
+  for (const link of sidebar.querySelectorAll<HTMLAnchorElement>('.repo-sidebar-link')) {
+    const label = link.textContent.trim();
+    link.setAttribute('aria-label', label);
+    link.title = label;
+    if (link.classList.contains('active')) link.setAttribute('aria-current', 'page');
+  }
   toggle.setAttribute('data-collapse-title', toggle.getAttribute('title')!);
   let collapsed = false;
   try {
@@ -36,7 +44,7 @@ export function initRepoSidebar(): void {
   const mobileCloseButtons = document.querySelectorAll<HTMLButtonElement>('[data-repo-sidebar-mobile-close]');
   if (!mobileOpen || mobileCloseButtons.length === 0) return;
 
-  const desktopQuery = window.matchMedia('(min-width: 1440px)');
+  const desktopQuery = window.matchMedia('(min-width: 1200px)');
   const setMobileState = (open: boolean): void => {
     const isDesktop = desktopQuery.matches;
     const active = open && !isDesktop;

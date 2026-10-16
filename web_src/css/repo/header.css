@@ -1,5 +1,5 @@
 .repository .secondary-nav {
-  padding-top: 12px;
+  padding-top: 6px;
 }
 
 .repository .secondary-nav .fork-flag {
@@ -11,17 +11,22 @@
   display: flex;
   flex-flow: row wrap;
   justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 4px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-top: 0;
 }
+
+.repo-header > .flex-item { flex: 1; min-width: 0; }
+.repo-header .flex-item-title { justify-content: flex-start; flex-wrap: wrap; gap: 4px; font-size: 16px; line-height: 24px; }
 
 .repo-header .flex-item {
   padding: 0;
 }
 
 .repo-header .flex-item-main {
-  flex: 0;
-  flex-basis: unset;
+  flex: 1;
+  min-width: 0;
 }
 
 .repo-header .flex-item-trailing {
@@ -38,7 +43,7 @@
   display: none;
 }
 
-@media (max-width: 1439.98px) {
+@media (max-width: 1199.98px) {
   .repo-sidebar-mobile-toggle {
     display: inline-flex;
     align-items: center;
@@ -169,9 +174,9 @@
   }
 }
 
-@media (min-width: 1440px) {
+@media (min-width: 1200px) {
   .page-content.repository {
-    padding-left: 248px;
+    padding-left: 224px;
   }
 
   .repository .repo-primary-nav {
@@ -181,15 +186,17 @@
   .repository .repo-sidebar {
     position: fixed;
     z-index: 10;
-    top: 104px;
+    top: 64px;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
     left: 16px;
     display: block;
-    width: 216px;
-    padding: 0.75rem;
+    width: 196px;
+    padding: 8px;
     border: 1px solid var(--color-secondary);
-    border-radius: 10px;
-    background: var(--color-box-body);
-    box-shadow: 0 10px 30px rgb(31 35 40 / 8%);
+    border-radius: 6px;
+    background: var(--color-menu);
+    box-shadow: none;
   }
 
   .repo-sidebar-title {
@@ -259,10 +266,6 @@
     text-decoration: none;
   }
 
-  .repo-sidebar-link:hover {
-    transform: translateX(2px);
-  }
-
   .repo-sidebar-divider {
     height: 1px;
     margin: 0.45rem 0;
@@ -270,7 +273,7 @@
   }
 }
 
-@media (min-width: 1440px) {
+@media (min-width: 1200px) {
   body.repo-sidebar-collapsed .page-content.repository {
     padding-left: 80px;
   }

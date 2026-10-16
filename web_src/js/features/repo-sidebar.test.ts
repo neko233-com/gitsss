@@ -9,7 +9,7 @@ const sidebarHTML = `
       <button type="button" data-repo-sidebar-toggle data-expand-title="Expand" title="Collapse"></button>
       <button type="button" data-repo-sidebar-mobile-close aria-label="Close repository navigation"></button>
     </div>
-    <nav><a href="/code">Code</a></nav>
+    <nav><a class="repo-sidebar-link active" href="/code"><span class="repo-sidebar-label">Code</span></a></nav>
   </aside>
 `;
 
@@ -50,5 +50,10 @@ describe('repository sidebar', () => {
     toggle.click();
     expect(document.body.classList.contains('repo-sidebar-collapsed')).toBe(true);
     expect(localUserSettings.getBoolean('gitsss-repo-sidebar-collapsed')).toBe(true);
+    expect(toggle.getAttribute('aria-label')).toBe('Expand');
+    const link = document.querySelector<HTMLAnchorElement>('.repo-sidebar-link')!;
+    expect(link.getAttribute('aria-label')).toBe('Code');
+    expect(link.getAttribute('aria-current')).toBe('page');
+    expect(link.title).toBe('Code');
   });
 });

@@ -205,7 +205,7 @@ readable width.
 Activity uses three columns: repositories and filters on the left, activity in the
 center, CI/CD and published announcements on the right. Contribution history is
 collapsed initially. Quick links have a separate tab (`?tab=links`) and do not
-appear in Activity. Desktop text defaults to 13px with 16px page gutters, compact
+appear in Activity. Desktop text defaults to 14px with 16px page gutters, compact
 headers/buttons and a single-line organization member table (28px avatars).
 Code viewers retain their existing line-height settings. Browser zoom remains a
 user preference; no page scaling or transforms are applied.
@@ -239,3 +239,28 @@ binary ignores rules but retains existing grants; rollback does not revoke acces
 Native Express233 CI upload is documented in [the upload guide](express233-upload.md).
 
 Fresh SQLite installs let the complete upstream models create Project/Team primary keys before adding extension-only columns; upgrades keep the existing tables and extension version 2 unchanged.
+
+## One desktop interface and organization notes
+
+Organizations display their stable `name` together with a distinct `full_name`
+note. Set the note in organization settings or PATCH the existing organization API
+with `full_name`; it does not rename the organization, repositories, clone URLs or
+team IDs. Empty or identical notes are omitted. The homepage directory searches
+both the identifier and note, supports Escape to clear, and shows an empty-result
+message. Export trial organization notes before native takeover and map by name.
+
+Repository code, files, issues, pull requests, Actions, wiki, releases, boards and
+settings use the complete server-rendered interface with the same navigation.
+The experimental API-driven overlay no longer mounts or hides the page; there is
+no classic/new interface switch. Existing URLs, including `classic=1`, continue
+to show the same interface. API authentication and permission checks are unchanged;
+web sessions do not acquire extra API privileges to render the page.
+
+Desktop navigation is a compact, scrollable rail from 1200px, with accessible
+labels and a persistent collapse control. The header and repository content share
+the same left alignment. Administration uses 14px text/forms, 13px section labels
+and 16px headings; the current navigation group starts expanded and other groups
+remain available on demand. The navigation rail scrolls independently. Compactness
+comes from spacing rather than tiny text. Storage,
+schema and backend operation contracts are unchanged. Rollback is the previous
+binary and its embedded templates/assets, preserving the existing data.
