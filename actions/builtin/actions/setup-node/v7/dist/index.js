@@ -44,7 +44,7 @@ try {
   const version = childProcess.execFileSync('node', ['--version'], {encoding: 'utf8'}).trim().replace(/^v/, '');
   if (!version.startsWith('24.')) throw new Error(`embedded Node.js runtime is ${version}, expected 24.x`);
 
-  appendCommand(process.env.GITHUB_PATH, '/usr/local/bin');
+  appendCommand(process.env.GITHUB_PATH, path.dirname(fs.realpathSync(process.execPath)));
   appendCommand(process.env.GITHUB_OUTPUT, `node-version=${version}`);
   if (input('CACHE')) {
     process.stdout.write('::notice::setup-node cache input is accepted; use bundled actions/cache for explicit dependency caching.\n');

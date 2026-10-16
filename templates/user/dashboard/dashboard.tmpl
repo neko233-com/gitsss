@@ -39,7 +39,7 @@
 		<section class="dashboard-stream" aria-label="{{ctx.Locale.Tr "activities"}}">
 			{{template "base/alert" .}}
 			<div class="dashboard-stream-header"><h2>{{ctx.Locale.Tr "activities"}}</h2></div>
-			<details class="dashboard-contributions"><summary>{{svg "octicon-calendar"}} {{ctx.Locale.Tr "dashboard.contributions.title"}}</summary>{{template "user/heatmap" .}}</details>
+			{{if .EnableHeatmap}}<details class="dashboard-contributions" open><summary>{{svg "octicon-calendar"}} {{ctx.Locale.Tr "dashboard.contributions.title"}}</summary>{{template "user/heatmap" .}}</details>{{end}}
 			<div data-gitsss-plugin-slot="dashboard"></div>
 			<div data-dashboard-feed-area data-error="{{ctx.Locale.Tr "org.workspace.load_error"}}">
 			{{if .Page.Paginater.TotalPages}}

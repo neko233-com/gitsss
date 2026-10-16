@@ -1,5 +1,6 @@
 import {GET} from '../modules/fetch.ts';
 import {showErrorToast} from '../modules/toast.ts';
+import {replaceHeatmap} from './heatmap.ts';
 
 export function initDashboardTeamFilter(): void {
   const selector = document.querySelector<HTMLElement>('[data-dashboard-team-select]');
@@ -26,6 +27,7 @@ export function initDashboardTeamFilter(): void {
       const parsed = new DOMParser().parseFromString(await response.text(), 'text/html');
       const next = parsed.querySelector('[data-dashboard-feed-area]');
       if (!next) throw new Error('dashboard response missing');
+      if (controller.signal.aborted) return;
       area.replaceChildren(...Array.from(next.childNodes));
       for (const item of links) {
         const selected = item === link;
@@ -41,6 +43,8 @@ export function initDashboardTeamFilter(): void {
       if (activity) activity.href = url.pathname;
       if (pushHistory) window.history.pushState({}, '', url);
       window.dispatchEvent(new CustomEvent('gitsss:dashboard-team', {detail: {teamId: Number(link.getAttribute('data-dashboard-team'))}}));
+      const heatmap = parsed.querySelector<HTMLElement>('#user-heatmap');
+      if (heatmap) await replaceHeatmap(heatmap);
     } catch {
       if (!controller.signal.aborted) showErrorToast(area.getAttribute('data-error')!);
     } finally {

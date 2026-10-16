@@ -69,7 +69,7 @@ var builtinActionDefinitions = map[string]builtinActionDefinition{
 	},
 	"setup-node": {
 		directory: "v7",
-		revision:  "gitsss-20260716-1",
+		revision:  "gitsss-20261016-2",
 		refs: []string{
 			"v4", "v5", "v6", "v7",
 			"49933ea5288caeca8642d1e84afbd3f7d6820020",

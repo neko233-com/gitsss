@@ -13,6 +13,7 @@
 - 首页充分利用桌面宽度，支持公共入口和个人快捷链接，多项添加、编辑、删除均在当前页完成。
 - 组织英文标识与备注同时显示，首页支持按两者搜索，不改变仓库地址或权限。
 - 仓库功能统一使用一套完整桌面界面，后台采用清晰字号和分组导航，不再提供经典/新版页面切换。
+- 贡献热图默认可见并跟随团队筛选；后台展示磁盘总容量、已用/可用与实测 Git/LFS 文件大小。
 
 ![GitSSS 仓库概览](docs/site/assets/screenshots/repository.png)
 
@@ -296,3 +297,7 @@ make release-native VERSION=1.3.0
 动态页采用仓库 / 活动 / CI/CD 三栏，快捷入口为独立 Tab；13px 默认字号、紧凑页头和单行成员表格。组织设置支持按仓库名正则自动分配团队，可预览并单独应用到已有仓库，保留原有授权。原生 Actions 内置 [Express233 上传](docs/operations/express233-upload.md)，流式上传到新草稿版本，显式启用后才发布。
 
 ![紧凑的组织成员表格](docs/site/assets/screenshots/members.png)
+
+管理后台正文、侧栏及表格统一使用 15px 字号，说明和按钮为 14px，磁盘统计横向四栏显示。
+
+![清晰的管理后台与磁盘及 Git/LFS 统计](docs/site/assets/screenshots/storage.png)

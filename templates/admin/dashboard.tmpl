@@ -6,6 +6,12 @@
 			<div><strong>{{ctx.Locale.Tr "admin.storage_awareness.title"}}</strong> · {{FileSize .StorageSnapshot.AvailableBytes}} {{ctx.Locale.Tr "admin.storage_awareness.available"}}</div>
 			<a href="{{AppSubUrl}}/-/admin/storage">{{ctx.Locale.Tr "view"}}</a>
 		</div>
+		<div class="storage-dashboard-stats">
+			<div><span>{{ctx.Locale.Tr "admin.storage_awareness.capacity"}}</span><strong>{{FileSize .StorageSnapshot.CapacityBytes}}</strong></div>
+			<div><span>{{ctx.Locale.Tr "admin.storage_awareness.used"}}</span><strong>{{FileSize .StorageSnapshot.UsedBytes}}</strong></div>
+			<div><span>{{ctx.Locale.Tr "admin.storage_awareness.available"}}</span><strong>{{FileSize .StorageSnapshot.AvailableBytes}}</strong></div>
+			<div><span>{{ctx.Locale.Tr "admin.storage_awareness.git_lfs"}}</span><strong>{{if or .StorageSnapshot.InventoryTruncated .StorageSnapshot.InventoryError}}≥ {{end}}{{FileSize .StorageSnapshot.GitLFSBytes}}</strong></div>
+		</div>
 		{{if .StorageSnapshot.WriteProtected}}<div class="ui negative message">{{ctx.Locale.Tr "admin.storage_awareness.protected"}}</div>{{else if .StorageSnapshot.Warning}}<div class="ui warning message">{{ctx.Locale.Tr "admin.storage_awareness.warning"}}</div>{{end}}
 	</div>
 	{{end}}

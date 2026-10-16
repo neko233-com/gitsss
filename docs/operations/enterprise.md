@@ -204,7 +204,7 @@ readable width.
 
 Activity uses three columns: repositories and filters on the left, activity in the
 center, CI/CD and published announcements on the right. Contribution history is
-collapsed initially. Quick links have a separate tab (`?tab=links`) and do not
+visible initially and can be collapsed. Quick links have a separate tab (`?tab=links`) and do not
 appear in Activity. Desktop text defaults to 14px with 16px page gutters, compact
 headers/buttons and a single-line organization member table (28px avatars).
 Code viewers retain their existing line-height settings. Browser zoom remains a
@@ -264,3 +264,72 @@ remain available on demand. The navigation rail scrolls independently. Compactne
 comes from spacing rather than tiny text. Storage,
 schema and backend operation contracts are unchanged. Rollback is the previous
 binary and its embedded templates/assets, preserving the existing data.
+
+
+## Production takeover and visible contribution history
+
+After explicit operator approval, stop both writers and preserve the original
+binary, configuration/secrets, SQLite snapshot and SSH authorization file.
+Migrate the original database in place, retaining every account/password hash,
+credential, permission, repository ID and configured storage path. Map trial-only
+notes, links, team labels and task identities by stable names. Do not copy the
+trial runtime-state over the source runtime-state. Keep the original SSH forced
+command executable path as a compatibility entry point to the accepted GitSSS
+binary, so existing keys and hooks keep working without repository rewrites.
+
+Use one production service and database: canonical HTTP port 3000, optional
+5030 additional listener. Disable the previous services at boot and retain their
+backups. Resume only the previously active external runners and verify their
+existing identities. Keep the managed runner disabled unless it is explicitly
+enabled with a dedicated label that no existing workflow targets. During isolated rehearsal keep SSH authorization writes disabled. Once the
+source is stopped and GitSSS exclusively owns production, preserve the original
+system-SSH key management mode so adding/removing Git keys continues to work.
+Operating-system credentials, port and SSH host keys remain unchanged.
+
+Contribution history starts open on personal/organization dashboards when
+heatmaps are enabled. Team selection reloads the matching team's heatmap along
+with the activity view, cancels superseded charts and keeps localized errors
+readable. Narrow desktop columns scroll the calendar horizontally instead of
+shrinking its labels. Existing activity visibility rules and endpoints apply.
+
+Administration shows data-volume capacity, used and available space, plus
+measured Git/LFS file bytes. These are distinct: volume use includes other apps,
+and repository estimates can count shared LFS more than once. The inventory
+shows its measurement time, localized categories and an explicit lower-bound
+warning on truncation/read errors. CACHE_TTL and MAX_ENTRIES remain the existing
+storage_awareness settings. No storage layout, provider, object bytes or API
+payload fields change; rollback is the previous binary and embedded assets.
+
+
+### Actions defaults and managed runner selection
+
+When a native Gitea source omits DEFAULT_ACTIONS_URL, explicitly preserve its
+upstream `github` default. GitSSS fresh installs use `self`; inheriting that
+fresh-install default can make an external runner fetch a local action mirror
+without credentials. Do not relax site sign-in or private repository access to
+fix action resolution. Explicit source values continue to take precedence.
+See the [upstream action download rules](https://docs.gitea.com/usage/actions/faq/).
+
+A managed runner can coexist with original external runners using an exclusive
+label, for example BUILTIN_RUNNER_LABELS=gitsss-native:host and capacity 1. New
+jobs opt in with runs-on: gitsss-native; original labels and credentials stay
+unchanged. The managed runner provides bundled compatible checkout, setup-node,
+cache and artifact actions, including artifact v4+. Upstream GitHub artifact SDKs
+on external runners can reject non-GitHub servers; use a supported Gitea action
+there or opt in to the native runner. Neither option runs GitHub-hosted workflows.
+
+Native binary installations provide their own Node.js 24 on the service PATH;
+the bundled setup-node action keeps that runtime's resolved directory on Linux,
+macOS and Windows. It does not download or replace a system toolchain. Use a
+private runtime prefix for GitSSS when original external runners need a different
+Node.js version.
+
+Administration uses 15px body, table and sidebar text, 14px supporting text and
+buttons, and 17px section headings. A scrollable 240px sidebar keeps settings
+accessible while preserving a compact desktop layout. Disk totals use four
+columns rather than stretching the overview vertically.
+
+Role and token scope are separate. A site administrator's read-only inventory
+token must stay read-only. Create a temporary scoped operator token with the
+local CLI for disposable write acceptance and revoke it after cleanup; never
+reset a source account password to make an acceptance script pass.
