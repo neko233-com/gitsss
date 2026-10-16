@@ -69,6 +69,7 @@ type PullRequest struct {
 	Milestone *Milestone     `json:"milestone,omitempty"`
 	Assignees []User         `json:"assignees,omitempty"`
 	Comments  []IssueComment `json:"comments,omitempty"`
+	Reviews   []PullReview   `json:"reviews,omitempty"`
 }
 
 // PullRef is the head or base of a pull request.
@@ -78,18 +79,21 @@ type PullRef struct {
 	Repo *Repository `json:"repo,omitempty"`
 }
 
-// Release is release metadata. Attachment bytes are not copied.
+// Release is release metadata. Attachment bytes are downloaded during apply.
 type Release struct {
-	TagName    string `json:"tag_name"`
-	Name       string `json:"name,omitempty"`
-	Body       string `json:"body,omitempty"`
-	Draft      bool   `json:"draft,omitempty"`
-	Prerelease bool   `json:"prerelease,omitempty"`
-	Target     string `json:"target_commitish,omitempty"`
+	ID         int64          `json:"id,omitempty"`
+	TagName    string         `json:"tag_name"`
+	Name       string         `json:"name,omitempty"`
+	Body       string         `json:"body,omitempty"`
+	Draft      bool           `json:"draft,omitempty"`
+	Prerelease bool           `json:"prerelease,omitempty"`
+	Target     string         `json:"target_commitish,omitempty"`
+	Assets     []ReleaseAsset `json:"assets,omitempty"`
 }
 
 type contentStats struct {
 	labels, milestones, issues, pulls, comments, releases, remaps int
+	assets, wikiPages, reviews, packagesCopied, packagesSkipped   int
 	skipped                                                       bool
 	notes                                                         []string
 }
@@ -130,12 +134,12 @@ func (m *Migrator) discoverRepositoryContent(ctx context.Context, ref Repository
 		return fmt.Errorf("list source releases for %s: %w", ref, err)
 	}
 	slices.SortFunc(plan.Releases, func(a, b Release) int { return cmp.Compare(a.TagName, b.TagName) })
-	return nil
+	return m.discoverExtras(ctx, ref, plan)
 }
 
 func (m *Migrator) applyRepositoryContent(ctx context.Context, ref RepositoryRef, plan RepositoryPlan, created bool) (contentStats, error) {
 	stats := contentStats{}
-	if len(plan.Labels)+len(plan.Milestones)+len(plan.Issues)+len(plan.Pulls)+len(plan.Releases) == 0 {
+	if len(plan.Labels)+len(plan.Milestones)+len(plan.Issues)+len(plan.Pulls)+len(plan.Releases)+len(plan.Wiki)+len(plan.Packages) == 0 {
 		return stats, nil
 	}
 	if !created {
@@ -193,10 +197,11 @@ func (m *Migrator) applyRepositoryContent(ctx context.Context, ref RepositoryRef
 	}
 	notedRemap := false
 	for _, item := range items {
-		number, kind, err := m.createWorkItem(ctx, ref, item, labelIDs, milestoneIDs)
+		number, kind, reviewCount, err := m.createWorkItem(ctx, ref, item, labelIDs, milestoneIDs)
 		if err != nil {
 			return stats, err
 		}
+		stats.reviews += reviewCount
 		if kind == "issue" {
 			stats.issues++
 		} else {
@@ -230,10 +235,23 @@ func (m *Migrator) applyRepositoryContent(ctx context.Context, ref RepositoryRef
 		if release.Target != "" {
 			payload["target_commitish"] = release.Target
 		}
-		if err := m.target.post(ctx, repoPath(ref)+"/releases", payload, nil); err != nil {
+		var created Release
+		var output any
+		if len(release.Assets) > 0 {
+			output = &created
+		}
+		if err := m.target.post(ctx, repoPath(ref)+"/releases", payload, output); err != nil {
 			return stats, fmt.Errorf("create target release %s/%s: %w", ref, release.TagName, err)
 		}
 		stats.releases++
+		copied, err := m.copyReleaseAssets(ctx, ref, created.ID, release.Assets)
+		stats.assets += copied
+		if err != nil {
+			return stats, err
+		}
+	}
+	if err := m.applyExtras(ctx, ref, plan, &stats); err != nil {
+		return stats, err
 	}
 	return stats, nil
 }
@@ -245,11 +263,12 @@ type workItem struct {
 	comments []IssueComment
 }
 
-func (m *Migrator) createWorkItem(ctx context.Context, ref RepositoryRef, item workItem, labelIDs, milestoneIDs map[string]int64) (int64, string, error) {
+func (m *Migrator) createWorkItem(ctx context.Context, ref RepositoryRef, item workItem, labelIDs, milestoneIDs map[string]int64) (int64, string, int, error) {
 	if item.pull != nil {
 		return m.createPull(ctx, ref, *item.pull, labelIDs, milestoneIDs)
 	}
-	return m.createIssue(ctx, ref, *item.issue, labelIDs, milestoneIDs)
+	number, kind, err := m.createIssue(ctx, ref, *item.issue, labelIDs, milestoneIDs)
+	return number, kind, 0, err
 }
 
 func (m *Migrator) createIssue(ctx context.Context, ref RepositoryRef, issue Issue, labelIDs, milestoneIDs map[string]int64) (int64, string, error) {
@@ -284,17 +303,17 @@ func (m *Migrator) createIssue(ctx context.Context, ref RepositoryRef, issue Iss
 	return created.Number, "issue", nil
 }
 
-func (m *Migrator) createPull(ctx context.Context, ref RepositoryRef, pull PullRequest, labelIDs, milestoneIDs map[string]int64) (int64, string, error) {
+func (m *Migrator) createPull(ctx context.Context, ref RepositoryRef, pull PullRequest, labelIDs, milestoneIDs map[string]int64) (int64, string, int, error) {
 	if strings.TrimSpace(pull.Title) == "" {
-		return 0, "", fmt.Errorf("source pull %s#%d has no title", ref, pull.Number)
+		return 0, "", 0, fmt.Errorf("source pull %s#%d has no title", ref, pull.Number)
 	}
 	head, err := pullHead(ref, pull)
 	if err != nil {
-		return 0, "", err
+		return 0, "", 0, err
 	}
 	ids, err := mappedLabelIDs(pull.Labels, labelIDs)
 	if err != nil {
-		return 0, "", fmt.Errorf("source pull %s#%d: %w", ref, pull.Number, err)
+		return 0, "", 0, fmt.Errorf("source pull %s#%d: %w", ref, pull.Number, err)
 	}
 	payload := map[string]any{
 		"title": pull.Title, "body": pull.Body, "head": head, "base": pull.Base.Ref,
@@ -312,18 +331,23 @@ func (m *Migrator) createPull(ctx context.Context, ref RepositoryRef, pull PullR
 		Number int64 `json:"number"`
 	}
 	if err := m.postAs(ctx, repoPath(ref)+"/pulls", loginOf(pull.User), payload, &created); err != nil {
-		return 0, "", fmt.Errorf("create target pull %s#%d: %w", ref, pull.Number, err)
+		return 0, "", 0, fmt.Errorf("create target pull %s#%d: %w", ref, pull.Number, err)
 	}
 	if created.Number == 0 {
-		return 0, "", fmt.Errorf("create target pull %s#%d: response has no number", ref, pull.Number)
+		return 0, "", 0, fmt.Errorf("create target pull %s#%d: response has no number", ref, pull.Number)
+	}
+	// Reviews are submitted before close. Gitea rejects a new review on a closed request.
+	copied, err := m.applyPullReviews(ctx, ref, created.Number, pull.Reviews)
+	if err != nil {
+		return 0, "", copied, err
 	}
 	if pull.Merged || (pull.State != "" && !strings.EqualFold(pull.State, "open")) {
 		endpoint := repoPath(ref) + "/pulls/" + strconv.FormatInt(created.Number, 10)
 		if err := m.target.patch(ctx, endpoint, map[string]string{"state": "closed"}, nil, http.StatusCreated); err != nil {
-			return 0, "", fmt.Errorf("close target pull %s#%d: %w", ref, pull.Number, err)
+			return 0, "", copied, fmt.Errorf("close target pull %s#%d: %w", ref, pull.Number, err)
 		}
 	}
-	return created.Number, "pull", nil
+	return created.Number, "pull", copied, nil
 }
 
 func (m *Migrator) createComment(ctx context.Context, ref RepositoryRef, number int64, comment IssueComment) error {

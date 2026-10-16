@@ -115,7 +115,7 @@
       </div>
 
       <h2>迁移与 LFS</h2>
-      <p><code>gitsss import-gitea-http</code> 默认输出 JSON。源和目标可以用站点管理员 Token 文件，或 <code>--source-user</code> 加 <code>--source-password-file</code>（目标同理）。密码放在 <code>0600</code> 文件里，不要放在命令行。不带 <code>--apply</code> 只打印计划。带 <code>--apply</code> 时复制账号、权限、Git、LFS，以及本次新建仓库上的标签、里程碑、Issue、评论、Pull Request 和 Release 说明。Wiki、Release 附件和软件包仍不在 HTTP 导入范围内。</p>
+      <p><code>gitsss import-gitea-http</code> 默认输出 JSON。源和目标可以用站点管理员 Token 文件，或 <code>--source-user</code> 加 <code>--source-password-file</code>（目标同理）。密码放在 <code>0600</code> 文件里，不要放在命令行。不带 <code>--apply</code> 只打印计划。带 <code>--apply</code> 时复制账号、权限、Git、LFS，以及本次新建仓库上的标签、里程碑、Issue、评论、Pull Request、评审线程、Release 说明和附件、Wiki 页面，以及挂在该仓库上的 generic、npm、Maven、PyPI、Helm、Cargo、Debian、Composer、Alpine、NuGet、RubyGems 和容器镜像。Debian 与 Alpine 依赖软件包文件 API 的 <code>composite_key</code>。评审里已解决的行评论会在目标评论创建后标记为已解决。附件和软件包单文件上限 512 MiB，并且下载地址必须和源站同源。Conan 和 Swift 只出现在计划里。</p>
       <p><code>gitsss admin lfs-gc</code> 输出 JSON。不加 <code>--apply</code> 只扫描。默认保留 168 小时，短于 24 小时需要 <code>--force</code>。已登录的站点管理员也可以 <code>POST /api/v1/admin/lfs-gc</code>。</p>
       <p>纯前端插件放在 <code>custom/public/assets/plugins/manifest.json</code>。后端不执行插件代码。契约见 <a href="extensions.html">扩展功能</a>。</p>
 
