@@ -10,6 +10,7 @@ import (
 
 	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/migrations/v1_27"
+	"github.com/neko233-com/gitsss/models/organization"
 
 	"xorm.io/xorm"
 )
@@ -56,10 +57,10 @@ func migrateGitSSSExtensions(x db.EngineMigration) error {
 	if err != nil {
 		return err
 	}
-	if version.Version > 1 {
-		return fmt.Errorf("GitSSS extension schema %d is newer than supported version 1", version.Version)
+	if version.Version > 2 {
+		return fmt.Errorf("GitSSS extension schema %d is newer than supported version 2", version.Version)
 	}
-	if version.Version == 1 {
+	if version.Version == 2 {
 		return nil
 	}
 	type Project struct {
@@ -68,10 +69,10 @@ func migrateGitSSSExtensions(x db.EngineMigration) error {
 	type Team struct {
 		DisplayName string
 	}
-	if _, err := x.SyncWithOptions(xorm.SyncOptions{IgnoreDropIndices: true, IgnoreConstrains: true}, new(Project), new(Team)); err != nil {
+	if _, err := x.SyncWithOptions(xorm.SyncOptions{IgnoreDropIndices: true, IgnoreConstrains: true}, new(Project), new(Team), new(organization.OrgTask)); err != nil {
 		return err
 	}
-	version.Version = 1
+	version.Version = 2
 	if has {
 		_, err = x.ID(version.ID).Update(version)
 	} else {

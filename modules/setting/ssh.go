@@ -164,7 +164,7 @@ func loadSSHFrom(rootCfg ConfigProvider) {
 	}
 
 	SSH.AuthorizedKeysBackup = sec.Key("SSH_AUTHORIZED_KEYS_BACKUP").MustBool(false)
-	SSH.CreateAuthorizedKeysFile = sec.Key("SSH_CREATE_AUTHORIZED_KEYS_FILE").MustBool(true)
+	SSH.CreateAuthorizedKeysFile = sec.Key("SSH_CREATE_AUTHORIZED_KEYS_FILE").MustBool(!SSH.Disabled && !SSH.StartBuiltinServer)
 
 	SSH.AuthorizedPrincipalsBackup = false
 	SSH.CreateAuthorizedPrincipalsFile = false

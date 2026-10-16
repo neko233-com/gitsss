@@ -3,6 +3,10 @@ dedupePeerDependents: false
 updateNotifier: false
 minimumReleaseAge: 0
 
+overrides:
+  '@codemirror/state': 6.7.0
+  '@codemirror/view': 6.43.2
+
 allowBuilds:
   '@scarf/scarf': false
   core-js: false

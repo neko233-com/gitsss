@@ -15,6 +15,7 @@ import (
 	"github.com/neko233-com/gitsss/modules/session"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/test"
+	"github.com/neko233-com/gitsss/modules/translation"
 	"github.com/neko233-com/gitsss/modules/util"
 	"github.com/neko233-com/gitsss/services/auth/source/oauth2"
 	"github.com/neko233-com/gitsss/services/contexttest"
@@ -24,6 +25,29 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestResetLocaleKeepsAutomaticPreference(t *testing.T) {
+	ctx, _ := contexttest.MockContext(t, "/user/login")
+	initialLocale := ctx.Locale
+	u := &user_model.User{ID: -1}
+	require.NoError(t, resetLocale(ctx, u))
+	require.Empty(t, u.Language)
+	require.Same(t, initialLocale, ctx.Locale)
+}
+
+func TestResetLocaleAppliesExplicitAccountPreference(t *testing.T) {
+	defer translation.InitLocales(t.Context())
+	defer test.MockVariableValue(&setting.Langs, []string{"en-US", "zh-CN"})()
+	defer test.MockVariableValue(&setting.Names, []string{"English", "简体中文"})()
+	defer test.MockVariableValue(&setting.IsProd, true)()
+	translation.InitLocales(t.Context())
+	ctx, response := contexttest.MockContext(t, "/user/login")
+	ctx.Locale = translation.NewLocale("en-US")
+	ctx.Req.AddCookie(&http.Cookie{Name: "lang", Value: "en-US"})
+	require.NoError(t, resetLocale(ctx, &user_model.User{Language: "zh-CN"}))
+	require.Equal(t, "zh-CN", ctx.Locale.Language())
+	require.Equal(t, "zh-CN", response.Result().Cookies()[0].Value)
+}
 
 func addOAuth2Source(t *testing.T, authName string, cfg oauth2.Source) {
 	cfg.Provider = util.IfZero(cfg.Provider, "gitea")

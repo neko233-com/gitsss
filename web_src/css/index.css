@@ -82,6 +82,7 @@
 @import "./editor/combomarkdowneditor.css";
 
 @import "./org.css";
+@import "./org-kanban.css";
 @import "./user.css";
 @import "./dashboard.css";
 @import "./admin.css";

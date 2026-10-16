@@ -1,0 +1,11 @@
+<section class="home-links" data-home-links data-error="{{ctx.Locale.Tr "home.links.error"}}" data-invalid="{{ctx.Locale.Tr "home.links.invalid"}}" data-conflict="{{ctx.Locale.Tr "home.links.conflict"}}">
+	<div class="home-links-heading"><h2>{{ctx.Locale.Tr "home.links.title"}}</h2><span class="text light-2">{{ctx.Locale.Tr "home.links.help"}}</span></div>
+	<div class="home-links-grid">
+		{{range .SharedHomeLinks.Links}}<a class="home-link" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{svg "octicon-link-external" 18}}<span><strong>{{.Title}}</strong><small>{{.URL}}</small></span><span class="ui label">{{ctx.Locale.Tr "home.links.shared"}}</span></a>{{end}}
+		{{range .PersonalHomeLinks.Links}}<a class="home-link" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{svg "octicon-link-external" 18}}<span><strong>{{.Title}}</strong><small>{{.URL}}</small></span></a>{{end}}
+	</div>
+	<div class="home-links-editors">
+		{{template "user/dashboard/home_links_editor" (dict "State" .PersonalHomeLinks "Scope" "personal" "Label" (ctx.Locale.Tr "home.links.personal"))}}
+		{{if .SignedUser.IsAdmin}}{{template "user/dashboard/home_links_editor" (dict "State" .SharedHomeLinks "Scope" "shared" "Label" (ctx.Locale.Tr "home.links.shared"))}}{{end}}
+	</div>
+</section>

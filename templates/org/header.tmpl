@@ -1,24 +1,33 @@
-<div class="ui container flex-container">
-	<div>{{ctx.AvatarUtils.Avatar .Org 100}}</div>
-	<div class="flex-relaxed-list tw-flex-1">
-		<div class="ui header flex-left-right tw-m-0">
-			<div class="flex-text-block">
-				<span class="tw-text-2xl">{{.Org.DisplayName}}</span>
-				{{if .Org.Visibility.IsLimited}}<span class="ui large basic horizontal label">{{ctx.Locale.Tr "org.settings.visibility.limited_shortname"}}</span>{{end}}
-				{{if .Org.Visibility.IsPrivate}}<span class="ui large basic horizontal label">{{ctx.Locale.Tr "org.settings.visibility.private_shortname"}}</span>{{end}}
-			</div>
-			<div class="flex-text-block">
-				{{if .EnableFeed}}
-					<a class="ui basic label button" href="{{.Org.HomeLink}}.rss" data-tooltip-content="{{ctx.Locale.Tr "rss_feed"}}">
-						{{svg "octicon-rss" 24}}
-					</a>
-				{{end}}
-				{{if .IsSigned}}
-					{{template "org/follow_unfollow" .}}
-				{{end}}
-			</div>
-		</div>
-		{{if .RenderedDescription}}
+<div class="org-workspace-header">
+ <div class="ui container flex-left-right">
+  <div class="flex-text-block">
+   {{ctx.AvatarUtils.Avatar .Org 32}}
+   {{if .IsSigned}}
+   <div class="ui floating filter dropdown jump" data-no-results="{{ctx.Locale.Tr "no_results_found"}}">
+    <strong class="text">{{.Org.DisplayName}}</strong>{{svg "octicon-triangle-down" 14 "dropdown icon"}}
+    <div class="menu">
+     <div class="header">{{ctx.Locale.Tr "home.switch_dashboard_context"}}</div>
+     <div class="ui icon search input"><i class="icon">{{svg "octicon-search" 16}}</i><input name="search" aria-label="{{ctx.Locale.Tr "search.org_kind"}}" placeholder="{{ctx.Locale.Tr "search.org_kind"}}"></div>
+     <div class="scrolling menu">
+      {{range .Orgs}}
+      <a class="item {{if eq $.Org.ID .ID}}active selected{{end}}" data-text="{{.DisplayName}} {{.Name}}" href="{{if $.PageIsOrgKanban}}{{.HomeLink}}/-/kanban{{else if $.PageIsOrgTeams}}{{.OrganisationLink}}/teams{{else if $.PageIsOrgMembers}}{{.OrganisationLink}}/members{{else if $.PageIsIssues}}{{.OrganisationLink}}/issues{{else if $.PageIsPulls}}{{.OrganisationLink}}/pulls{{else if $.PageIsMilestonesDashboard}}{{.OrganisationLink}}/milestones{{else if $.PageIsNews}}{{.OrganisationLink}}/dashboard{{else}}{{.HomeLink}}{{end}}">{{ctx.AvatarUtils.Avatar . 24}} {{.DisplayName}}</a>
+      {{end}}
+     </div>
+     <a class="item" href="{{AppSubUrl}}/">{{ctx.Locale.Tr "explore.organizations"}}</a>
+    </div>
+   </div>
+   {{else}}<strong>{{.Org.DisplayName}}</strong>{{end}}
+   {{if .Org.Visibility.IsLimited}}<span class="ui basic label">{{ctx.Locale.Tr "org.settings.visibility.limited_shortname"}}</span>{{end}}
+   {{if .Org.Visibility.IsPrivate}}<span class="ui basic label">{{ctx.Locale.Tr "org.settings.visibility.private_shortname"}}</span>{{end}}
+   {{if .PageIsNews}}{{template "org/team_filter" .}}{{end}}
+  </div>
+  <div class="flex-text-block">
+   {{if .EnableFeed}}<a class="ui basic icon button" href="{{.Org.HomeLink}}.rss" aria-label="{{ctx.Locale.Tr "rss_feed"}}">{{svg "octicon-rss" 16}}</a>{{end}}
+   {{if .IsSigned}}{{template "org/follow_unfollow" .}}{{end}}
+  </div>
+ </div>
+</div>
+{{if or .RenderedDescription .Org.Location .Org.Website .Org.Email}}<details class="ui container org-workspace-about"><summary>{{ctx.Locale.Tr "org.workspace.about"}}</summary>		{{if .RenderedDescription}}
 			<div class="render-content markup">{{.RenderedDescription}}</div>
 		{{end}}
 		<div>
@@ -31,8 +40,5 @@
 			{{if and .IsSigned .Org.Email}}
 				<div class="flex-text-block">{{svg "octicon-mail"}} <a class="muted" href="mailto:{{.Org.Email}}">{{.Org.Email}}</a></div>
 			{{end}}
-		</div>
-	</div>
-</div>
-
+		</div></details>{{end}}
 {{template "org/menu" .}}

@@ -44,7 +44,7 @@
 				<div class="markup"><pre class="code-block"><code>mvn dependency:get -DremoteRepositories={{ctx.AppFullLink}}/api/packages/{{.PackageDescriptor.Owner.Name}}/maven -Dartifact={{.PackageDescriptor.Metadata.GroupID}}:{{.PackageDescriptor.Metadata.ArtifactID}}:{{.PackageDescriptor.Version.Version}}</code></pre></div>
 			</div>
 			<div class="field">
-				<label>{{ctx.Locale.Tr "packages.registry.documentation" "Maven" (printf "%s/docs/site/storage.html" AppSubUrl)}}</label>
+				<label>{{ctx.Locale.Tr "packages.registry.documentation" "Maven" (printf "%s/help/site/storage.html" AppSubUrl)}}</label>
 			</div>
 		</div>
 	</div>

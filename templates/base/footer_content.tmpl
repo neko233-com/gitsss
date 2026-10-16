@@ -29,6 +29,7 @@
 		<div class="ui dropdown upward">
 			<span class="flex-text-inline">{{svg "octicon-globe" 14}} {{ctx.Locale.LangName}}</span>
 			<div class="menu language-menu">
+				<a data-url="{{AppSubUrl}}/?lang=auto" class="item">{{ctx.Locale.Tr "settings.language_auto"}}</a>
 				{{range .AllLangs -}}
 				<a lang="{{.Lang}}" data-url="{{AppSubUrl}}/?lang={{.Lang}}" class="item {{if eq ctx.Locale.Lang .Lang}}selected{{end}}">{{.Name}}</a>
 				{{end -}}

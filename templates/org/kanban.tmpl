@@ -1,0 +1,40 @@
+{{template "base/head" .}}
+<main class="page-content organization org-kanban" aria-label="{{.Title}}">
+	{{template "org/header" .}}
+	<div class="ui container" data-org-kanban data-board-url="{{.KanbanLink}}" data-error="{{ctx.Locale.Tr "org.kanban.save_error"}}" data-invalid="{{ctx.Locale.Tr "org.kanban.invalid"}}">
+		{{template "base/alert" .}}
+		<div class="org-kanban-toolbar">
+			<div><h2>{{ctx.Locale.Tr "org.global_kanban"}}</h2><p>{{ctx.Locale.Tr "org.kanban.help"}}</p></div>
+			<form class="ui form org-kanban-filter" data-board-filter method="get">
+				<div class="ui input"><input type="search" name="q" value="{{.BoardQuery}}" aria-label="{{ctx.Locale.Tr "org.kanban.search"}}" placeholder="{{ctx.Locale.Tr "org.kanban.search"}}" data-board-search></div>
+				<select name="assignee" aria-label="{{ctx.Locale.Tr "org.kanban.assignee"}}" data-board-assignee>
+					<option value="0">{{ctx.Locale.Tr "org.kanban.all_members"}}</option>
+					{{range .BoardMembers}}<option value="{{.ID}}" {{if eq $.BoardAssignee .ID}}selected{{end}}>@{{.Name}}</option>{{end}}
+				</select>
+				<button class="ui basic button">{{ctx.Locale.Tr "org.kanban.search_button"}}</button>
+				<a class="ui basic button" href="{{.KanbanLink}}" data-board-reset>{{ctx.Locale.Tr "org.kanban.reset"}}</a>
+			</form>
+		</div>
+		<div data-board-limit>{{if .BoardLimited}}<p class="ui warning message">{{ctx.Locale.Tr "org.kanban.limit" .BoardTotal}}</p>{{end}}</div>
+		<datalist id="board-mentions">{{range .BoardMembers}}<option value="@{{.Name}}" data-name="{{.Name}}">{{.DisplayName}}</option>{{end}}</datalist>
+		<div class="org-kanban-columns">
+			{{range .BoardColumns}}
+			<section class="org-kanban-column" data-board-column="{{.Status}}" aria-label="{{.Title}}">
+				<h3>{{.Title}} <span class="ui small label" data-board-count>{{len .Tasks}}</span></h3>
+				<form class="ui form org-kanban-quick" data-board-form method="post" action="{{$.KanbanLink}}/tasks">
+					<input type="hidden" name="status" value="{{.Status}}">
+					<input name="title" maxlength="255" required autocomplete="off" list="board-mentions" data-board-title aria-label="{{ctx.Locale.Tr "org.kanban.quick_add"}}" placeholder="{{ctx.Locale.Tr "org.kanban.quick_add"}}">
+					<button class="ui primary icon button" aria-label="{{ctx.Locale.Tr "add"}}" title="{{ctx.Locale.Tr "add"}}">{{svg "octicon-plus" 16}}</button>
+				</form>
+				<div class="org-kanban-cards" data-board-cards>
+				{{range .Tasks}}
+				{{template "org/kanban_card" dict "Task" . "BoardNames" $.BoardNames "BoardMembers" $.BoardMembers "BoardColumns" $.BoardColumns "KanbanLink" $.KanbanLink "IsOrganizationOwner" $.IsOrganizationOwner "SignedUser" $.SignedUser}}
+				{{end}}
+				</div>
+				<p class="org-kanban-empty" data-board-empty>{{ctx.Locale.Tr "org.kanban.empty"}}</p>
+			</section>
+			{{end}}
+		</div>
+	</div>
+</main>
+{{template "base/footer" .}}

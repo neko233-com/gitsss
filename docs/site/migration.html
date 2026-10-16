@@ -153,7 +153,8 @@ chmod 600 source.password target.password</code></pre>
       <p>试运行期间，原 Gitea 继续运行在 <code>3000</code>，GitSSS 使用 <code>5030</code>。完成多个仓库和功能验收后，先停止 Gitea 释放 <code>3000</code>，再从 GitSSS 的 <code>/-/admin/takeover</code> 添加 <code>3000</code> 监听。GitSSS 会继续监听 <code>5030</code>，并开始同时服务 <code>5030</code> 与 <code>3000</code>。</p>
       <ol>
         <li>评估期内保留 Gitea 进程、原数据和回滚路径</li>
-        <li>验收后完成最后一次 Git/LFS 同步并停止 Gitea</li>
+        <li>等待管理员明确通知窗口；保留密码、SSH/API/Runner 凭据与 Actions 历史时，冻结写入、停止两套应用，备份数据库与配置，再用原生数据库和原存储路径接管，不能仅靠 HTTP 试点。</li>
+        <li>新程序作为唯一写入者启动，验证原凭据、Hooks、SSH 密钥与 Runner，再开启生产任务与 Webhook。操作系统 SSH 账号、密码和 22 端口不变。</li>
         <li>在 <code>5030</code> 上登录 GitSSS 管理员页面，添加空闲端口 <code>3000</code></li>
         <li>验证两个端口上的登录、克隆、推送、LFS、Issue 与权限</li>
         <li>确认切换稳定后再归档凭据与安排后续清理</li>

@@ -79,7 +79,7 @@ func prepareDashboardContextUserOrgTeams(ctx *context.Context) *user_model.User 
 // Dashboard render the dashboard page
 func Dashboard(ctx *context.Context) {
 	ctxUser := prepareDashboardContextUserOrgTeams(ctx)
-	if ctx.Written() {
+	if ctx.Written() || !prepareHomeLinks(ctx) {
 		return
 	}
 	if ctx.PathParam("org") == "" && ctx.FormString("view") != "personal" {

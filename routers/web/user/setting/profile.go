@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/neko233-com/gitsss/models/avatars"
@@ -19,6 +20,7 @@ import (
 	"github.com/neko233-com/gitsss/models/organization"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	user_model "github.com/neko233-com/gitsss/models/user"
+	"github.com/neko233-com/gitsss/modules/avatar"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/optional"
 	"github.com/neko233-com/gitsss/modules/setting"
@@ -124,6 +126,17 @@ func ProfilePost(ctx *context.Context) {
 // UpdateAvatarSetting update user's avatar
 // FIXME: limit size.
 func UpdateAvatarSetting(ctx *context.Context, form *forms.AvatarForm, ctxUser *user_model.User) error {
+	if form.Preset != "" {
+		index, err := strconv.Atoi(form.Preset)
+		if err != nil {
+			return err
+		}
+		data, err := avatar.BuiltinPNG(index)
+		if err != nil {
+			return err
+		}
+		return user_service.UploadAvatar(ctx, ctxUser, data)
+	}
 	ctxUser.UseCustomAvatar = form.Source == forms.AvatarLocal
 	if len(form.Gravatar) > 0 {
 		if form.Avatar != nil {
@@ -170,6 +183,22 @@ func UpdateAvatarSetting(ctx *context.Context, form *forms.AvatarForm, ctxUser *
 	}
 
 	return nil
+}
+
+func BuiltinAvatar(ctx *context.Context) {
+	index, err := strconv.Atoi(ctx.PathParam("index"))
+	if err != nil {
+		ctx.NotFound(nil)
+		return
+	}
+	data, err := avatar.BuiltinPNG(index)
+	if err != nil {
+		ctx.NotFound(nil)
+		return
+	}
+	ctx.Resp.Header().Set("Content-Type", "image/png")
+	ctx.Resp.Header().Set("Cache-Control", "public, max-age=86400")
+	_, _ = ctx.Resp.Write(data)
 }
 
 // AvatarPost response for change user's avatar request
@@ -384,6 +413,9 @@ func UpdateUIThemePost(ctx *context.Context) {
 // UpdateUserLang update a user's language
 func UpdateUserLang(ctx *context.Context) {
 	form := web.GetForm(ctx).(*forms.UpdateLanguageForm)
+	if form.Language == "auto" {
+		form.Language = ""
+	}
 	ctx.Data["Title"] = ctx.Tr("settings_title")
 	ctx.Data["PageIsSettingsAppearance"] = true
 
@@ -407,7 +439,11 @@ func UpdateUserLang(ctx *context.Context) {
 	middleware.SetLocaleCookie(ctx.Resp, ctx.Doer.Language, 0)
 
 	log.Trace("User settings updated: %s", ctx.Doer.Name)
-	ctx.Flash.Success(translation.NewLocale(ctx.Doer.Language).TrString("settings.update_language_success"))
+	locale := translation.NewLocale(ctx.Doer.Language)
+	if ctx.Doer.Language == "" {
+		locale = middleware.AutomaticLocale(ctx.Req)
+	}
+	ctx.Flash.Success(locale.TrString("settings.update_language_success"))
 	ctx.Redirect(setting.AppSubURL + "/user/settings/appearance")
 }
 

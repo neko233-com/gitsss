@@ -31,8 +31,8 @@ const authorizedPrincipalsFile = "authorized_principals"
 // Note: db.GetEngine(ctx).Iterate does not get latest data after insert/delete, so we have to call this function
 // outside any session scope independently.
 func RewriteAllPrincipalKeys(ctx context.Context) error {
-	// Don't rewrite key if internal server
-	if setting.SSH.StartBuiltinServer || !setting.SSH.CreateAuthorizedPrincipalsFile {
+	// Disabled and built-in SSH must not manage the operating system's principals.
+	if setting.SSH.Disabled || setting.SSH.StartBuiltinServer || !setting.SSH.CreateAuthorizedPrincipalsFile {
 		return nil
 	}
 

@@ -10,6 +10,7 @@ import (
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	"github.com/neko233-com/gitsss/models/unittest"
 	"github.com/neko233-com/gitsss/modules/setting"
+	"github.com/neko233-com/gitsss/modules/system"
 	"github.com/neko233-com/gitsss/modules/templates"
 	"github.com/neko233-com/gitsss/services/context"
 	"github.com/neko233-com/gitsss/services/contexttest"
@@ -50,6 +51,9 @@ func TestArchivedIssues(t *testing.T) {
 }
 
 func TestOrganizationHome(t *testing.T) {
+	previous := system.AppState
+	system.AppState = &system.DBStore{}
+	t.Cleanup(func() { system.AppState = previous })
 	assert.NoError(t, unittest.LoadFixtures())
 	ctx, _ := contexttest.MockContext(t, "/")
 	contexttest.LoadUser(t, ctx, 2)

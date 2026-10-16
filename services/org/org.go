@@ -32,6 +32,7 @@ func deleteOrganization(ctx context.Context, org *org_model.Organization) error 
 	if err := db.DeleteBeans(ctx,
 		&org_model.Team{OrgID: org.ID},
 		&org_model.OrgUser{OrgID: org.ID},
+		&org_model.OrgTask{OrgID: org.ID},
 		&org_model.TeamUser{OrgID: org.ID},
 		&org_model.TeamUnit{OrgID: org.ID},
 		&org_model.TeamInvite{OrgID: org.ID},

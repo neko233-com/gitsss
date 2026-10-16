@@ -6,12 +6,34 @@ package templates
 import (
 	"io/fs"
 	"os"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/neko233-com/gitsss/models/organization"
+	user_model "github.com/neko233-com/gitsss/models/user"
+
 	"github.com/stretchr/testify/require"
 )
+
+func TestOrganizationWorkspaceEntitySelectorsExist(t *testing.T) {
+	entities := map[string]reflect.Type{
+		"Org":         reflect.TypeFor[*organization.Organization](),
+		"ContextUser": reflect.TypeFor[*user_model.User](),
+	}
+	selector := regexp.MustCompile(`\.(Org|ContextUser)\.([A-Z]\w*)`)
+	for _, name := range []string{"org/header", "org/menu", "org/team_filter", "base/head_navbar"} {
+		content, err := os.ReadFile("../../templates/" + name + ".tmpl")
+		require.NoError(t, err)
+		for _, match := range selector.FindAllStringSubmatch(string(content), -1) {
+			typ := entities[match[1]]
+			_, method := typ.MethodByName(match[2])
+			_, field := typ.Elem().FieldByName(match[2])
+			require.True(t, method || field, "%s references missing %s.%s", name, match[1], match[2])
+		}
+	}
+}
 
 func TestBuiltinTemplateReferencesResolve(t *testing.T) {
 	root := os.DirFS("../../templates")
@@ -37,6 +59,8 @@ func TestBuiltinTemplateReferencesResolve(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, sources)
 	for path, content := range sources {
+		require.NotContains(t, content, "%s/docs/site/", path)
+		require.NotContains(t, content, "{{AppSubUrl}}/docs/site/", path)
 		for _, match := range references.FindAllStringSubmatch(content, -1) {
 			require.True(t, names[match[1]], "%s references missing template %s", path, match[1])
 		}

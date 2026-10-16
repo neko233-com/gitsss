@@ -19,7 +19,7 @@ import (
 
 // UploadAvatar saves custom avatar for user.
 func UploadAvatar(ctx context.Context, u *user_model.User, data []byte) error {
-	avatarData, err := avatar.ProcessAvatarImage(data)
+	avatarData, err := avatar.NormalizeUploadedAvatar(data)
 	if err != nil {
 		return fmt.Errorf("UploadAvatar: failed to process user avatar image: %w", err)
 	}

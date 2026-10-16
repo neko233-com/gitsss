@@ -2,7 +2,7 @@
    unused rules here after refactoring, please remove them. */
 
 .ui.container {
-  width: 1280px;
+  width: calc(100% - 48px);
   max-width: calc(100% - calc(2 * var(--page-margin-x)));
   margin-left: auto;
   margin-right: auto;
@@ -22,7 +22,7 @@
 }
 
 .ui.message.web-banner-container > .web-banner-content {
-  width: 1280px;
+  width: calc(100% - 48px);
   max-width: calc(100% - calc(2 * var(--page-margin-x)));
   margin: auto;
 }

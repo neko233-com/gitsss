@@ -1,3 +1,5 @@
+import {tr} from './i18n.ts';
+import {request} from '../modules/fetch.ts';
 import {useEffect, useState, type FormEvent} from 'react';
 import {createRoot} from 'react-dom/client';
 import {branchProtectionPayload, commentPayload, fileUpdatePayload, markupPreviewPayload, mergePayload, moveIssuesPayload, repoSettingsPayload, teamAccessPayload, webhookPayload, type BoardCard} from './actions.ts';
@@ -43,13 +45,22 @@ function apiPath(sub: string, owner: string, repo: string, suffix: string): stri
 }
 
 async function readJSON<T>(url: string): Promise<T> {
-  const response = await fetch(url, {credentials: 'same-origin', headers: {Accept: 'application/json'}});
+  const response = await request(url, {credentials: 'same-origin', headers: {Accept: 'application/json'}});
   if (!response.ok) throw new Error(String(response.status));
   return await response.json() as T;
 }
 
+async function readOptionalJSON<T>(url: string): Promise<T[]> {
+  try { return await readJSON<T[]>(url) } catch { return [] }
+}
+
+function formText(form: FormData, name: string, fallback = ''): string {
+  const value = form.get(name);
+  return typeof value === 'string' && value !== '' ? value : fallback;
+}
+
 async function sendJSON(url: string, method: string, body: unknown): Promise<void> {
-  const response = await fetch(url, {
+  const response = await request(url, {
     method,
     credentials: 'same-origin',
     headers: {Accept: 'application/json', 'Content-Type': 'application/json'},
@@ -59,13 +70,13 @@ async function sendJSON(url: string, method: string, body: unknown): Promise<voi
 }
 
 async function readText(url: string): Promise<string> {
-  const response = await fetch(url, {credentials: 'same-origin'});
+  const response = await request(url, {credentials: 'same-origin'});
   if (!response.ok) throw new Error(String(response.status));
   return await response.text();
 }
 
 function Rows({items, href}: {items: Item[]; href: (item: Item) => string}) {
-  if (items.length === 0) return <p>这里还没有内容</p>;
+  if (items.length === 0) return <p>{tr('这里还没有内容')}</p>;
   return (
     <div>
       {items.map((item) => (
@@ -79,7 +90,7 @@ function Rows({items, href}: {items: Item[]; href: (item: Item) => string}) {
 }
 
 function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner: string; repo: string; sub: string; pathname: string}) {
-  const [text, setText] = useState('正在加载');
+  const [text, setText] = useState(tr('正在加载'));
   const [notice, setNotice] = useState('');
   const [repoInfo, setRepoInfo] = useState<Repo | null>(null);
   const [items, setItems] = useState<Item[]>([]);
@@ -128,8 +139,8 @@ function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner
           readJSON<Repo>(apiPath(sub, owner, repo, '')),
           readJSON<Collaborator[]>(apiPath(sub, owner, repo, '/collaborators')),
           readJSON<Hook[]>(apiPath(sub, owner, repo, '/hooks')),
-          readJSON<Protection[]>(apiPath(sub, owner, repo, '/branch_protections')).catch(() => []),
-          readJSON<RepoTeam[]>(apiPath(sub, owner, repo, '/teams')).catch(() => []),
+          readOptionalJSON<Protection>(apiPath(sub, owner, repo, '/branch_protections')),
+          readOptionalJSON<RepoTeam>(apiPath(sub, owner, repo, '/teams')),
         ]);
         if (!ignore) {
           setRepoInfo(info);
@@ -146,12 +157,17 @@ function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner
       }
       if (!ignore) setText('');
     };
-    load().catch(() => {
-      if (!ignore) {
-        setFailed(true);
-        setText('');
+    const loadSafely = async () => {
+      try {
+        await load();
+      } catch {
+        if (!ignore) {
+          setFailed(true);
+          setText('');
+        }
       }
-    });
+    };
+    loadSafely();
     return () => {
       ignore = true;
     };
@@ -175,7 +191,7 @@ function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner
 
   async function previewFile() {
     const prefix = sub.endsWith('/') ? sub.slice(0, -1) : sub;
-    const response = await fetch(`${prefix}/api/v1/markdown`, {
+    const response = await request(`${prefix}/api/v1/markdown`, {
       method: 'POST',
       credentials: 'same-origin',
       headers: {'Content-Type': 'application/json'},
@@ -188,7 +204,7 @@ function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner
   async function saveFile() {
     if (!file?.path || !file.sha) return;
     await sendJSON(apiPath(sub, owner, repo, `/contents/${file.path}`), 'PUT', fileUpdatePayload(draft, file.sha, `edit ${file.path}`, branch));
-    setNotice('文件已提交');
+    setNotice(tr('文件已提交'));
   }
 
   async function openDiff(number: number) {
@@ -200,13 +216,13 @@ function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner
     if (selectedPull === null || draft.trim() === '') return;
     await sendJSON(apiPath(sub, owner, repo, `/issues/${selectedPull}/comments`), 'POST', commentPayload(draft));
     setDraft('');
-    setNotice('评论已发送');
+    setNotice(tr('评论已发送'));
   }
 
   async function mergePull() {
     if (selectedPull === null) return;
     await sendJSON(apiPath(sub, owner, repo, `/pulls/${selectedPull}/merge`), 'POST', mergePayload());
-    setNotice('合并请求已提交');
+    setNotice(tr('合并请求已提交'));
   }
 
   function dropCard(columnID: number, raw: string) {
@@ -218,9 +234,7 @@ function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner
     target.cards = [...target.cards, card];
     setBoard({...board, columns: next});
     const prefix = sub.endsWith('/') ? sub.slice(0, -1) : sub;
-    void sendJSON(`${prefix}/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/projects/${board.id}/${columnID}/move`, 'POST', moveIssuesPayload(target.cards))
-      .then(() => setNotice('看板已更新'))
-      .catch(() => setNotice('看板移动失败'));
+    reportTask(sendJSON(`${prefix}/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/projects/${board.id}/${columnID}/move`, 'POST', moveIssuesPayload(target.cards)), tr('看板移动失败'), tr('看板已更新'));
   }
 
   async function saveSettings(event: FormEvent<HTMLFormElement>) {
@@ -228,28 +242,37 @@ function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner
     if (!repoInfo) return;
     const form = new FormData(event.currentTarget);
     await sendJSON(apiPath(sub, owner, repo, ''), 'PATCH', repoSettingsPayload({
-      description: String(form.get('description') || ''),
+      description: formText(form, 'description', ''),
       private: form.get('private') === 'on',
       hasWiki: form.get('has_wiki') === 'on',
-      defaultBranch: String(form.get('default_branch') || branch),
+      defaultBranch: formText(form, 'default_branch', branch),
     }));
-    setNotice('仓库设置已保存');
+    setNotice(tr('仓库设置已保存'));
   }
 
   async function addCollaborator(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const login = String(form.get('login') || '');
-    await sendJSON(apiPath(sub, owner, repo, `/collaborators/${encodeURIComponent(login)}`), 'PUT', {permission: String(form.get('permission') || 'write')});
+    const login = formText(form, 'login', '');
+    await sendJSON(apiPath(sub, owner, repo, `/collaborators/${encodeURIComponent(login)}`), 'PUT', {permission: formText(form, 'permission', 'write')});
     setCollaborators([...collaborators, {login}]);
-    setNotice('协作者已添加');
+    setNotice(tr('协作者已添加'));
   }
 
   async function addWebhook(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    await sendJSON(apiPath(sub, owner, repo, '/hooks'), 'POST', webhookPayload(String(form.get('url') || '')));
-    setNotice('Webhook 已创建');
+    await sendJSON(apiPath(sub, owner, repo, '/hooks'), 'POST', webhookPayload(formText(form, 'url', '')));
+    setNotice(tr('Webhook 已创建'));
+  }
+
+  async function reportTask(promise: Promise<unknown>, failure: string, success?: string) {
+    try {
+      await promise;
+      if (success) setNotice(success);
+    } catch {
+      setNotice(failure);
+    }
   }
 
   const classic = `${pathname}?classic=1`;
@@ -260,26 +283,26 @@ function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner
       <div className="gitsss-react-shell-body">
         <p className="gitsss-react-meta">{owner}/{repo}</p>
         <h2>{titleFor(page)}</h2>
-        {failed ? <p>新界面暂时加载失败，下面仍可使用经典页面。</p> : null}
+        {failed ? <p>{tr('新界面暂时加载失败，下面仍可使用经典页面。')}</p> : null}
         {notice ? <p>{notice}</p> : null}
         {text !== '' && !failed ? <p>{text}</p> : null}
         {page === 'code' ? (
           <div>
             {entries.map((entry) => (
               <div className="gitsss-react-row" key={entry.path || entry.name}>
-                <span>{entry.type === 'dir' ? '目录' : '文件'}</span>
-                {entry.type === 'file' ? <button type="button" onClick={() => void openFile(entry).catch(() => setNotice('文件读取失败'))}>{entry.name}</button> : <span>{entry.name}</span>}
+                <span>{entry.type === 'dir' ? tr('目录') : tr('文件')}</span>
+                {entry.type === 'file' ? <button type="button" onClick={() => reportTask(openFile(entry), tr('文件读取失败'))}>{entry.name}</button> : <span>{entry.name}</span>}
               </div>
             ))}
             {file ? (
               <form onSubmit={(event) => {
                 event.preventDefault();
-                void saveFile().catch(() => setNotice('提交失败'));
+                reportTask(saveFile(), tr('提交失败'));
               }}>
                 <textarea rows={12} value={draft} onChange={(event) => setDraft(event.target.value)} />
-                <button type="button" onClick={() => void previewFile().catch(() => setNotice('预览失败'))}>预览</button>
-                <button type="submit">提交到 {branch}</button>
-                {preview ? <iframe className="gitsss-react-preview" sandbox="" title="编辑器预览" srcDoc={preview} /> : null}
+                <button type="button" onClick={() => reportTask(previewFile(), tr('预览失败'))}>{tr('预览')}</button>
+                <button type="submit">{tr('提交到')} {branch}</button>
+                {preview ? <iframe className="gitsss-react-preview" sandbox="" title={tr('编辑器预览')} srcDoc={preview} /> : null}
               </form>
             ) : null}
           </div>
@@ -290,15 +313,15 @@ function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner
             {items.map((item) => (
               <div className="gitsss-react-row" key={item.number}>
                 <a href={`${sub}/${owner}/${repo}/pulls/${item.number}`}>#{item.number} {item.title}</a>
-                <button type="button" onClick={() => void openDiff(item.number || 0).catch(() => setNotice('diff 读取失败'))}>查看 diff</button>
+                <button type="button" onClick={() => reportTask(openDiff(item.number || 0), tr('diff 读取失败'))}>{tr('查看 diff')}</button>
               </div>
             ))}
             {selectedPull !== null ? (
               <div>
                 <pre className="gitsss-react-diff">{diff}</pre>
-                <textarea rows={4} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="评论" />
-                <button type="button" onClick={() => void commentOnPull().catch(() => setNotice('评论失败'))}>发表评论</button>
-                <button type="button" onClick={() => void mergePull().catch(() => setNotice('合并失败'))}>合并</button>
+                <textarea rows={4} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={tr('评论')} />
+                <button type="button" onClick={() => reportTask(commentOnPull(), tr('评论失败'))}>{tr('发表评论')}</button>
+                <button type="button" onClick={() => reportTask(mergePull(), tr('合并失败'))}>{tr('合并')}</button>
               </div>
             ) : null}
           </div>
@@ -307,7 +330,7 @@ function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner
         {page === 'releases' ? <Rows items={items} href={() => `${sub}/${owner}/${repo}/releases`} /> : null}
         {page === 'actions' ? (
           <div>
-            {runs.length === 0 ? <p>没有 Actions 记录</p> : runs.map((run) => (
+            {runs.length === 0 ? <p>{tr('没有 Actions 记录')}</p> : runs.map((run) => (
               <div className="gitsss-react-row" key={run.id}>
                 <a href={`${sub}/${owner}/${repo}/actions`}>{run.display_title || run.name}</a>
                 <span className="gitsss-react-meta">{run.status} {run.head_branch}</span>
@@ -334,56 +357,52 @@ function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner
         ) : null}
         {page === 'settings' && repoInfo ? (
           <div>
-            <form onSubmit={(event) => void saveSettings(event).catch(() => setNotice('设置保存失败'))}>
-              <label>描述<textarea name="description" defaultValue={repoInfo.description || ''} /></label>
-              <label>默认分支<input name="default_branch" defaultValue={repoInfo.default_branch || ''} /></label>
-              <label><input name="private" type="checkbox" defaultChecked={repoInfo.private} /> 私有</label>
+            <form onSubmit={(event) => reportTask(saveSettings(event), tr('设置保存失败'))}>
+              <label>{tr('描述')}<textarea name="description" defaultValue={repoInfo.description || ''} /></label>
+              <label>{tr('默认分支')}<input name="default_branch" defaultValue={repoInfo.default_branch || ''} /></label>
+              <label><input name="private" type="checkbox" defaultChecked={repoInfo.private} />{tr('私有')}</label>
               <label><input name="has_wiki" type="checkbox" defaultChecked={repoInfo.has_wiki} /> Wiki</label>
-              <button type="submit">保存仓库</button>
+              <button type="submit">{tr('保存仓库')}</button>
             </form>
-            <h3>协作者</h3>
+            <h3>{tr('协作者')}</h3>
             {collaborators.map((person) => <p key={person.login || person.username}>{person.login || person.username}</p>)}
-            <form onSubmit={(event) => void addCollaborator(event).catch(() => setNotice('协作者添加失败'))}>
-              <input name="login" placeholder="用户名" required />
+            <form onSubmit={(event) => reportTask(addCollaborator(event), tr('协作者添加失败'))}>
+              <input name="login" placeholder={tr('用户名')} required />
               <select name="permission" defaultValue="write">
                 <option value="read">read</option>
                 <option value="write">write</option>
                 <option value="admin">admin</option>
               </select>
-              <button type="submit">添加权限</button>
+              <button type="submit">{tr('添加权限')}</button>
             </form>
             <h3>Webhook</h3>
             {hooks.map((hook) => <p key={hook.id}>{hook.config?.url}</p>)}
-            <form onSubmit={(event) => void addWebhook(event).catch(() => setNotice('Webhook 创建失败'))}>
+            <form onSubmit={(event) => reportTask(addWebhook(event), tr('Webhook 创建失败'))}>
               <input name="url" type="url" placeholder="https://example.test/hook" required />
-              <button type="submit">创建 Webhook</button>
+              <button type="submit">{tr('创建 Webhook')}</button>
             </form>
-            <h3>分支保护</h3>
-            {protections.map((rule) => <p key={rule.id || rule.rule_name}>{rule.rule_name} · 需要 {rule.required_approvals || 0} 个批准</p>)}
+            <h3>{tr('分支保护')}</h3>
+            {protections.map((rule) => <p key={rule.id || rule.rule_name}>{rule.rule_name}{tr('· 需要')} {rule.required_approvals || 0}{tr('个批准')}</p>)}
             <form onSubmit={(event) => {
               event.preventDefault();
               const form = new FormData(event.currentTarget);
-              void sendJSON(apiPath(sub, owner, repo, '/branch_protections'), 'POST', branchProtectionPayload(String(form.get('rule') || ''), Number(form.get('approvals') || 0)))
-                .then(() => setNotice('分支保护已创建'))
-                .catch(() => setNotice('分支保护创建失败'));
+              reportTask(sendJSON(apiPath(sub, owner, repo, '/branch_protections'), 'POST', branchProtectionPayload(formText(form, 'rule', ''), Number(form.get('approvals') || 0))), tr('分支保护创建失败'), tr('分支保护已创建'));
             }}>
               <input name="rule" placeholder="main" required />
               <input name="approvals" type="number" min="0" defaultValue="1" />
-              <button type="submit">添加保护规则</button>
+              <button type="submit">{tr('添加保护规则')}</button>
             </form>
-            <h3>团队权限</h3>
+            <h3>{tr('团队权限')}</h3>
             {teams.map((team) => (
               <form key={team.id} onSubmit={(event) => {
                 event.preventDefault();
                 const form = new FormData(event.currentTarget);
-                const units = {...(team.units_map || {})};
-                for (const [key, value] of form.entries()) {
-                  if (key.startsWith('unit:')) units[key.slice(5)] = String(value);
+                const units = {...team.units_map};
+                for (const [key, value] of form) {
+                  if (key.startsWith('unit:')) units[key.slice(5)] = typeof value === 'string' ? value : '';
                 }
                 const prefix = sub.endsWith('/') ? sub.slice(0, -1) : sub;
-                void sendJSON(`${prefix}/api/v1/teams/${team.id}`, 'PATCH', teamAccessPayload(String(form.get('permission') || team.permission || 'read'), units))
-                  .then(() => setNotice(`${team.name} 的权限已保存`))
-                  .catch(() => setNotice('团队权限保存失败'));
+                reportTask(sendJSON(`${prefix}/api/v1/teams/${team.id}`, 'PATCH', teamAccessPayload(formText(form, 'permission', team.permission || 'read'), units)), tr('团队权限保存失败'), tr('{name} 的权限已保存', {name: team.name || ''}));
               }}>
                 <strong>{team.name}</strong>
                 <select name="permission" defaultValue={team.permission || 'read'}>
@@ -407,12 +426,12 @@ function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner
                     ))}
                   </tbody>
                 </table>
-                <button type="submit">保存团队权限</button>
+                <button type="submit">{tr('保存团队权限')}</button>
               </form>
             ))}
           </div>
         ) : null}
-        <p className="gitsss-react-classic"><a href={classic}>使用经典界面</a></p>
+        <p className="gitsss-react-classic"><a href={classic}>{tr('使用经典界面')}</a></p>
       </div>
     </section>
   );
@@ -420,23 +439,23 @@ function Shell({page, owner, repo, sub, pathname}: {page: GitsssReactPage; owner
 
 function titleFor(page: GitsssReactPage): string {
   switch (page) {
-    case 'code': return '代码';
+    case 'code': return tr('代码');
     case 'issues': return 'Issue';
     case 'pulls': return 'Pull Request';
     case 'actions': return 'Actions';
-    case 'projects': return '看板';
-    case 'settings': return '仓库设置';
+    case 'projects': return tr('看板');
+    case 'settings': return tr('仓库设置');
     case 'wiki': return 'Wiki';
     case 'releases': return 'Release';
     default: return '';
   }
 }
 
-const root = document.getElementById('gitsss-react-shell');
+const root = document.querySelector<HTMLElement>('#gitsss-react-shell');
 if (root) {
-  const owner = root.dataset.owner || '';
-  const repo = root.dataset.repo || '';
-  const sub = root.dataset.sub || '';
+  const owner = root.getAttribute('data-owner') || '';
+  const repo = root.getAttribute('data-repo') || '';
+  const sub = root.getAttribute('data-sub') || '';
   const path = window.location.pathname.startsWith(sub) ? window.location.pathname.slice(sub.length) : window.location.pathname;
   const page = gitsssReactPage(path, window.location.search);
   if (page && owner && repo) {

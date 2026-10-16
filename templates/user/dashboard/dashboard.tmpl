@@ -1,6 +1,7 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content dashboard feeds">
 	{{template "user/dashboard/navbar" .}}
+	<div class="ui container home-links-container">{{template "user/dashboard/home_links" .}}</div>
 	{{if .OrganizationHome}}
 	<div class="ui container">
 		{{template "base/alert" .}}
@@ -8,12 +9,16 @@
 		<p>{{ctx.Locale.Tr "home.organizations_first_help"}}</p>
 		<div class="ui stackable three cards">
 			{{range .Orgs}}
-			<a class="ui card" href="{{.OrganisationLink}}/dashboard">
-				<div class="content flex-text-block">
+			<div class="ui card">
+				<a class="content flex-text-block" href="{{.OrganisationLink}}/dashboard">
 					{{ctx.AvatarUtils.Avatar . 40}}
 					<div><div class="header">{{.DisplayName}}</div><div class="meta">{{.NumRepos}} {{ctx.Locale.Tr "org.lower_repositories"}}</div></div>
-				</div>
-			</a>
+				</a>
+				<div class="extra content"><div class="flex-text-block">
+					<a href="{{.HomeLink}}/-/kanban">{{ctx.Locale.Tr "org.global_kanban"}}</a>
+					<a href="{{.HomeLink}}">{{ctx.Locale.Tr "user.repositories"}}</a>
+				</div></div>
+			</div>
 			{{else}}
 			<p>{{ctx.Locale.Tr "home.organizations_empty"}}</p>
 			{{end}}
@@ -41,11 +46,13 @@
 			<script src="{{AssetUrlPrefix}}/js/gitsss-react.js" defer></script>
 			{{template "user/dashboard/actions" .}}
 			{{template "user/heatmap" .}}
+			<div data-dashboard-feed-area data-error="{{ctx.Locale.Tr "org.workspace.load_error"}}">
 			{{if .Page.Paginater.TotalPages}}
 				{{template "user/dashboard/feeds" .}}
 			{{else}}
-				{{template "user/dashboard/guide" .}}
+				{{if .ContextUser.IsOrganization}}<p class="empty-placeholder">{{ctx.Locale.Tr "org.workspace.no_activity"}}</p>{{else}}{{template "user/dashboard/guide" .}}{{end}}
 			{{end}}
+			</div>
 		</div>
 		{{template "user/dashboard/repolist" .}}
 	</div>

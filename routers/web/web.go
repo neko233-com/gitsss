@@ -519,6 +519,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 	m.Get("/help", func(ctx *context.Context) { manualHandler.ServeHTTP(ctx.Resp, ctx.Req) })
 	m.Get("/help/*", func(ctx *context.Context) { manualHandler.ServeHTTP(ctx.Resp, ctx.Req) })
 	m.Get("/announcements", reqSignIn, user.Announcements)
+	m.Post("/home-links", reqSignIn, user.HomeLinksPost)
 	m.Get("/sitemap.xml", sitemapEnabled, optExploreSignIn, HomeSitemap)
 	m.Group("/.well-known", func() {
 		m.Get("/openid-configuration", auth.OIDCWellKnown)
@@ -567,6 +568,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 	// ***** START: User *****
 	// "user/login" doesn't need signOut, then logged-in users can still access this route for redirection purposes by "/user/login?redirec_to=..."
 	m.Get("/user/login", auth.SignIn)
+	m.Get("/-/builtin-avatar/{index}", user_setting.BuiltinAvatar)
 	m.Group("/user", func() {
 		m.Post("/login", web.Bind(forms.SignInForm{}), auth.SignInPost)
 		m.Group("", func() {
@@ -1134,6 +1136,13 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 
 		m.Get("/repositories", org.Repositories)
 		m.Get("/heatmap", user.DashboardHeatmap)
+		m.Group("/kanban", func() {
+			m.Get("", org.Kanban)
+			m.Post("/tasks", org.SaveKanbanTask)
+			m.Post("/tasks/{id}", org.SaveKanbanTask)
+			m.Post("/tasks/{id}/move", org.MoveKanbanTask)
+			m.Post("/tasks/{id}/delete", org.DeleteKanbanTask)
+		}, reqSignIn, org.RequireKanbanMember)
 
 		m.Group("/projects", func() {
 			m.Group("", func() {

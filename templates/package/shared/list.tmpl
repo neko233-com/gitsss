@@ -50,7 +50,7 @@
 					{{$packagesUrl := print .Owner.HomeLink "/-/packages"}}
 					<p>{{ctx.Locale.Tr "packages.empty.repo" $packagesUrl}}</p>
 				{{end}}
-				<p>{{ctx.Locale.Tr "packages.empty.documentation" (printf "%s/docs/site/storage.html" AppSubUrl)}}</p>
+				<p>{{ctx.Locale.Tr "packages.empty.documentation" (printf "%s/help/site/storage.html" AppSubUrl)}}</p>
 			</div>
 		{{else}}
 			<p class="tw-py-4">{{ctx.Locale.Tr "packages.filter.no_result"}}</p>

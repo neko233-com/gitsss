@@ -1,0 +1,8 @@
+<details class="home-links-editor"><summary>{{ctx.Locale.Tr "home.links.edit" .Label}}</summary>
+	<form class="ui form" method="post" action="{{AppSubUrl}}/home-links" data-home-links-form>
+		<input type="hidden" name="scope" value="{{.Scope}}"><input type="hidden" name="revision" value="{{.State.Revision}}">
+		<div data-home-link-rows>{{range .State.Links}}{{template "user/dashboard/home_links_row" .}}{{end}}</div>
+		<template data-home-link-template>{{template "user/dashboard/home_links_row" (dict "Title" "" "URL" "")}}</template>
+		<div class="home-links-buttons"><button type="button" class="ui basic button" data-home-link-add>{{svg "octicon-plus"}} {{ctx.Locale.Tr "home.links.add"}}</button><button class="ui primary button">{{ctx.Locale.Tr "save"}}</button><span class="text light-2">{{ctx.Locale.Tr "home.links.limit"}}</span></div>
+	</form>
+</details>

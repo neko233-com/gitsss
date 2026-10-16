@@ -2,7 +2,7 @@
 	{{svg "octicon-no-entry" 48}}
 	<h2>{{ctx.Locale.Tr "actions.runs.no_workflows"}}</h2>
 	{{if and .CanWriteCode .CanWriteActions}}
-		<p>{{ctx.Locale.Tr "actions.runs.no_workflows.quick_start" (printf "%s/docs/site/actions.html" AppSubUrl)}}</p>
+		<p>{{ctx.Locale.Tr "actions.runs.no_workflows.quick_start" (printf "%s/help/site/actions.html" AppSubUrl)}}</p>
 	{{end}}
-	<p>{{ctx.Locale.Tr "actions.runs.no_workflows.documentation" (printf "%s/docs/site/actions.html" AppSubUrl)}}</p>
+	<p>{{ctx.Locale.Tr "actions.runs.no_workflows.documentation" (printf "%s/help/site/actions.html" AppSubUrl)}}</p>
 </div>

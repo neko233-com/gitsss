@@ -56,6 +56,7 @@ export default defineComponent({
       tab,
       repos: [] as DashboardRepo[],
       reposTotalCount: null as number | null,
+      totalCountScope: '',
       reposFilter,
       archivedFilter,
       privateFilter,
@@ -135,7 +136,7 @@ export default defineComponent({
       return this.repos.length > 0 && this.repos.length < this.counts[`${this.reposFilter}:${this.archivedFilter}:${this.privateFilter}`];
     },
     searchURL() {
-      return `${this.subUrl}/repo/search?sort=updated&order=desc&uid=${this.uid}&team_id=${this.teamId}&q=${this.searchQuery
+      return `${this.subUrl}/repo/search?sort=updated&order=desc&uid=${this.uid}&team_id=${this.teamId}&q=${encodeURIComponent(this.searchQuery)
       }&page=${this.page}&limit=${this.searchLimit}&mode=${this.repoTypes[this.reposFilter].searchMode
       }${this.archivedFilter === 'archived' ? '&archived=true' : ''}${this.archivedFilter === 'unarchived' ? '&archived=false' : ''
       }${this.privateFilter === 'private' ? '&is_private=true' : ''}${this.privateFilter === 'public' ? '&is_private=false' : ''
@@ -159,6 +160,7 @@ export default defineComponent({
   },
 
   mounted() {
+	window.addEventListener('gitsss:dashboard-team', this.changeTeam);
     const el = document.querySelector('#dashboard-repo-list')!;
     this.changeReposFilter(this.reposFilter);
     fomanticQuery(el.querySelector('.ui.dropdown')!).dropdown();
@@ -176,7 +178,16 @@ export default defineComponent({
     };
   },
 
+  beforeUnmount() {
+    window.removeEventListener('gitsss:dashboard-team', this.changeTeam);
+  },
+
   methods: {
+    changeTeam(event: Event) {
+      this.teamId = (event as CustomEvent<{teamId: number}>).detail.teamId;
+      this.counts = {};
+      this.changeReposFilter(this.reposFilter);
+    },
     changeTab(tab: string) {
       this.tab = tab;
       this.updateHistory();
@@ -286,14 +297,17 @@ export default defineComponent({
       const searchedMode = this.repoTypes[this.reposFilter].searchMode;
       const searchedURL = this.searchURL;
       const searchedQuery = this.searchQuery;
+      const scope = `${this.uid}:${this.teamId}`;
 
       let response, json;
       try {
         const firstLoad = this.reposTotalCount === null;
-        if (!this.reposTotalCount) {
+        if (this.totalCountScope !== scope) {
           const totalCountSearchURL = `${this.subUrl}/repo/search?count_only=1&uid=${this.uid}&team_id=${this.teamId}&q=&page=1&mode=`;
           response = await GET(totalCountSearchURL);
+          if (searchedURL !== this.searchURL) return;
           this.reposTotalCount = parseInt(response.headers.get('X-Total-Count') ?? '0');
+          this.totalCountScope = scope;
         }
         if (firstLoad && this.reposTotalCount) {
           nextTick(() => {

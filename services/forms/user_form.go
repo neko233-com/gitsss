@@ -248,6 +248,7 @@ const (
 // AvatarForm form for changing avatar
 type AvatarForm struct {
 	Source      string
+	Preset      string
 	Avatar      *multipart.FileHeader
 	Gravatar    string `binding:"OmitEmpty;Email;MaxSize(254)"`
 	Federavatar bool

@@ -63,6 +63,13 @@ The Git check creates disposable repositories/users/keys and removes them; run
 `--actions` only on an isolated instance with a dedicated runner label.
 Agent dispatch/rerun operations require `--apply`; status is read-only.
 
+The server's operating-system SSH account, password and port 22 are independent
+of GitSSS's Git SSH listener (default 2222) and remain unchanged. An SSH client
+that offers many agent keys can exhaust OpenSSH's per-connection attempt limit;
+for password login select `PreferredAuthentications=password` and
+`PubkeyAuthentication=no` on that connection. This does not change server policy
+or the account password.
+
 Incremental Git sync records a private per-target checkpoint in the mirror cache.
 It rejects any independent destination ref changes before writing, including a
 destination-only branch. Keep the same cache between runs. A cache without a
@@ -70,3 +77,125 @@ checkpoint can initialize an existing destination only when its refs already
 match the source. Source deletions prune the previously synchronized target refs;
 non-fast-forward updates remain refused. Metadata after initial HTTP import is
 not synchronized by this Git-only mode.
+
+## Language and readable themes
+
+The default UI language follows the system language supplied by the browser in
+`Accept-Language`. Automatic detection is not saved as a permanent account choice
+at login. The footer offers Automatic and individual languages; account settings
+under Appearance also offer Automatic. Explicit account language choices are
+retained. Existing accounts with an explicit choice can select Automatic again.
+The document language and custom React views follow the selected UI language.
+Core UI uses the upstream language catalog; new custom strings provide Chinese
+and English, with English fallback for other locales. README.md and the offline
+manual's initial page remain English by default.
+
+GitSSS light/dark themes use readable secondary text, placeholders and form
+labels. The dark navigation bar's colors are limited to its top-level controls;
+dropdown panels use their own surface and text colors. Worker captions are larger.
+
+## One organization board and repository boards
+
+Open `/{organization}/-/kanban` to enter the organization's single shared board.
+There is no project selector or repository prerequisite. Each column has a quick
+entry: type a task and press Enter; `@username` assigns the last mentioned
+organization member. The member suggestions contain organization members only.
+Cards have To do, In progress and Done states; drag between columns or use Edit.
+Search matches task text and `@username`; the assignee filter can be combined
+with search. Search is immediate for loaded cards; press Search to query stored
+tasks. At most 500 matching cards are rendered and a limit notice asks for a
+narrower query. Each card supports details and an explicit assignee selection.
+
+Only signed-in organization members and site administrators can access this
+board. Restricted guest accounts cannot access it unless they own the
+organization. Members collaborate on cards; deletion requires the creator or an
+organization owner. Assignees must belong to the same organization. Server-side
+organization scoping applies to reads, edits, moves and deletes.
+
+Repository boards remain at `/{organization}/{repository}/projects`. Legacy
+owner project routes, records, fields and issue links remain compatible. New
+standalone cards use the additive `org_task` table under GitSSS extension schema
+version 2; upstream schema 343 and Git/LFS paths and bytes are unchanged. Version
+1 binaries refuse extension version 2: rollback requires the matching database
+backup as well as the old binary. Include trial task cards in the final takeover
+export and verify organization/user ID mapping before importing them.
+
+## Desktop layout and local avatars
+
+The desktop layout uses the available browser width, while profile forms retain
+a readable width. Actions search has an accessible label without visible label
+text squeezed into the input. Statistic labels, dropdowns and placeholders use
+the current theme's readable colors. Mobile has a separate future web scope.
+
+Settings → Profile offers 24 ready-made DiceBear Adventurer/Lorelei avatars, embedded locally without
+external image requests. Selecting one uses the existing avatar upload/storage
+pipeline. Custom uploads are automatically cropped to square, downscaled to
+the configured rendered size without upscaling, and compressed as PNG or JPEG;
+transparency remains PNG. New GIF uploads use the first frame. New automatically generated personal avatars use a deterministic built-in
+choice; existing avatars and organization identities are preserved. Upload and
+remove-avatar controls remain available. Asset sources, licenses and checksums are
+recorded in `modules/avatar/builtin/README.md`.
+
+## Protect the source's SSH authorization
+
+Parallel instances need independent `SSH_ROOT_PATH` directories and both
+`SSH_CREATE_AUTHORIZED_KEYS_FILE = false` and
+`SSH_CREATE_AUTHORIZED_PRINCIPALS_FILE = false`. Their runners and tests also need
+an isolated HOME (USERPROFILE on Windows). A disabled SSH instance must never
+regenerate the operating system's authorization files, even if a legacy flag is
+true. Preserve the source authorization file and verify its hash before and after
+Git/Actions acceptance. If that file is lost, regenerate it with the original
+Gitea binary and original database/configuration, then verify the existing runner
+key and actual source repository read. Do not change system login passwords or
+SSH daemon policy to work around a missing application key.
+
+Parallel instances on the same hostname also need distinct `[session] COOKIE_NAME`, `[security] COOKIE_REMEMBER_NAME` and `[i18n] COOKIE_NAME` values: cookies are shared across ports.
+Final native takeover retains the original site's settings and credentials.
+Export any organization boards created during the trial and migrate their contents
+before final acceptance; never discard trial-only work when replacing the database.
+
+The frontend pins one CodeMirror state/view version through pnpm overrides to
+avoid incompatible duplicate editor instances. TSX is included in ESLint and
+TypeScript checking; run the React and Vue builds before embedding assets.
+
+Run `python3 tools/verify-enterprise.py --url http://gitsss.example.internal:5030 --token-file target.token` to verify shared cards, organization isolation, 24 avatar choices and actual multipart upload normalization. It creates disposable private organizations/accounts and removes its own fixtures afterward. Never point it at the original Gitea.
+
+## Consistent organization workspace
+
+Activity, repositories, the shared board and team management use one compact
+organization header and navigation. Top-level issue/pull/milestone/board links
+retain the current organization. Switching organizations retains the current
+workspace section when supported. Organization and team dropdowns support search
+by display label and stable name. Team selection on Activity updates the feed
+and repository list in place, preserves repository search/filter settings, and
+supports browser Back/Forward. A failed request retains the current contents.
+
+Board quick-add, editing, deletion and stored search update the same page;
+columns, filter inputs and scroll context remain in place. Failed saves retain
+the draft. Dragging and explicit status changes both persist on the server.
+Normal form submissions and existing URLs still work without JavaScript.
+
+## Homepage quick links
+
+The organization-first home and Activity dashboards offer shared shortcuts managed
+by site administrators and personal shortcuts managed by each signed-in user.
+Expand the corresponding editor to add, rename or remove multiple links, then save
+in place. Links open in a new tab so the workspace stays open. Each list supports
+32 ordered links, with a 120-character name and an HTTP/HTTPS URL up to 2048 bytes.
+Credentials in URLs and other URL schemes are rejected; the server does not fetch
+these destinations. Failed saves retain drafts; stale editors receive a conflict
+instead of overwriting another saved list. Personal ownership comes from the
+authenticated server identity, and shared writes require site administrator access.
+
+POST `/home-links` uses the normal signed-in web session and CSRF protection. Form
+fields are `scope` (`shared` or `personal`), `revision` from the editor, and repeated
+`title` / `url` pairs. A successful response is the refreshed HTML component;
+400 indicates invalid input, 403 denied shared write, and 409 a stale revision.
+
+Records use existing app-state keys `enterprise-home-links` and
+`personal-home-links-{userID}`. No schema or Git/LFS storage changes are required.
+Product defaults contain no private network URLs: configure enterprise destinations
+on the deployed site. Export trial-only app-state records with task cards before
+final takeover, mapping personal user IDs; rollback uses the matching database
+backup. Desktop dashboard content has 16px side gutters; account forms keep their
+readable width.

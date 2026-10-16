@@ -17,6 +17,11 @@ Screenshots below show a demonstration instance captured on 2026-10-16; no produ
 - Run GitSSS on `5030` beside Gitea on `3000` during evaluation. After an approved cutover, GitSSS can also listen on `3000`.
 - Sign-in required and self-registration disabled by default; organizations appear first on the home page.
 - Editable team display names, independent of stable team identities and permissions.
+- A consistent organization workspace with searchable organization/team menus and in-place team filtering.
+- One shared organization board: quick task cards, search, @member assignment and drag-to-change status; repository boards stay independent.
+- Automatic system/browser language, readable desktop themes, and 24 built-in avatars with automatic crop/compression for custom uploads.
+
+- Full-width desktop dashboards with editable shared and personal quick links to internal services.
 
 ![Repository overview](docs/site/assets/screenshots/repository.png)
 
@@ -125,7 +130,7 @@ Incremental sync uses a persistent bare Git cache (by default under the current 
 
 ## Two-port evaluation
 
-Run GitSSS on `5030` alongside the existing Gitea on `3000` during evaluation. After repository and feature acceptance, stop Gitea to free `3000`, then add `3000` from **Admin → Gitea takeover** on GitSSS at `5030`, or call `POST /api/v1/admin/listen-port/alias` with `{"port":"3000"}`. GitSSS keeps `5030` open, starts serving `3000` from the same data store, and updates its public root URL to `3000`.
+Run GitSSS on `5030` alongside the existing Gitea on `3000` during evaluation. Wait for the operator's explicit cutover instruction. Preserving existing credentials, Actions history and all metadata requires a stopped native database/data takeover using the original storage paths; the HTTP pilot alone is insufficient. See the [cutover procedure](docs/operations/gitea-http-import.md#two-port-evaluation-and-later-cutover). After native acceptance and Gitea releases `3000`, add it from **Admin → Gitea takeover** or `POST /api/v1/admin/listen-port/alias` with `{"port":"3000"}`. Both ports serve the same accepted data, and the public root URL becomes `3000`. Operating-system SSH credentials and port 22 stay unchanged.
 
 For Docker deployments, publish the additional host/container port and recreate the container before adding the alias. The listener change itself is live for native installs and containers that already publish both ports.
 

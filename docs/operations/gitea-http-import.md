@@ -151,13 +151,23 @@ authoritative during the evaluation period. Avoid edits on both servers.
 ## Two-port evaluation and later cutover
 
 During the evaluation period, keep Gitea on `3000` and GitSSS on `5030`.
-After acceptance:
+For a site retaining existing passwords, SSH/API/runner credentials, Actions
+history and all collaboration metadata, final cutover requires native database
+and data takeover. A listener alias does not migrate that state. After acceptance
+and the operator's explicit maintenance-window instruction:
 
-1. Run a final Git sync and retain the source rollback data.
-2. Stop source Gitea to release port `3000`.
-3. From GitSSS at `5030`, add port `3000` from `/-/admin/takeover` or `POST /api/v1/admin/listen-port/alias` with `{"port":"3000"}`.
-4. GitSSS keeps serving `5030` and now also serves `3000`; the public `ROOT_URL` points to `3000`.
-5. Keep the Gitea data intact until post-cutover verification is complete.
+1. Freeze writes and stop both application writers. Keep the original binary,
+   configuration/secrets and a consistent database backup for rollback.
+2. Configure the accepted GitSSS binary with the native database and original
+   Git/LFS/package/Actions storage paths. Avoid copying the entire Git collection.
+3. Start GitSSS as the only writer; validate existing user credentials, permissions,
+   Git hooks, SSH keys and runners before enabling production jobs/webhooks.
+   The server's operating-system SSH login and port 22 remain unchanged.
+4. On GitSSS at `5030`, add the now-free port `3000` from `/-/admin/takeover` or
+   `POST /api/v1/admin/listen-port/alias` with `{"port":"3000"}`. Both ports serve
+   the same accepted data; the public `ROOT_URL` points to `3000`.
+5. Complete post-cutover verification and retain the rollback snapshot. Do not
+   delete original data or run the old writer alongside GitSSS.
 
 The listener alias only helps GitSSS claim the source port after the source service
 has been stopped. Do not add it while Gitea still owns port `3000`; binding will

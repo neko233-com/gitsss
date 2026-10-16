@@ -16,17 +16,17 @@
 			{{/* No links */}}
 		{{else if .IsSigned}}
 			{{if not ctx.Consts.RepoUnitTypeIssues.UnitGlobalDisabled}}
-				<a class="item{{if .PageIsIssues}} active{{end}}" href="{{AppSubUrl}}/issues">{{ctx.Locale.Tr "issues"}}</a>
+				<a class="item{{if .PageIsIssues}} active{{end}}" href="{{if and .ContextUser .ContextUser.IsOrganization}}{{.ContextUser.OrganisationLink}}/issues{{else}}{{AppSubUrl}}/issues{{end}}">{{ctx.Locale.Tr "issues"}}</a>
 			{{end}}
 			{{if not ctx.Consts.RepoUnitTypePullRequests.UnitGlobalDisabled}}
-				<a class="item{{if .PageIsPulls}} active{{end}}" href="{{AppSubUrl}}/pulls">{{ctx.Locale.Tr "pull_requests"}}</a>
+				<a class="item{{if .PageIsPulls}} active{{end}}" href="{{if and .ContextUser .ContextUser.IsOrganization}}{{.ContextUser.OrganisationLink}}/pulls{{else}}{{AppSubUrl}}/pulls{{end}}">{{ctx.Locale.Tr "pull_requests"}}</a>
 			{{end}}
 			{{if not (and ctx.Consts.RepoUnitTypeIssues.UnitGlobalDisabled ctx.Consts.RepoUnitTypePullRequests.UnitGlobalDisabled)}}
 				{{if .ShowMilestonesDashboardPage}}
-					<a class="item{{if .PageIsMilestonesDashboard}} active{{end}}" href="{{AppSubUrl}}/milestones">{{ctx.Locale.Tr "milestones"}}</a>
+					<a class="item{{if .PageIsMilestonesDashboard}} active{{end}}" href="{{if and .ContextUser .ContextUser.IsOrganization}}{{.ContextUser.OrganisationLink}}/milestones{{else}}{{AppSubUrl}}/milestones{{end}}">{{ctx.Locale.Tr "milestones"}}</a>
 				{{end}}
 			{{end}}
-			<a class="item{{if .PageIsViewProjects}} active{{end}}" href="{{.SignedUser.HomeLink}}/-/projects">{{ctx.Locale.Tr "repo.projects.task_board"}}</a>
+			<a class="item{{if or .PageIsViewProjects .PageIsOrgKanban}} active{{end}}" href="{{if and .ContextUser .ContextUser.IsOrganization}}{{.ContextUser.HomeLink}}/-/kanban{{else}}{{.SignedUser.HomeLink}}/-/projects{{end}}">{{ctx.Locale.Tr "repo.projects.task_board"}}</a>
 			<a class="item{{if .PageIsExplore}} active{{end}}" href="{{AppSubUrl}}/explore/repos">{{ctx.Locale.Tr "explore_title"}}</a>
 		{{else if .IsLandingPageOrganizations}}
 			<a class="item{{if .PageIsExplore}} active{{end}}" href="{{AppSubUrl}}/explore/organizations">{{ctx.Locale.Tr "explore_title"}}</a>
@@ -37,7 +37,7 @@
 		{{template "custom/extra_links" .}}
 
 		{{if not .IsSigned}}
-			<a class="item" href="{{AppSubUrl}}/api/swagger">{{ctx.Locale.Tr "help"}}</a>
+			<a class="item" href="{{AppSubUrl}}/help/">{{ctx.Locale.Tr "help"}}</a>
 		{{end}}
 	</div>
 
@@ -120,7 +120,7 @@
 						{{svg "octicon-tools"}}
 						{{ctx.Locale.Tr "your_settings"}}
 					</a>
-					<a class="item" href="{{AppSubUrl}}/api/swagger">
+					<a class="item" href="{{AppSubUrl}}/help/">
 						{{svg "octicon-question"}}
 						{{ctx.Locale.Tr "help"}}
 					</a>

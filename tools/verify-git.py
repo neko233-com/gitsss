@@ -55,7 +55,11 @@ def main():
                 body = response.read()
                 return body if raw else json.loads(body) if body else None
         except urllib.error.HTTPError as exc:
-            raise RuntimeError(method + " " + path + ": HTTP " + str(exc.code)) from None
+            try:
+                detail = json.loads(exc.read()).get("message", "")
+            except (ValueError, UnicodeError):
+                detail = ""
+            raise RuntimeError(method + " " + path + ": HTTP " + str(exc.code) + (" " + str(detail) if detail else "")) from None
 
     def auth_env(user, password):
         header = "Authorization: Basic " + base64.b64encode((user + ":" + password).encode()).decode()
@@ -123,10 +127,18 @@ def main():
             git("add", "README.md", ".gitattributes", "payload.bin", cwd=work)
             git("commit", "-m", "test: initialize Git and LFS verification", cwd=work)
             git("push", "-u", "origin", "main", cwd=work)
+            # Push metadata is queued; wait for the public API before opening a PR.
+            deadline = time.monotonic() + 30
+            while api(repo_path)["empty"]:
+                if time.monotonic() >= deadline:
+                    raise RuntimeError("initial push metadata did not become ready within 30 seconds")
+                time.sleep(0.2)
             passed("HTTP create commit and push with LFS")
             clone = root / "clone"
             git("clone", fixture["clone_url"], str(clone))
-            assert hashlib.sha256((clone / "payload.bin").read_bytes()).digest() == hashlib.sha256(payload).digest()
+            git("lfs", "install", "--local", cwd=clone)
+            git("lfs", "pull", cwd=clone)
+            assert hashlib.sha256((clone / "payload.bin").read_bytes()).digest() == hashlib.sha256(payload).digest(), "HTTP clone LFS payload mismatch"
             git("lfs", "fsck", cwd=clone)
             git("fsck", "--strict", cwd=clone)
             passed("HTTP clone checkout and Git/LFS integrity")
@@ -203,7 +215,9 @@ def main():
                 ssh_env["GIT_SSH_COMMAND"] = '"' + ssh_binary.as_posix() + '" -i "' + private.as_posix() + '" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="' + args.ssh_known_hosts.resolve().as_posix() + '"'
                 ssh_clone = root / "ssh"
                 git("clone", fixture["ssh_url"], str(ssh_clone), env=ssh_env)
-                assert (ssh_clone / "payload.bin").read_bytes() == payload
+                git("lfs", "install", "--local", cwd=ssh_clone, env=ssh_env)
+                git("lfs", "pull", cwd=ssh_clone, env=ssh_env)
+                assert (ssh_clone / "payload.bin").read_bytes() == payload, "SSH clone LFS payload mismatch"
                 git("push", "origin", "HEAD:refs/heads/ssh-probe", cwd=ssh_clone, env=ssh_env)
                 git("push", "origin", "--delete", "ssh-probe", cwd=ssh_clone, env=ssh_env)
                 passed("SSH verified host key clone LFS checkout push and branch deletion")

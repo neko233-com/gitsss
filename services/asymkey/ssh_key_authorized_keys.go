@@ -20,8 +20,8 @@ import (
 // Note: db.GetEngine(ctx).Iterate does not get latest data after insert/delete, so we have to call this function
 // outside any session scope independently.
 func RewriteAllPublicKeys(ctx context.Context) error {
-	// Don't rewrite key if internal server
-	if setting.SSH.StartBuiltinServer || !setting.SSH.CreateAuthorizedKeysFile {
+	// Disabled and built-in SSH must not manage the operating system's key file.
+	if setting.SSH.Disabled || setting.SSH.StartBuiltinServer || !setting.SSH.CreateAuthorizedKeysFile {
 		return nil
 	}
 

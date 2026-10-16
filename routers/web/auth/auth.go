@@ -25,6 +25,7 @@ import (
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/templates"
 	"github.com/neko233-com/gitsss/modules/timeutil"
+	"github.com/neko233-com/gitsss/modules/translation"
 	"github.com/neko233-com/gitsss/modules/util"
 	"github.com/neko233-com/gitsss/modules/web"
 	"github.com/neko233-com/gitsss/modules/web/middleware"
@@ -135,21 +136,15 @@ func autoSignIn(ctx *context.Context) (bool, error) {
 }
 
 func resetLocale(ctx *context.Context, u *user_model.User) error {
-	// Language setting of the user overwrites the one previously set
-	// If the user does not have a locale set, we save the current one.
+	// An empty preference follows the browser; only an explicit account choice overrides it.
 	if u.Language == "" {
-		opts := &user_service.UpdateOptions{
-			Language: optional.Some(ctx.Locale.Language()),
-		}
-		if err := user_service.UpdateUser(ctx, u, opts); err != nil {
-			return err
-		}
+		return nil
 	}
 
 	middleware.SetLocaleCookie(ctx.Resp, u.Language, 0)
 
 	if ctx.Locale.Language() != u.Language {
-		ctx.Locale = middleware.Locale(ctx.Resp, ctx.Req)
+		ctx.Locale = translation.NewLocale(u.Language)
 	}
 
 	return nil
@@ -422,22 +417,9 @@ func handleSignInFull(ctx *context.Context, u *user_model.User, remember bool) {
 		return
 	}
 
-	// Language setting of the user overwrites the one previously set
-	// If the user does not have a locale set, we save the current one.
-	if u.Language == "" {
-		opts := &user_service.UpdateOptions{
-			Language: optional.Some(ctx.Locale.Language()),
-		}
-		if err := user_service.UpdateUser(ctx, u, opts); err != nil {
-			ctx.ServerError("UpdateUser Language", fmt.Errorf("Error updating user language [user: %d, locale: %s]", u.ID, ctx.Locale.Language()))
-			return
-		}
-	}
-
-	middleware.SetLocaleCookie(ctx.Resp, u.Language, 0)
-
-	if ctx.Locale.Language() != u.Language {
-		ctx.Locale = middleware.Locale(ctx.Resp, ctx.Req)
+	if err := resetLocale(ctx, u); err != nil {
+		ctx.ServerError("resetLocale", err)
+		return
 	}
 
 	// Register last login

@@ -38,7 +38,7 @@
 				<div class="item">
 					<form class="ui form tw-w-full" action="{{AppSubUrl}}/user/settings/notifications/actions" method="post">
 						<div class="field">
-							<label>{{ctx.Locale.Tr "settings.email_notifications.actions.desc" (printf "%s/docs/site/actions.html" AppSubUrl)}}</label>
+							<label>{{ctx.Locale.Tr "settings.email_notifications.actions.desc" (printf "%s/help/site/actions.html" AppSubUrl)}}</label>
 							<div class="ui selection dropdown">
 								<input name="preference" type="hidden" value="{{.ActionsEmailNotificationsPreference}}">
 								{{svg "octicon-triangle-down" 14 "dropdown icon"}}

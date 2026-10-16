@@ -4,7 +4,9 @@
 package user
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"image/png"
 	"io"
@@ -31,6 +33,17 @@ func GenerateRandomAvatar(ctx context.Context, u *User) error {
 	}
 
 	img := avatar.RandomImageDefaultSize([]byte(seed))
+	if !u.IsOrganization() {
+		hash := sha256.Sum256([]byte(seed))
+		data, err := avatar.BuiltinPNG(int(hash[0]) % avatar.BuiltinCount)
+		if err != nil {
+			return err
+		}
+		img, err = png.Decode(bytes.NewReader(data))
+		if err != nil {
+			return err
+		}
+	}
 
 	u.Avatar = avatars.HashEmail(seed)
 

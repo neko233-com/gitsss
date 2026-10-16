@@ -1,3 +1,5 @@
+import {tr} from './i18n.ts';
+import {GET} from '../modules/fetch.ts';
 import {useEffect, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {Aurora} from './shader.tsx';
@@ -14,17 +16,17 @@ function Announcements({endpoint}: {endpoint: string}) {
       return undefined;
     }
     let ignore = false;
-    fetch(endpoint, {credentials: 'same-origin', headers: {Accept: 'application/json'}})
-      .then(async (response) => {
+    const load = async () => {
+      try {
+        const response = await GET(endpoint, {credentials: 'same-origin', headers: {Accept: 'application/json'}});
         if (!response.ok) throw new Error(String(response.status));
-        return await response.json() as Notice[];
-      })
-      .then((body) => {
+        const body = await response.json() as Notice[];
         if (!ignore) setNotices(body);
-      })
-      .catch(() => {
+      } catch {
         if (!ignore) setFailed(true);
-      });
+      }
+    };
+    load();
     return () => {
       ignore = true;
     };
@@ -45,10 +47,10 @@ function Announcements({endpoint}: {endpoint: string}) {
       <Aurora />
       <div className="gitsss-react-body">
         <p className="gitsss-react-kicker">gitsss</p>
-        <h2>企业公告</h2>
-        {failed ? <p>公告暂时无法加载</p> : null}
-        {notices === null && !failed ? <p>正在加载</p> : null}
-        {notices !== null && notices.length === 0 ? <p>暂无公告</p> : null}
+        <h2>{tr('企业公告')}</h2>
+        {failed ? <p>{tr('公告暂时无法加载')}</p> : null}
+        {notices === null && !failed ? <p>{tr('正在加载')}</p> : null}
+        {notices !== null && notices.length === 0 ? <p>{tr('暂无公告')}</p> : null}
         {notices?.map((notice) => (
           <article className="gitsss-react-card" key={notice.id}>
             <h3>{notice.title}</h3>
@@ -60,7 +62,7 @@ function Announcements({endpoint}: {endpoint: string}) {
   );
 }
 
-const root = document.getElementById('gitsss-react-dashboard');
+const root = document.querySelector('#gitsss-react-dashboard');
 if (root) {
-  createRoot(root).render(<Announcements endpoint={root.dataset.endpoint || ''} />);
+  createRoot(root).render(<Announcements endpoint={root.getAttribute('data-endpoint') || ''} />);
 }

@@ -39,10 +39,9 @@
 		</div>
 	</div>
 	<div class="dashboard-actions-toolbar">
-		<label class="dashboard-actions-search">
+		<label class="dashboard-actions-search" aria-label="{{ctx.Locale.Tr "dashboard.actions.search"}}">
 			{{svg "octicon-search" 16}}
-			<span class="sr-only">{{ctx.Locale.Tr "dashboard.actions.search"}}</span>
-			<input type="search" data-dashboard-actions-search placeholder="{{ctx.Locale.Tr "dashboard.actions.search_placeholder"}}" autocomplete="off">
+			<input type="search" data-dashboard-actions-search aria-label="{{ctx.Locale.Tr "dashboard.actions.search"}}" placeholder="{{ctx.Locale.Tr "dashboard.actions.search_placeholder"}}" autocomplete="off">
 		</label>
 		<span class="dashboard-actions-result" data-dashboard-actions-result aria-live="polite"></span>
 	</div>

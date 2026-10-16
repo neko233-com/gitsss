@@ -1,8 +1,10 @@
+import {initHomeLinks} from './features/home-links.ts';
 import '../fomantic/build/fomantic.js';
 import '../css/index.css';
 
 import {initDashboardRepoList} from './features/dashboard.ts';
 import {initDashboardActions} from './features/dashboard-actions.ts';
+import {initDashboardTeamFilter} from './features/dashboard-team.ts';
 import {initGlobalCopyToClipboardListener} from './modules/clipboard.ts';
 import {initCopyContent} from './features/copycontent.ts';
 import {initRepoGraphGit} from './features/repo-graph.ts';
@@ -35,6 +37,7 @@ import {initRepoActivityTopAuthorsChart, initRepoArchiveLinks} from './features/
 import {initRepoMigrationStatusChecker} from './features/repo-migrate.ts';
 import {initRepoDiffView} from './features/repo-diff.ts';
 import {initOrgTeam} from './features/org-team.ts';
+import {initOrgKanban} from './features/org-kanban.ts';
 import {initUserAuthWebAuthn, initUserAuthWebAuthnRegister} from './features/user-auth-webauthn.ts';
 import {initRepoReleaseNew} from './features/repo-release.ts';
 import {initRepoEditor} from './features/repo-editor.ts';
@@ -89,6 +92,9 @@ const initPerformanceTracer = callInitFunctions([
   initGlobalShortcut,
 
   initCommonOrganization,
+  initDashboardTeamFilter,
+  initHomeLinks,
+  initOrgKanban,
   initCommonIssueListQuickGoto,
 
   initCompSearchUserBox,

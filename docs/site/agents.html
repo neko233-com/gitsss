@@ -130,7 +130,7 @@
       <p>运行 pnpm 或 Make 前，检查 Node、pnpm 是否符合当前 package.json engines，并从已安装工具链选择兼容版本加入 PATH。</p>
       <p>独立开发环境使用 <code>./gitsss web --port 5030 --pid /tmp/gitsss.pid</code>；健康检查 <code>http://127.0.0.1:5030/api/healthz</code>。首次安装选择 SQLite，设置可用的 SSH 端口或关闭 SSH。Gitea 3000 的切换仍需等待管理员通知。</p>
 
-      <h2>交接</h2>
+      <h2>试运行隔离</h2><p>测试和副本实例必须隔离 HOME/USERPROFILE、SSH_ROOT_PATH，关闭 SSH_CREATE_AUTHORIZED_KEYS_FILE 和 SSH_CREATE_AUTHORIZED_PRINCIPALS_FILE。禁用或内置 SSH 均不能改写系统授权文件。验收前后核对原 Gitea 授权文件哈希及真实密钥拉取；同机并行服务使用不同 session/remember Cookie 名称。组织 Kanban 与仓库看板分别验证；语言测试覆盖自动识别、手动选择与账户自动偏好，浅色/深色桌面布局均需实屏检查；当前不涉及移动端。发布前将 TypeScript、TSX lint 与 CodeMirror 单实例依赖检查纳入本机门禁。</p><h2>交接</h2>
       <p>交接时说明：已改文件和行为、已运行的验证及结果、未运行项目与原因、保留的用户改动，以及需要人工决定的风险。不要把未验证的假设表述为完成。</p>
 
       <h2>Git 数据兼容</h2>
@@ -138,7 +138,7 @@
 
       <h2>存储稳定性冻结</h2>
       <p>Git、LFS、本地/S3/MinIO、数据库路径和 Actions 日志/制品存储属于兼容性合同。禁止无报告的大规模重构；新增驱动或观测能力必须保持既有路径、配置键和 API 不变，并同时验证 CGO 与纯 Go SQLite 构建。</p>
-    </main>
+    <h2>组织任务与头像验收</h2><p><code>tools/verify-enterprise.py --url http://gitsss.example.internal:5030 --token-file target.token</code> 使用临时私有组织和账号验证全局任务、权限隔离、24 个头像与真实上传裁剪压缩，完成后清理自身数据。仅用于 GitSSS 试运行环境，不对原 Gitea 执行。</p><h2>首页入口验收</h2><p>验证公共入口管理员权限、个人入口隔离、HTTP/HTTPS 校验、冲突保护及原页保存；试运行新增 app_state 入口需连同看板导出，接管前核对用户 ID。禁止把企业私有地址作为公开产品默认值。</p></main>
   </div>
 </body>
 </html>

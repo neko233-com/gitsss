@@ -1,3 +1,15 @@
+.org-workspace-header {
+  padding: .75rem 0;
+  border-bottom: 1px solid var(--color-light-border);
+  background: var(--color-menu);
+}
+
+.org-workspace-header .ui.dropdown > .text { display: inline-flex; align-items: center; gap: .5rem; }
+.org-workspace-header .ui.dropdown .menu { min-width: 18rem; }
+.org-workspace-about { margin-top: .75rem; margin-bottom: .75rem; }
+.org-workspace-about summary { cursor: pointer; color: var(--color-text-light-2); }
+[data-dashboard-feed-area][aria-busy="true"] { opacity: .6; }
+
 .page-content.organization .team-item-box > .team-item-header {
   min-height: 50px; /* the header sometimes contains a mini button, sometimes not, so we set a min-height to make sure the layout is consistent */
 }

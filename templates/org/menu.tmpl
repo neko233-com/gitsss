@@ -1,6 +1,7 @@
 <div class="ui container">
 	<overflow-menu class="ui secondary pointing tabular borderless menu tw-mb-4">
 		<div class="overflow-menu-items">
+   <a class="item {{if .PageIsNews}}active{{end}}" href="{{.Org.OrganisationLink}}/dashboard{{if .Team}}/{{PathEscape .Team.Name}}{{end}}" data-org-dashboard-link>{{svg "octicon-rss"}} {{ctx.Locale.Tr "activities"}}</a>
 			{{if .HasOrgProfileReadme}}
 				<a class="{{if .PageIsViewOverview}}active {{end}}item" href="{{$.Org.HomeLink}}">
 					{{svg "octicon-info"}} {{ctx.Locale.Tr "user.overview"}}
@@ -12,14 +13,17 @@
 					<div class="ui small label">{{.RepoCount}}</div>
 				{{end}}
 			</a>
-			{{if .CanReadProjects}}
-			<a class="{{if .PageIsViewProjects}}active {{end}}item" href="{{$.Org.HomeLink}}/-/projects">
-				{{svg "octicon-project-symlink"}} {{ctx.Locale.Tr "user.projects"}}
-				{{if .ProjectCount}}
-					<div class="ui small label">{{.ProjectCount}}</div>
-				{{end}}
+			{{if .IsOrganizationMember}}
+			<a class="{{if .PageIsOrgKanban}}active {{end}}item" href="{{$.Org.HomeLink}}/-/kanban">
+				{{svg "octicon-project-symlink"}} {{ctx.Locale.Tr "org.global_kanban"}}
 			</a>
 			{{end}}
+
+   {{if .IsOrganizationMember}}
+   <a class="item {{if .PageIsIssues}}active{{end}}" href="{{.Org.OrganisationLink}}/issues{{if .Team}}/{{PathEscape .Team.Name}}{{end}}" data-org-team-nav="{{.Org.OrganisationLink}}/issues">{{svg "octicon-issue-opened"}} {{ctx.Locale.Tr "issues"}}</a>
+   <a class="item {{if .PageIsPulls}}active{{end}}" href="{{.Org.OrganisationLink}}/pulls{{if .Team}}/{{PathEscape .Team.Name}}{{end}}" data-org-team-nav="{{.Org.OrganisationLink}}/pulls">{{svg "octicon-git-pull-request"}} {{ctx.Locale.Tr "pull_requests"}}</a>
+   <a class="item {{if .PageIsMilestonesDashboard}}active{{end}}" href="{{.Org.OrganisationLink}}/milestones{{if .Team}}/{{PathEscape .Team.Name}}{{end}}" data-org-team-nav="{{.Org.OrganisationLink}}/milestones">{{svg "octicon-milestone"}} {{ctx.Locale.Tr "milestones"}}</a>
+   {{end}}
 			{{if and .IsPackageEnabled .CanReadPackages}}
 			<a class="{{if .IsPackagesPage}}active {{end}}item" href="{{$.Org.HomeLink}}/-/packages">
 				{{svg "octicon-package"}} {{ctx.Locale.Tr "packages.title"}}

@@ -16,7 +16,7 @@ default_channels:
 				<div class="markup"><pre class="code-block"><code>conda install{{if $channel}} -c {{$channel}}{{end}} {{.PackageDescriptor.PackageProperties.GetByName "conda.name"}}={{.PackageDescriptor.Version.Version}}</code></pre></div>
 			</div>
 			<div class="field">
-				<label>{{ctx.Locale.Tr "packages.registry.documentation" "Conda" (printf "%s/docs/site/storage.html" AppSubUrl)}}</label>
+				<label>{{ctx.Locale.Tr "packages.registry.documentation" "Conda" (printf "%s/help/site/storage.html" AppSubUrl)}}</label>
 			</div>
 		</div>
 	</div>

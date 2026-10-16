@@ -1,0 +1,21 @@
+{{with .Task}}
+				{{$task := .}}{{$assignee := index $.BoardNames .AssigneeID}}
+				<article class="org-kanban-card" draggable="true" data-board-task="{{.ID}}" data-status="{{.Status}}" data-assignee="{{.AssigneeID}}" data-search="{{.Title}} {{.Content}} @{{$assignee}}">
+					<div class="org-kanban-card-title">{{.Title}}</div>
+					{{if .Content}}<p class="org-kanban-card-content">{{.Content}}</p>{{end}}
+					<div class="org-kanban-card-meta"><span>#{{.ID}}</span>{{if $assignee}}<span class="org-kanban-assignee">@{{$assignee}}</span>{{else}}<span>{{ctx.Locale.Tr "org.kanban.unassigned"}}</span>{{end}}</div>
+					<details class="org-kanban-edit"><summary>{{ctx.Locale.Tr "edit"}}</summary>
+						<form class="ui form" data-board-form method="post" action="{{$.KanbanLink}}/tasks/{{.ID}}">
+
+							<label>{{ctx.Locale.Tr "org.kanban.task_title"}}<input name="title" value="{{.Title}}" required maxlength="255"></label>
+							<label>{{ctx.Locale.Tr "org.kanban.description"}}<textarea name="content" rows="3" maxlength="10000">{{.Content}}</textarea></label>
+							<label>{{ctx.Locale.Tr "org.kanban.assignee"}}<select name="assignee"><option value="-">{{ctx.Locale.Tr "org.kanban.unassigned"}}</option>{{range $.BoardMembers}}<option value="{{.Name}}" {{if eq .ID $task.AssigneeID}}selected{{end}}>@{{.Name}}</option>{{end}}</select></label>
+							<label>{{ctx.Locale.Tr "org.kanban.status"}}<select name="status">{{range $.BoardColumns}}<option value="{{.Status}}" {{if eq .Status $task.Status}}selected{{end}}>{{.Title}}</option>{{end}}</select></label>
+							<button class="ui primary button">{{ctx.Locale.Tr "save"}}</button>
+						</form>
+						{{if or $.IsOrganizationOwner (eq .CreatorID $.SignedUser.ID)}}
+						<form method="post" action="{{$.KanbanLink}}/tasks/{{.ID}}/delete" class="org-kanban-delete"><button class="ui basic red button" data-board-delete data-confirm="{{ctx.Locale.Tr "org.kanban.delete_confirm"}}">{{ctx.Locale.Tr "org.kanban.delete"}}</button></form>
+						{{end}}
+					</details>
+				</article>
+{{end}}

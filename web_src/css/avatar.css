@@ -118,6 +118,11 @@ img.ui.avatar,
   background: var(--color-hover);
 }
 
+.builtin-avatar-picker { display: grid; grid-template-columns: repeat(8, 88px); gap: 1rem; margin: 1rem 0; }
+.builtin-avatar-picker button { padding: 4px; background: var(--color-body); border: 2px solid var(--color-light-border); border-radius: 50%; cursor: pointer; }
+.builtin-avatar-picker button:hover, .builtin-avatar-picker button:focus-visible { border-color: var(--color-primary); }
+.builtin-avatar-picker img { display: block; border-radius: 50%; }
+
 @media (max-width: 767.98px) {
   .avatar-stack-names {
     max-width: 80px;

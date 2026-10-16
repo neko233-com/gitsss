@@ -13,9 +13,10 @@ async function initCompCropper({container, fileInput, imageSource}: CropperOpts)
   const cropper = new Cropper(imageSource, {
     aspectRatio: 1,
     viewMode: 2,
-    autoCrop: false,
+    autoCrop: true,
+    autoCropArea: 1,
     crop() {
-      const canvas = cropper.getCroppedCanvas();
+      const canvas = cropper.getCroppedCanvas({width: 512, height: 512, imageSmoothingEnabled: true, imageSmoothingQuality: 'high'});
       canvas.toBlob((blob) => {
         if (!blob) return;
         const croppedFileName = currentFileName.replace(/\.[^.]{3,4}$/, '.png');

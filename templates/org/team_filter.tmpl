@@ -1,0 +1,13 @@
+<div class="ui floating filter dropdown jump org-workspace-team" data-no-results="{{ctx.Locale.Tr "no_results_found"}}" data-dashboard-team-select>
+	<span class="text">{{svg "octicon-people" 18}} {{ctx.Locale.Tr "org.teams"}}: <span data-dashboard-team-label>{{if .Team}}{{.Team.DisplayLabel}}{{else}}{{ctx.Locale.Tr "all"}}{{end}}</span></span>{{svg "octicon-triangle-down" 14 "dropdown icon"}}
+	<div class="menu">
+		<div class="header">{{ctx.Locale.Tr "home.filter_by_team_repositories"}}</div>
+		<div class="ui icon search input"><i class="icon">{{svg "octicon-search" 16}}</i><input name="search" aria-label="{{ctx.Locale.Tr "search.team_kind"}}" placeholder="{{ctx.Locale.Tr "search.team_kind"}}"></div>
+		<div class="scrolling menu">
+			<a class="item {{if not .Team}}active selected{{end}}" href="{{.Org.OrganisationLink}}/dashboard" data-dashboard-team="0" data-label="{{ctx.Locale.Tr "all"}}">{{ctx.Locale.Tr "all"}}</a>
+			{{range .Teams}}{{if not .IncludesAllRepositories}}
+			<a class="item {{if $.Team}}{{if eq $.Team.ID .ID}}active selected{{end}}{{end}}" href="{{$.Org.OrganisationLink}}/dashboard/{{PathEscape .Name}}" data-dashboard-team="{{.ID}}" data-label="{{.DisplayLabel}}" data-text="{{.DisplayLabel}} {{.Name}}">{{.DisplayLabel}}</a>
+			{{end}}{{end}}
+		</div>
+	</div>
+</div>

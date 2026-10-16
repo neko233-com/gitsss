@@ -130,6 +130,14 @@
 					<button class="ui red button link-action" data-url="{{.Link}}/avatar/delete">{{ctx.Locale.Tr "settings.delete_current_avatar"}}</button>
 				</div>
 			</form>
+			<h5>{{ctx.Locale.Tr "settings.builtin_avatars"}}</h5>
+			<p>{{ctx.Locale.Tr "settings.builtin_avatars_help"}}</p>
+			<div class="builtin-avatar-picker">
+				{{range $i := 24}}
+				<form method="post" action="{{$.Link}}/avatar"><input type="hidden" name="preset" value="{{$i}}"><button type="submit" aria-label="{{ctx.Locale.Tr "settings.builtin_avatar_choose" (Eval $i "+" 1)}}"><img src="{{AppSubUrl}}/-/builtin-avatar/{{$i}}" width="80" height="80" alt="{{ctx.Locale.Tr "settings.builtin_avatar_choose" (Eval $i "+" 1)}}"></button></form>
+				{{end}}
+			</div>
+			<small class="text light-2">{{ctx.Locale.Tr "settings.builtin_avatars_credit"}} <a href="{{AppSubUrl}}/help/site/enterprise.html#avatars">Lisa Wischofsky / DiceBear</a></small>
 		</div>
 	</div>
 {{template "user/settings/layout_footer" .}}

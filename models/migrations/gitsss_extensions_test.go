@@ -55,6 +55,25 @@ func TestGitSSSExtensionsPreserveUpstreamVersionAndLabels(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "Owners", team.Name)
 	require.Equal(t, "Administrators", team.DisplayName)
+	var extension gitsssSchemaVersion
+	_, err = x.ID(1).Get(&extension)
+	require.NoError(t, err)
+	require.EqualValues(t, 2, extension.Version)
+	has, err := x.IsTableExist("org_task")
+	require.NoError(t, err)
+	require.True(t, has)
+}
+
+func TestGitSSSExtensionOneUpgradesAdditively(t *testing.T) {
+	x := extensionTestEngine(t)
+	require.NoError(t, x.Sync(new(gitsssSchemaVersion)))
+	_, err := x.Insert(&gitsssSchemaVersion{ID: 1, Version: 1})
+	require.NoError(t, err)
+	require.NoError(t, migrateGitSSSExtensions(x))
+	require.NoError(t, migrateGitSSSExtensions(x))
+	has, err := x.IsTableExist("org_task")
+	require.NoError(t, err)
+	require.True(t, has)
 }
 
 func TestLegacyGitSSS332RestoresDisplacedActionsMigration(t *testing.T) {

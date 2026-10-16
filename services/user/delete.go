@@ -19,7 +19,9 @@ import (
 	access_model "github.com/neko233-com/gitsss/models/perm/access"
 	pull_model "github.com/neko233-com/gitsss/models/pull"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
+	system_model "github.com/neko233-com/gitsss/models/system"
 	user_model "github.com/neko233-com/gitsss/models/user"
+	"github.com/neko233-com/gitsss/modules/homelinks"
 	"github.com/neko233-com/gitsss/modules/setting"
 
 	_ "image/jpeg" // Needed for jpeg support
@@ -72,6 +74,7 @@ func deleteUser(ctx context.Context, u *user_model.User, purge bool) (err error)
 	// ***** END: Follow *****
 
 	if err = db.DeleteBeans(ctx,
+		&system_model.AppState{ID: homelinks.PersonalKey(u.ID)},
 		&auth_model.AccessToken{UID: u.ID},
 		&repo_model.Collaboration{UserID: u.ID},
 		&access_model.Access{UserID: u.ID},

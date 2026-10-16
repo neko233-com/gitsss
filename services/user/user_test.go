@@ -15,8 +15,10 @@ import (
 	issues_model "github.com/neko233-com/gitsss/models/issues"
 	"github.com/neko233-com/gitsss/models/organization"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
+	system_model "github.com/neko233-com/gitsss/models/system"
 	"github.com/neko233-com/gitsss/models/unittest"
 	user_model "github.com/neko233-com/gitsss/models/user"
+	"github.com/neko233-com/gitsss/modules/homelinks"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/timeutil"
 	org_service "github.com/neko233-com/gitsss/services/org"
@@ -52,7 +54,10 @@ func TestDeleteUser(t *testing.T) {
 				return
 			}
 		}
+		personalState := &system_model.AppState{ID: homelinks.PersonalKey(userID), Content: `{"links":[]}`}
+		require.NoError(t, db.Insert(t.Context(), personalState))
 		assert.NoError(t, DeleteUser(t.Context(), user, false))
+		unittest.AssertNotExistsBean(t, personalState)
 		unittest.AssertNotExistsBean(t, &user_model.User{ID: userID})
 		unittest.CheckConsistencyFor(t, &user_model.User{}, &repo_model.Repository{})
 	}

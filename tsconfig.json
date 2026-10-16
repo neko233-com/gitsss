@@ -10,6 +10,7 @@
     "${configDir}/web_src/js/**/.*",
   ],
   "compilerOptions": {
+    "jsx": "react-jsx",
     "target": "es2020",
     "module": "esnext",
     "moduleResolution": "bundler",

@@ -6,6 +6,7 @@ package middleware
 import (
 	"net/http"
 
+	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/translation"
 	"github.com/neko233-com/gitsss/modules/translation/i18n"
 
@@ -38,24 +39,26 @@ func Locale(resp http.ResponseWriter, req *http.Request) translation.Locale {
 
 	// 2. Get language information from cookies.
 	if len(lang) == 0 {
-		ck, _ := req.Cookie("lang")
+		ck, _ := req.Cookie(setting.LocaleCookieName)
 		if ck != nil {
 			lang = ck.Value
 		}
 	}
 
 	// Check again in case someone changes the supported language list.
-	if lang != "" && !i18n.DefaultLocales.HasLang(lang) {
+	if lang != "" && lang != "auto" && !i18n.DefaultLocales.HasLang(lang) {
 		lang = ""
 		changeLang = false
 	}
 
 	// 3. Get language information from 'Accept-Language'.
 	// The first element in the list is chosen to be the default language automatically.
-	if len(lang) == 0 {
-		tags := parseAcceptLanguage(req.Header.Get("Accept-Language"))
-		tag := translation.Match(tags...)
-		lang = tag.String()
+	if lang == "" || lang == "auto" {
+		if changeLang {
+			SetLocaleCookie(resp, "auto", 1<<31-1)
+			changeLang = false
+		}
+		lang = AutomaticLocale(req).Language()
 	}
 
 	if changeLang {
@@ -65,7 +68,15 @@ func Locale(resp http.ResponseWriter, req *http.Request) translation.Locale {
 	return translation.NewLocale(lang)
 }
 
+// AutomaticLocale follows the system language preferences exposed by the browser.
+func AutomaticLocale(req *http.Request) translation.Locale {
+	return translation.NewLocale(translation.Match(parseAcceptLanguage(req.Header.Get("Accept-Language"))...).String())
+}
+
 // SetLocaleCookie convenience function to set the locale cookie consistently
 func SetLocaleCookie(resp http.ResponseWriter, lang string, maxAge int) {
-	SetSiteCookie(resp, "lang", lang, maxAge)
+	if lang == "" {
+		lang = "auto"
+	}
+	SetSiteCookie(resp, setting.LocaleCookieName, lang, maxAge)
 }

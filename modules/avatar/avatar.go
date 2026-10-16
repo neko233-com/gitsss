@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 
 	"github.com/neko233-com/gitsss/modules/avatar/identicon"
@@ -16,7 +17,6 @@ import (
 
 	_ "golang.org/x/image/webp" // for processing webp images
 	_ "image/gif"               // for processing gif images
-	_ "image/jpeg"              // for processing jpeg images
 
 	"golang.org/x/image/draw"
 )
@@ -100,6 +100,42 @@ func processAvatarImage(data []byte, maxOriginSize int64) ([]byte, error) {
 // the returned data could be the original image if no processing is needed.
 func ProcessAvatarImage(data []byte) ([]byte, error) {
 	return processAvatarImage(data, setting.Avatar.MaxOriginSize)
+}
+
+// NormalizeUploadedAvatar always crops new uploads, including small compressed photos.
+func NormalizeUploadedAvatar(data []byte) ([]byte, error) {
+	cfg, format, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	if format != "png" && format != "jpeg" && format != "gif" && format != "webp" {
+		return nil, errors.New("unsupported avatar image type")
+	}
+	if cfg.Width > setting.Avatar.MaxWidth || cfg.Height > setting.Avatar.MaxHeight {
+		return nil, errors.New("avatar image dimensions exceed the configured limit")
+	}
+	source, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	size := min(DefaultAvatarSize*max(1, setting.Avatar.RenderedSizeFactor), cfg.Width, cfg.Height)
+	img := image.NewRGBA(image.Rect(0, 0, size, size))
+	square := cropSquare(source)
+	draw.CatmullRom.Scale(img, img.Bounds(), square, square.Bounds(), draw.Src, nil)
+	var pngData bytes.Buffer
+	if err := png.Encode(&pngData, img); err != nil {
+		return nil, err
+	}
+	if img.Opaque() {
+		var jpegData bytes.Buffer
+		if err := jpeg.Encode(&jpegData, img, &jpeg.Options{Quality: 85}); err != nil {
+			return nil, err
+		}
+		if jpegData.Len() < pngData.Len() {
+			return jpegData.Bytes(), nil
+		}
+	}
+	return pngData.Bytes(), nil
 }
 
 // scale resizes the image to width x height using the given scaler.

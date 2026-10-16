@@ -246,6 +246,15 @@ func OrgAssignment(orgAssignmentOpts OrgAssignmentOptions) func(ctx *Context) {
 			}
 		}
 		ctx.Data["ContextUser"] = ctx.ContextUser
+		ctx.Data["Teams"] = ctx.Org.Teams
+		if ctx.IsSigned {
+			orgs, err := organization.GetUserOrgsList(ctx, ctx.Doer)
+			if err != nil {
+				ctx.ServerError("GetUserOrgsList", err)
+				return
+			}
+			ctx.Data["Orgs"] = orgs
+		}
 
 		ctx.Data["CanReadProjects"] = ctx.Org.CanReadUnit(ctx, unit.TypeProjects)
 		ctx.Data["CanReadPackages"] = ctx.Org.CanReadUnit(ctx, unit.TypePackages)

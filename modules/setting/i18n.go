@@ -51,11 +51,13 @@ func defaultI18nNames() (res []string) {
 
 var (
 	// I18n settings
-	Langs []string
-	Names []string
+	Langs            []string
+	Names            []string
+	LocaleCookieName = "lang"
 )
 
 func loadI18nFrom(rootCfg ConfigProvider) {
+	LocaleCookieName = rootCfg.Section("i18n").Key("COOKIE_NAME").MustString("lang")
 	Langs = rootCfg.Section("i18n").Key("LANGS").Strings(",")
 	if len(Langs) == 0 {
 		Langs = defaultI18nLangs()

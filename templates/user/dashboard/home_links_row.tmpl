@@ -1,0 +1,5 @@
+<div class="home-link-row">
+	<label>{{ctx.Locale.Tr "home.links.name"}}<input name="title" value="{{.Title}}" required maxlength="120" autocomplete="off"></label>
+	<label>{{ctx.Locale.Tr "home.links.url"}}<input name="url" type="url" value="{{.URL}}" required maxlength="2048" placeholder="https://" autocomplete="off"></label>
+	<button type="button" class="ui basic button" data-home-link-remove aria-label="{{ctx.Locale.Tr "remove"}}">{{svg "octicon-x"}}</button>
+</div>

@@ -65,10 +65,10 @@ gitsss-theme-meta-info {
   /* Text — GitHub Light */
   --color-text-dark: #1f2328;
   --color-text: #1f2328;
-  --color-text-light: #656d76;
-  --color-text-light-1: #6e7781;
-  --color-text-light-2: #848d97;
-  --color-text-light-3: #6e7781;
+  --color-text-light: #59636e;
+  --color-text-light-1: #59636e;
+  --color-text-light-2: #59636e;
+  --color-text-light-3: #59636e;
 
   --color-timeline: #d0d7de;
   --color-input-text: #1f2328;
@@ -160,12 +160,14 @@ a { transition: color 120ms ease; }
 .ui.top.menu.navbar {
   background: var(--gitsss-navbar-bg) !important;
 }
-#navbar .item,
-#navbar .navbar-item,
-#navbar .item:hover {
+#navbar > div > .item,
+#navbar .navbar-mobile-right > .item,
+#navbar > div > .item:hover,
+#navbar .navbar-mobile-right > .item:hover {
   color: var(--gitsss-navbar-text) !important;
 }
-#navbar .item:hover {
+#navbar > div > .item:hover,
+#navbar .navbar-mobile-right > .item:hover {
   background: var(--gitsss-navbar-hover-bg) !important;
 }
 /* navbar logo white on dark bar; keep home hero logo as-is (dark on light) */

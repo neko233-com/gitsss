@@ -64,3 +64,25 @@ paths. Keep post-cutover Git changes separately if rollback follows new writes.
 The old GitSSS 1.26-based binary cannot read database version 343; retain its own
 staging database backup when upgrading that instance. Do not lower version
 numbers manually.
+
+## Additive organization tasks and local avatars
+
+Extension schema version 2 adds `org_task` only. Existing upstream 343 records,
+Git/LFS objects, repository boards and owner project routes stay intact. New
+cards reference the organization, creator and one assignee; every operation is
+scoped to the authenticated organization and assignment requires membership.
+Only the creator or organization owner can delete a card. Rendering is bounded
+to 500 matching cards; search and an explicit limit notice handle larger boards.
+No additional Git repositories or object copies are created by task recording.
+
+Rollback to extension version 1 requires its pre-upgrade database backup. A final
+native takeover must preserve trial-only `org_task` rows and any legacy trial
+projects, mapping organization and user IDs rather than copying numeric IDs
+blindly. Never replace the trial database before exporting and verifying them.
+
+The 24 embedded DiceBear avatars add about 250 KiB of PNG data to the binary.
+Each is 256px and has recorded attribution, source, license and checksum. Selection uses existing avatar storage and
+processing, preserving provider keys and paths. New uploads always crop to square
+and downscale to configured rendered size; PNG/JPEG compression keeps the smaller
+suitable representation, preserves transparency and does not upscale. GIF uploads
+use the first frame. Existing avatar bytes are unchanged.

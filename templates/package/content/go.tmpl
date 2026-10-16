@@ -7,7 +7,7 @@
 				<div class="markup"><pre class="code-block"><code>GOPROXY={{ctx.AppFullLink}}/api/packages/{{$.PackageDescriptor.Owner.Name}}/go go install {{$.PackageDescriptor.Package.Name}}@{{$.PackageDescriptor.Version.Version}}</code></pre></div>
 			</div>
 			<div class="field">
-				<label>{{ctx.Locale.Tr "packages.registry.documentation" "Go" (printf "%s/docs/site/storage.html" AppSubUrl)}}</label>
+				<label>{{ctx.Locale.Tr "packages.registry.documentation" "Go" (printf "%s/help/site/storage.html" AppSubUrl)}}</label>
 			</div>
 		</div>
 	</div>

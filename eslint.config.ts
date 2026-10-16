@@ -20,7 +20,7 @@ import type {ESLint} from 'eslint';
 import unescapedHtmlLiteral from './tools/eslint-rules/unescaped-html-literal.ts';
 
 const jsExts = ['js', 'mjs', 'cjs'] as const;
-const tsExts = ['ts', 'mts', 'cts'] as const;
+const tsExts = ['ts', 'tsx', 'mts', 'cts'] as const;
 
 const restrictedGlobals = [
   {name: 'localStorage', message: 'Use `modules/user-settings.ts` instead.'},

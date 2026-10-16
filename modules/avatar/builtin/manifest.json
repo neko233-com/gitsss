@@ -1,0 +1,270 @@
+{
+  "generator": "DiceBear core/styles 10.6.0, resvg 2.6.2",
+  "collected_at": "2026-10-16",
+  "assets": [
+    {
+      "file": "00.png",
+      "style": "adventurer",
+      "seed": "GitSSS-Aster",
+      "sha256": "01edec6119c71f3935179ad27deb5208109dfe8e1ac7f1b5f3bbbe7df56925b1",
+      "bytes": 14166,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1184595184137881796",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/"
+    },
+    {
+      "file": "01.png",
+      "style": "adventurer",
+      "seed": "GitSSS-Mochi",
+      "sha256": "aa96d1fe92674ad31fc85a2f3d6503c6d3ccde33b4c42b9a07c57eaa20ca8eee",
+      "bytes": 11162,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1184595184137881796",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/"
+    },
+    {
+      "file": "02.png",
+      "style": "adventurer",
+      "seed": "GitSSS-Luna",
+      "sha256": "909f217014f386523fca459eb4d406c9b4e54f0cfef308553c53be0107565ca9",
+      "bytes": 11052,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1184595184137881796",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/"
+    },
+    {
+      "file": "03.png",
+      "style": "adventurer",
+      "seed": "GitSSS-Sora",
+      "sha256": "183ef8292c7826decc395a6b4b49e98c195e2f06869dc2e9fd5934375d52f538",
+      "bytes": 8478,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1184595184137881796",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/"
+    },
+    {
+      "file": "04.png",
+      "style": "adventurer",
+      "seed": "GitSSS-Milo",
+      "sha256": "601407e0d9195b81d488251134cb1e10005e8646a7349cfa8326942133a662fa",
+      "bytes": 11510,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1184595184137881796",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/"
+    },
+    {
+      "file": "05.png",
+      "style": "adventurer",
+      "seed": "GitSSS-Yuki",
+      "sha256": "5d3068d3fdb1025a57945feb1b0776222b5b7e30fdd056fadc67ed1a80b9590d",
+      "bytes": 11012,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1184595184137881796",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/"
+    },
+    {
+      "file": "06.png",
+      "style": "adventurer",
+      "seed": "GitSSS-Nori",
+      "sha256": "c6e736c5926c6e9a6b490f95a1f27bf8b860d6caee941b56b703eb407972316f",
+      "bytes": 14638,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1184595184137881796",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/"
+    },
+    {
+      "file": "07.png",
+      "style": "adventurer",
+      "seed": "GitSSS-Kiki",
+      "sha256": "1bf17a2c53542e09886fc1978e3b94c2f757fceddf3695d0936c550914b1d548",
+      "bytes": 13866,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1184595184137881796",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/"
+    },
+    {
+      "file": "08.png",
+      "style": "adventurer",
+      "seed": "GitSSS-Haru",
+      "sha256": "91129345b2990289a8ce85a1012bdd3a0eead34c769713e96532b49bf310257a",
+      "bytes": 10450,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1184595184137881796",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/"
+    },
+    {
+      "file": "09.png",
+      "style": "adventurer",
+      "seed": "GitSSS-Coco",
+      "sha256": "3f11589244928e5c2c0674f68d2cb562f9378645f19ea3f6868e849a1a610d86",
+      "bytes": 9724,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1184595184137881796",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/"
+    },
+    {
+      "file": "10.png",
+      "style": "adventurer",
+      "seed": "GitSSS-Rin",
+      "sha256": "ebafe874fc2a8e3c186fc25f3a5688845bbd8b264d4df0b51bb98354abaa9c38",
+      "bytes": 8971,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1184595184137881796",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/"
+    },
+    {
+      "file": "11.png",
+      "style": "adventurer",
+      "seed": "GitSSS-Taro",
+      "sha256": "a22561903ac9994699bf7bc9429859f8c13b537d82cddd70ca73c40535268e1f",
+      "bytes": 13289,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1184595184137881796",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/"
+    },
+    {
+      "file": "12.png",
+      "style": "lorelei",
+      "seed": "GitSSS-Aster",
+      "sha256": "1e9b644dba64fccb7f3e8d0c7280a77f2155e4f46d47931791a82df8453cc52a",
+      "bytes": 9947,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1198749693280469639",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "file": "13.png",
+      "style": "lorelei",
+      "seed": "GitSSS-Mochi",
+      "sha256": "85c050768d0d413886b44f20c2877ccd6344e7746b0edb3d51ede2c7b8b93e11",
+      "bytes": 10922,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1198749693280469639",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "file": "14.png",
+      "style": "lorelei",
+      "seed": "GitSSS-Luna",
+      "sha256": "2bd6a41174014a752bfab5022bab28566b8edeca4b40cda4a33c902eb5e97f54",
+      "bytes": 9411,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1198749693280469639",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "file": "15.png",
+      "style": "lorelei",
+      "seed": "GitSSS-Sora",
+      "sha256": "4eb89e29ce2076f8d974969f8c06a7c9f4dbdc7519973c674f3795929811117f",
+      "bytes": 8392,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1198749693280469639",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "file": "16.png",
+      "style": "lorelei",
+      "seed": "GitSSS-Milo",
+      "sha256": "add5da0903ada709f02284eb0ea8619341434d643effa0551b6a63d5f6b3986f",
+      "bytes": 10603,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1198749693280469639",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "file": "17.png",
+      "style": "lorelei",
+      "seed": "GitSSS-Yuki",
+      "sha256": "f5f6c1589b95b28320bcee75e48d31802397ae6e51c40bdc9f70de4dfd070ee5",
+      "bytes": 9884,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1198749693280469639",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "file": "18.png",
+      "style": "lorelei",
+      "seed": "GitSSS-Nori",
+      "sha256": "bd1f101e23fd84c15b10cf0a7fcbcf92f8b82a264a1446a5216d40b97407515d",
+      "bytes": 9649,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1198749693280469639",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "file": "19.png",
+      "style": "lorelei",
+      "seed": "GitSSS-Kiki",
+      "sha256": "680a9449cd5175b2ec3e653d8583c779637caff52d3946a69d9caf8ae75e0e4f",
+      "bytes": 10326,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1198749693280469639",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "file": "20.png",
+      "style": "lorelei",
+      "seed": "GitSSS-Haru",
+      "sha256": "d864def245030b2f0eca2becffc277169a25f608af3995caac1cbe114134ff7f",
+      "bytes": 8043,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1198749693280469639",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "file": "21.png",
+      "style": "lorelei",
+      "seed": "GitSSS-Coco",
+      "sha256": "24b52ee2a6557d8bb29e0e9f834dfbc1052985666b68eda2517a3bc85c7cf903",
+      "bytes": 8677,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1198749693280469639",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "file": "22.png",
+      "style": "lorelei",
+      "seed": "GitSSS-Rin",
+      "sha256": "03692f4276880eade8d79e9e53b6d56d4bd1bca99da4bcce4635959c6f1a2d74",
+      "bytes": 10049,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1198749693280469639",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "file": "23.png",
+      "style": "lorelei",
+      "seed": "GitSSS-Taro",
+      "sha256": "ccc5d0bf916d40bd0c706ffcc2445e6613355ebbe10dc25eaccc8a9da7608502",
+      "bytes": 10177,
+      "creator": "Lisa Wischofsky",
+      "source": "https://www.figma.com/community/file/1198749693280469639",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    }
+  ]
+}

@@ -1,12 +1,18 @@
 # gitsss
 
-内网、自托管 Git 协作平台。Gitsss 以单个离线 Docker 镜像运行，包含仓库、Issue、Pull Request、Actions、Packages、Release 与 Git LFS，并保留成熟 Git 服务的兼容语义。
+面向企业内网研发、以组织为中心的自托管 Git 协作平台，包含仓库、Issue、Pull Request、Actions、Packages、Release、Wiki 与 Git LFS。支持 Linux、macOS、Windows 原生二进制，也可使用离线 Docker 镜像。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 [English README](README.md) · [HTML 英文说明书](docs/site/en/index.html)
 
+以下截图来自 2026-10-16 的演示实例，不包含生产仓库数据。
+
 ![GitSSS 首页](docs/site/assets/screenshots/home.png)
+
+- 首页充分利用桌面宽度，支持公共入口和个人快捷链接，多项添加、编辑、删除均在当前页完成。
+
+![GitSSS 仓库概览](docs/site/assets/screenshots/repository.png)
 
 ## 前置条件
 
@@ -269,6 +275,10 @@ make release-native VERSION=1.3.0
 
 ## 企业默认行为
 
+正式切换需等待管理员明确通知。完整保留原密码、SSH/API/Runner 凭据与 Actions 历史时，必须停止两套应用后执行原生数据库与原存储路径接管；HTTP 试点与端口别名不能代替此步骤。操作系统 SSH 的账号、密码与 22 端口保持不变。
+
+界面默认自动识别系统/浏览器语言，可在页脚或外观设置保留手动偏好；浅色/深色菜单与辅助文字保证清晰。组织入口直接打开单个全局看板，可快速记任务、搜索、@成员指派与拖动状态，不需要创建项目或仓库；仓库仍各自保留看板。桌面界面充分利用浏览器宽度，个人资料提供 24 个可离线使用的现成头像，并支持上传图片后自动裁剪、缩放与压缩。
+
 默认监听 `0.0.0.0:5030`，关闭自主注册并要求登录；首页优先显示所属组织。权限组支持修改显示名称（备注），不改变稳定标识、成员关系与授权。详情见[企业运维说明](docs/operations/enterprise.md)。
 
 离线 HTML 说明书随程序发布，入口 `/help/`，默认英文。原生 Actions Runner 需要 Git、Git LFS 与 Node.js。运维入口为 `tools/verify-git.py`、`tools/agent-ops.py`、`tools/rehearse-native.py`，参数见 `--help`。
@@ -276,3 +286,5 @@ make release-native VERSION=1.3.0
 ## 原生二进制安装
 
 从 Releases 下载匹配系统/架构的二进制与 `.sha256` 并校验。无需 Docker；安装 Git、Git LFS，JS Actions 另需 Node.js。运行 `gitsss web --work-path /绝对路径/gitsss-data`（Windows 使用 `gitsss.exe` 和 Windows 绝对路径），访问 5030 并在安装向导设置管理员密码。已有安装保留配置。
+
+组织动态、仓库、看板和团队管理使用统一导航；组织/团队下拉框支持搜索，动态页切换团队就地更新内容并保留筛选，看板记任务与编辑也在原页面完成。

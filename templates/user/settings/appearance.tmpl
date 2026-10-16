@@ -43,10 +43,11 @@
 			<form class="ui form" action="{{.Link}}/language" method="post">
 				<div class="field">
 					<div class="ui language selection dropdown" id="language">
-						<input name="language" type="hidden" value="{{.SignedUser.Language}}">
+						<input name="language" type="hidden" value="{{if .SignedUser.Language}}{{.SignedUser.Language}}{{else}}auto{{end}}">
 						{{svg "octicon-triangle-down" 14 "dropdown icon"}}
-						<div class="text">{{range .AllLangs}}{{if eq $.SignedUser.Language .Lang}}{{.Name}}{{end}}{{end}}</div>
+						<div class="text">{{if not .SignedUser.Language}}{{ctx.Locale.Tr "settings.language_auto"}}{{else}}{{range .AllLangs}}{{if eq $.SignedUser.Language .Lang}}{{.Name}}{{end}}{{end}}{{end}}</div>
 						<div class="menu">
+							<div class="item{{if not .SignedUser.Language}} active selected{{end}}" data-value="auto">{{ctx.Locale.Tr "settings.language_auto"}}</div>
 						{{range .AllLangs}}
 							<div class="item{{if eq $.SignedUser.Language .Lang}} active selected{{end}}" data-value="{{.Lang}}">{{.Name}}</div>
 						{{end}}
