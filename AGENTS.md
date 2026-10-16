@@ -42,3 +42,9 @@
 - `gitsss import-gitea-http` prints JSON. Authenticate with a site-admin token file or `--source-user` plus `--source-password-file` (and the target equivalents). Keep passwords in mode-`0600` files, not on the command line. Without `--apply` it only prints the plan. With `--apply` it copies accounts, RBAC, Git, LFS, and the labels, milestones, issues, comments, pull requests, reviews (including resolved line comments), release notes, release attachments, wiki pages, and generic, npm, Maven, PyPI, Helm, Cargo, Debian, Composer, Alpine, NuGet, RubyGems, and container packages of repositories created in that run. Debian and Alpine need `composite_key` on the package file API. Conan and Swift are listed and skipped. Copied files stay on the source origin and are capped at 512 MiB.
 - `gitsss admin lfs-gc` prints JSON. It scans until `--apply`. Retention defaults to 168h and refuses a window under 24h unless `--force`. `POST /api/v1/admin/lfs-gc` is the same report for an admin token.
 - Pure frontend plugins live under `custom/public/assets/plugins/`. The backend does not execute them. See `docs/site/extensions.html`.
+
+## Cursor Cloud specific instructions
+
+- `task help` lists targets. Without Docker, or with `GITSSS_TASK_NATIVE=1`, tasks use host Make. Host equivalents include `TAGS="sqlite sqlite_unlock_notify" make backend`, `make frontend`, `make test-backend`, and `make test-frontend`.
+- Before `pnpm` or `make`, check Node and pnpm against the current `package.json` engines and select an installed compatible toolchain on PATH. Do not assume the system Node is current.
+- Start an isolated development server with `./gitsss web --port 5030 --pid /tmp/gitsss.pid`. Without `custom/conf/app.ini` it serves the installation wizard. Check `http://127.0.0.1:5030/api/healthz`; choose SQLite and an available SSH port (or disable SSH). Keep a live Gitea on 3000 until the operator explicitly authorizes cutover.
