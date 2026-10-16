@@ -176,11 +176,9 @@ func (g *GiteaDownloader) GetMilestones(ctx context.Context) ([]*base.Milestone,
 		}
 
 		ms, _, err := g.client.Repositories.ListMilestones(g.ctx, g.repoOwner, g.repoName, gitea_sdk.ListMilestoneOption{
-			ListOptions: gitea_sdk.ListOptions{
-				PageSize: g.maxPerPage,
-				Page:     i,
-			},
-			State: gitea_sdk.StateAll,
+			PageSize: g.maxPerPage,
+			Page:     i,
+			State:    gitea_sdk.StateAll,
 		})
 		if err != nil {
 			return nil, err
@@ -414,9 +412,9 @@ func (g *GiteaDownloader) GetIssues(ctx context.Context, page, perPage int) ([]*
 	allIssues := make([]*base.Issue, 0, perPage)
 
 	issues, _, err := g.client.Issues.ListRepoIssues(g.ctx, g.repoOwner, g.repoName, gitea_sdk.ListIssueOption{
-		ListOptions: gitea_sdk.ListOptions{Page: page, PageSize: perPage},
-		State:       gitea_sdk.StateAll,
-		Type:        gitea_sdk.IssueTypeIssue,
+		Page: page, PageSize: perPage,
+		State: gitea_sdk.StateAll,
+		Type:  gitea_sdk.IssueTypeIssue,
 	})
 	if err != nil {
 		return nil, false, fmt.Errorf("error while listing issues: %w", err)
@@ -523,11 +521,9 @@ func (g *GiteaDownloader) GetPullRequests(ctx context.Context, page, perPage int
 	allPRs := make([]*base.PullRequest, 0, perPage)
 
 	prs, _, err := g.client.PullRequests.ListRepoPullRequests(g.ctx, g.repoOwner, g.repoName, gitea_sdk.ListPullRequestsOptions{
-		ListOptions: gitea_sdk.ListOptions{
-			Page:     page,
-			PageSize: perPage,
-		},
-		State: gitea_sdk.StateAll,
+		Page:     page,
+		PageSize: perPage,
+		State:    gitea_sdk.StateAll,
 	})
 	if err != nil {
 		return nil, false, fmt.Errorf("error while listing pull requests (page: %d, pagesize: %d). Error: %w", page, perPage, err)

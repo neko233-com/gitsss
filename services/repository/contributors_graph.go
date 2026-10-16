@@ -168,11 +168,9 @@ func getExtendedCommitStats(repo *git.Repository, revision string /*, limit int 
 
 				res := &ExtendedCommitStats{
 					Author: &api.CommitUser{
-						Identity: api.Identity{
-							Name:  authorName,
-							Email: authorEmail,
-						},
-						Date: date,
+						Name:  authorName,
+						Email: authorEmail,
+						Date:  date,
 					},
 					Stats: &commitStats,
 				}

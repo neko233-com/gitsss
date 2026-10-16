@@ -7,7 +7,6 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/unittest"
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/optional"
@@ -92,9 +91,7 @@ func TestListEmails(t *testing.T) {
 
 	// Must find all users and their emails
 	opts := &user_model.SearchEmailOptions{
-		ListOptions: db.ListOptions{
-			PageSize: 10000,
-		},
+		PageSize: 10000,
 	}
 	emails, count, err := user_model.SearchEmails(t.Context(), opts)
 	assert.NoError(t, err)
@@ -138,10 +135,8 @@ func TestListEmails(t *testing.T) {
 
 	// Must find more than one page, but retrieve only one
 	opts = &user_model.SearchEmailOptions{
-		ListOptions: db.ListOptions{
-			PageSize: 5,
-			Page:     1,
-		},
+		PageSize: 5,
+		Page:     1,
 	}
 	emails, count, err = user_model.SearchEmails(t.Context(), opts)
 	assert.NoError(t, err)

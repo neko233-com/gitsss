@@ -10,7 +10,6 @@ import (
 	"time"
 
 	actions_model "github.com/neko233-com/gitsss/models/actions"
-	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/organization"
 	perm_model "github.com/neko233-com/gitsss/models/perm"
 	access_model "github.com/neko233-com/gitsss/models/perm/access"
@@ -41,11 +40,9 @@ func startTasks(ctx context.Context) error {
 	for page := 1; ; page++ {
 		// Retrieve the specs for the current page
 		specs, _, err := actions_model.FindSpecs(ctx, actions_model.FindSpecOptions{
-			ListOptions: db.ListOptions{
-				Page:     page,
-				PageSize: pageSize,
-			},
-			Next: now.Unix(),
+			Page:     page,
+			PageSize: pageSize,
+			Next:     now.Unix(),
 		})
 		if err != nil {
 			return fmt.Errorf("find specs: %w", err)

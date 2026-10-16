@@ -249,7 +249,8 @@ func runMigrateStorage(ctx context.Context, cmd *cli.Command) error {
 			ctx,
 			&setting.Storage{
 				Path: p,
-			})
+			},
+		)
 	case string(setting.MinioStorageType):
 		dstStorage, err = storage.NewMinioStorage(
 			ctx,
@@ -266,7 +267,8 @@ func runMigrateStorage(ctx context.Context, cmd *cli.Command) error {
 					ChecksumAlgorithm:  cmd.String("minio-checksum-algorithm"),
 					BucketLookUpType:   cmd.String("minio-bucket-lookup-type"),
 				},
-			})
+			},
+		)
 	case string(setting.AzureBlobStorageType):
 		dstStorage, err = storage.NewAzureBlobStorage(
 			ctx,
@@ -278,7 +280,8 @@ func runMigrateStorage(ctx context.Context, cmd *cli.Command) error {
 					Container:   cmd.String("azureblob-container"),
 					BasePath:    cmd.String("azureblob-base-path"),
 				},
-			})
+			},
+		)
 	default:
 		return fmt.Errorf("unsupported storage type: %s", cmd.String("storage"))
 	}

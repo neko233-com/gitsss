@@ -58,7 +58,8 @@ func NewParser(r io.Reader, format Format) *Parser {
 			}
 			// Not yet a full field. Request more data.
 			return 0, nil, nil
-		})
+		},
+	)
 
 	return &Parser{
 		scanner: scanner,

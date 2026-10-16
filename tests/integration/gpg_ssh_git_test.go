@@ -290,17 +290,15 @@ func testGitSigning(t *testing.T) {
 
 			content := base64.StdEncoding.EncodeToString([]byte("update base"))
 			t.Run("UpdateBase", doAPICreateFile(testCtx, "signed-base.txt", &api.CreateFileOptions{
-				FileOptions: api.FileOptions{
-					BranchName: "master",
-					Message:    "update base",
-					Author: api.Identity{
-						Name:  user.FullName,
-						Email: user.Email,
-					},
-					Committer: api.Identity{
-						Name:  user.FullName,
-						Email: user.Email,
-					},
+				BranchName: "master",
+				Message:    "update base",
+				Author: api.Identity{
+					Name:  user.FullName,
+					Email: user.Email,
+				},
+				Committer: api.Identity{
+					Name:  user.FullName,
+					Email: user.Email,
 				},
 				ContentBase64: content,
 			}))
@@ -396,18 +394,16 @@ func testGitSigning(t *testing.T) {
 
 func crudActionCreateFile(_ *testing.T, ctx APITestContext, user *user_model.User, from, to, path string, callback ...func(*testing.T, api.FileResponse)) func(*testing.T) {
 	return doAPICreateFile(ctx, path, &api.CreateFileOptions{
-		FileOptions: api.FileOptions{
-			BranchName:    from,
-			NewBranchName: to,
-			Message:       fmt.Sprintf("from:%s to:%s path:%s", from, to, path),
-			Author: api.Identity{
-				Name:  user.FullName,
-				Email: user.Email,
-			},
-			Committer: api.Identity{
-				Name:  user.FullName,
-				Email: user.Email,
-			},
+		BranchName:    from,
+		NewBranchName: to,
+		Message:       fmt.Sprintf("from:%s to:%s path:%s", from, to, path),
+		Author: api.Identity{
+			Name:  user.FullName,
+			Email: user.Email,
+		},
+		Committer: api.Identity{
+			Name:  user.FullName,
+			Email: user.Email,
 		},
 		ContentBase64: base64.StdEncoding.EncodeToString([]byte("This is new text for " + path)),
 	}, callback...)

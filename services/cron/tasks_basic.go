@@ -29,13 +29,11 @@ func registerUpdateMirrorTask() {
 	}
 
 	RegisterTaskFatal("update_mirrors", &UpdateMirrorTaskConfig{
-		BaseConfig: BaseConfig{
-			Enabled:    true,
-			RunAtStart: false,
-			Schedule:   "@every 10m",
-		},
-		PullLimit: 50,
-		PushLimit: 50,
+		Enabled:    true,
+		RunAtStart: false,
+		Schedule:   "@every 10m",
+		PullLimit:  50,
+		PushLimit:  50,
 	}, func(ctx context.Context, _ *user_model.User, cfg Config) error {
 		umtc := cfg.(*UpdateMirrorTaskConfig)
 		return mirror_service.Update(ctx, umtc.PullLimit, umtc.PushLimit)
@@ -49,13 +47,11 @@ func registerRepoHealthCheck() {
 		Args    []string `delim:" "`
 	}
 	RegisterTaskFatal("repo_health_check", &RepoHealthCheckConfig{
-		BaseConfig: BaseConfig{
-			Enabled:    true,
-			RunAtStart: false,
-			Schedule:   "@midnight",
-		},
-		Timeout: time.Duration(setting.Git.Timeout.GC) * time.Second,
-		Args:    []string{},
+		Enabled:    true,
+		RunAtStart: false,
+		Schedule:   "@midnight",
+		Timeout:    time.Duration(setting.Git.Timeout.GC) * time.Second,
+		Args:       []string{},
 	}, func(ctx context.Context, _ *user_model.User, config Config) error {
 		rhcConfig := config.(*RepoHealthCheckConfig)
 		// the git args are set by config, they can be safe to be trusted
@@ -75,12 +71,10 @@ func registerCheckRepoStats() {
 
 func registerArchiveCleanup() {
 	RegisterTaskFatal("archive_cleanup", &OlderThanConfig{
-		BaseConfig: BaseConfig{
-			Enabled:    true,
-			RunAtStart: true,
-			Schedule:   "@midnight",
-		},
-		OlderThan: 24 * time.Hour,
+		Enabled:    true,
+		RunAtStart: true,
+		Schedule:   "@midnight",
+		OlderThan:  24 * time.Hour,
 	}, func(ctx context.Context, _ *user_model.User, config Config) error {
 		acConfig := config.(*OlderThanConfig)
 		return archiver_service.DeleteOldRepositoryArchives(ctx, acConfig.OlderThan)
@@ -89,11 +83,9 @@ func registerArchiveCleanup() {
 
 func registerSyncExternalUsers() {
 	RegisterTaskFatal("sync_external_users", &UpdateExistingConfig{
-		BaseConfig: BaseConfig{
-			Enabled:    true,
-			RunAtStart: false,
-			Schedule:   "@midnight",
-		},
+		Enabled:        true,
+		RunAtStart:     false,
+		Schedule:       "@midnight",
 		UpdateExisting: true,
 	}, func(ctx context.Context, _ *user_model.User, config Config) error {
 		realConfig := config.(*UpdateExistingConfig)
@@ -103,12 +95,10 @@ func registerSyncExternalUsers() {
 
 func registerDeletedBranchesCleanup() {
 	RegisterTaskFatal("deleted_branches_cleanup", &OlderThanConfig{
-		BaseConfig: BaseConfig{
-			Enabled:    true,
-			RunAtStart: true,
-			Schedule:   "@midnight",
-		},
-		OlderThan: 24 * time.Hour,
+		Enabled:    true,
+		RunAtStart: true,
+		Schedule:   "@midnight",
+		OlderThan:  24 * time.Hour,
 	}, func(ctx context.Context, _ *user_model.User, config Config) error {
 		realConfig := config.(*OlderThanConfig)
 		git_model.RemoveOldDeletedBranches(ctx, realConfig.OlderThan)
@@ -128,11 +118,9 @@ func registerUpdateMigrationPosterID() {
 
 func registerCleanupHookTaskTable() {
 	RegisterTaskFatal("cleanup_hook_task_table", &CleanupHookTaskConfig{
-		BaseConfig: BaseConfig{
-			Enabled:    true,
-			RunAtStart: false,
-			Schedule:   "@midnight",
-		},
+		Enabled:      true,
+		RunAtStart:   false,
+		Schedule:     "@midnight",
 		CleanupType:  "OlderThan",
 		OlderThan:    168 * time.Hour,
 		NumberToKeep: 10,
@@ -144,12 +132,10 @@ func registerCleanupHookTaskTable() {
 
 func registerCleanupPackages() {
 	RegisterTaskFatal("cleanup_packages", &OlderThanConfig{
-		BaseConfig: BaseConfig{
-			Enabled:    true,
-			RunAtStart: true,
-			Schedule:   "@midnight",
-		},
-		OlderThan: 24 * time.Hour,
+		Enabled:    true,
+		RunAtStart: true,
+		Schedule:   "@midnight",
+		OlderThan:  24 * time.Hour,
 	}, func(ctx context.Context, _ *user_model.User, config Config) error {
 		realConfig := config.(*OlderThanConfig)
 		return packages_cleanup_service.CleanupTask(ctx, realConfig.OlderThan)

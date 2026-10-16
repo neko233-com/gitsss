@@ -84,7 +84,8 @@ func parseCommitWithGPGSignature(ctx context.Context, c *git.Commit, committer *
 		committer,
 		keyID,
 		setting.AppName,
-		""); commitVerification != nil {
+		"",
+	); commitVerification != nil {
 		if commitVerification.Reason == asymkey_model.BadSignature {
 			defaultReason = asymkey_model.BadSignature
 		} else {

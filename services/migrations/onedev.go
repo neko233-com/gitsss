@@ -89,7 +89,8 @@ func NewOneDevDownloader(ctx context.Context, baseURL *url.URL, username, passwo
 						req.SetBasicAuth(username, password)
 					}
 					return httpTransport.RoundTrip(req.WithContext(ctx))
-				}),
+				},
+			),
 		},
 		userMap:      make(map[int64]*onedevUser),
 		milestoneMap: make(map[int64]string),

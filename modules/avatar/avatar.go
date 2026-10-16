@@ -15,8 +15,9 @@ import (
 	"github.com/neko233-com/gitsss/modules/avatar/identicon"
 	"github.com/neko233-com/gitsss/modules/setting"
 
+	_ "image/gif" // for processing gif images
+
 	_ "golang.org/x/image/webp" // for processing webp images
-	_ "image/gif"               // for processing gif images
 
 	"golang.org/x/image/draw"
 )

@@ -28,11 +28,9 @@ PROPORTION_TO_CHECK_PER_REPO = 0.1
 	defer test.MockVariableValue(&setting.CfgProvider, cfg)()
 
 	config := &GCLFSConfig{
-		BaseConfig: BaseConfig{
-			Enabled:    false,
-			RunAtStart: false,
-			Schedule:   "@every 24h",
-		},
+		Enabled:                  false,
+		RunAtStart:               false,
+		Schedule:                 "@every 24h",
 		OlderThan:                24 * time.Hour * 7,
 		LastUpdatedMoreThanAgo:   24 * time.Hour * 3,
 		NumberToCheckPerRepo:     100,
@@ -64,7 +62,7 @@ PROBE_TIMEOUT = 3s
 	defer test.MockVariableValue(&setting.CfgProvider, cfg)()
 
 	config := &UpdateCheckerConfig{
-		BaseConfig: BaseConfig{Enabled: false, Schedule: "@every 168h"},
+		Enabled: false, Schedule: "@every 168h",
 	}
 	_, err = setting.GetCronSettings("update_checker", config)
 	assert.NoError(t, err)

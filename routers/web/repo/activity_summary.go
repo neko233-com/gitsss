@@ -26,7 +26,7 @@ func ActivitySummary(ctx *context.Context) {
 		return
 	}
 	var times []int64
-	for _, line := range strings.Fields(stdout) {
+	for line := range strings.FieldsSeq(stdout) {
 		ts, err := strconv.ParseInt(line, 10, 64)
 		if err != nil {
 			continue

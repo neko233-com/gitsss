@@ -41,11 +41,12 @@ import (
 	"github.com/neko233-com/gitsss/services/context"
 	repo_service "github.com/neko233-com/gitsss/services/repository"
 
+	_ "image/gif"  // for processing gif images
+	_ "image/jpeg" // for processing jpeg images
+	_ "image/png"  // for processing png images
+
 	_ "golang.org/x/image/bmp"  // for processing bmp images
 	_ "golang.org/x/image/webp" // for processing webp images
-	_ "image/gif"               // for processing gif images
-	_ "image/jpeg"              // for processing jpeg images
-	_ "image/png"               // for processing png images
 )
 
 const (

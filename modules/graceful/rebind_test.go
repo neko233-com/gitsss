@@ -19,9 +19,7 @@ func TestRebindListenerKeepsAcceptingOnTheNewPort(t *testing.T) {
 	listener := &rebindListener{current: first}
 	accepted := make(chan string, 2)
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for range 2 {
 			conn, err := listener.Accept()
 			if err != nil {
@@ -32,7 +30,7 @@ func TestRebindListenerKeepsAcceptingOnTheNewPort(t *testing.T) {
 			accepted <- string(buf[:n])
 			_ = conn.Close()
 		}
-	}()
+	})
 
 	dial := func(addr, payload string) {
 		conn, err := net.Dial("tcp", addr)

@@ -28,7 +28,8 @@ func ShowFileFeed(ctx *context.Context, repo *repo.Repository, formatType string
 			Revision: ctx.Repo.RefFullName.ShortName(), // FIXME: legacy code used ShortName
 			File:     fileName,
 			Page:     1,
-		})
+		},
+	)
 	if err != nil {
 		ctx.ServerError("ShowBranchFeed", err)
 		return

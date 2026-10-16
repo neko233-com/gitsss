@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/neko233-com/gitsss/packages/migration-sdk"
+	gitea "github.com/neko233-com/gitsss/packages/migration-sdk"
 
 	"github.com/stretchr/testify/assert"
 )

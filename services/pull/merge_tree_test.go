@@ -106,7 +106,8 @@ from :1
 M 100644 inline %[3]s
 data 11
 head change
-`, baseBranch, headBranch, conflictFile)
+`, baseBranch, headBranch, conflictFile,
+	)
 	err := gitcmd.NewCommand("fast-import").WithDir(repoPath).WithStdinBytes([]byte(stdin)).RunWithStderr(t.Context())
 	require.NoError(t, err)
 	return []string{conflictFile}

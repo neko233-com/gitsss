@@ -436,7 +436,8 @@ func ListPageRevisions(ctx *context.APIContext) {
 			Revision: ctx.Repo.Repository.DefaultWikiBranch,
 			File:     pageFilename,
 			Page:     page,
-		})
+		},
+	)
 	if err != nil {
 		ctx.APIErrorInternal(err)
 		return

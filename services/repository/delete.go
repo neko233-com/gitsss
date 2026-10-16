@@ -25,7 +25,6 @@ import (
 	actions_module "github.com/neko233-com/gitsss/modules/actions"
 	"github.com/neko233-com/gitsss/modules/gitrepo"
 	"github.com/neko233-com/gitsss/modules/graceful"
-	"github.com/neko233-com/gitsss/modules/lfs"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/storage"
 	actions_service "github.com/neko233-com/gitsss/services/actions"
@@ -241,7 +240,7 @@ func DeleteRepositoryDirectly(ctx context.Context, repoID int64, ignoreOrgTeams 
 
 	lfsPaths := make([]string, 0, len(lfsObjects))
 	for _, v := range lfsObjects {
-		count, err := db.CountByBean(ctx, &git_model.LFSMetaObject{Pointer: lfs.Pointer{Oid: v.Oid}})
+		count, err := db.CountByBean(ctx, &git_model.LFSMetaObject{Oid: v.Oid})
 		if err != nil {
 			return err
 		}
@@ -389,13 +388,11 @@ func DeleteRepositoryDirectly(ctx context.Context, repoID int64, ignoreOrgTeams 
 func DeleteOwnerRepositoriesDirectly(ctx context.Context, owner *user_model.User) error {
 	for {
 		repos, _, err := repo_model.GetUserRepositories(ctx, repo_model.SearchRepoOptions{
-			ListOptions: db.ListOptions{
-				PageSize: repo_model.RepositoryListDefaultPageSize,
-				Page:     1,
-			},
-			Private: true,
-			OwnerID: owner.ID,
-			Actor:   owner,
+			PageSize: repo_model.RepositoryListDefaultPageSize,
+			Page:     1,
+			Private:  true,
+			OwnerID:  owner.ID,
+			Actor:    owner,
 		})
 		if err != nil {
 			return fmt.Errorf("GetUserRepositories: %w", err)

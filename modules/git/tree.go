@@ -22,10 +22,8 @@ type TreeCommon struct {
 // NewTree create a new tree according the repository and tree id
 func NewTree(repo *Repository, id ObjectID) *Tree {
 	return &Tree{
-		TreeCommon: TreeCommon{
-			ID:   id,
-			repo: repo,
-		},
+		ID:   id,
+		repo: repo,
 	}
 }
 

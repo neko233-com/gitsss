@@ -124,24 +124,18 @@ func getExpectedFileResponseForRepoFilesCreate(commitID string, lastCommit *git.
 			},
 		},
 		Commit: &api.FileCommitResponse{
-			CommitMeta: api.CommitMeta{
-				URL: setting.AppURL + "api/v1/repos/user2/repo1/git/commits/" + commitID,
-				SHA: commitID,
-			},
+			URL:     setting.AppURL + "api/v1/repos/user2/repo1/git/commits/" + commitID,
+			SHA:     commitID,
 			HTMLURL: setting.AppURL + "user2/repo1/commit/" + commitID,
 			Author: &api.CommitUser{
-				Identity: api.Identity{
-					Name:  "User Two",
-					Email: "2+user2@noreply.example.org",
-				},
-				Date: time.Now().UTC().Format(time.RFC3339),
+				Name:  "User Two",
+				Email: "2+user2@noreply.example.org",
+				Date:  time.Now().UTC().Format(time.RFC3339),
 			},
 			Committer: &api.CommitUser{
-				Identity: api.Identity{
-					Name:  "User Two",
-					Email: "2+user2@noreply.example.org",
-				},
-				Date: time.Now().UTC().Format(time.RFC3339),
+				Name:  "User Two",
+				Email: "2+user2@noreply.example.org",
+				Date:  time.Now().UTC().Format(time.RFC3339),
 			},
 			Parents: []*api.CommitMeta{
 				{
@@ -194,24 +188,18 @@ func getExpectedFileResponseForRepoFilesUpdate(commitID, filename, lastCommitSHA
 			},
 		},
 		Commit: &api.FileCommitResponse{
-			CommitMeta: api.CommitMeta{
-				URL: setting.AppURL + "api/v1/repos/user2/repo1/git/commits/" + commitID,
-				SHA: commitID,
-			},
+			URL:     setting.AppURL + "api/v1/repos/user2/repo1/git/commits/" + commitID,
+			SHA:     commitID,
 			HTMLURL: setting.AppURL + "user2/repo1/commit/" + commitID,
 			Author: &api.CommitUser{
-				Identity: api.Identity{
-					Name:  "User Two",
-					Email: "2+user2@noreply.example.org",
-				},
-				Date: time.Now().UTC().Format(time.RFC3339),
+				Name:  "User Two",
+				Email: "2+user2@noreply.example.org",
+				Date:  time.Now().UTC().Format(time.RFC3339),
 			},
 			Committer: &api.CommitUser{
-				Identity: api.Identity{
-					Name:  "User Two",
-					Email: "2+user2@noreply.example.org",
-				},
-				Date: time.Now().UTC().Format(time.RFC3339),
+				Name:  "User Two",
+				Email: "2+user2@noreply.example.org",
+				Date:  time.Now().UTC().Format(time.RFC3339),
 			},
 			Parents: []*api.CommitMeta{
 				{
@@ -304,22 +292,16 @@ func getExpectedFileResponseForRepoFilesUpdateRename(commitID, lastCommitSHA str
 	return &api.FilesResponse{
 		Files: responses,
 		Commit: &api.FileCommitResponse{
-			CommitMeta: api.CommitMeta{
-				URL: setting.AppURL + "api/v1/repos/user2/lfs/git/commits/" + commitID,
-				SHA: commitID,
-			},
+			URL:     setting.AppURL + "api/v1/repos/user2/lfs/git/commits/" + commitID,
+			SHA:     commitID,
 			HTMLURL: setting.AppURL + "user2/lfs/commit/" + commitID,
 			Author: &api.CommitUser{
-				Identity: api.Identity{
-					Name:  "User Two",
-					Email: "2+user2@noreply.example.org",
-				},
+				Name:  "User Two",
+				Email: "2+user2@noreply.example.org",
 			},
 			Committer: &api.CommitUser{
-				Identity: api.Identity{
-					Name:  "User Two",
-					Email: "2+user2@noreply.example.org",
-				},
+				Name:  "User Two",
+				Email: "2+user2@noreply.example.org",
 			},
 			Parents: []*api.CommitMeta{
 				{

@@ -58,5 +58,6 @@ func init() {
 		NewSimpleProvider("fake", "Fake", []string{"account"},
 			func(clientKey, secret, callbackURL string, scopes ...string) goth.Provider {
 				return &fakeProvider{}
-			}))
+			}),
+	)
 }

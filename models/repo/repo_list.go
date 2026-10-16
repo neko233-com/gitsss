@@ -388,7 +388,8 @@ func SearchRepositoryCondition(opts SearchRepoOptions) builder.Cond {
 			builder.Eq{"is_private": false},
 			builder.NotIn("owner_id", builder.Select("id").From("`user`").Where(
 				builder.Or(builder.Eq{"visibility": structs.VisibleTypeLimited}, builder.Eq{"visibility": structs.VisibleTypePrivate}),
-			)))
+			)),
+		)
 	}
 
 	if opts.IsPrivate.Has() {
@@ -620,7 +621,7 @@ func searchRepositoryByCondition(ctx context.Context, opts SearchRepoOptions, co
 		args = append(args, opts.PriorityOwnerID)
 	} else if strings.Count(opts.Keyword, "/") == 1 {
 		// With "owner/repo" search times, prioritise results which match the owner field
-		orgName := strings.Split(opts.Keyword, "/")[0]
+		orgName, _, _ := strings.Cut(opts.Keyword, "/")
 		orderBy = db.SearchOrderBy(fmt.Sprintf("CASE WHEN owner_name LIKE ? THEN 0 ELSE 1 END, %s", orderBy))
 		args = append(args, orgName)
 	}
@@ -662,8 +663,10 @@ func userAllPublicRepoCond(cond builder.Cond, orgVisibilityLimit []structs.Visib
 		builder.NotIn("`repository`.owner_id", builder.Select("id").From("`user`").Where(
 			builder.And(
 				builder.Eq{"type": user_model.UserTypeOrganization},
-				builder.In("visibility", orgVisibilityLimit)),
-		))))
+				builder.In("visibility", orgVisibilityLimit),
+			),
+		)),
+	))
 }
 
 // AccessibleRepositoryCondition takes a user a returns a condition for checking if a repository is accessible

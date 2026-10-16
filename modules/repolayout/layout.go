@@ -10,8 +10,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/neko233-com/gitsss/modules/json"
@@ -69,7 +72,7 @@ func Read(dataRoot string) (Manifest, error) {
 	body, err := os.ReadFile(ManifestPath(dataRoot))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return Manifest{}, fmt.Errorf("git layout sidecar is missing; start gitsss or run doctor --fix to record it without moving repositories")
+			return Manifest{}, errors.New("git layout sidecar is missing; start gitsss or run doctor --fix to record it without moving repositories")
 		}
 		return Manifest{}, err
 	}
@@ -153,7 +156,7 @@ func ReserveExtension(dataRoot, repoRoot, lfsRoot, id string) (string, error) {
 	}
 	marker := filepath.Join(dir, "extension.json")
 	if _, err := os.Stat(marker); errors.Is(err, os.ErrNotExist) {
-		payload, err := json.Marshal(map[string]string{"id": id, "layout_version": fmt.Sprintf("%d", Version)})
+		payload, err := json.Marshal(map[string]string{"id": id, "layout_version": strconv.Itoa(Version)})
 		if err != nil {
 			return "", err
 		}
@@ -196,9 +199,7 @@ func mergeManifest(current Manifest) Manifest {
 	}
 	if current.Reserved != nil {
 		next.Reserved = make(map[string]string, len(current.Reserved))
-		for key, value := range current.Reserved {
-			next.Reserved[key] = value
-		}
+		maps.Copy(next.Reserved, current.Reserved)
 	}
 	return next
 }
@@ -356,12 +357,7 @@ func inside(parent, child string) bool {
 }
 
 func contains(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, want)
 }
 
 // hashTree returns a stable digest of regular files under root.

@@ -66,12 +66,10 @@ func LoadBranches(ctx context.Context, repo *repo_model.Repository, gitRepo *git
 	}
 
 	branchOpts := git_model.FindBranchOptions{
-		RepoID:          repo.ID,
-		IsDeletedBranch: isDeletedBranch,
-		ListOptions: db.ListOptions{
-			Page:     page,
-			PageSize: pageSize,
-		},
+		RepoID:             repo.ID,
+		IsDeletedBranch:    isDeletedBranch,
+		Page:               page,
+		PageSize:           pageSize,
 		Keyword:            keyword,
 		ExcludeBranchNames: []string{repo.DefaultBranch},
 	}
@@ -650,7 +648,8 @@ func deleteBranchSuccessPostProcess(doer *user_model.User, repo *repo_model.Repo
 			PusherName:   doer.Name,
 			RepoUserName: repo.OwnerName,
 			RepoName:     repo.Name,
-		}); err != nil {
+		},
+	); err != nil {
 		log.Error("PushUpdateOptions: %v", err)
 	}
 }

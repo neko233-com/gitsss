@@ -311,11 +311,13 @@ func teamUnitsRepoCond(id string, userID, orgID, teamID int64, units ...unit.Typ
 								builder.Eq{
 									"org_id":     orgID,
 									"lower_name": strings.ToLower(organization.OwnerTeamName),
-								}),
+								},
+							),
 							"uid": userID,
 						}),
 					),
-				)).And(
+				),
+			).And(
 				builder.In(
 					"team_id", builder.Select("team_id").From("team_unit").Where(
 						builder.Eq{

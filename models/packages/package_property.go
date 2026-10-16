@@ -99,17 +99,20 @@ func DeletePropertiesByPackageID(ctx context.Context, refType PropertyType, pack
 			builder.Eq{"ref_type": PropertyTypeFile}, builder.In("ref_id",
 				builder.Select("package_file.id").From("package_file").
 					LeftJoin("package_version", "package_file.version_id = package_version.id").
-					Where(builder.Eq{"package_version.package_id": packageID}))).From("package_property")
+					Where(builder.Eq{"package_version.package_id": packageID})),
+		).From("package_property")
 	case PropertyTypeVersion:
 		// Delete all properties that are attached to a version and are in ids from subquery to the package_version filtered by package id
 		deleteStmt = builder.Delete(
 			builder.Eq{"ref_type": PropertyTypeVersion}, builder.In("ref_id",
 				builder.Select("package_version.id").From("package_version").
-					Where(builder.Eq{"package_version.package_id": packageID}))).From("package_property")
+					Where(builder.Eq{"package_version.package_id": packageID})),
+		).From("package_property")
 	case PropertyTypePackage:
 		// Delete all properties that are attached to a package and their reference links to the given package ID
 		deleteStmt = builder.Delete(
-			builder.Eq{"ref_type": PropertyTypePackage}, builder.Eq{"ref_id": packageID}).
+			builder.Eq{"ref_type": PropertyTypePackage}, builder.Eq{"ref_id": packageID},
+		).
 			From("package_property")
 	default:
 		return errors.New("invalid ref type")

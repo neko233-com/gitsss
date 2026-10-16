@@ -39,12 +39,10 @@ func (c *SimpleProvider) CreateGothProvider(providerName, callbackURL string, so
 // NewSimpleProvider is a constructor function for simple providers
 func NewSimpleProvider(name, displayName string, scopes []string, newFn SimpleProviderNewFn) *SimpleProvider {
 	return &SimpleProvider{
-		BaseProvider: BaseProvider{
-			name:        name,
-			displayName: displayName,
-		},
-		scopes: scopes,
-		newFn:  newFn,
+		name:        name,
+		displayName: displayName,
+		scopes:      scopes,
+		newFn:       newFn,
 	}
 }
 
@@ -55,13 +53,15 @@ func init() {
 		NewSimpleProvider("bitbucket", "Bitbucket", []string{"account"},
 			func(clientKey, secret, callbackURL string, scopes ...string) goth.Provider {
 				return bitbucket.New(clientKey, secret, callbackURL, scopes...)
-			}))
+			}),
+	)
 
 	RegisterGothProvider(
 		NewSimpleProvider("dropbox", "Dropbox", nil,
 			func(clientKey, secret, callbackURL string, scopes ...string) goth.Provider {
 				return dropbox.New(clientKey, secret, callbackURL, scopes...)
-			}))
+			}),
+	)
 
 	RegisterGothProvider(NewSimpleProvider("facebook", "Facebook", nil,
 		func(clientKey, secret, callbackURL string, scopes ...string) goth.Provider {

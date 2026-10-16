@@ -77,21 +77,19 @@ jobs:
 
 		// user4 creates a pull request from branch "bugfix/user4"
 		doAPICreateFile(user4APICtx, "user4-fix.txt", &api.CreateFileOptions{
-			FileOptions: api.FileOptions{
-				NewBranchName: "bugfix/user4",
-				Message:       "create user4-fix.txt",
-				Author: api.Identity{
-					Name:  user4.Name,
-					Email: user4.Email,
-				},
-				Committer: api.Identity{
-					Name:  user4.Name,
-					Email: user4.Email,
-				},
-				Dates: api.CommitDateOptions{
-					Author:    time.Now(),
-					Committer: time.Now(),
-				},
+			NewBranchName: "bugfix/user4",
+			Message:       "create user4-fix.txt",
+			Author: api.Identity{
+				Name:  user4.Name,
+				Email: user4.Email,
+			},
+			Committer: api.Identity{
+				Name:  user4.Name,
+				Email: user4.Email,
+			},
+			Dates: api.CommitDateOptions{
+				Author:    time.Now(),
+				Committer: time.Now(),
 			},
 			ContentBase64: base64.StdEncoding.EncodeToString([]byte("user4-fix")),
 		})(t)

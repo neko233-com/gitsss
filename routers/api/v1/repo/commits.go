@@ -289,7 +289,8 @@ func GetAllCommits(ctx *context.APIContext) {
 				Page:     listOptions.Page,
 				Since:    since,
 				Until:    until,
-			})
+			},
+		)
 		if err != nil {
 			ctx.APIErrorInternal(err)
 			return

@@ -136,7 +136,7 @@ func applyEnvironmentToConfig(cfg ConfigProvider, envs []string, prefix string) 
 		}
 
 		// use environment value as config value, or read the file content as value if the key indicates a file
-		keyValue := envValue //nolint:staticcheck // false positive
+		keyValue := envValue
 		if useFileValue {
 			fileContent, err := os.ReadFile(envValue)
 			if err != nil {

@@ -49,13 +49,11 @@ func TestParsePackage(t *testing.T) {
 	t.Run("InvalidPackageName", func(t *testing.T) {
 		test := func(t *testing.T, name string) {
 			b, _ := json.Marshal(packageUpload{
-				PackageMetadata: PackageMetadata{
-					ID:   name,
-					Name: name,
-					Versions: map[string]*PackageMetadataVersion{
-						packageVersion: {
-							Name: name,
-						},
+				ID:   name,
+				Name: name,
+				Versions: map[string]*PackageMetadataVersion{
+					packageVersion: {
+						Name: name,
 					},
 				},
 			})
@@ -88,13 +86,11 @@ func TestParsePackage(t *testing.T) {
 	t.Run("ValidPackageName", func(t *testing.T) {
 		test := func(t *testing.T, name string) {
 			b, _ := json.Marshal(packageUpload{
-				PackageMetadata: PackageMetadata{
-					ID:   name,
-					Name: name,
-					Versions: map[string]*PackageMetadataVersion{
-						packageVersion: {
-							Name: name,
-						},
+				ID:   name,
+				Name: name,
+				Versions: map[string]*PackageMetadataVersion{
+					packageVersion: {
+						Name: name,
 					},
 				},
 			})
@@ -119,14 +115,12 @@ func TestParsePackage(t *testing.T) {
 	t.Run("InvalidPackageVersion", func(t *testing.T) {
 		version := "first-version"
 		b, _ := json.Marshal(packageUpload{
-			PackageMetadata: PackageMetadata{
-				ID:   packageFullName,
-				Name: packageFullName,
-				Versions: map[string]*PackageMetadataVersion{
-					version: {
-						Name:    packageFullName,
-						Version: version,
-					},
+			ID:   packageFullName,
+			Name: packageFullName,
+			Versions: map[string]*PackageMetadataVersion{
+				version: {
+					Name:    packageFullName,
+					Version: version,
 				},
 			},
 		})
@@ -138,14 +132,12 @@ func TestParsePackage(t *testing.T) {
 
 	t.Run("InvalidAttachment", func(t *testing.T) {
 		b, _ := json.Marshal(packageUpload{
-			PackageMetadata: PackageMetadata{
-				ID:   packageFullName,
-				Name: packageFullName,
-				Versions: map[string]*PackageMetadataVersion{
-					packageVersion: {
-						Name:    packageFullName,
-						Version: packageVersion,
-					},
+			ID:   packageFullName,
+			Name: packageFullName,
+			Versions: map[string]*PackageMetadataVersion{
+				packageVersion: {
+					Name:    packageFullName,
+					Version: packageVersion,
 				},
 			},
 			Attachments: map[string]*PackageAttachment{
@@ -161,14 +153,12 @@ func TestParsePackage(t *testing.T) {
 	t.Run("InvalidData", func(t *testing.T) {
 		filename := fmt.Sprintf("%s-%s.tgz", packageFullName, packageVersion)
 		b, _ := json.Marshal(packageUpload{
-			PackageMetadata: PackageMetadata{
-				ID:   packageFullName,
-				Name: packageFullName,
-				Versions: map[string]*PackageMetadataVersion{
-					packageVersion: {
-						Name:    packageFullName,
-						Version: packageVersion,
-					},
+			ID:   packageFullName,
+			Name: packageFullName,
+			Versions: map[string]*PackageMetadataVersion{
+				packageVersion: {
+					Name:    packageFullName,
+					Version: packageVersion,
 				},
 			},
 			Attachments: map[string]*PackageAttachment{
@@ -186,16 +176,14 @@ func TestParsePackage(t *testing.T) {
 	t.Run("InvalidIntegrity", func(t *testing.T) {
 		filename := fmt.Sprintf("%s-%s.tgz", packageFullName, packageVersion)
 		b, _ := json.Marshal(packageUpload{
-			PackageMetadata: PackageMetadata{
-				ID:   packageFullName,
-				Name: packageFullName,
-				Versions: map[string]*PackageMetadataVersion{
-					packageVersion: {
-						Name:    packageFullName,
-						Version: packageVersion,
-						Dist: PackageDistribution{
-							Integrity: "sha512-test==",
-						},
+			ID:   packageFullName,
+			Name: packageFullName,
+			Versions: map[string]*PackageMetadataVersion{
+				packageVersion: {
+					Name:    packageFullName,
+					Version: packageVersion,
+					Dist: PackageDistribution{
+						Integrity: "sha512-test==",
 					},
 				},
 			},
@@ -214,16 +202,14 @@ func TestParsePackage(t *testing.T) {
 	t.Run("InvalidIntegrity2", func(t *testing.T) {
 		filename := fmt.Sprintf("%s-%s.tgz", packageFullName, packageVersion)
 		b, _ := json.Marshal(packageUpload{
-			PackageMetadata: PackageMetadata{
-				ID:   packageFullName,
-				Name: packageFullName,
-				Versions: map[string]*PackageMetadataVersion{
-					packageVersion: {
-						Name:    packageFullName,
-						Version: packageVersion,
-						Dist: PackageDistribution{
-							Integrity: integrity,
-						},
+			ID:   packageFullName,
+			Name: packageFullName,
+			Versions: map[string]*PackageMetadataVersion{
+				packageVersion: {
+					Name:    packageFullName,
+					Version: packageVersion,
+					Dist: PackageDistribution{
+						Integrity: integrity,
 					},
 				},
 			},
@@ -242,32 +228,30 @@ func TestParsePackage(t *testing.T) {
 	t.Run("Valid", func(t *testing.T) {
 		filename := fmt.Sprintf("%s-%s.tgz", packageFullName, packageVersion)
 		b, _ := json.Marshal(packageUpload{
-			PackageMetadata: PackageMetadata{
-				ID:   packageFullName,
-				Name: packageFullName,
-				DistTags: map[string]string{
-					packageTag: packageVersion,
-				},
-				Versions: map[string]*PackageMetadataVersion{
-					packageVersion: {
-						Name:        packageFullName,
-						Version:     packageVersion,
-						Description: packageDescription,
-						Author:      User{Name: packageAuthor},
-						License:     "MIT",
-						Homepage:    "https://gitea.io/",
-						Readme:      packageDescription,
-						Dependencies: map[string]string{
-							"package": "1.2.0",
-						},
-						Bin: map[string]string{
-							"bin": packageBin,
-						},
-						Dist: PackageDistribution{
-							Integrity: integrity,
-						},
-						Repository: repository,
+			ID:   packageFullName,
+			Name: packageFullName,
+			DistTags: map[string]string{
+				packageTag: packageVersion,
+			},
+			Versions: map[string]*PackageMetadataVersion{
+				packageVersion: {
+					Name:        packageFullName,
+					Version:     packageVersion,
+					Description: packageDescription,
+					Author:      User{Name: packageAuthor},
+					License:     "MIT",
+					Homepage:    "https://gitea.io/",
+					Readme:      packageDescription,
+					Dependencies: map[string]string{
+						"package": "1.2.0",
 					},
+					Bin: map[string]string{
+						"bin": packageBin,
+					},
+					Dist: PackageDistribution{
+						Integrity: integrity,
+					},
+					Repository: repository,
 				},
 			},
 			Attachments: map[string]*PackageAttachment{

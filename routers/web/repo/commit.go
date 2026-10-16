@@ -226,7 +226,8 @@ func FileHistory(ctx *context.Context) {
 			File:         ctx.Repo.TreePath,
 			Page:         page,
 			FollowRename: followRename,
-		})
+		},
+	)
 	if err != nil {
 		ctx.ServerError("CommitsByFileAndRange", err)
 		return

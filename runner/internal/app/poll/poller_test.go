@@ -14,8 +14,8 @@ import (
 	"github.com/neko233-com/gitsss/runner/internal/pkg/client/mocks"
 	"github.com/neko233-com/gitsss/runner/internal/pkg/config"
 
-	runnerv1 "github.com/neko233-com/gitsss/packages/actions-proto-go/runner/v1"
 	connect_go "connectrpc.com/connect"
+	runnerv1 "github.com/neko233-com/gitsss/packages/actions-proto-go/runner/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

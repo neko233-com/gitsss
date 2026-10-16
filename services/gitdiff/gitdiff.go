@@ -187,7 +187,8 @@ func (d *DiffLine) getBlobExcerptQuery() string {
 		d.SectionInfo.LastLeftIdx, d.SectionInfo.LastRightIdx,
 		d.SectionInfo.LeftIdx, d.SectionInfo.RightIdx,
 		d.SectionInfo.LeftHunkSize, d.SectionInfo.RightHunkSize,
-		url.QueryEscape(d.SectionInfo.Path), url.QueryEscape(language))
+		url.QueryEscape(d.SectionInfo.Path), url.QueryEscape(language),
+	)
 }
 
 func (d *DiffLine) GetExpandDirection() string {
@@ -1140,7 +1141,7 @@ func parseHunks(ctx context.Context, curFile *DiffFile, maxLines, maxLineCharact
 		} else if curFileLFSPrefix && strings.HasPrefix(line[1:], lfs.MetaFileOidPrefix) {
 			oid := strings.TrimPrefix(line[1:], lfs.MetaFileOidPrefix)
 			if len(oid) == 64 {
-				m := &git_model.LFSMetaObject{Pointer: lfs.Pointer{Oid: oid}}
+				m := &git_model.LFSMetaObject{Oid: oid}
 				count, err := db.CountByBean(ctx, m)
 
 				if err == nil && count > 0 {

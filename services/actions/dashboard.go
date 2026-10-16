@@ -63,8 +63,8 @@ func GetDashboardStats(ctx context.Context) (*DashboardStats, error) {
 		return nil, err
 	}
 	runners, err := db.Find[actions_model.ActionRunner](ctx, actions_model.FindRunnerOptions{
-		ListOptions: db.ListOptions{PageSize: dashboardWorkerLimit},
-		Sort:        "online",
+		PageSize: dashboardWorkerLimit,
+		Sort:     "online",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("find action runners: %w", err)

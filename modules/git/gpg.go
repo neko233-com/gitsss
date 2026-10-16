@@ -41,7 +41,8 @@ func (gpgSettings *GPGSettings) LoadPublicKeyContent() error {
 	}
 	content, stderr, err := process.GetManager().Exec(
 		"gpg -a --export",
-		"gpg", "-a", "--export", gpgSettings.KeyID)
+		"gpg", "-a", "--export", gpgSettings.KeyID,
+	)
 	if err != nil {
 		return fmt.Errorf("unable to get default signing key: %s, %s, %w", gpgSettings.KeyID, stderr, err)
 	}

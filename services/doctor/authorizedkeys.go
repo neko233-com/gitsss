@@ -76,7 +76,8 @@ func checkAuthorizedKeys(ctx context.Context, logger log.Logger, autofix bool) e
 				"authorized_keys file %q is out of date.\nRegenerate it with:\n\t\"%s\"\nor\n\t\"%s\"",
 				fPath,
 				"gitsss admin regenerate keys",
-				"gitsss doctor --run authorized-keys --fix")
+				"gitsss doctor --run authorized-keys --fix",
+			)
 			return errors.New(`authorized_keys is out of date and should be regenerated with "gitsss admin regenerate keys" or "gitsss doctor --run authorized-keys --fix"`)
 		}
 		logger.Warn("authorized_keys is out of date. Attempting rewrite...")

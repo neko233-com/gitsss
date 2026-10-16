@@ -16,8 +16,8 @@ import (
 	"github.com/neko233-com/gitsss/runner/internal/pkg/config"
 	"github.com/neko233-com/gitsss/runner/internal/pkg/metrics"
 
-	runnerv1 "github.com/neko233-com/gitsss/packages/actions-proto-go/runner/v1"
 	"connectrpc.com/connect"
+	runnerv1 "github.com/neko233-com/gitsss/packages/actions-proto-go/runner/v1"
 	log "github.com/sirupsen/logrus"
 )
 

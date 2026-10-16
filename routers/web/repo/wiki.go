@@ -356,7 +356,8 @@ func renderRevisionPage(ctx *context.Context) (*git.Repository, *git.TreeEntry) 
 			Revision: ctx.Repo.Repository.DefaultWikiBranch,
 			File:     pageFilename,
 			Page:     page,
-		})
+		},
+	)
 	if err != nil {
 		ctx.ServerError("CommitsByFileAndRange", err)
 		return nil, nil
