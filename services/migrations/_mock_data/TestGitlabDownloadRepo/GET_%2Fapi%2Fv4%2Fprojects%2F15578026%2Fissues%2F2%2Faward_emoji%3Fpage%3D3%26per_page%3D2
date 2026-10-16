@@ -17,7 +17,7 @@ Vary: Origin, Accept-Encoding
 X-Content-Type-Options: nosniff
 X-Frame-Options: SAMEORIGIN
 X-Gitlab-Meta: {"correlation_id":"9f0bee88de9fc27f-VIE","version":"1"}
-X-Next-Page: 
+X-Next-Page:
 X-Page: 3
 X-Per-Page: 2
 X-Prev-Page: 2

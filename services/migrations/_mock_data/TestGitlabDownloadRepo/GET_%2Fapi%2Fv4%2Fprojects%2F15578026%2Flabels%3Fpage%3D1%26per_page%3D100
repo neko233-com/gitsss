@@ -17,10 +17,10 @@ Vary: Origin, Accept-Encoding
 X-Content-Type-Options: nosniff
 X-Frame-Options: SAMEORIGIN
 X-Gitlab-Meta: {"correlation_id":"9f0bee7bc888c27f-VIE","version":"1"}
-X-Next-Page: 
+X-Next-Page:
 X-Page: 1
 X-Per-Page: 100
-X-Prev-Page: 
+X-Prev-Page:
 X-Runtime: 0.104606
 X-Total: 9
 X-Total-Pages: 1

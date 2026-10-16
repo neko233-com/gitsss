@@ -99,11 +99,13 @@ func testGitSigning(t *testing.T) {
 			t.Run("CreateCRUDFile-Never", crudActionCreateFile(
 				t, testCtx, user, "master", "never", "unsigned-never.txt", func(t *testing.T, response api.FileResponse) {
 					assert.False(t, response.Verification.Verified)
-				}))
+				},
+			))
 			t.Run("CreateCRUDFile-Never", crudActionCreateFile(
 				t, testCtx, user, "never", "never2", "unsigned-never2.txt", func(t *testing.T, response api.FileResponse) {
 					assert.False(t, response.Verification.Verified)
-				}))
+				},
+			))
 		})
 
 		setting.Repository.Signing.CRUDActions = []string{"parentsigned"}
@@ -113,11 +115,13 @@ func testGitSigning(t *testing.T) {
 			t.Run("CreateCRUDFile-ParentSigned", crudActionCreateFile(
 				t, testCtx, user, "master", "parentsigned", "signed-parent.txt", func(t *testing.T, response api.FileResponse) {
 					assert.False(t, response.Verification.Verified)
-				}))
+				},
+			))
 			t.Run("CreateCRUDFile-ParentSigned", crudActionCreateFile(
 				t, testCtx, user, "parentsigned", "parentsigned2", "signed-parent2.txt", func(t *testing.T, response api.FileResponse) {
 					assert.False(t, response.Verification.Verified)
-				}))
+				},
+			))
 		})
 
 		setting.Repository.Signing.CRUDActions = []string{"never"}
@@ -127,7 +131,8 @@ func testGitSigning(t *testing.T) {
 			t.Run("CreateCRUDFile-Never", crudActionCreateFile(
 				t, testCtx, user, "parentsigned", "parentsigned-never", "unsigned-never2.txt", func(t *testing.T, response api.FileResponse) {
 					assert.False(t, response.Verification.Verified)
-				}))
+				},
+			))
 		})
 
 		setting.Repository.Signing.CRUDActions = []string{"always"}
@@ -139,13 +144,15 @@ func testGitSigning(t *testing.T) {
 					require.NotNil(t, response.Verification, "no verification provided with response! %v", response)
 					require.True(t, response.Verification.Verified)
 					assert.Equal(t, "gitea@fake.local", response.Verification.Signer.Email)
-				}))
+				},
+			))
 			t.Run("CreateCRUDFile-ParentSigned-always", crudActionCreateFile(
 				t, testCtx, user, "parentsigned", "parentsigned-always", "signed-parent2.txt", func(t *testing.T, response api.FileResponse) {
 					require.NotNil(t, response.Verification, "no verification provided with response! %v", response)
 					require.True(t, response.Verification.Verified)
 					assert.Equal(t, "gitea@fake.local", response.Verification.Signer.Email)
-				}))
+				},
+			))
 		})
 
 		setting.Repository.Signing.CRUDActions = []string{"parentsigned"}
@@ -157,7 +164,8 @@ func testGitSigning(t *testing.T) {
 					require.NotNil(t, response.Verification, "no verification provided with response! %v", response)
 					require.True(t, response.Verification.Verified)
 					assert.Equal(t, "gitea@fake.local", response.Verification.Signer.Email)
-				}))
+				},
+			))
 		})
 
 		setting.Repository.Signing.InitialCommit = []string{"always"}
@@ -181,7 +189,8 @@ func testGitSigning(t *testing.T) {
 			t.Run("CreateCRUDFile-Never", crudActionCreateFile(
 				t, testCtx, user, "master", "never", "unsigned-never.txt", func(t *testing.T, response api.FileResponse) {
 					assert.False(t, response.Verification.Verified)
-				}))
+				},
+			))
 		})
 
 		setting.Repository.Signing.CRUDActions = []string{"parentsigned"}
@@ -193,7 +202,8 @@ func testGitSigning(t *testing.T) {
 				t, testCtx, user, "master", "parentsigned", "signed-parent.txt", func(t *testing.T, response api.FileResponse) {
 					require.True(t, response.Verification.Verified)
 					assert.Equal(t, "gitea@fake.local", response.Verification.Signer.Email)
-				}))
+				},
+			))
 		})
 
 		setting.Repository.Signing.CRUDActions = []string{"always"}
@@ -205,7 +215,8 @@ func testGitSigning(t *testing.T) {
 				t, testCtx, user, "master", "always", "signed-always.txt", func(t *testing.T, response api.FileResponse) {
 					require.True(t, response.Verification.Verified)
 					assert.Equal(t, "gitea@fake.local", response.Verification.Signer.Email)
-				}))
+				},
+			))
 		})
 
 		setting.Repository.Signing.Merges = []string{"commitssigned"}
@@ -272,7 +283,8 @@ func testGitSigning(t *testing.T) {
 			enableRepoAllowUpdateWithRebase(t, repoID, true)
 
 			t.Run("CreateFeatureCommit", crudActionCreateFile(
-				t, testCtx, user, "master", "feature", "signed-feature.txt"))
+				t, testCtx, user, "master", "feature", "signed-feature.txt",
+			))
 			pr, err := doAPICreatePullRequest(testCtx, testCtx.Username, testCtx.Reponame, "master", "feature")(t)
 			require.NoError(t, err)
 
@@ -310,23 +322,22 @@ func testGitSigning(t *testing.T) {
 			t.Run("CreateRepository", doAPICreateRepository(testCtx, false))
 
 			t.Run("CreateFeatureCommit", crudActionCreateFile(
-				t, testCtx, user, "master", "feature", "signed-feature.txt"))
+				t, testCtx, user, "master", "feature", "signed-feature.txt",
+			))
 			pr, err := doAPICreatePullRequest(testCtx, testCtx.Username, testCtx.Reponame, "master", "feature")(t)
 			require.NoError(t, err)
 
 			content := base64.StdEncoding.EncodeToString([]byte("update base"))
 			t.Run("UpdateBase", doAPICreateFile(testCtx, "signed-base.txt", &api.CreateFileOptions{
-				FileOptions: api.FileOptions{
-					BranchName: "master",
-					Message:    "update base",
-					Author: api.Identity{
-						Name:  user.FullName,
-						Email: user.Email,
-					},
-					Committer: api.Identity{
-						Name:  user.FullName,
-						Email: user.Email,
-					},
+				BranchName: "master",
+				Message:    "update base",
+				Author: api.Identity{
+					Name:  user.FullName,
+					Email: user.Email,
+				},
+				Committer: api.Identity{
+					Name:  user.FullName,
+					Email: user.Email,
 				},
 				ContentBase64: content,
 			}))
@@ -349,24 +360,23 @@ func testGitSigning(t *testing.T) {
 			t.Run("CreateRepository", doAPICreateRepository(testCtx, false))
 
 			t.Run("CreateFeatureCommit", crudActionCreateFile(
-				t, testCtx, user, "master", "feature", "unsigned-feature.txt"))
+				t, testCtx, user, "master", "feature", "unsigned-feature.txt",
+			))
 			pr, err := doAPICreatePullRequest(testCtx, testCtx.Username, testCtx.Reponame, "master", "feature")(t)
 			require.NoError(t, err)
 
 			// the base commit the update merges in is unsigned, so the commitssigned rule must refuse
 			content := base64.StdEncoding.EncodeToString([]byte("update base"))
 			t.Run("UpdateBase", doAPICreateFile(testCtx, "unsigned-base.txt", &api.CreateFileOptions{
-				FileOptions: api.FileOptions{
-					BranchName: "master",
-					Message:    "update base",
-					Author: api.Identity{
-						Name:  user.FullName,
-						Email: user.Email,
-					},
-					Committer: api.Identity{
-						Name:  user.FullName,
-						Email: user.Email,
-					},
+				BranchName: "master",
+				Message:    "update base",
+				Author: api.Identity{
+					Name:  user.FullName,
+					Email: user.Email,
+				},
+				Committer: api.Identity{
+					Name:  user.FullName,
+					Email: user.Email,
 				},
 				ContentBase64: content,
 			}))
