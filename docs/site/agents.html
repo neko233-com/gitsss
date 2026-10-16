@@ -138,7 +138,7 @@
 
       <h2>存储稳定性冻结</h2>
       <p>Git、LFS、本地/S3/MinIO、数据库路径和 Actions 日志/制品存储属于兼容性合同。禁止无报告的大规模重构；新增驱动或观测能力必须保持既有路径、配置键和 API 不变，并同时验证 CGO 与纯 Go SQLite 构建。</p>
-    <h2>组织任务与头像验收</h2><p><code>tools/verify-enterprise.py --url http://gitsss.example.internal:5030 --token-file target.token</code> 使用临时私有组织和账号验证全局任务、权限隔离、24 个头像与真实上传裁剪压缩，完成后清理自身数据。仅用于 GitSSS 试运行环境，不对原 Gitea 执行。</p><h2>首页入口验收</h2><p>验证公共入口管理员权限、个人入口隔离、HTTP/HTTPS 校验、冲突保护及原页保存；试运行新增 app_state 入口需连同看板导出，接管前核对用户 ID。禁止把企业私有地址作为公开产品默认值。</p></main>
+    <h2>组织任务与头像验收</h2><p><code>tools/verify-enterprise.py --url http://gitsss.example.internal:5030 --token-file target.token</code> 使用临时私有组织和账号验证全局任务、权限隔离、24 个头像与真实上传裁剪压缩，完成后清理自身数据。仅用于 GitSSS 试运行环境，不对原 Gitea 执行。</p><h2>首页入口验收</h2><p>验证公共入口管理员权限、个人入口隔离、HTTP/HTTPS 校验、冲突保护及原页保存；试运行新增 app_state 入口需连同看板导出，接管前核对用户 ID。禁止把企业私有地址作为公开产品默认值。</p><h2>协作规则与原生上传验收</h2><p>组织自动团队规则在 /org/{org}/settings/team-rules 管理，只有组织所有者可写；先预览，再对已有仓库显式应用，不批量移除人工授权。规则使用稳定团队 ID，迁移时核对映射。tools/verify-enterprise.py 会创建并清理独立组织、账号与仓库，覆盖规则与越权/CSRF/并发编辑。Express233 内置上传动作使用 Secrets，发布默认关闭；node --test tools/tests/express233-upload.test.cjs 验证流式上传、失败与重试，在独立接收端和独立 Runner 通过后才用于业务。不要为本仓库添加 GitHub workflow。</p><h2>公开源码信息检查</h2><p>企业地址、组织标识与凭据保留在内网配置和 Secrets，公开源码只用中性示例。执行 <code>python3 tools/check-public-data.py --deny-file /private/public-deny.json</code>，检查历史增加 <code>--all-history</code>；私有禁止列表必须放在仓库外。报告只输出文件名或对象 ID，不回显命中值。截图和压缩包需另外检查。历史重写须有已验证的私有备份、隔离副本与明确授权；GitHub 只读 PR 引用和缓存不随普通分支替换清除。详见 <a href="../operations/public-source.md">公开源码与历史清理</a>。</p></main>
   </div>
 </body>
 </html>

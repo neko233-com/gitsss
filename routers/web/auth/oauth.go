@@ -438,10 +438,7 @@ func handleOAuth2SignIn(ctx *context.Context, authSource *auth.Source, u *user_m
 			return
 		}
 
-		if err := resetLocale(ctx, u); err != nil {
-			ctx.ServerError("resetLocale", err)
-			return
-		}
+		resetLocale(ctx, u)
 
 		redirectAfterAuth(ctx)
 		return

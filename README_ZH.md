@@ -288,3 +288,9 @@ make release-native VERSION=1.3.0
 从 Releases 下载匹配系统/架构的二进制与 `.sha256` 并校验。无需 Docker；安装 Git、Git LFS，JS Actions 另需 Node.js。运行 `gitsss web --work-path /绝对路径/gitsss-data`（Windows 使用 `gitsss.exe` 和 Windows 绝对路径），访问 5030 并在安装向导设置管理员密码。已有安装保留配置。
 
 组织动态、仓库、看板和团队管理使用统一导航；组织/团队下拉框支持搜索，动态页切换团队就地更新内容并保留筛选，看板记任务与编辑也在原页面完成。
+
+### 紧凑工作台与自动化
+
+动态页采用仓库 / 活动 / CI/CD 三栏，快捷入口为独立 Tab；13px 默认字号、紧凑页头和单行成员表格。组织设置支持按仓库名正则自动分配团队，可预览并单独应用到已有仓库，保留原有授权。原生 Actions 内置 [Express233 上传](docs/operations/express233-upload.md)，流式上传到新草稿版本，显式启用后才发布。
+
+![紧凑的组织成员表格](docs/site/assets/screenshots/members.png)

@@ -1020,6 +1020,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 			m.Get("/worktime", context.OrgAssignment(context.OrgAssignmentOptions{RequireOwner: true}), org.Worktime)
 
 			m.Group("/settings", func() {
+				m.Combo("/team-rules").Get(org.RepoTeamRules).Post(org.RepoTeamRulesPost)
 				m.Combo("").Get(org.Settings).
 					Post(web.Bind(forms.UpdateOrgSettingForm{}), org.SettingsPost)
 				m.Post("/avatar", web.Bind(forms.AvatarForm{}), org.SettingsAvatar)

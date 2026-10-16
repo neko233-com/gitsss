@@ -69,7 +69,18 @@ func migrateGitSSSExtensions(x db.EngineMigration) error {
 	type Team struct {
 		DisplayName string
 	}
-	if _, err := x.SyncWithOptions(xorm.SyncOptions{IgnoreDropIndices: true, IgnoreConstrains: true}, new(Project), new(Team), new(organization.OrgTask)); err != nil {
+	beans := []any{new(organization.OrgTask)}
+	for _, bean := range []any{new(Project), new(Team)} {
+		exists, err := x.IsTableExist(bean)
+		if err != nil {
+			return err
+		}
+		// Fresh installs need complete models, including primary keys, from SyncAllTables.
+		if exists {
+			beans = append(beans, bean)
+		}
+	}
+	if _, err := x.SyncWithOptions(xorm.SyncOptions{IgnoreDropIndices: true, IgnoreConstrains: true}, beans...); err != nil {
 		return err
 	}
 	version.Version = 2

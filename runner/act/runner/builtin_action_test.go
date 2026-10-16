@@ -37,6 +37,7 @@ func TestMaterializeBuiltinAction(t *testing.T) {
 	for repo, version := range map[string]string{
 		"checkout": "v4", "setup-node": "v7", "setup-go": "v6", "cache": "v6",
 		"upload-artifact": "v7", "download-artifact": "v8",
+		"express233-upload": "v1",
 	} {
 		source := filepath.Join(root, "actions", repo, version)
 		require.NoError(t, os.MkdirAll(filepath.Join(source, "dist"), 0o755))
@@ -61,6 +62,7 @@ func TestMaterializeBuiltinAction(t *testing.T) {
 		"actions/upload-artifact@v7",
 		"actions/upload-artifact/merge@v6",
 		"actions/download-artifact@v8",
+		"gitsss/express233-upload@v1",
 	} {
 		requestedDir := filepath.Join(t.TempDir(), "cache", strings.ReplaceAll(action, "/", "-"))
 		actionDir, ok, err := materializeBuiltinAction(newRemoteAction(action), requestedDir)
@@ -77,6 +79,9 @@ func TestMaterializeBuiltinAction(t *testing.T) {
 		"actions/cache/delete@v6",
 		"actions/upload-artifact/unknown@v7",
 		"actions/download-artifact@v3",
+		"actions/express233-upload@v1",
+		"gitsss/express233-upload@v2",
+		"someone/express233-upload@v1",
 		"https://github.com/actions/checkout@v4",
 	} {
 		requestedDir := filepath.Join(t.TempDir(), "action")

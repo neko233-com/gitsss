@@ -2,9 +2,7 @@
 <section class="dashboard-actions-panel" aria-labelledby="dashboard-actions-title" data-dashboard-actions>
 	<div class="dashboard-actions-header">
 		<div>
-			<div class="dashboard-actions-kicker">{{ctx.Locale.Tr "dashboard.actions.kicker"}}</div>
 			<h2 id="dashboard-actions-title">{{ctx.Locale.Tr "dashboard.actions.title"}}</h2>
-			<p>{{ctx.Locale.Tr "dashboard.actions.description"}}</p>
 		</div>
 		<a class="ui basic button" href="{{if .SignedUser.IsAdmin}}{{AppSubUrl}}/-/admin/actions/runners{{else}}{{AppSubUrl}}/user/settings/actions/runners{{end}}">{{ctx.Locale.Tr "dashboard.actions.open"}}</a>
 	</div>

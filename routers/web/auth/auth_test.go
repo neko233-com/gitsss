@@ -30,7 +30,7 @@ func TestResetLocaleKeepsAutomaticPreference(t *testing.T) {
 	ctx, _ := contexttest.MockContext(t, "/user/login")
 	initialLocale := ctx.Locale
 	u := &user_model.User{ID: -1}
-	require.NoError(t, resetLocale(ctx, u))
+	resetLocale(ctx, u)
 	require.Empty(t, u.Language)
 	require.Same(t, initialLocale, ctx.Locale)
 }
@@ -44,7 +44,7 @@ func TestResetLocaleAppliesExplicitAccountPreference(t *testing.T) {
 	ctx, response := contexttest.MockContext(t, "/user/login")
 	ctx.Locale = translation.NewLocale("en-US")
 	ctx.Req.AddCookie(&http.Cookie{Name: "lang", Value: "en-US"})
-	require.NoError(t, resetLocale(ctx, &user_model.User{Language: "zh-CN"}))
+	resetLocale(ctx, &user_model.User{Language: "zh-CN"})
 	require.Equal(t, "zh-CN", ctx.Locale.Language())
 	require.Equal(t, "zh-CN", response.Result().Cookies()[0].Value)
 }

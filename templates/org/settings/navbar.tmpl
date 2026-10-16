@@ -4,6 +4,7 @@
 		<a class="{{if .PageIsSettingsOptions}}active {{end}}item" href="{{.OrgLink}}/settings">
 			{{ctx.Locale.Tr "org.settings.options"}}
 		</a>
+		<a class="{{if .PageIsSettingsTeamRules}}active {{end}}item" href="{{.OrgLink}}/settings/team-rules">{{ctx.Locale.Tr "org.team_rules.title"}}</a>
 		{{if not DisableWebhooks}}
 		<a class="{{if .PageIsSettingsHooks}}active {{end}}item" href="{{.OrgLink}}/settings/hooks">
 			{{ctx.Locale.Tr "repo.settings.hooks"}}

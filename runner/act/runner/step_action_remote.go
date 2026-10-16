@@ -46,6 +46,7 @@ var stepActionRemoteNewCloneExecutor = git.NewGitCloneExecutor
 const defaultBuiltinActionsDir = "/app/gitsss/builtin-actions"
 
 type builtinActionDefinition struct {
+	owner     string
 	directory string
 	revision  string
 	refs      []string
@@ -53,6 +54,13 @@ type builtinActionDefinition struct {
 }
 
 var builtinActionDefinitions = map[string]builtinActionDefinition{
+	"express233-upload": {
+		owner:     "gitsss",
+		directory: "v1",
+		revision:  "gitsss-20261016-1",
+		refs:      []string{"v1"},
+		paths:     []string{""},
+	},
 	"checkout": {
 		directory: "v4",
 		revision:  "34e114876b0b11c390a56381ad16ebd13914f8d5",
@@ -121,11 +129,15 @@ var builtinActionDefinitions = map[string]builtinActionDefinition{
 }
 
 func materializeBuiltinAction(remote *remoteAction, actionDir string) (string, bool, error) {
-	if remote == nil || remote.URL != "" || remote.Org != "actions" {
+	if remote == nil || remote.URL != "" {
 		return actionDir, false, nil
 	}
 	definition, ok := builtinActionDefinitions[remote.Repo]
-	if !ok || !slices.Contains(definition.refs, remote.Ref) || !slices.Contains(definition.paths, remote.Path) {
+	owner := definition.owner
+	if owner == "" {
+		owner = "actions"
+	}
+	if !ok || remote.Org != owner || !slices.Contains(definition.refs, remote.Ref) || !slices.Contains(definition.paths, remote.Path) {
 		return actionDir, false, nil
 	}
 	actionDir += "-builtin-" + definition.revision
@@ -305,7 +317,8 @@ func (sar *stepActionRemote) pre() common.Executor {
 
 	return common.NewPipelineExecutor(
 		sar.prepareActionExecutor(),
-		runStepExecutor(sar, stepStagePre, runPreStep(sar)).If(hasPreStep(sar)).If(shouldRunPreStep(sar)))
+		runStepExecutor(sar, stepStagePre, runPreStep(sar)).If(hasPreStep(sar)).If(shouldRunPreStep(sar)),
+	)
 }
 
 func (sar *stepActionRemote) main() common.Executor {

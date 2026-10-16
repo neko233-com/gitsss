@@ -61,6 +61,22 @@ func TestOrganizationHome(t *testing.T) {
 	assert.Equal(t, http.StatusOK, ctx.Resp.WrittenStatus())
 	assert.Equal(t, true, ctx.Data["OrganizationHome"])
 	assert.NotNil(t, ctx.Data["Orgs"])
+	assert.Nil(t, ctx.Data["SharedHomeLinks"])
+}
+
+func TestDashboardHomeLinksTab(t *testing.T) {
+	previous := system.AppState
+	system.AppState = &system.DBStore{}
+	t.Cleanup(func() { system.AppState = previous })
+	assert.NoError(t, unittest.LoadFixtures())
+	ctx, _ := contexttest.MockContext(t, "/?tab=links")
+	contexttest.LoadUser(t, ctx, 2)
+	ctx.Req.Form.Set("tab", "links")
+	Dashboard(ctx)
+	assert.Equal(t, http.StatusOK, ctx.Resp.WrittenStatus())
+	assert.Equal(t, true, ctx.Data["PageIsHomeLinks"])
+	assert.NotNil(t, ctx.Data["SharedHomeLinks"])
+	assert.Nil(t, ctx.Data["Feeds"])
 }
 
 func TestIssues(t *testing.T) {

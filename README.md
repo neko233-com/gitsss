@@ -12,7 +12,7 @@ Screenshots below show a demonstration instance captured on 2026-10-16; no produ
 
 - Git over HTTP(S), SSH, and Git LFS.
 - Issues, pull requests, reviews, releases, wiki, packages, and Actions.
-- An embedded Actions runner, repository file editing, and a React-based home page.
+- An embedded Actions runner, repository file editing, and a compact three-column activity workspace.
 - Gitea-compatible HTTP import for accounts, organizations, permissions, repositories, and supported collaboration data.
 - Run GitSSS on `5030` beside Gitea on `3000` during evaluation. After an approved cutover, GitSSS can also listen on `3000`.
 - Sign-in required and self-registration disabled by default; organizations appear first on the home page.
@@ -21,9 +21,12 @@ Screenshots below show a demonstration instance captured on 2026-10-16; no produ
 - One shared organization board: quick task cards, search, @member assignment and drag-to-change status; repository boards stay independent.
 - Automatic system/browser language, readable desktop themes, and 24 built-in avatars with automatic crop/compression for custom uploads.
 
-- Full-width desktop dashboards with editable shared and personal quick links to internal services.
+- Compact desktop layouts, a separate Quick links tab, and automatic repository team assignment using organization-owned regex rules.
+- Native [Express233 upload](docs/operations/express233-upload.md) from Actions, with streamed uploads and optional publication.
 
 ![Repository overview](docs/site/assets/screenshots/repository.png)
+
+![Compact organization member table](docs/site/assets/screenshots/members.png)
 
 ## Native binary installation
 

@@ -3936,7 +3936,7 @@
 	"org.team_display_name": "Display name",
 	"org.team_display_name_help": "An editable label only. Team identity, membership and permissions stay the same.",
 	"dashboard.actions.kicker": "Automation Operations",
-	"dashboard.actions.title": "Actions Workers",
+	"dashboard.actions.title": "CI/CD",
 	"dashboard.actions.description": "Running work appears first; completed history is reduced to the latest result.",
 	"dashboard.actions.open": "Manage runners",
 	"dashboard.actions.running": "Running",
@@ -4135,5 +4135,17 @@
 	"home.links.limit": "Up to 32 links in each list. HTTP and HTTPS only.",
 	"home.links.error": "Unable to save links. Your draft is still here.",
 	"home.links.invalid": "Enter a name and a valid HTTP or HTTPS URL for every link (up to 32).",
-	"home.links.conflict": "These links changed in another tab. Copy your draft, then reload before saving."
+	"home.links.conflict": "These links changed in another tab. Copy your draft, then reload before saving.",
+	"dashboard.contributions.title": "Contribution history",
+	"org.team_rules.title": "Automatic team assignment",
+	"org.team_rules.help": "Match new repository names and add the selected teams with their current permissions. Multiple matching rules are combined. Saving, disabling or deleting a rule never removes existing access.",
+	"org.team_rules.pattern": "Repository name regular expression",
+	"org.team_rules.pattern_help": "Go/RE2 syntax, case sensitive. Use ^server- for a prefix, -go$ for a suffix, or (?i) for case-insensitive matching. Only the repository name is matched.",
+	"org.team_rules.enabled": "Apply to new repositories",
+	"org.team_rules.preview": "Preview existing repositories",
+	"org.team_rules.matches": "Matching repositories: %d",
+	"org.team_rules.apply": "Add teams to existing matches",
+	"org.team_rules.applied": "Added %d team/repository grants. Existing grants were preserved.",
+	"org.team_rules.invalid": "Enter a valid regular expression and select teams from this organization. Owners and all-repository teams do not need rules. Up to 32 rules are allowed.",
+	"org.team_rules.empty": "No rules yet. New repositories use the existing organization defaults."
 }

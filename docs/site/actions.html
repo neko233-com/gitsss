@@ -218,7 +218,14 @@ jobs:
         setTimeout(() => btn.textContent = 'Copy', 1500);
       }
       </script>
-    </main>
+    <h2 id="express233">原生 Express233 上传</h2><p>程序内置 gitsss/express233-upload@v1，Runner 需要 Node.js 24，无需 npm 依赖或外网下载 Action。使用 Actions 变量保存 server、project-id，Secret 保存 token（也可 username + password），不把企业地址与凭据写入仓库。</p><pre><code>- uses: gitsss/express233-upload@v1
+  with:
+    server: ${{ vars.EXPRESS233_SERVER }}
+    project-id: ${{ vars.EXPRESS233_PROJECT_ID }}
+    token: ${{ secrets.EXPRESS233_TOKEN }}
+    version: 1.0.${{ github.run_number }}
+    path: build/output
+    publish: 'false'</code></pre><p>path 为工作区内文件或目录，每行一个；不展开 glob，拒绝越界、符号链接和 .git。先建立新草稿，已存在版本直接失败。逐文件流式上传并保留相对路径，不另复制整个压缩包。Express233 按原 API 自动解压 ZIP/TAR/TGZ。默认只上传草稿；publish=true 会发布并可能触发现有部署钩子与 Pull Agent 跟随，必须按业务显式启用。</p><p>上传失败保留草稿供检查；网络、429、5xx 默认最多重试两次，仅重试文件上传。创建、发布请求不自动重试；连接结果不明时先检查接收端。timeout-seconds 默认为 300（10–3600），retries 为 0–5，tags 为每行一个标签。拒绝重定向和 URL 账号密码，保留 TLS 校验，日志屏蔽凭据且不回显接收端错误正文。HTTP 内网可用，支持 HTTPS 时优先使用 HTTPS。</p><p>输出 version、file-count、manifest-path。清单在 RUNNER_TEMP 记录输入文件路径、大小、SHA256 和真实仓库/ref/commit，上传途中输入改变会失败，任务摘要标明草稿或已发布。清单不修改 Express233 VCS 契约。详见 <a href="../operations/express233-upload.md">参数、测试与恢复说明</a>。</p></main>
   </div>
 </body>
 </html>

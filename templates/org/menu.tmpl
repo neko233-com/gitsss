@@ -2,6 +2,7 @@
 	<overflow-menu class="ui secondary pointing tabular borderless menu tw-mb-4">
 		<div class="overflow-menu-items">
    <a class="item {{if .PageIsNews}}active{{end}}" href="{{.Org.OrganisationLink}}/dashboard{{if .Team}}/{{PathEscape .Team.Name}}{{end}}" data-org-dashboard-link>{{svg "octicon-rss"}} {{ctx.Locale.Tr "activities"}}</a>
+   <a class="item {{if .PageIsHomeLinks}}active{{end}}" href="{{.Org.OrganisationLink}}/dashboard?tab=links">{{svg "octicon-link"}} {{ctx.Locale.Tr "home.links.title"}}</a>
 			{{if .HasOrgProfileReadme}}
 				<a class="{{if .PageIsViewOverview}}active {{end}}item" href="{{$.Org.HomeLink}}">
 					{{svg "octicon-info"}} {{ctx.Locale.Tr "user.overview"}}

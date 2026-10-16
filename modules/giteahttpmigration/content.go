@@ -349,7 +349,7 @@ func (m *Migrator) createPull(ctx context.Context, ref RepositoryRef, pull PullR
 	}
 	if pull.Merged || (pull.State != "" && !strings.EqualFold(pull.State, "open")) {
 		endpoint := repoPath(ref) + "/pulls/" + strconv.FormatInt(created.Number, 10)
-		if err := m.target.patch(ctx, endpoint, map[string]string{"state": "closed"}, nil, http.StatusCreated); err != nil {
+		if err := m.target.patch(ctx, endpoint, map[string]string{"state": "closed"}, http.StatusCreated); err != nil {
 			return 0, "", copied, fmt.Errorf("close target pull %s#%d: %w", ref, pull.Number, err)
 		}
 	}

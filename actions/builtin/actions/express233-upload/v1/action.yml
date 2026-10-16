@@ -1,0 +1,42 @@
+name: Express233 upload
+description: Stream build outputs to a new Express233 draft version, optionally publish it.
+inputs:
+  server:
+    description: Express233 base HTTP/HTTPS URL, without credentials.
+    required: true
+  project-id:
+    description: Existing Express233 project ID.
+    required: true
+  version:
+    description: New version name. Existing versions are never overwritten.
+    required: true
+  path:
+    description: File or directory paths relative to the workspace, one per line. No globs or symlinks.
+    required: true
+  token:
+    description: Express233 bearer token from Actions secrets.
+  username:
+    description: Basic authentication username; use with password instead of token.
+  password:
+    description: Basic authentication password from Actions secrets.
+  publish:
+    description: Publish after every upload succeeds; may trigger configured deployment hooks.
+    default: 'false'
+  tags:
+    description: Optional file tags, one per line.
+  timeout-seconds:
+    description: Per-request timeout, 10 to 3600 seconds.
+    default: '300'
+  retries:
+    description: Upload-only retries on network errors, HTTP 429 or 5xx, from 0 to 5.
+    default: '2'
+outputs:
+  version:
+    description: Created version name.
+  file-count:
+    description: Number of uploaded input files, before server-side archive extraction.
+  manifest-path:
+    description: Local JSON file containing each uploaded input path, size and SHA256.
+runs:
+  using: node24
+  main: dist/index.js

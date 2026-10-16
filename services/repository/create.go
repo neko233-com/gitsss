@@ -426,6 +426,10 @@ func createRepositoryInDB(ctx context.Context, doer, u *user_model.User, repo *r
 			}
 		}
 
+		if err := applyRepoTeamRules(ctx, repo, teams); err != nil {
+			return fmt.Errorf("applyRepoTeamRules: %w", err)
+		}
+
 		if isAdmin, err := access_model.IsUserRepoAdmin(ctx, repo, doer); err != nil {
 			return fmt.Errorf("IsUserRepoAdmin: %w", err)
 		} else if !isAdmin {

@@ -6,6 +6,13 @@ vars:
   DOCKER_TAG: '{{default "latest" .DOCKER_TAG}}'
 
 tasks:
+  verify:public:
+    desc: Check source or history against an external private literal deny-list
+    cmds:
+      - '{{.PYTHON}} tools/check-public-data.py {{.CLI_ARGS}}'
+    vars:
+      PYTHON: '{{.PYTHON | default "python3"}}'
+
   verify:native:
     desc: Rehearse a native SQLite takeover using an independent private snapshot
     cmds:

@@ -946,7 +946,7 @@ func (m *Migrator) finalizeUser(ctx context.Context, user User) error {
 		Restricted    *bool  `json:"restricted"`
 		Visibility    string `json:"visibility"`
 	}{LoginName: user.UserName, Active: &user.IsActive, Admin: &user.IsAdmin, ProhibitLogin: &user.ProhibitLogin, Restricted: &user.Restricted, Visibility: user.Visibility}
-	if err := m.target.patch(ctx, "/admin/users/"+url.PathEscape(user.UserName), payload, nil, http.StatusOK); err != nil {
+	if err := m.target.patch(ctx, "/admin/users/"+url.PathEscape(user.UserName), payload, http.StatusOK); err != nil {
 		return fmt.Errorf("finalize target user %s: %w", user.UserName, err)
 	}
 	return nil
@@ -1076,7 +1076,7 @@ func (m *Migrator) createRepository(ctx context.Context, sourceLogin, targetLogi
 		}
 	}
 	if plan.Repository.DefaultBranch != "" {
-		if err := m.target.patch(ctx, repoPath(ref), map[string]any{"default_branch": plan.Repository.DefaultBranch}, nil, http.StatusOK); err != nil {
+		if err := m.target.patch(ctx, repoPath(ref), map[string]any{"default_branch": plan.Repository.DefaultBranch}, http.StatusOK); err != nil {
 			return false, m.rollbackRepository(ctx, ref, fmt.Errorf("set target default branch %s: %w", ref, err))
 		}
 	}
@@ -1088,13 +1088,13 @@ func (m *Migrator) createRepository(ctx context.Context, sourceLogin, targetLogi
 		}
 	}
 	if len(payload) > 0 {
-		if err := m.target.patch(ctx, repoPath(ref), payload, nil, http.StatusOK); err != nil {
+		if err := m.target.patch(ctx, repoPath(ref), payload, http.StatusOK); err != nil {
 			return false, m.rollbackRepository(ctx, ref, fmt.Errorf("set target features %s: %w", ref, err))
 		}
 	}
 	if plan.Repository.Archived {
 		archived := true
-		if err := m.target.patch(ctx, repoPath(ref), map[string]any{"archived": &archived}, nil, http.StatusOK); err != nil {
+		if err := m.target.patch(ctx, repoPath(ref), map[string]any{"archived": &archived}, http.StatusOK); err != nil {
 			return false, m.rollbackRepository(ctx, ref, fmt.Errorf("archive target repository %s: %w", ref, err))
 		}
 	}
@@ -1472,8 +1472,8 @@ func (c *apiClient) post(ctx context.Context, endpoint string, input, output any
 	return c.do(ctx, http.MethodPost, endpoint, input, output, http.StatusCreated)
 }
 
-func (c *apiClient) patch(ctx context.Context, endpoint string, input, output any, status int) error {
-	return c.do(ctx, http.MethodPatch, endpoint, input, output, status)
+func (c *apiClient) patch(ctx context.Context, endpoint string, input any, status int) error {
+	return c.do(ctx, http.MethodPatch, endpoint, input, nil, status)
 }
 
 func (c *apiClient) noContent(ctx context.Context, method, endpoint string, input any) error {

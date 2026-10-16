@@ -128,17 +128,15 @@ func autoSignIn(ctx *context.Context) (bool, error) {
 		return false, fmt.Errorf("unable to updateSession: %w", err)
 	}
 
-	if err := resetLocale(ctx, u); err != nil {
-		return false, err
-	}
+	resetLocale(ctx, u)
 
 	return true, nil
 }
 
-func resetLocale(ctx *context.Context, u *user_model.User) error {
+func resetLocale(ctx *context.Context, u *user_model.User) {
 	// An empty preference follows the browser; only an explicit account choice overrides it.
 	if u.Language == "" {
-		return nil
+		return
 	}
 
 	middleware.SetLocaleCookie(ctx.Resp, u.Language, 0)
@@ -146,8 +144,6 @@ func resetLocale(ctx *context.Context, u *user_model.User) error {
 	if ctx.Locale.Language() != u.Language {
 		ctx.Locale = translation.NewLocale(u.Language)
 	}
-
-	return nil
 }
 
 func rememberAuthRedirectLink(ctx *context.Context) {
@@ -417,10 +413,7 @@ func handleSignInFull(ctx *context.Context, u *user_model.User, remember bool) {
 		return
 	}
 
-	if err := resetLocale(ctx, u); err != nil {
-		ctx.ServerError("resetLocale", err)
-		return
-	}
+	resetLocale(ctx, u)
 
 	// Register last login
 	if err := user_service.UpdateUser(ctx, u, &user_service.UpdateOptions{SetLastLogin: true}); err != nil {
@@ -886,10 +879,7 @@ func handleAccountActivation(ctx *context.Context, user *user_model.User) {
 		return
 	}
 
-	if err := resetLocale(ctx, user); err != nil {
-		ctx.ServerError("resetLocale", err)
-		return
-	}
+	resetLocale(ctx, user)
 
 	if err := user_service.UpdateUser(ctx, user, &user_service.UpdateOptions{SetLastLogin: true}); err != nil {
 		ctx.ServerError("UpdateUser", err)

@@ -27,6 +27,7 @@ def main():
     orgs = ["board-probe-" + suffix, "board-scope-" + suffix]
     users = []
     created_orgs = []
+    created_repos = []
     checks = []
     cleanup_errors = []
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -134,14 +135,14 @@ def main():
             match = re.search(r'name="scope" value="' + scope + r'"[^>]*>\s*<input[^>]*name="revision" value="([a-f0-9]+)"', markup)
             assert match, "homepage editor revision missing"
             return match[1]
-        home = web(member, "/")
+        home = web(member, "/?tab=links")
         revision = link_revision(home)
         payload = [("scope", "personal"), ("revision", revision),
                    ("title", "CI fixture"), ("url", "http://ci.example.invalid:8080"),
                    ("title", "DB fixture"), ("url", "https://db.example.invalid/")]
         fragment = web(member, "/home-links", payload)
         assert "CI fixture" in fragment and "DB fixture" in fragment and "<html" not in fragment
-        assert "CI fixture" in web(member, "/") and "CI fixture" not in web(coworker, "/")
+        assert "CI fixture" in web(member, "/?tab=links") and "CI fixture" not in web(coworker, "/?tab=links")
         denied(member, "/home-links", payload, status=409)
         denied(member, "/home-links", {"scope": "shared", "revision": revision}, status=403)
         denied(member, "/home-links", {"scope": "personal", "revision": link_revision(fragment),
@@ -181,10 +182,58 @@ def main():
         web(member, board + "/tasks/" + task_id + "/delete", {})
         assert not cards(web(member, board))
         passed("creator deletion and empty board")
+
+        rule_path = "/org/" + orgs[0] + "/settings/team-rules"
+        denied(coworker, rule_path)
+        owners = next(team for team in api("/orgs/" + orgs[0] + "/teams") if team["name"] == "Owners")
+        api("/teams/" + str(owners["id"]) + "/members/" + users[0], "PUT")
+
+        def rule_revision(markup):
+            return re.search(r'name="revision" value="(-?\d+)"', markup)[1]
+
+        revision = rule_revision(web(member, rule_path))
+        for name in ["server-existing", "client-existing"]:
+            api("/orgs/" + orgs[0] + "/repos", "POST", {"name": name, "private": True})
+            created_repos.append(orgs[0] + "/" + name)
+        payload = {"action": "preview", "revision": revision, "pattern": "^server-", "team_id": teams[0], "enabled": "true"}
+        preview = web(member, rule_path, payload)
+        assert "server-existing" in preview and "client-existing" not in preview
+        payload["action"] = "save"
+        saved = web(member, rule_path, payload)
+        rule_id = re.search(r'team-rules\?edit=([a-zA-Z0-9]+)', saved)[1]
+        denied(member, rule_path, payload, status=409)
+        for name in ["server-new", "client-new"]:
+            api("/orgs/" + orgs[0] + "/repos", "POST", {"name": name, "private": True})
+            created_repos.append(orgs[0] + "/" + name)
+
+        def assigned(name):
+            return teams[0] in [team["id"] for team in api("/repos/" + orgs[0] + "/" + name + "/teams")]
+
+        assert assigned("server-new") and not assigned("client-new") and not assigned("server-existing")
+        revision = rule_revision(saved)
+        apply = {"action": "apply", "revision": revision, "id": rule_id}
+        web(member, rule_path, apply)
+        web(member, rule_path, apply)
+        assert assigned("server-existing") and not assigned("client-existing")
+        invalid = {"action": "save", "revision": revision, "id": rule_id, "pattern": "[", "team_id": teams[0], "enabled": "true"}
+        denied(member, rule_path, invalid, status=400)
+        invalid.update(pattern=".*", team_id=teams[1])
+        denied(member, rule_path, invalid, status=400)
+        denied(member, rule_path, apply, headers={"Origin": "https://example.invalid", "Sec-Fetch-Site": "cross-site"}, status=403)
+        disabled = web(member, rule_path, {"action": "save", "revision": revision, "id": rule_id, "pattern": "^server-", "team_id": teams[0]})
+        denied(member, rule_path, {"action": "apply", "revision": rule_revision(disabled), "id": rule_id}, status=400)
+        web(member, rule_path, {"action": "delete", "revision": rule_revision(disabled), "id": rule_id})
+        assert assigned("server-new") and assigned("server-existing")
+        passed("owner-only regex rules: preview, creation, existing idempotent grants, stale editor, team scope, invalid regex, CSRF, disable/delete preserve access")
         result = {"status": "pass", "checks": checks}
     except Exception as exc:
         result = {"status": "fail", "checks": checks, "error": type(exc).__name__ + ": " + str(exc)}
     finally:
+        for repo in reversed(created_repos):
+            try:
+                api("/repos/" + repo, "DELETE")
+            except Exception:
+                cleanup_errors.append("repository " + repo)
         for org in reversed(created_orgs):
             try:
                 api("/orgs/" + org, "DELETE")

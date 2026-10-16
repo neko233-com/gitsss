@@ -1,11 +1,26 @@
 .org-workspace-header {
-  padding: .75rem 0;
+  padding: 6px 0;
   border-bottom: 1px solid var(--color-light-border);
   background: var(--color-menu);
 }
 
 .org-workspace-header .ui.dropdown > .text { display: inline-flex; align-items: center; gap: .5rem; }
 .org-workspace-header .ui.dropdown .menu { min-width: 18rem; }
+.org-workspace-header .ui.button { padding: 7px 10px; font-size: 12px; }
+.organization .ui.secondary.pointing.menu .item,
+.dashboard .ui.secondary.pointing.menu .item { padding-top: 9px !important; padding-bottom: 9px !important; }
+.org-members-table.ui.table { margin-top: 8px; }
+.org-members-table.ui.table th { padding: 8px; color: var(--color-text-light-2); font-weight: var(--font-weight-medium); }
+.org-members-table.ui.table td { padding: 6px 8px; vertical-align: middle; }
+.org-members-table th:first-child { width: 42%; }
+.org-members-table th:last-child { width: 26%; }
+.org-members-table.ui.table th:last-child { text-align: right; }
+.org-member-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.org-members-table .ui.button { padding: 7px 10px; font-size: 12px; white-space: nowrap; }
+.organization.members .ui.form.ignore-dirty,
+.organization.teams .ui.form.ignore-dirty { max-width: 600px; margin-top: 12px !important; margin-bottom: 12px !important; }
+.organization.teams .team-item-box .team-item-header { min-height: 38px; padding: 8px 10px; }
+.organization.teams .team-item-box .ui.segment { padding: 10px; }
 .org-workspace-about { margin-top: .75rem; margin-bottom: .75rem; }
 .org-workspace-about summary { cursor: pointer; color: var(--color-text-light-2); }
 [data-dashboard-feed-area][aria-busy="true"] { opacity: .6; }

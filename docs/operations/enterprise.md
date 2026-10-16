@@ -177,7 +177,7 @@ Normal form submissions and existing URLs still work without JavaScript.
 
 ## Homepage quick links
 
-The organization-first home and Activity dashboards offer shared shortcuts managed
+The dedicated Quick links tab on organization and personal workspaces offers shared shortcuts managed
 by site administrators and personal shortcuts managed by each signed-in user.
 Expand the corresponding editor to add, rename or remove multiple links, then save
 in place. Links open in a new tab so the workspace stays open. Each list supports
@@ -199,3 +199,43 @@ on the deployed site. Export trial-only app-state records with task cards before
 final takeover, mapping personal user IDs; rollback uses the matching database
 backup. Desktop dashboard content has 16px side gutters; account forms keep their
 readable width.
+
+## Compact desktop layout and automatic teams
+
+Activity uses three columns: repositories and filters on the left, activity in the
+center, CI/CD and published announcements on the right. Contribution history is
+collapsed initially. Quick links have a separate tab (`?tab=links`) and do not
+appear in Activity. Desktop text defaults to 13px with 16px page gutters, compact
+headers/buttons and a single-line organization member table (28px avatars).
+Code viewers retain their existing line-height settings. Browser zoom remains a
+user preference; no page scaling or transforms are applied.
+
+Organization owners open **Settings → Automatic team assignment** at
+`/org/{org}/settings/team-rules`. Add a Go/RE2 regular expression matching the
+repository name and select one or more teams. Examples: `^server-`, `-go$`, and
+`(?i)^(client|tools)-`. Matching is case sensitive unless requested in the pattern.
+Preview lists existing matches before saving; **Add teams to existing matches**
+is an explicit, repeatable, additive operation. Saving a rule alone does not
+change existing repository permissions.
+
+Enabled rules run in the shared creation transaction, including API creation,
+forks, template generation and imports, and when transferring a repository into
+an organization. All matching rules are unioned. Existing team permissions are
+used without escalation. Owners/all-repository teams retain their normal default
+access and cannot be selected. Rule edits, disabled/deleted rules and repository
+renames do not revoke or recompute existing grants. Team display-name changes are
+safe because rules store stable team IDs. Deleting a team removes its references;
+a new team with the same name does not inherit the old rule.
+
+Up to 32 rules, 512 bytes per pattern and 64 teams per rule are supported.
+Go/RE2 avoids backtracking expressions; unsupported look-around/backreferences are
+rejected. Mutations require organization-owner authority and normal CSRF checks;
+foreign organization team IDs are rejected, and stale revisions return 409.
+Rules use `app_state` key `org-repo-team-rules-{orgID}` with optimistic revision
+checks, without changing schema or Git/LFS paths. Include these records in trial
+data export and map organization/team IDs during a later native takeover. An old
+binary ignores rules but retains existing grants; rollback does not revoke access.
+
+Native Express233 CI upload is documented in [the upload guide](express233-upload.md).
+
+Fresh SQLite installs let the complete upstream models create Project/Team primary keys before adding extension-only columns; upgrades keep the existing tables and extension version 2 unchanged.

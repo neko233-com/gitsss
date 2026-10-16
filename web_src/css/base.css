@@ -30,9 +30,9 @@
   --min-height-textarea: 132px; /* padding + 6 lines + border = calc(1.57142em + 6lh + 2px), but lh is not fully supported */
   --tab-size: 4;
   --checkbox-size: 14px; /* height and width of checkbox and radio inputs */
-  --page-spacing: 16px; /* space between page elements */
-  --page-margin-x: 32px; /* minimum space on left and right side of page */
-  --page-space-bottom: 64px; /* space between last page element and footer */
+  --page-spacing: 12px; /* space between page elements */
+  --page-margin-x: 16px; /* minimum space on left and right side of page */
+  --page-space-bottom: 32px; /* space between last page element and footer */
   --transition-hover-fade: opacity 0.2s ease; /* fade transition for elements that show on hover */
 
   /* z-index */
@@ -74,7 +74,7 @@
 
 html, body {
   height: 100%;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 body {

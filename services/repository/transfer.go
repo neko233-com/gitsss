@@ -240,6 +240,9 @@ func transferOwnership(ctx context.Context, doer *user_model.User, newOwnerName 
 				}
 			}
 		}
+		if err := applyRepoTeamRules(ctx, repo, teams); err != nil {
+			return fmt.Errorf("applyRepoTeamRules: %w", err)
+		}
 	} else if err := access_model.RecalculateAccesses(ctx, repo); err != nil {
 		// Organization called this in addRepository method.
 		return fmt.Errorf("recalculateAccesses: %w", err)
@@ -380,7 +383,8 @@ func changeRepositoryName(ctx context.Context, repo *repo_model.Repository, newR
 
 	if HasWiki(ctx, repo) {
 		if err = gitrepo.RenameRepository(ctx, repo.WikiStorageRepo(), repo_model.StorageRepo(
-			repo_model.RelativeWikiPath(repo.OwnerName, newRepoName))); err != nil {
+			repo_model.RelativeWikiPath(repo.OwnerName, newRepoName),
+		)); err != nil {
 			return fmt.Errorf("rename repository wiki: %w", err)
 		}
 	}

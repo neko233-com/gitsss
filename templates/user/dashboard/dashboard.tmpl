@@ -1,8 +1,10 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content dashboard feeds">
 	{{template "user/dashboard/navbar" .}}
+	{{if not .ContextUser.IsOrganization}}{{template "user/dashboard/home_tabs" .}}{{end}}
+	{{if .PageIsHomeLinks}}
 	<div class="ui container home-links-container">{{template "user/dashboard/home_links" .}}</div>
-	{{if .OrganizationHome}}
+	{{else if .OrganizationHome}}
 	<div class="ui container">
 		{{template "base/alert" .}}
 		<h2>{{ctx.Locale.Tr "explore.organizations"}}</h2>
@@ -30,22 +32,13 @@
 		</div>
 	</div>
 	{{else}}
-	<div class="ui container flex-container">
-		<div class="flex-container-main">
+	<div class="ui container dashboard-workspace">
+		{{template "user/dashboard/repolist" .}}
+		<section class="dashboard-stream" aria-label="{{ctx.Locale.Tr "activities"}}">
 			{{template "base/alert" .}}
-			{{if .Announcements}}
-			<div class="ui info message">
-				<div class="header">{{ctx.Locale.Tr "dashboard.announcements"}}</div>
-				{{range .Announcements}}
-				<p><strong>{{.Title}}</strong><br>{{.Body}}</p>
-				{{end}}
-			</div>
-			{{end}}
-			<div id="gitsss-react-dashboard" data-endpoint="{{AppSubUrl}}/announcements"></div>
+			<div class="dashboard-stream-header"><h2>{{ctx.Locale.Tr "activities"}}</h2></div>
+			<details class="dashboard-contributions"><summary>{{svg "octicon-calendar"}} {{ctx.Locale.Tr "dashboard.contributions.title"}}</summary>{{template "user/heatmap" .}}</details>
 			<div data-gitsss-plugin-slot="dashboard"></div>
-			<script src="{{AssetUrlPrefix}}/js/gitsss-react.js" defer></script>
-			{{template "user/dashboard/actions" .}}
-			{{template "user/heatmap" .}}
 			<div data-dashboard-feed-area data-error="{{ctx.Locale.Tr "org.workspace.load_error"}}">
 			{{if .Page.Paginater.TotalPages}}
 				{{template "user/dashboard/feeds" .}}
@@ -53,8 +46,11 @@
 				{{if .ContextUser.IsOrganization}}<p class="empty-placeholder">{{ctx.Locale.Tr "org.workspace.no_activity"}}</p>{{else}}{{template "user/dashboard/guide" .}}{{end}}
 			{{end}}
 			</div>
-		</div>
-		{{template "user/dashboard/repolist" .}}
+		</section>
+		<aside class="dashboard-rail" aria-label="{{ctx.Locale.Tr "dashboard.actions.title"}}">
+			{{template "user/dashboard/actions" .}}
+			{{if .Announcements}}<section class="dashboard-announcements"><h2>{{ctx.Locale.Tr "dashboard.announcements"}}</h2>{{range .Announcements}}<article><h3>{{.Title}}</h3><p>{{.Body}}</p></article>{{end}}</section>{{end}}
+		</aside>
 	</div>
 	{{end}}
 </div>

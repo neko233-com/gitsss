@@ -76,6 +76,28 @@ func TestGitSSSExtensionOneUpgradesAdditively(t *testing.T) {
 	require.True(t, has)
 }
 
+func TestGitSSSExtensionsFreshInstallKeepsPrimaryKeys(t *testing.T) {
+	x := extensionTestEngine(t)
+	require.NoError(t, migrateGitSSSExtensions(x))
+	for _, name := range []string{"project", "team"} {
+		has, err := x.IsTableExist(name)
+		require.NoError(t, err)
+		require.False(t, has)
+	}
+	type Project struct {
+		ID         int64  `xorm:"pk autoincr"`
+		FieldsJSON string `xorm:"TEXT"`
+	}
+	type Team struct {
+		ID          int64 `xorm:"pk autoincr"`
+		DisplayName string
+	}
+	require.NoError(t, x.Sync(new(Project), new(Team)))
+	_, err := x.Insert(&Project{FieldsJSON: `{}`}, &Team{DisplayName: "Developers"})
+	require.NoError(t, err)
+	require.NoError(t, migrateGitSSSExtensions(x))
+}
+
 func TestLegacyGitSSS332RestoresDisplacedActionsMigration(t *testing.T) {
 	x := extensionTestEngine(t)
 	type Project struct {

@@ -15,6 +15,7 @@ import (
 	access_model "github.com/neko233-com/gitsss/models/perm/access"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	secret_model "github.com/neko233-com/gitsss/models/secret"
+	system_model "github.com/neko233-com/gitsss/models/system"
 	user_model "github.com/neko233-com/gitsss/models/user"
 	issue_indexer "github.com/neko233-com/gitsss/modules/indexer/issues"
 	"github.com/neko233-com/gitsss/modules/storage"
@@ -36,6 +37,7 @@ func deleteOrganization(ctx context.Context, org *org_model.Organization) error 
 		&org_model.TeamUser{OrgID: org.ID},
 		&org_model.TeamUnit{OrgID: org.ID},
 		&org_model.TeamInvite{OrgID: org.ID},
+		&system_model.AppState{ID: org_model.RepoTeamRulesKey(org.ID)},
 		&secret_model.Secret{OwnerID: org.ID},
 		&user_model.Blocking{BlockerID: org.ID},
 		&actions_model.ActionRunner{OwnerID: org.ID},

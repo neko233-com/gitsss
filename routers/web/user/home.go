@@ -79,7 +79,18 @@ func prepareDashboardContextUserOrgTeams(ctx *context.Context) *user_model.User 
 // Dashboard render the dashboard page
 func Dashboard(ctx *context.Context) {
 	ctxUser := prepareDashboardContextUserOrgTeams(ctx)
-	if ctx.Written() || !prepareHomeLinks(ctx) {
+	if ctx.Written() {
+		return
+	}
+	ctx.Data["OrganizationHome"] = ctx.PathParam("org") == "" && ctx.FormString("view") != "personal"
+	if ctx.FormString("tab") == "links" {
+		if !prepareHomeLinks(ctx) {
+			return
+		}
+		ctx.Data["Title"] = ctx.Tr("home.links.title")
+		ctx.Data["PageIsDashboard"] = true
+		ctx.Data["PageIsHomeLinks"] = true
+		ctx.HTML(http.StatusOK, tplDashboard)
 		return
 	}
 	if ctx.PathParam("org") == "" && ctx.FormString("view") != "personal" {
@@ -240,10 +251,8 @@ func Milestones(ctx *context.Context) {
 	}
 
 	milestones, err := db.Find[issues_model.Milestone](ctx, issues_model.FindMilestoneOptions{
-		ListOptions: db.ListOptions{
-			Page:     page,
-			PageSize: setting.UI.IssuePagingNum,
-		},
+		Page:     page,
+		PageSize: setting.UI.IssuePagingNum,
 		RepoCond: repoCond,
 		IsClosed: optional.Some(isShowClosed),
 		SortType: sortType,

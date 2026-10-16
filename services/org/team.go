@@ -162,6 +162,9 @@ func UpdateTeam(ctx context.Context, t *organization.Team, authChanged, includeA
 // It's caller's responsibility to assign organization ID.
 func DeleteTeam(ctx context.Context, t *organization.Team) error {
 	return db.WithTx(ctx, func(ctx context.Context) error {
+		if err := organization.RemoveTeamFromRepoRules(ctx, t.OrgID, t.ID); err != nil {
+			return err
+		}
 		if err := t.LoadMembers(ctx); err != nil {
 			return err
 		}

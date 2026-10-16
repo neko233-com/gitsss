@@ -3905,7 +3905,7 @@
 	"org.team_display_name": "显示名称（备注）",
 	"org.team_display_name_help": "仅修改显示备注，不改变权限组标识、成员或仓库权限。",
 	"dashboard.actions.kicker": "自动化运营",
-	"dashboard.actions.title": "Actions Worker",
+	"dashboard.actions.title": "CI/CD",
 	"dashboard.actions.description": "运行中的任务优先展示，完成记录仅保留最近结果。",
 	"dashboard.actions.open": "管理 Runner",
 	"dashboard.actions.running": "运行中",
@@ -4104,5 +4104,17 @@
 	"home.links.limit": "每组最多 32 项，仅支持 HTTP 和 HTTPS。",
 	"home.links.error": "保存失败，已保留当前草稿。",
 	"home.links.invalid": "请为每项填写名称及有效的 HTTP 或 HTTPS 地址，最多 32 项。",
-	"home.links.conflict": "其他页面已修改这些入口，请复制当前草稿后刷新重试。"
+	"home.links.conflict": "其他页面已修改这些入口，请复制当前草稿后刷新重试。",
+	"dashboard.contributions.title": "贡献记录",
+	"org.team_rules.title": "团队自动分配",
+	"org.team_rules.help": "根据新仓库名称匹配规则，自动加入所选团队，沿用团队现有权限。多条规则取并集。保存、停用或删除规则均保留已有授权。",
+	"org.team_rules.pattern": "仓库名正则表达式",
+	"org.team_rules.pattern_help": "使用 Go/RE2 语法，默认区分大小写。^server- 匹配前缀，-go$ 匹配后缀，(?i) 忽略大小写。只匹配仓库名称。",
+	"org.team_rules.enabled": "对新仓库自动分配",
+	"org.team_rules.preview": "预览已有仓库",
+	"org.team_rules.matches": "匹配的仓库：%d",
+	"org.team_rules.apply": "为已有匹配仓库添加团队",
+	"org.team_rules.applied": "新增 %d 条团队与仓库授权，原有授权均保留。",
+	"org.team_rules.invalid": "请输入有效正则并选择本组织团队。Owners 和已关联全部仓库的团队无需规则。最多支持 32 条规则。",
+	"org.team_rules.empty": "暂无规则，新建仓库沿用组织现有默认授权。"
 }
