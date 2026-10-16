@@ -101,9 +101,15 @@ an external server binary. Upgrades replace that binary only. Bare repositories,
 Git objects, refs, and LFS object bytes stay in place; new metadata belongs in
 `gitsss/layout.json` and `gitsss/extensions/`.
 
-Run `task release` on the release host. The host must provide Docker, Go,
-Make, and Task. Cross-compilation runs from the host so Docker-based xgo
-builders can mount the working tree on Linux, macOS, and Windows. Dependency
+Run <code>make release-native VERSION=1.2.0</code> on the release host. It
+cross-compiles with the local Go toolchain, two packages at a time by default,
+and compresses with <code>xz -6</code> in parallel. Set <code>RELEASE_JOBS</code>,
+<code>XZ_LEVEL=9</code>, or <code>RELEASE_GOGIT=1</code> when a release needs more
+parallelism, smaller archives, or the Windows Go-Git binaries. <code>make release</code>
+remains the Docker xgo path and now uses the same parallel xz setting.
+
+The host must provide Go, Make, Node.js, and pnpm. Docker is required only for
+<code>make release</code> and for building the container image. Dependency
 downloads are build-time only; published binaries, image archives, and
 installers remain self-contained for offline deployment.
 

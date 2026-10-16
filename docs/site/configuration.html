@@ -57,7 +57,7 @@
       <table>
         <thead><tr><th>参数</th><th>默认值</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td><code>--port</code></td><td><code>3000</code></td><td>HTTP 端口</td></tr>
+          <tr><td><code>--port</code></td><td><code>5300</code></td><td>HTTP 端口</td></tr>
           <tr><td><code>--root-url</code></td><td><code>http://localhost:{port}/</code></td><td>站点根 URL</td></tr>
           <tr><td><code>--job-instance-url</code></td><td><code>http://host.docker.internal:{port}</code></td><td>Actions Runner 回调地址</td></tr>
           <tr><td><code>--image</code></td><td><code>gitsss/gitsss:latest</code></td><td>Docker 镜像名</td></tr>
@@ -75,7 +75,7 @@
       <table>
         <thead><tr><th>参数</th><th>默认值</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td><code>-Port</code></td><td><code>3000</code></td><td>HTTP 端口</td></tr>
+          <tr><td><code>-Port</code></td><td><code>5300</code></td><td>HTTP 端口</td></tr>
           <tr><td><code>-RootUrl</code></td><td><code>http://localhost:{port}/</code></td><td>站点根 URL</td></tr>
           <tr><td><code>-JobInstanceUrl</code></td><td><code>http://host.docker.internal:{port}</code></td><td>Actions Runner 回调地址</td></tr>
           <tr><td><code>-Image</code></td><td><code>gitsss/gitsss:latest</code></td><td>Docker 镜像名</td></tr>
@@ -97,9 +97,9 @@
         <tbody>
           <tr><td><code>GITSSS_IMAGE</code></td><td><code>gitsss/gitsss:latest</code></td><td>服务端镜像</td></tr>
           <tr><td><code>GITSSS_ACTIONS_JOB_IMAGE</code></td><td><code>gitsss/gitsss:latest</code></td><td>Actions Job 镜像</td></tr>
-          <tr><td><code>GITSSS_HTTP_PORT</code></td><td><code>3000</code></td><td>容器内 HTTP 端口</td></tr>
+          <tr><td><code>GITSSS_HTTP_PORT</code></td><td><code>5300</code></td><td>容器内 HTTP 端口</td></tr>
           <tr><td><code>GITSSS_HTTP_BIND</code></td><td><code>0.0.0.0</code></td><td>HTTP 绑定地址</td></tr>
-          <tr><td><code>GITSSS_ROOT_URL</code></td><td><code>http://localhost:3000/</code></td><td>站点根 URL</td></tr>
+          <tr><td><code>GITSSS_ROOT_URL</code></td><td><code>http://localhost:5300/</code></td><td>站点根 URL</td></tr>
           <tr><td><code>GITSSS_SSH_PORT</code></td><td><code>2222</code></td><td>宿主机 SSH 端口</td></tr>
           <tr><td><code>GITSSS_SSH_BIND</code></td><td><code>0.0.0.0</code></td><td>SSH 绑定地址</td></tr>
           <tr><td><code>GITSSS_DATA_VOLUME</code></td><td><code>gitsss-data</code></td><td>Docker 数据卷名</td></tr>
@@ -109,7 +109,7 @@
           <tr><td><code>GITSSS_INITIAL_ADMIN_USER</code></td><td><code>root</code></td><td>初始管理员用户名</td></tr>
           <tr><td><code>GITSSS_INITIAL_ADMIN_PASSWORD</code></td><td><code>root</code></td><td>初始管理员密码</td></tr>
           <tr><td><code>GITSSS_INITIAL_ADMIN_EMAIL</code></td><td><code>root@localhost.invalid</code></td><td>初始管理员邮箱</td></tr>
-          <tr><td><code>GITSSS_ACTIONS_JOB_INSTANCE_URL</code></td><td><code>http://host.docker.internal:3000</code></td><td>Runner 回调地址</td></tr>
+          <tr><td><code>GITSSS_ACTIONS_JOB_INSTANCE_URL</code></td><td><code>http://host.docker.internal:5300</code></td><td>Runner 回调地址</td></tr>
           <tr><td><code>GITSSS_ACTIONS_CONTAINER_OPTIONS</code></td><td><code>--cpus=4 --memory=8g --pids-limit=2048</code></td><td>Actions 容器资源限制</td></tr>
         </tbody>
       </table>
@@ -140,7 +140,7 @@
       <table>
         <thead><tr><th>端口</th><th>用途</th><th>绑定</th></tr></thead>
         <tbody>
-          <tr><td><code>3000</code></td><td>Web 界面、API、HTTP Git</td><td><code>0.0.0.0</code></td></tr>
+          <tr><td><code>5300</code></td><td>Web 界面、API、HTTP Git</td><td><code>0.0.0.0</code></td></tr>
           <tr><td><code>2222</code></td><td>SSH Git</td><td><code>0.0.0.0</code></td></tr>
           <tr><td><code>8088</code></td><td>Actions Runner 内部通信</td><td><code>127.0.0.1</code>（仅本机）</td></tr>
         </tbody>
@@ -153,6 +153,9 @@ BUILTIN_RUNNER_ENABLED = true
 BUILTIN_RUNNER_CAPACITY = 2
 BUILTIN_RUNNER_LABELS = self-hosted:host,ubuntu-latest:host,ubuntu-24.04:host</code></pre></div>
       <p>如果使用外部 Runner 集群，可将 <code>BUILTIN_RUNNER_ENABLED</code> 设为 <code>false</code>。默认值为 <code>true</code> 时不依赖 <code>/var/run/docker.sock</code>，可在 vbox 这类 Docker 命令兼容运行时中直接启动；切换到外部 Docker Runner 后，才需要提供可用的 Docker socket。数据库、Git、LFS、Actions 日志与制品存储合同不变。</p>
+
+      <h2>接管原来的 Gitea</h2>
+      <p>默认 HTTP 端口是 <code>5300</code>。用 <code>gitsss import-gitea-http --all-repos</code> 导入源站管理员可见的全部仓库，同时导入用户、组织、团队和仓库权限。导入完成后，在 <code>/-/admin/takeover</code> 把端口改成 <code>3000</code>。HTTP 会先绑定新端口，成功后才关闭旧端口，并改写 <code>ROOT_URL</code>。Git 仓库路径和 LFS 对象不动。对公网开放时，这个接口只接受已登录的站点管理员；API 为 <code>POST /api/v1/admin/listen-port</code>，需要管理员令牌，不要把令牌放进 URL。</p>
 
       <h2>版本更新检查</h2>
       <p>服务启动时不会访问 GitHub。管理员可在 <code>/-/admin/updates</code> 立即检查，或显式打开定时任务。检查对象是 <code>neko233-com/gitsss</code> 的 GitHub Releases。直连 <code>api.github.com</code> 与配置的 HTTP 镜像会并行探测；能连上 GitHub 时以官方清单和 sha256 为准，下载时优先用延迟最低的可用地址，失败再按延迟顺序回退。</p>

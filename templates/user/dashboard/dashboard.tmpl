@@ -4,6 +4,17 @@
 	<div class="ui container flex-container">
 		<div class="flex-container-main">
 			{{template "base/alert" .}}
+			{{if .Announcements}}
+			<div class="ui info message">
+				<div class="header">{{ctx.Locale.Tr "dashboard.announcements"}}</div>
+				{{range .Announcements}}
+				<p><strong>{{.Title}}</strong><br>{{.Body}}</p>
+				{{end}}
+			</div>
+			{{end}}
+			<div id="gitsss-react-dashboard" data-endpoint="{{AppSubUrl}}/announcements"></div>
+			<div data-gitsss-plugin-slot="dashboard"></div>
+			<script src="{{AssetUrlPrefix}}/js/gitsss-react-dashboard.js" defer></script>
 			{{template "user/dashboard/actions" .}}
 			{{template "user/heatmap" .}}
 			{{if .Page.Paginater.TotalPages}}

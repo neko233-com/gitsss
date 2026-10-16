@@ -52,8 +52,11 @@
 
       <div class="callout callout-note">
         <span class="callout-label">扩展模型</span>
-        <p>gitsss 没有运行时插件市场。产品能力以受版本控制的源代码、配置和内置 Actions 扩展；这使离线交付、审计与升级边界保持确定。</p>
+        <p>后端没有运行时插件市场，HTTP、数据库和 Git 行为仍由版本化代码决定。纯前端插件可以热加载：把文件放到 <code>custom/public/assets/plugins/</code>，刷新页面即可，不需要改后端或重新编译。</p>
       </div>
+
+      <h2>纯前端插件</h2>
+      <p>页面加载时读取 <code>/assets/plugins/manifest.json</code>。文件不存在就跳过。清单里的脚本必须是同源路径 <code>/assets/plugins/&lt;id&gt;/*.js</code>，拒绝外链、<code>..</code> 和查询串。插件导出 <code>mount(root)</code>，挂到 <code>data-gitsss-plugin-slot</code> 为 <code>dashboard</code> 或 <code>repo-header</code> 的节点。示例在 <code>docs/examples/frontend-plugin/</code>。这些文件和自定义模板一样，属于管理员信任的本地代码。</p>
 
       <h2>先选扩展边界</h2>
       <table>

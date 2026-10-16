@@ -9,6 +9,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/neko233-com/gitsss/modules/git/gitcmd"
@@ -112,6 +113,30 @@ func syncGitConfig(ctx context.Context) (err error) {
 			return err
 		}
 		err = configUnsetAll(ctx, "uploadpack.allowAnySHA1InWant", "true")
+	}
+
+	if DefaultFeatures().CheckVersionAtLeast("2.38") {
+		if err = configSet(ctx, "pack.useBitmapBoundaryTraversal", "true"); err != nil {
+			return err
+		}
+	}
+	threads := runtime.NumCPU()
+	if threads < 1 {
+		threads = 1
+	}
+	if err = configSet(ctx, "pack.threads", strconv.Itoa(threads)); err != nil {
+		return err
+	}
+	// Game repositories push many LFS objects. Cap the fan-out so a large host
+	// does not open one HTTP transfer per core.
+	transfers := min(threads, 8)
+	if err = configSet(ctx, "lfs.concurrenttransfers", strconv.Itoa(transfers)); err != nil {
+		return err
+	}
+	if DefaultFeatures().CheckVersionAtLeast("2.21") {
+		if err = configSet(ctx, "core.multiPackIndex", "true"); err != nil {
+			return err
+		}
 	}
 
 	return err

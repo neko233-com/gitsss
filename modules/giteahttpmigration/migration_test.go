@@ -78,6 +78,12 @@ func TestDiscoverUsesReadOnlySourceRequests(t *testing.T) {
 			writeJSON(t, w, []User{{UserName: "alice"}})
 		case "/api/v1/teams/1/repos", "/api/v1/teams/2/repos":
 			writeJSON(t, w, []Repository{{Owner: &User{UserName: "engineering"}, Name: "repo-a", FullName: "engineering/repo-a"}})
+		case "/api/v1/repos/engineering/repo-a/labels",
+			"/api/v1/repos/engineering/repo-a/milestones",
+			"/api/v1/repos/engineering/repo-a/issues",
+			"/api/v1/repos/engineering/repo-a/pulls",
+			"/api/v1/repos/engineering/repo-a/releases":
+			writeJSON(t, w, []any{})
 		default:
 			http.NotFound(w, r)
 		}

@@ -70,6 +70,26 @@ tasks:
       - task: make
         vars: {TARGET: build}
 
+  build:host:
+    desc: Build frontend and backend on the host, without Docker
+    cmds:
+      - make build
+
+  backend:host:
+    desc: Build only the backend binary on the host
+    cmds:
+      - make backend-quick
+
+  release:native:
+    desc: Cross-compile release binaries on the host without xgo
+    cmds:
+      - make release-native VERSION="{{.VERSION}}" RELEASE_JOBS="{{.RELEASE_JOBS}}" XZ_LEVEL="{{.XZ_LEVEL}}" RELEASE_GOGIT="{{.RELEASE_GOGIT}}"
+    vars:
+      VERSION: '{{.VERSION | default ""}}'
+      RELEASE_JOBS: '{{.RELEASE_JOBS | default "2"}}'
+      XZ_LEVEL: '{{.XZ_LEVEL | default "6"}}'
+      RELEASE_GOGIT: '{{.RELEASE_GOGIT | default ""}}'
+
   test:
     desc: Run frontend and backend tests
     cmds:
@@ -148,9 +168,9 @@ tasks:
       - powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File tools/vbox/gitsss.ps1 -Action remove
 
   release:
-    desc: Build local release artifacts
+    desc: Cross-compile release binaries on the host without xgo
     cmds:
-      - make release
+      - task: release:native
 
   release:check:
     desc: Generate release checksums
@@ -169,11 +189,11 @@ tasks:
     requires:
       vars: [TARGET]
     cmds:
-      - docker run --rm --entrypoint /bin/bash --volume "{{.TASKFILE_DIR}}:/src" --volume gitsss-task-node-modules:/src/node_modules --volume gitsss-task-pnpm-store:/root/.local/share/pnpm/store --volume gitsss-task-go-mod:/go/pkg/mod --volume gitsss-task-go-build:/root/.cache/go-build --workdir /src --env npm_config_registry --env TAGS --env RACE_ENABLED --env GOTESTFLAGS --env GITEA_TEST_E2E_FLAGS --env VERSION --env GITSSS_VERSION --env DOCKER_IMAGE --env DOCKER_TAG "{{.BUILD_IMAGE}}" -lc "make {{.TARGET}}"
+      - sh build/task-make.sh {{.TARGET}}
 
   make:unprivileged:
     internal: true
     requires:
       vars: [TARGET]
     cmds:
-      - docker run --rm --user git --entrypoint /bin/bash --volume "{{.TASKFILE_DIR}}:/src" --workdir /src --env HOME=/tmp/git-home --env GOPATH=/tmp/go --env GOCACHE=/tmp/go-build --env GITSSS_CUSTOM= --env GIT_CONFIG_COUNT=1 --env GIT_CONFIG_KEY_0=safe.directory --env GIT_CONFIG_VALUE_0=/src --env TAGS --env RACE_ENABLED --env GOTESTFLAGS --env GITEA_TEST_E2E_FLAGS --env VERSION --env GITSSS_VERSION --env DOCKER_IMAGE --env DOCKER_TAG "{{.BUILD_IMAGE}}" -lc "mkdir -p /tmp/git-home && git config --global --add safe.directory /src && make {{.TARGET}}"
+      - sh build/task-make.sh {{.TARGET}} unprivileged

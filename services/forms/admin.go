@@ -91,6 +91,17 @@ type AdminDashboardForm struct {
 	From string
 }
 
+// AdminTakeoverForm changes the live HTTP port.
+type AdminTakeoverForm struct {
+	Port string `binding:"Required" form:"port"`
+}
+
+// Validate validates the port form.
+func (f *AdminTakeoverForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
+	ctx := context.GetValidateContext(req)
+	return middleware.Validate(errs, ctx.Data, f, ctx.Locale)
+}
+
 // AdminUpdateForm configures GitHub release checks and mirror fallbacks.
 type AdminUpdateForm struct {
 	Op          string `binding:"Required" form:"op"`
@@ -103,6 +114,21 @@ type AdminUpdateForm struct {
 
 // Validate validates the update check form.
 func (f *AdminUpdateForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
+	ctx := context.GetValidateContext(req)
+	return middleware.Validate(errs, ctx.Data, f, ctx.Locale)
+}
+
+// AdminLFSGCForm scans or deletes unreferenced LFS objects.
+type AdminLFSGCForm struct {
+	Op             string `binding:"Required" form:"op"`
+	OlderThanHours int    `form:"older_than_hours"`
+	Repository     string `form:"repository"`
+	Confirm        bool   `form:"confirm"`
+	Format         string `form:"format"`
+}
+
+// Validate validates the LFS GC form.
+func (f *AdminLFSGCForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
 	ctx := context.GetValidateContext(req)
 	return middleware.Validate(errs, ctx.Data, f, ctx.Locale)
 }

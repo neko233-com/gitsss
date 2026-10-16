@@ -22,16 +22,16 @@ vbox 本身不启动也不依赖 Docker Desktop 或 Docker daemon。
 
 | 项目 | 默认值 |
 | --- | --- |
-| Web 端口 | `3000` |
+| Web 端口 | `5300` |
 | SSH 端口 | `2222` |
-| 默认地址 | `http://localhost:3000/` |
+| 默认地址 | `http://localhost:5300/` |
 | 初始管理员 | `root` |
 | 初始密码 | `root` |
 | 最小密码长度 | `4` |
 | Docker 镜像 | `gitsss/gitsss:latest` |
 | 数据卷 | `gitsss-data` |
 
-初始管理员仅在空数据卷创建，首次登录必须修改密码。生产环境请在安装时覆盖默认凭据。
+初始管理员仅在空数据卷创建，首次登录必须修改密码。生产环境请在安装时覆盖默认凭据。新安装默认监听 `5300`，避免和仍在运行的 Gitea 抢 `3000`。导入账号、组织和仓库后，管理员在「接管 Gitea」页面把端口热切换到 `3000`，再停止旧的 Gitea。已有配置里写明的 `HTTP_PORT` 不会被改掉。
 
 ## 内网生产能力
 
@@ -40,7 +40,10 @@ vbox 本身不启动也不依赖 Docker Desktop 或 Docker daemon。
 - 仓库页面提供 GitHub 风格主题、商业版 Git 导航布局和可折叠宽屏侧栏；窄屏自动切换为可关闭抽屉。侧栏覆盖代码、Issue、PR、Actions、Packages、任务看板、Release、Wiki、外部链接与设置，并支持拖拽/键盘指派成员与本地 WIP 限制。
 - 服务进程默认内置 Actions Runner；管理员可在 Actions → Runners 查看、启动、停止、重启或禁用，外部 Runner 仍兼容。默认内置 Runner 不读取 Docker socket，vbox 等 Docker 命令兼容运行时可直接使用；只有切换到外部 Docker Runner 才需要可用 socket。
 - 首页提供 Actions Worker 运营面板：运行中任务固定置顶，排队任务可搜索，已完成任务隐藏，并保留最近一次成功/失败结果与 24 小时统计。
-- 游戏仓库支持 Git LFS、3D 模型、常见图片/音视频、Unity/Godot 文本资产，以及 TGA/DDS 纹理预览；无法安全解码的格式保留原始资产入口。
+- 游戏仓库支持 Git LFS、3D 模型、常见图片/音视频、Unity/Godot 文本资产，以及 TGA/DDS 纹理预览；无法安全解码的格式保留原始资产入口。`gitsss admin lfs-gc` 和管理页 `/-/admin/lfs-gc` 可以预览并清理未被引用的 LFS 对象，默认保留一周。
+- 登录后的首页用 React 19 显示企业公告，并带一层页内 WebGL 着色背景。管理员在「接管 Gitea」页面发布公告。
+- 仓库任务看板可以新增、改名和删除列，也可以用 JSON 保存自定义字段。
+- 纯前端插件放到 `custom/public/assets/plugins/`，刷新即可生效，后端不用改。
 
 ## 安装
 
@@ -52,8 +55,8 @@ vbox 本身不启动也不依赖 Docker Desktop 或 Docker daemon。
 .\install\install.ps1 `
   -ImageArchive .\gitsss-image.tar `
   -InstallDir C:\gitsss `
-  -Port 3000 `
-  -RootUrl http://git.example.internal:3000/ `
+  -Port 5300 `
+  -RootUrl http://git.example.internal:5300/ `
   -InitialAdminUser root `
   -InitialAdminPassword 'change-this-password'
 ```
@@ -66,8 +69,8 @@ vbox 本身不启动也不依赖 Docker Desktop 或 Docker daemon。
 ./install/install.sh \
   --image-archive ./gitsss-image.tar \
   --install-dir /opt/gitsss \
-  --port 3000 \
-  --root-url http://git.example.internal:3000/ \
+  --port 5300 \
+  --root-url http://git.example.internal:5300/ \
   --initial-admin-user root \
   --initial-admin-password 'change-this-password'
 ```
@@ -101,8 +104,8 @@ docker compose --project-directory C:\gitsss logs --follow
   -ImageArchive .\gitsss-image-new.tar `
   -InstallDir C:\gitsss `
   -DataVolume gitsss-data `
-  -Port 3000 `
-  -RootUrl http://git.example.internal:3000/
+  -Port 5300 `
+  -RootUrl http://git.example.internal:5300/
 ```
 
 ```sh
@@ -110,8 +113,8 @@ docker compose --project-directory C:\gitsss logs --follow
   --image-archive ./gitsss-image-new.tar \
   --install-dir /opt/gitsss \
   --data-volume gitsss-data \
-  --port 3000 \
-  --root-url http://git.example.internal:3000/
+  --port 5300 \
+  --root-url http://git.example.internal:5300/
 ```
 
 不要在已有数据卷的更新命令中传入新的管理员凭据；现有账户密码不会被重置。
@@ -190,7 +193,7 @@ docker compose -f compose.yaml down
 ```
 
 验证使用 vbox 的 `--volume` 将 `%LOCALAPPDATA%\gitsss\vbox-data` 持久化到
-镜像 `/data`，健康检查地址为 `http://127.0.0.1:3000/api/healthz`。详见
+镜像 `/data`，健康检查地址为 `http://127.0.0.1:5300/api/healthz`。详见
 [vbox 本机验证](docs/operations/virtualbox.md)。
 
 ## 检查更新
@@ -209,12 +212,10 @@ gitsss update download --output /tmp
 
 ```sh
 # 后端工具链：Go 1.27.2
+# 没有 Docker 时 task 直接在本机执行。GITSSS_TASK_NATIVE=1 也可以强制本机。
 pnpm install --frozen-lockfile
-task help
-task fmt
-task lint:go
-task lint:js
-task test
+make backend-quick
+make release-native VERSION=1.2.0
 ```
 
 ## 相关文档

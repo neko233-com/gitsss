@@ -1,0 +1,54 @@
+{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin")}}
+<div class="admin-setting-content">
+	<h4 class="ui top attached header">{{ctx.Locale.Tr "admin.lfs_gc"}}</h4>
+	<div class="ui attached segment">
+		<p>{{ctx.Locale.Tr "admin.lfs_gc.intro"}}</p>
+		<form class="ui form" method="post" action="{{AppSubUrl}}/-/admin/lfs-gc">
+			<div class="field">
+				<label for="lfs-gc-repo">{{ctx.Locale.Tr "admin.lfs_gc.repository"}}</label>
+				<input id="lfs-gc-repo" name="repository" value="{{.Repository}}" placeholder="owner/name" autocomplete="off">
+			</div>
+			<div class="field">
+				<label for="lfs-gc-hours">{{ctx.Locale.Tr "admin.lfs_gc.older_than"}}</label>
+				<input id="lfs-gc-hours" name="older_than_hours" type="number" min="24" value="{{.OlderThanHours}}">
+				<p class="help">{{ctx.Locale.Tr "admin.lfs_gc.older_than_help"}}</p>
+			</div>
+			<div class="field">
+				<div class="ui checkbox">
+					<input type="checkbox" name="confirm" value="true">
+					<label>{{ctx.Locale.Tr "admin.lfs_gc.confirm"}}</label>
+				</div>
+			</div>
+			<button class="ui primary button" type="submit" name="op" value="preview">{{ctx.Locale.Tr "admin.lfs_gc.preview"}}</button>
+			<button class="ui red button" type="submit" name="op" value="apply">{{ctx.Locale.Tr "admin.lfs_gc.apply"}}</button>
+		</form>
+		<p class="help">{{ctx.Locale.Tr "admin.lfs_gc.api_help"}}</p>
+	</div>
+	{{if .Report}}
+	<h4 class="ui top attached header">{{ctx.Locale.Tr "admin.lfs_gc.result"}}</h4>
+	<div class="ui attached segment">
+		<p>{{ctx.Locale.Tr "admin.lfs_gc.summary" .Report.Orphaned .Report.Deleted}}</p>
+		<table class="ui very basic table">
+			<thead>
+				<tr>
+					<th>{{ctx.Locale.Tr "admin.lfs_gc.repository"}}</th>
+					<th>{{ctx.Locale.Tr "admin.lfs_gc.total"}}</th>
+					<th>{{ctx.Locale.Tr "admin.lfs_gc.orphaned"}}</th>
+					<th>{{ctx.Locale.Tr "admin.lfs_gc.deleted"}}</th>
+				</tr>
+			</thead>
+			<tbody>
+				{{range .Report.Repositories}}
+				<tr>
+					<td>{{.Repository}}</td>
+					<td>{{.Total}}</td>
+					<td>{{.Orphaned}}</td>
+					<td>{{.Deleted}}</td>
+				</tr>
+				{{end}}
+			</tbody>
+		</table>
+	</div>
+	{{end}}
+</div>
+{{template "admin/layout_footer" .}}

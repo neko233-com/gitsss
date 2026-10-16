@@ -19,6 +19,16 @@ import (
 	"github.com/neko233-com/gitsss/modules/timeutil"
 )
 
+// LFSGCRepoResult is one repository after an LFS metadata scan.
+type LFSGCRepoResult struct {
+	Repository string
+	Total      int64
+	Orphaned   int
+	Collected  int
+	Deleted    int
+	Stopped    bool
+}
+
 // GarbageCollectLFSMetaObjectsOptions provides options for GarbageCollectLFSMetaObjects function
 type GarbageCollectLFSMetaObjectsOptions struct {
 	LogDetail                func(format string, v ...any)
@@ -27,6 +37,8 @@ type GarbageCollectLFSMetaObjectsOptions struct {
 	UpdatedLessRecentlyThan  time.Time
 	NumberToCheckPerRepo     int64
 	ProportionToCheckPerRepo float64
+	// OnRepo, when set, receives the scan counts after each repository is opened.
+	OnRepo func(LFSGCRepoResult)
 }
 
 // GarbageCollectLFSMetaObjects garbage collects LFS objects for all repositories
@@ -58,9 +70,24 @@ func GarbageCollectLFSMetaObjects(ctx context.Context, opts GarbageCollectLFSMet
 
 // GarbageCollectLFSMetaObjectsForRepo garbage collects LFS objects for a specific repository
 func GarbageCollectLFSMetaObjectsForRepo(ctx context.Context, repo *repo_model.Repository, opts GarbageCollectLFSMetaObjectsOptions) error {
+	if opts.LogDetail == nil {
+		opts.LogDetail = func(string, ...any) {}
+	}
 	opts.LogDetail("Checking %-v", repo)
 	total, orphaned, collected, deleted := int64(0), 0, 0, 0
+	scanned := false
+	stopped := false
 	defer func() {
+		if opts.OnRepo != nil && scanned {
+			opts.OnRepo(LFSGCRepoResult{
+				Repository: repo.FullName(),
+				Total:      total,
+				Orphaned:   orphaned,
+				Collected:  collected,
+				Deleted:    deleted,
+				Stopped:    stopped,
+			})
+		}
 		if orphaned == 0 {
 			opts.LogDetail("Found %d total LFSMetaObjects in %-v", total, repo)
 		} else if !opts.AutoFix {
@@ -80,6 +107,7 @@ func GarbageCollectLFSMetaObjectsForRepo(ctx context.Context, repo *repo_model.R
 	store := lfs.NewContentStore()
 	errStop := errors.New("STOPERR")
 	objectFormat := git.ObjectFormatFromName(repo.ObjectFormatName)
+	scanned = true
 
 	err = git_model.IterateLFSMetaObjectsForRepo(ctx, repo.ID, func(ctx context.Context, metaObject *git_model.LFSMetaObject, count int64) error {
 		if opts.NumberToCheckPerRepo > 0 && total > opts.NumberToCheckPerRepo {
@@ -128,6 +156,7 @@ func GarbageCollectLFSMetaObjectsForRepo(ctx context.Context, repo *repo_model.R
 	})
 
 	if err == errStop {
+		stopped = true
 		opts.LogDetail("Processing stopped at %d total LFSMetaObjects in %-v", total, repo)
 		return nil
 	} else if err != nil {

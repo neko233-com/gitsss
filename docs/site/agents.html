@@ -114,8 +114,15 @@
         <p>完成不是“代码已改”。完成意味着行为、测试、运维影响和文档相互一致，下一位人类或 Agent 不需要从代码重新推导使用方式。</p>
       </div>
 
+      <h2>迁移与 LFS</h2>
+      <p><code>gitsss import-gitea-http</code> 默认输出 JSON。源和目标可以用站点管理员 Token 文件，或 <code>--source-user</code> 加 <code>--source-password-file</code>（目标同理）。密码放在 <code>0600</code> 文件里，不要放在命令行。不带 <code>--apply</code> 只打印计划。带 <code>--apply</code> 时复制账号、权限、Git、LFS，以及本次新建仓库上的标签、里程碑、Issue、评论、Pull Request 和 Release 说明。Wiki、Release 附件和软件包仍不在 HTTP 导入范围内。</p>
+      <p><code>gitsss admin lfs-gc</code> 输出 JSON。不加 <code>--apply</code> 只扫描。默认保留 168 小时，短于 24 小时需要 <code>--force</code>。已登录的站点管理员也可以 <code>POST /api/v1/admin/lfs-gc</code>。</p>
+      <p>纯前端插件放在 <code>custom/public/assets/plugins/manifest.json</code>。后端不执行插件代码。契约见 <a href="extensions.html">扩展功能</a>。</p>
+
       <h2>版本检查</h2>
-      <p>Agent 用 <code>gitsss update check --json</code> 读取一份 JSON：当前版本、最新版本、<code>need_update</code>、清单是否来自 GitHub，以及每个镜像的可用性与延迟。下载必须带校验和：<code>gitsss update download --output DIR --json</code>。校验失败时进程返回非 0，并且不会留下目标文件。<code>--save</code> 把镜像列表写回 <code>[cron.update_checker]</code>，不改变启动时默认不访问外网的行为，除非同时传入 <code>--enable-schedule</code>。</p>
+      <p>Agent 用 <code>gitsss update check --json</code> 读取一份 JSON：当前版本、最新版本、<code>need_update</code>、清单是否来自 GitHub，以及每个镜像的可用性与延迟。下载必须带校验和：<code>gitsss update download --output DIR --json</code>。校验失败时进程返回非 0，并且不会留下目标文件。<code>--save</code> 把镜像列表写回 <code>[cron.update_checker]</code>，不改变启动时默认不访问外网的行为，除非同时传入 <code>--enable-schedule</code>。仓库提交日报、周报、月报在已登录且有代码读取权限时提供：<code>GET /{owner}/{repo}/activity/summary</code>。它只统计时间戳，不返回补丁内容。</p>
+
+      <p>日常验证优先在本机跑。没有 Docker，或设置了 <code>GITSSS_TASK_NATIVE=1</code> 时，<code>task</code> 直接执行 Make，不启动容器。只编译后端时用 <code>make backend-quick</code>。发布包用 <code>make release-native VERSION=...</code>，默认同时编译 2 个目标并用 <code>xz -6</code> 并行压缩。<code>make release</code> 仍是需要 Docker 的 xgo 路径。</p>
 
       <h2>交接</h2>
       <p>交接时说明：已改文件和行为、已运行的验证及结果、未运行项目与原因、保留的用户改动，以及需要人工决定的风险。不要把未验证的假设表述为完成。</p>

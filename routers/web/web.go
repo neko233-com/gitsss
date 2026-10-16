@@ -502,6 +502,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 	// Especially some AJAX requests, we can reduce middleware number to improve performance.
 
 	m.Get("/", Home)
+	m.Get("/announcements", reqSignIn, user.Announcements)
 	m.Get("/sitemap.xml", sitemapEnabled, optExploreSignIn, HomeSitemap)
 	m.Group("/.well-known", func() {
 		m.Get("/openid-configuration", auth.OIDCWellKnown)
@@ -754,8 +755,13 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 
 		m.Get("/self_check", admin.SelfCheck)
 		m.Post("/self_check", admin.SelfCheckPost)
+		m.Get("/takeover", admin.Takeover)
+		m.Post("/takeover", web.Bind(forms.AdminTakeoverForm{}), admin.TakeoverPost)
+		m.Post("/announcements", admin.AnnouncementsPost)
 		m.Get("/updates", admin.Updates)
 		m.Post("/updates", web.Bind(forms.AdminUpdateForm{}), admin.UpdatesPost)
+		m.Get("/lfs-gc", admin.LFSGC)
+		m.Post("/lfs-gc", web.Bind(forms.AdminLFSGCForm{}), admin.LFSGCPost)
 
 		m.Group("/config", func() {
 			m.Get("", admin.Config)
@@ -1122,6 +1128,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 
 					m.Get("/edit", org.RenderEditProject)
 					m.Post("/edit", web.Bind(forms.CreateProjectForm{}), org.EditProjectPost)
+					m.Post("/fields", project.SaveFields)
 					m.Post("/{action:open|close}", org.ChangeProjectStatus)
 
 					// TODO: improper name. Others are "delete project", "edit project", but this one is "move columns"
@@ -1526,6 +1533,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 
 				m.Get("/edit", repo.RenderEditProject)
 				m.Post("/edit", web.Bind(forms.CreateProjectForm{}), repo.EditProjectPost)
+				m.Post("/fields", project.SaveFields)
 				m.Post("/{action:open|close}", repo.ChangeProjectStatus)
 
 				// TODO: improper name. Others are "delete project", "edit project", but this one is "move columns"
@@ -1611,6 +1619,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 				m.Get("", repo.RecentCommits)
 				m.Get("/data", repo.CodeFrequencyData) // "recent-commits" also uses the same data as "code-frequency"
 			})
+			m.Get("/summary", repo.ActivitySummary)
 		}, reqUnitCodeReader)
 	},
 		optSignIn, context.RepoAssignment, repo.MustBeNotEmpty,

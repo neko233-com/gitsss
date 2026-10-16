@@ -18,16 +18,24 @@ import (
 func newImportGiteaHTTPCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "import-gitea-http",
-		Usage: "Import Gitea accounts, RBAC, and selected Git repositories over HTTP",
+		Usage: "Import Gitea accounts, RBAC, Git data, issues, and pull requests over HTTP",
 		Description: `Read-only access is used against the source. The target is changed only with --apply.
-Source passwords, password hashes, access tokens, SSH keys, and 2FA secrets are not available through the Gitea API.
-New local accounts receive random temporary passwords and must change them on first login.`,
+Authenticate with a site-admin token file, or with a username plus a password file. Do not put passwords on the command line.
+Source password hashes, access tokens, SSH keys, and 2FA secrets are not available through the Gitea API.
+New local accounts receive random temporary passwords and must change them on first login.
+Issues, comments, labels, milestones, pull requests, and release notes are copied onto repositories created in this run.
+Merged pull requests are closed on the target; the merge is not replayed. Wiki, release attachment bytes, packages, and other attachments are not copied.`,
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "source-url", Usage: "Source Gitea root URL", Required: true},
-			&cli.StringFlag{Name: "source-token-file", Usage: "File containing source site-admin API token", Required: true, TakesFile: true},
+			&cli.StringFlag{Name: "source-user", Usage: "Source site-admin username, used with --source-password-file"},
+			&cli.StringFlag{Name: "source-password-file", Usage: "File containing the source site-admin password", TakesFile: true},
+			&cli.StringFlag{Name: "source-token-file", Usage: "File containing the source site-admin API token", TakesFile: true},
 			&cli.StringFlag{Name: "target-url", Usage: "Target gitsss root URL", Required: true},
-			&cli.StringFlag{Name: "target-token-file", Usage: "File containing target site-admin API token", Required: true, TakesFile: true},
-			&cli.StringSliceFlag{Name: "repo", Usage: "Repository owner/name or source URL; repeat for each repository", Required: true},
+			&cli.StringFlag{Name: "target-user", Usage: "Target site-admin username, used with --target-password-file"},
+			&cli.StringFlag{Name: "target-password-file", Usage: "File containing the target site-admin password", TakesFile: true},
+			&cli.StringFlag{Name: "target-token-file", Usage: "File containing the target site-admin API token", TakesFile: true},
+			&cli.StringSliceFlag{Name: "repo", Usage: "Repository owner/name or source URL; repeat for each repository"},
+			&cli.BoolFlag{Name: "all-repos", Usage: "Import every repository visible to the source site administrator, with its owner accounts, organizations, teams, and permissions"},
 			&cli.StringFlag{Name: "conflict", Usage: "Existing target object policy: fail or skip", Value: string(giteahttpmigration.ConflictFail)},
 			&cli.DurationFlag{Name: "timeout", Usage: "Whole discovery/import timeout", Value: 30 * time.Minute},
 			&cli.BoolFlag{Name: "apply", Usage: "Write discovered objects to target; omitted means dry-run"},
@@ -38,21 +46,37 @@ New local accounts receive random temporary passwords and must change them on fi
 }
 
 func runImportGiteaHTTP(ctx context.Context, c *cli.Command) (returnErr error) {
-	sourceToken, err := readSecretFile(c.String("source-token-file"))
+	sourceToken, err := optionalSecretFile(c.String("source-token-file"))
 	if err != nil {
 		return fmt.Errorf("read source token: %w", err)
 	}
-	targetToken, err := readSecretFile(c.String("target-token-file"))
+	sourcePassword, err := optionalSecretFile(c.String("source-password-file"))
+	if err != nil {
+		return fmt.Errorf("read source password: %w", err)
+	}
+	targetToken, err := optionalSecretFile(c.String("target-token-file"))
 	if err != nil {
 		return fmt.Errorf("read target token: %w", err)
 	}
+	targetPassword, err := optionalSecretFile(c.String("target-password-file"))
+	if err != nil {
+		return fmt.Errorf("read target password: %w", err)
+	}
+	if len(c.StringSlice("repo")) == 0 && !c.Bool("all-repos") {
+		return errors.New("pass --repo for each repository or --all-repos")
+	}
 	migrator, err := giteahttpmigration.New(giteahttpmigration.Options{
-		SourceURL:      c.String("source-url"),
-		SourceToken:    sourceToken,
-		TargetURL:      c.String("target-url"),
-		TargetToken:    targetToken,
-		Repositories:   c.StringSlice("repo"),
-		ConflictPolicy: giteahttpmigration.ConflictPolicy(c.String("conflict")),
+		SourceURL:       c.String("source-url"),
+		SourceUser:      c.String("source-user"),
+		SourcePassword:  sourcePassword,
+		SourceToken:     sourceToken,
+		TargetURL:       c.String("target-url"),
+		TargetUser:      c.String("target-user"),
+		TargetPassword:  targetPassword,
+		TargetToken:     targetToken,
+		Repositories:    c.StringSlice("repo"),
+		AllRepositories: c.Bool("all-repos"),
+		ConflictPolicy:  giteahttpmigration.ConflictPolicy(c.String("conflict")),
 	})
 	if err != nil {
 		return err
@@ -93,6 +117,13 @@ func writeIndentedJSON(writer io.Writer, value any) error {
 	content = append(content, '\n')
 	_, err = writer.Write(content)
 	return err
+}
+
+func optionalSecretFile(filePath string) (string, error) {
+	if strings.TrimSpace(filePath) == "" {
+		return "", nil
+	}
+	return readSecretFile(filePath)
 }
 
 func readSecretFile(filePath string) (string, error) {

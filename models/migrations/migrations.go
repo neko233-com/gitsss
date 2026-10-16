@@ -26,6 +26,7 @@ import (
 	"github.com/neko233-com/gitsss/models/migrations/v1_24"
 	"github.com/neko233-com/gitsss/models/migrations/v1_25"
 	"github.com/neko233-com/gitsss/models/migrations/v1_26"
+	"github.com/neko233-com/gitsss/models/migrations/v1_27"
 	"github.com/neko233-com/gitsss/models/migrations/v1_6"
 	"github.com/neko233-com/gitsss/models/migrations/v1_7"
 	"github.com/neko233-com/gitsss/models/migrations/v1_8"
@@ -405,6 +406,7 @@ func prepareMigrationTasks() []*migration {
 		newMigration(328, "Add TokenPermissions column to ActionRunJob", v1_26.AddTokenPermissionsToActionRunJob),
 		newMigration(329, "Add unique constraint for user badge", v1_26.AddUniqueIndexForUserBadge),
 		newMigration(330, "Add name column to webhook", v1_26.AddNameToWebhook),
+		newMigration(331, "Add custom field definitions to project boards", v1_27.AddProjectFieldsJSON),
 	}
 	return preparedMigrations
 }
