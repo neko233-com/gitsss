@@ -3,6 +3,9 @@ import '../fomantic/build/fomantic.js';
 import '../css/index.css';
 
 import {initDashboardRepoList} from './features/dashboard.ts';
+import {initWorkspace} from './features/workspace.ts';
+import {initContributionReport} from './features/contribution-report.ts';
+import {initSoftwareCenter} from './features/software-center.ts';
 import {initDashboardActions} from './features/dashboard-actions.ts';
 import {initDashboardTeamFilter} from './features/dashboard-team.ts';
 import {initGlobalCopyToClipboardListener} from './modules/clipboard.ts';
@@ -125,6 +128,9 @@ const initPerformanceTracer = callInitFunctions([
   initAdminSelfCheck,
 
   initDashboardRepoList,
+  initWorkspace,
+  initContributionReport,
+  initSoftwareCenter,
   initDashboardActions,
 
   initNotificationCount,

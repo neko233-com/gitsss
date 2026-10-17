@@ -1,65 +1,19 @@
-<div class="ui container">
-	<overflow-menu class="ui secondary pointing tabular borderless menu tw-mb-4">
-		<div class="overflow-menu-items">
-   <a class="item {{if .PageIsNews}}active{{end}}" href="{{.Org.OrganisationLink}}/dashboard{{if .Team}}/{{PathEscape .Team.Name}}{{end}}" data-org-dashboard-link>{{svg "octicon-rss"}} {{ctx.Locale.Tr "activities"}}</a>
-   <a class="item {{if .PageIsHomeLinks}}active{{end}}" href="{{.Org.OrganisationLink}}/dashboard?tab=links">{{svg "octicon-link"}} {{ctx.Locale.Tr "home.links.title"}}</a>
-			{{if .HasOrgProfileReadme}}
-				<a class="{{if .PageIsViewOverview}}active {{end}}item" href="{{$.Org.HomeLink}}">
-					{{svg "octicon-info"}} {{ctx.Locale.Tr "user.overview"}}
-				</a>
-			{{end}}
-			<a class="{{if .PageIsViewRepositories}}active {{end}}item" href="{{$.Org.HomeLink}}{{if .HasOrgProfileReadme}}/-/repositories{{end}}">
-				{{svg "octicon-repo"}} {{ctx.Locale.Tr "user.repositories"}}
-				{{if .RepoCount}}
-					<div class="ui small label">{{.RepoCount}}</div>
-				{{end}}
-			</a>
-			{{if .IsOrganizationMember}}
-			<a class="{{if .PageIsOrgKanban}}active {{end}}item" href="{{$.Org.HomeLink}}/-/kanban">
-				{{svg "octicon-project-symlink"}} {{ctx.Locale.Tr "org.global_kanban"}}
-			</a>
-			{{end}}
-
-   {{if .IsOrganizationMember}}
-   <a class="item {{if .PageIsIssues}}active{{end}}" href="{{.Org.OrganisationLink}}/issues{{if .Team}}/{{PathEscape .Team.Name}}{{end}}" data-org-team-nav="{{.Org.OrganisationLink}}/issues">{{svg "octicon-issue-opened"}} {{ctx.Locale.Tr "issues"}}</a>
-   <a class="item {{if .PageIsPulls}}active{{end}}" href="{{.Org.OrganisationLink}}/pulls{{if .Team}}/{{PathEscape .Team.Name}}{{end}}" data-org-team-nav="{{.Org.OrganisationLink}}/pulls">{{svg "octicon-git-pull-request"}} {{ctx.Locale.Tr "pull_requests"}}</a>
-   <a class="item {{if .PageIsMilestonesDashboard}}active{{end}}" href="{{.Org.OrganisationLink}}/milestones{{if .Team}}/{{PathEscape .Team.Name}}{{end}}" data-org-team-nav="{{.Org.OrganisationLink}}/milestones">{{svg "octicon-milestone"}} {{ctx.Locale.Tr "milestones"}}</a>
-   {{end}}
-			{{if and .IsPackageEnabled .CanReadPackages}}
-			<a class="{{if .IsPackagesPage}}active {{end}}item" href="{{$.Org.HomeLink}}/-/packages">
-				{{svg "octicon-package"}} {{ctx.Locale.Tr "packages.title"}}
-			</a>
-			{{end}}
-			{{if and .IsRepoIndexerEnabled .CanReadCode}}
-			<a class="{{if .IsCodePage}}active {{end}}item" href="{{$.Org.HomeLink}}/-/code">
-				{{svg "octicon-code"}} {{ctx.Locale.Tr "org.code"}}
-			</a>
-			{{end}}
-			{{if .NumMembers}}
-			<a class="{{if $.PageIsOrgMembers}}active {{end}}item" href="{{$.OrgLink}}/members">
-				{{svg "octicon-person"}} {{ctx.Locale.Tr "org.members"}}
-				<div class="ui small label">{{.NumMembers}}</div>
-			</a>
-			{{end}}
-			{{if .IsOrganizationMember}}
-			<a class="{{if $.PageIsOrgTeams}}active {{end}}item" href="{{$.OrgLink}}/teams">
-				{{svg "octicon-people"}} {{ctx.Locale.Tr "org.teams"}}
-				{{if .NumTeams}}
-					<div class="ui small label">{{.NumTeams}}</div>
-				{{end}}
-			</a>
-			{{end}}
-			{{if and EnableTimetracking .IsOrganizationOwner}}
-			<a class="{{if $.PageIsOrgTimes}}active{{end}} item" href="{{$.OrgLink}}/worktime">
-				{{svg "octicon-clock"}} {{ctx.Locale.Tr "org.worktime"}}
-			</a>
-			{{end}}
-			{{if .IsOrganizationOwner}}
-			<span class="item-flex-space"></span>
-			<a class="{{if .PageIsOrgSettings}}active {{end}}item" href="{{.OrgLink}}/settings">
-				{{svg "octicon-tools"}} {{ctx.Locale.Tr "repo.settings"}}
-			</a>
-			{{end}}
-		</div>
-	</overflow-menu>
-</div>
+<nav class="workspace-nav" aria-label="{{ctx.Locale.Tr "organization"}}">
+ <a class="{{if .PageIsNews}}active{{end}}" href="{{.Org.OrganisationLink}}/dashboard{{if .Team}}/{{PathEscape .Team.Name}}{{end}}" data-org-dashboard-link>{{svg "octicon-home"}} {{ctx.Locale.Tr "workspace.overview"}}</a>
+ <a class="{{if .PageIsViewRepositories}}active{{end}}" href="{{.Org.HomeLink}}{{if .HasOrgProfileReadme}}/-/repositories{{end}}">{{svg "octicon-repo"}} {{ctx.Locale.Tr "user.repositories"}}<span class="workspace-count">{{.Org.NumRepos}}</span></a>
+ {{if .IsOrganizationMember}}
+ <a class="{{if .PageIsSoftwareCenter}}active{{end}}" href="{{.Org.HomeLink}}/-/software">{{svg "octicon-file-directory"}} {{ctx.Locale.Tr "software.title"}}</a>
+ <a class="{{if .PageIsOrgKanban}}active{{end}}" href="{{.Org.HomeLink}}/-/kanban">{{svg "octicon-project-symlink"}} {{ctx.Locale.Tr "org.global_kanban"}}</a>
+ <a class="{{if .PageIsIssues}}active{{end}}" href="{{.Org.OrganisationLink}}/issues{{if .Team}}/{{PathEscape .Team.Name}}{{end}}" data-org-team-nav="{{.Org.OrganisationLink}}/issues">{{svg "octicon-issue-opened"}} {{ctx.Locale.Tr "issues"}}</a>
+ <a class="{{if .PageIsPulls}}active{{end}}" href="{{.Org.OrganisationLink}}/pulls{{if .Team}}/{{PathEscape .Team.Name}}{{end}}" data-org-team-nav="{{.Org.OrganisationLink}}/pulls">{{svg "octicon-git-pull-request"}} {{ctx.Locale.Tr "pull_requests"}}</a>
+ <a class="{{if .PageIsMilestonesDashboard}}active{{end}}" href="{{.Org.OrganisationLink}}/milestones{{if .Team}}/{{PathEscape .Team.Name}}{{end}}">{{svg "octicon-milestone"}} {{ctx.Locale.Tr "milestones"}}</a>
+ {{end}}
+ <a class="{{if .PageIsHomeLinks}}active{{end}}" href="{{.Org.OrganisationLink}}/dashboard?tab=links">{{svg "octicon-link"}} {{ctx.Locale.Tr "home.links.title"}}</a>
+ {{if and .IsPackageEnabled .CanReadPackages}}<a class="{{if .IsPackagesPage}}active{{end}}" href="{{.Org.HomeLink}}/-/packages">{{svg "octicon-package"}} {{ctx.Locale.Tr "workspace.packages"}}</a>{{end}}
+ {{if .NumMembers}}<a class="{{if .PageIsOrgMembers}}active{{end}}" href="{{.OrgLink}}/members">{{svg "octicon-person"}} {{ctx.Locale.Tr "org.members"}}<span class="workspace-count">{{.NumMembers}}</span></a>{{end}}
+ {{if .IsOrganizationMember}}<a class="{{if .PageIsOrgTeams}}active{{end}}" href="{{.OrgLink}}/teams">{{svg "octicon-people"}} {{ctx.Locale.Tr "org.teams"}}<span class="workspace-count">{{.NumTeams}}</span></a>{{end}}
+ {{if and EnableTimetracking .IsOrganizationOwner}}<a class="{{if .PageIsOrgTimes}}active{{end}}" href="{{.OrgLink}}/worktime">{{svg "octicon-clock"}} {{ctx.Locale.Tr "org.worktime"}}</a>{{end}}
+ {{if and .IsRepoIndexerEnabled .CanReadCode}}<a href="{{.Org.HomeLink}}/-/code">{{svg "octicon-code"}} {{ctx.Locale.Tr "org.code"}}</a>{{end}}
+ {{if .HasOrgProfileReadme}}<a class="{{if .PageIsViewOverview}}active{{end}}" href="{{.Org.HomeLink}}">{{svg "octicon-info"}} {{ctx.Locale.Tr "user.overview"}}</a>{{end}}
+ {{if .IsOrganizationOwner}}<a class="{{if .PageIsOrgSettings}}active{{end}}" href="{{.OrgLink}}/settings">{{svg "octicon-gear"}} {{ctx.Locale.Tr "repo.settings"}}</a>{{end}}
+</nav>

@@ -1,0 +1,9 @@
+<details class="registry-help">
+ <summary>{{svg "octicon-container"}} {{ctx.Locale.Tr "registry.title"}}</summary>
+ <p>{{ctx.Locale.Tr "registry.help"}}</p>
+ <div class="markup"><pre><code>docker login {{.PackageRegistryHost}}
+docker tag local-image:latest {{.PackageRegistryHost}}/{{.ContextUser.LowerName}}/image:latest
+docker push {{.PackageRegistryHost}}/{{.ContextUser.LowerName}}/image:latest
+docker pull {{.PackageRegistryHost}}/{{.ContextUser.LowerName}}/image:latest</code></pre></div>
+ <a href="{{AppSubUrl}}/help/site/workspace-centers.html#registry">{{ctx.Locale.Tr "help"}}</a>
+</details>

@@ -291,7 +291,8 @@
 				{{if .Permission.CanRead ctx.Consts.RepoUnitTypeExternalWiki}}
 					<a class="repo-sidebar-link" href="{{(.Repository.MustGetUnit ctx ctx.Consts.RepoUnitTypeExternalWiki).ExternalWikiConfig.ExternalWikiURL}}" target="_blank" rel="noopener noreferrer">{{svg "octicon-link-external" 16}}<span class="repo-sidebar-label">{{ctx.Locale.Tr "repo.wiki"}}</span></a>
 				{{end}}
-				<a class="repo-sidebar-link {{if .PageIsActivity}}active{{end}}" href="{{.RepoLink}}/activity">{{svg "octicon-pulse" 16}}<span class="repo-sidebar-label">{{ctx.Locale.Tr "repo.activity"}}</span></a>
+				<a class="repo-sidebar-link {{if and .PageIsActivity (not .PageIsContributionReport)}}active{{end}}" href="{{.RepoLink}}/activity">{{svg "octicon-pulse" 16}}<span class="repo-sidebar-label">{{ctx.Locale.Tr "repo.activity"}}</span></a>
+				{{if .Permission.CanRead ctx.Consts.RepoUnitTypeCode}}<a class="repo-sidebar-link {{if .PageIsContributionReport}}active{{end}}" href="{{.RepoLink}}/activity/contribution-report">{{svg "octicon-graph" 16}}<span class="repo-sidebar-label">{{ctx.Locale.Tr "contribution.title"}}</span></a>{{end}}
 				{{if .Permission.IsAdmin}}
 					<div class="repo-sidebar-divider"></div>
 					<a class="repo-sidebar-link {{if .PageIsRepoSettings}}active{{end}}" href="{{.RepoLink}}/settings">{{svg "octicon-tools" 16}}<span class="repo-sidebar-label">{{ctx.Locale.Tr "repo.settings"}}</span></a>

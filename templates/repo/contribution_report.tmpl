@@ -1,0 +1,30 @@
+{{template "base/head" .}}
+<main class="page-content repository" aria-label="{{.Title}}">
+ {{template "repo/header" .}}
+ <div class="ui container contribution-report" data-contribution-report data-url="{{.RepoLink}}/activity/contribution-report/data" data-error="{{ctx.Locale.Tr "contribution.load_error"}}" data-truncated="{{ctx.Locale.Tr "contribution.truncated"}}">
+  <header class="workspace-heading"><div><h1>{{ctx.Locale.Tr "contribution.title"}}</h1><p>{{ctx.Locale.Tr "contribution.method"}}</p></div><a class="ui basic button" href="{{.RepoLink}}/activity">{{ctx.Locale.Tr "repo.activity"}}</a></header>
+  <form class="ui form contribution-controls" data-contribution-form>
+   <label>{{ctx.Locale.Tr "contribution.from"}}<input type="date" name="from" required></label>
+   <label>{{ctx.Locale.Tr "contribution.to"}}<input type="date" name="to" required></label>
+   <label>{{ctx.Locale.Tr "contribution.group"}}<select name="group"><option value="day">{{ctx.Locale.Tr "contribution.day"}}</option><option value="week">{{ctx.Locale.Tr "contribution.week"}}</option><option value="month">{{ctx.Locale.Tr "contribution.month"}}</option></select></label>
+   <button class="ui primary button" type="submit">{{ctx.Locale.Tr "contribution.update"}}</button>
+   <label class="contribution-author-search">{{ctx.Locale.Tr "contribution.author"}}<input type="search" name="search" placeholder="{{ctx.Locale.Tr "contribution.author"}}"></label>
+   <button class="ui basic button" type="button" data-contribution-export disabled>{{ctx.Locale.Tr "contribution.export"}}</button>
+  </form>
+  <p data-contribution-status role="status" aria-live="polite"></p>
+  <section class="contribution-summary" aria-label="{{ctx.Locale.Tr "contribution.summary"}}">
+   <div><strong data-contribution-total="commits">—</strong><span>{{ctx.Locale.Tr "contribution.commits"}}</span></div>
+   <div><strong data-contribution-total="additions">—</strong><span>{{ctx.Locale.Tr "contribution.additions"}}</span></div>
+   <div><strong data-contribution-total="deletions">—</strong><span>{{ctx.Locale.Tr "contribution.deletions"}}</span></div>
+   <div><strong data-contribution-total="files">—</strong><span>{{ctx.Locale.Tr "contribution.files"}}</span></div>
+   <div><strong data-contribution-total="binary_files">—</strong><span>{{ctx.Locale.Tr "contribution.binary"}}</span></div>
+  </section>
+  <div class="contribution-table-scroll"><table class="ui unstackable compact table">
+   <thead><tr><th>{{ctx.Locale.Tr "contribution.author"}}</th><th>{{ctx.Locale.Tr "contribution.period"}}</th><th>{{ctx.Locale.Tr "contribution.commits"}}</th><th>{{ctx.Locale.Tr "contribution.additions"}}</th><th>{{ctx.Locale.Tr "contribution.deletions"}}</th><th>{{ctx.Locale.Tr "contribution.files"}}</th><th>{{ctx.Locale.Tr "contribution.binary"}}</th></tr></thead>
+   <tbody data-contribution-rows></tbody>
+  </table></div>
+  <nav class="software-pages"><button class="ui basic button" data-contribution-prev>{{ctx.Locale.Tr "repo.issues.previous"}}</button><span data-contribution-page></span><button class="ui basic button" data-contribution-next>{{ctx.Locale.Tr "repo.issues.next"}}</button></nav>
+  <p class="contribution-method">{{ctx.Locale.Tr "contribution.disclaimer"}}</p>
+ </div>
+</main>
+{{template "base/footer" .}}

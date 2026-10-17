@@ -4,7 +4,7 @@ GitSSS is an organization-first Git collaboration platform for enterprise privat
 
 [简体中文](README_ZH.md) · [HTML manual](docs/site/en/index.html) · [Enterprise operations](docs/operations/enterprise.md) · [License](LICENSE)
 
-Screenshots below show a demonstration instance captured on 2026-10-16; no production repository data is included.
+Screenshots below show a demonstration instance captured on 2026-10-17; no production repository data is included.
 
 ![GitSSS home page](docs/site/assets/screenshots/home.png)
 
@@ -164,3 +164,18 @@ HTML Docs and avatar styles, captured from an isolated demonstration instance on
 ![Repository HTML Docs](docs/site/assets/screenshots/html-docs.png)
 
 ![Avatar styles](docs/site/assets/screenshots/avatar-styles.png)
+
+## Organization workspace and centers
+
+- One desktop navigation rail, organization-first landing, global search and keyboard access.
+- A tree-based organization software center: 100 GiB default quota, streaming uploads, ranged downloads, search and content deduplication.
+- Native Docker/OCI registry using existing package permissions and storage.
+- Per-repository daily, weekly and monthly contribution reports with CSV export and explicit counting rules.
+
+Desktop center screenshots from the isolated demonstration instance, captured on 2026-10-17.
+
+![Organization software center](docs/site/assets/screenshots/software-center.png)
+
+![Repository contribution report](docs/site/assets/screenshots/contributions.png)
+
+See the [centers manual](docs/site/workspace-centers.html) and [compatibility report](docs/features/workspace-centers.md).

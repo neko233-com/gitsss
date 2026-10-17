@@ -49,6 +49,8 @@ const (
 
 // ListPackages displays a list of all packages of the context user
 func ListPackages(ctx *context.Context) {
+	registryURL, _ := url.Parse(httplib.GuessCurrentHostURL(ctx))
+	ctx.Data["PackageRegistryHost"] = registryURL.Host
 	if _, err := shared_user.RenderUserOrgHeader(ctx); err != nil {
 		ctx.ServerError("RenderUserOrgHeader", err)
 		return

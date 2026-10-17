@@ -5,6 +5,7 @@
 package repo
 
 import (
+	"bytes"
 	"compress/gzip"
 	"fmt"
 	"net/http"
@@ -403,6 +404,7 @@ func serviceRPC(ctx *context.Context, service string) {
 			ctx.Resp.WriteHeader(http.StatusBadRequest)
 			return
 		}
+		defer reqBody.Close()
 	}
 
 	// set this for allow pre-receive and post-receive execute
@@ -481,17 +483,67 @@ func GetInfoRefs(ctx *context.Context) {
 	h.environ = append(os.Environ(), h.environ...)
 
 	cmd = cmd.AddArguments("--stateless-rpc", "--advertise-refs", ".").WithEnv(h.environ)
-	refs, _, err := gitrepo.RunCmdBytes(ctx, h.getStorageRepo(), cmd)
+	writer := &gitAdvertisementWriter{ResponseWriter: ctx.Resp, service: h.serviceType}
+	err := gitrepo.RunCmdWithStderr(ctx, h.getStorageRepo(), cmd.WithStdoutCopy(writer))
 	if err != nil {
-		ctx.ServerError("RunGitServiceAdvertiseRefs", err)
+		if !writer.started {
+			ctx.ServerError("RunGitServiceAdvertiseRefs", err)
+		} else if !gitcmd.IsErrorCanceledOrKilled(err) {
+			log.Error("Git ref advertisement interrupted: %v", err)
+		}
 		return
 	}
+	if err := writer.finish(); err != nil && !gitcmd.IsErrorCanceledOrKilled(err) {
+		log.Debug("Git ref advertisement response closed: %v", err)
+	}
+}
 
-	ctx.Resp.Header().Set("Content-Type", fmt.Sprintf("application/x-git-%s-advertisement", h.serviceType))
-	ctx.Resp.WriteHeader(http.StatusOK)
-	_, _ = ctx.Resp.Write(packetWrite("# service=git-" + h.serviceType + "\n"))
-	_, _ = ctx.Resp.Write([]byte("0000"))
-	_, _ = ctx.Resp.Write(refs)
+// Write the protocol prefix on the first chunk so command failures can still return an HTTP error.
+type gitAdvertisementWriter struct {
+	http.ResponseWriter
+	service string
+	started bool
+	prefix  []byte
+}
+
+func (w *gitAdvertisementWriter) Write(data []byte) (int, error) {
+	if !w.started {
+		count := min(14-len(w.prefix), len(data))
+		w.prefix = append(w.prefix, data[:count]...)
+		if len(w.prefix) < 14 {
+			return len(data), nil
+		}
+		if err := w.start(); err != nil {
+			return 0, err
+		}
+		n, err := w.ResponseWriter.Write(data[count:])
+		return count + n, err
+	}
+	return w.ResponseWriter.Write(data)
+}
+
+func (w *gitAdvertisementWriter) start() error {
+	w.started = true
+	w.Header().Set("Content-Type", fmt.Sprintf("application/x-git-%s-advertisement", w.service))
+	// Protocol v2 starts with its version packet; v0/v1 retain the smart-HTTP service prefix.
+	if !bytes.HasPrefix(w.prefix, []byte("000eversion 2\n")) {
+		if _, err := w.ResponseWriter.Write(packetWrite("# service=git-" + w.service + "\n")); err != nil {
+			return err
+		}
+		if _, err := w.ResponseWriter.Write([]byte("0000")); err != nil {
+			return err
+		}
+	}
+	_, err := w.ResponseWriter.Write(w.prefix)
+	w.prefix = nil
+	return err
+}
+
+func (w *gitAdvertisementWriter) finish() error {
+	if !w.started {
+		return w.start()
+	}
+	return nil
 }
 
 // GetTextFile implements Git dumb HTTP

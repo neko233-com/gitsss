@@ -1,0 +1,29 @@
+<aside class="workspace-sidebar" aria-label="{{ctx.Locale.Tr "workspace.navigation"}}">
+ <a class="workspace-home" href="{{AppSubUrl}}/?view=organizations">{{svg "octicon-organization" 20}} {{ctx.Locale.Tr "explore.organizations"}}</a>
+ {{if .Org}}
+ <div class="workspace-identity">{{ctx.AvatarUtils.Avatar .Org 32}}<strong>{{template "org/identity" .Org}}</strong></div>
+ {{template "org/menu" .}}
+ {{else}}
+ <nav class="workspace-nav">
+  <a class="{{if and .OrganizationHome (not .PageIsHomeLinks)}}active{{end}}" href="{{AppSubUrl}}/?view=organizations">{{svg "octicon-organization"}} {{ctx.Locale.Tr "explore.organizations"}}</a>
+  <a class="{{if .PageIsHomeLinks}}active{{end}}" href="{{AppSubUrl}}/?tab=links">{{svg "octicon-link"}} {{ctx.Locale.Tr "home.links.title"}}</a>
+  <a href="{{AppSubUrl}}/issues">{{svg "octicon-issue-opened"}} {{ctx.Locale.Tr "issues"}}</a>
+  <a href="{{AppSubUrl}}/pulls">{{svg "octicon-git-pull-request"}} {{ctx.Locale.Tr "pull_requests"}}</a>
+ </nav>
+ {{end}}
+ {{if .Orgs}}
+ <section class="workspace-organizations">
+  <label class="workspace-filter">{{svg "octicon-search"}}<input type="search" data-workspace-org-filter aria-label="{{ctx.Locale.Tr "search.org_kind"}}" placeholder="{{ctx.Locale.Tr "search.org_kind"}}"></label>
+  <nav aria-label="{{ctx.Locale.Tr "home.switch_dashboard_context"}}">
+   {{range .Orgs}}<a class="workspace-org {{if and $.Org (eq $.Org.ID .ID)}}selected{{end}}" data-workspace-org data-search="{{.Name}} {{.FullName}}" href="{{.OrganisationLink}}/dashboard">{{ctx.AvatarUtils.Avatar . 24}}<span>{{template "org/identity" .}}</span></a>{{end}}
+  </nav>
+  <p data-workspace-org-empty hidden>{{ctx.Locale.Tr "no_results_found"}}</p>
+ </section>
+ {{end}}
+ <nav class="workspace-nav workspace-utilities">
+  <a href="{{AppSubUrl}}/?view=personal">{{svg "octicon-person"}} {{ctx.Locale.Tr "home.personal_dashboard"}}</a>
+  <a href="{{AppSubUrl}}/explore/repos">{{svg "octicon-telescope"}} {{ctx.Locale.Tr "explore_title"}}</a>
+  {{if .IsAdmin}}<a href="{{AppSubUrl}}/-/admin">{{svg "octicon-tools"}} {{ctx.Locale.Tr "admin_panel"}}</a>{{end}}
+  <a href="{{AppSubUrl}}/help/">{{svg "octicon-book"}} {{ctx.Locale.Tr "help"}}</a>
+ </nav>
+</aside>

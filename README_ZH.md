@@ -6,7 +6,7 @@
 
 [English README](README.md) · [HTML 英文说明书](docs/site/en/index.html)
 
-以下截图来自 2026-10-16 的演示实例，不包含生产仓库数据。
+首页截图来自 2026-10-17 的隔离演示实例，不包含生产仓库数据。
 
 ![GitSSS 首页](docs/site/assets/screenshots/home.png)
 
@@ -300,7 +300,7 @@ make release-native VERSION=1.3.0
 
 ### 紧凑工作台与自动化
 
-动态页采用仓库 / 活动 / CI/CD 三栏，快捷入口为独立 Tab；13px 默认字号、紧凑页头和单行成员表格。组织设置支持按仓库名正则自动分配团队，可预览并单独应用到已有仓库，保留原有授权。原生 Actions 内置 [Express233 上传](docs/operations/express233-upload.md)，流式上传到新草稿版本，显式启用后才发布。
+动态页采用仓库 / 活动 / CI/CD 三栏，组织超链接为独立入口；14px 默认字号、紧凑页头和单行成员表格。组织设置支持按仓库名正则自动分配团队，可预览并单独应用到已有仓库，保留原有授权。原生 Actions 内置 [Express233 上传](docs/operations/express233-upload.md)，流式上传到新草稿版本，显式启用后才发布。
 
 ![紧凑的组织成员表格](docs/site/assets/screenshots/members.png)
 
@@ -314,3 +314,18 @@ make release-native VERSION=1.3.0
 ![Repository HTML Docs](docs/site/assets/screenshots/html-docs.png)
 
 ![Avatar styles](docs/site/assets/screenshots/avatar-styles.png)
+
+## 组织工作区与中心
+
+- 单层桌面导航，组织优先入口，全局搜索与键盘访问。
+- 软件中心：目录树、默认 100 GiB 配额、流式上传、断点下载、搜索、重命名、删除及内容去重。
+- 原生 Docker/OCI 镜像仓库，沿用软件包权限与存储。
+- 仓库每日、每周、每月贡献统计与 CSV，计数口径明确。
+
+以下软件中心与贡献统计截图来自 2026-10-17 的隔离演示实例。
+
+![组织软件中心](docs/site/assets/screenshots/software-center.png)
+
+![仓库贡献统计](docs/site/assets/screenshots/contributions.png)
+
+参见 [HTML 说明书](docs/site/workspace-centers.html) 与 [兼容性报告](docs/features/workspace-centers.md)。

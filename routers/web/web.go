@@ -1139,6 +1139,13 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 
 		m.Get("/repositories", org.Repositories)
 		m.Get("/heatmap", user.DashboardHeatmap)
+		m.Group("/software", func() {
+			m.Get("", org.SoftwareCenter)
+			m.Get("/list", org.SoftwareList)
+			m.Get("/download/{id}", org.SoftwareDownload)
+			m.Post("/upload", org.SoftwareUpload)
+			m.Post("/{action:mkdir|rename|delete|quota}", org.SoftwareMutation)
+		}, reqSignIn, org.RequireKanbanMember)
 		m.Group("/kanban", func() {
 			m.Get("", org.Kanban)
 			m.Post("/tasks", org.SaveKanbanTask)
@@ -1653,6 +1660,8 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 				m.Get("", repo.Contributors)
 				m.Get("/data", repo.ContributorsData)
 			})
+			m.Get("/contribution-report", repo.ContributionReport)
+			m.Get("/contribution-report/data", repo.ContributionReportData)
 			m.Group("/code-frequency", func() {
 				m.Get("", repo.CodeFrequency)
 				m.Get("/data", repo.CodeFrequencyData)

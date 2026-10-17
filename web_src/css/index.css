@@ -92,5 +92,6 @@
 @import "./actions.css";
 
 @import "./helpers.css";
+@import "./features/workspace.css";
 
 @tailwind utilities;

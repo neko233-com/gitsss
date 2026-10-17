@@ -12,27 +12,13 @@
 		</div>
 
 		<!-- navbar links non-mobile -->
-		{{if and .IsSigned .MustChangePassword}}
-			{{/* No links */}}
-		{{else if .IsSigned}}
-			{{if not ctx.Consts.RepoUnitTypeIssues.UnitGlobalDisabled}}
-				<a class="item{{if .PageIsIssues}} active{{end}}" href="{{if and .ContextUser .ContextUser.IsOrganization}}{{.ContextUser.OrganisationLink}}/issues{{else}}{{AppSubUrl}}/issues{{end}}">{{ctx.Locale.Tr "issues"}}</a>
-			{{end}}
-			{{if not ctx.Consts.RepoUnitTypePullRequests.UnitGlobalDisabled}}
-				<a class="item{{if .PageIsPulls}} active{{end}}" href="{{if and .ContextUser .ContextUser.IsOrganization}}{{.ContextUser.OrganisationLink}}/pulls{{else}}{{AppSubUrl}}/pulls{{end}}">{{ctx.Locale.Tr "pull_requests"}}</a>
-			{{end}}
-			{{if not (and ctx.Consts.RepoUnitTypeIssues.UnitGlobalDisabled ctx.Consts.RepoUnitTypePullRequests.UnitGlobalDisabled)}}
-				{{if .ShowMilestonesDashboardPage}}
-					<a class="item{{if .PageIsMilestonesDashboard}} active{{end}}" href="{{if and .ContextUser .ContextUser.IsOrganization}}{{.ContextUser.OrganisationLink}}/milestones{{else}}{{AppSubUrl}}/milestones{{end}}">{{ctx.Locale.Tr "milestones"}}</a>
-				{{end}}
-			{{end}}
-			<a class="item{{if or .PageIsViewProjects .PageIsOrgKanban}} active{{end}}" href="{{if and .ContextUser .ContextUser.IsOrganization}}{{.ContextUser.HomeLink}}/-/kanban{{else}}{{.SignedUser.HomeLink}}/-/projects{{end}}">{{ctx.Locale.Tr "repo.projects.task_board"}}</a>
-			<a class="item{{if .PageIsExplore}} active{{end}}" href="{{AppSubUrl}}/explore/repos">{{ctx.Locale.Tr "explore_title"}}</a>
-		{{else if .IsLandingPageOrganizations}}
-			<a class="item{{if .PageIsExplore}} active{{end}}" href="{{AppSubUrl}}/explore/organizations">{{ctx.Locale.Tr "explore_title"}}</a>
-		{{else}}
-			<a class="item{{if .PageIsExplore}} active{{end}}" href="{{AppSubUrl}}/explore/repos">{{ctx.Locale.Tr "explore_title"}}</a>
-		{{end}}
+		{{if and .IsSigned (not .MustChangePassword)}}
+   <div class="workspace-breadcrumb">
+    <a href="{{AppSubUrl}}/">GitSSS</a>
+    {{if .Repository}}<span>/</span><a href="{{.Repository.Owner.HomeLink}}">{{.Repository.Owner.Name}}</a><span>/</span><strong>{{.Repository.Name}}</strong>
+    {{else if .Org}}<span>/</span><a href="{{.Org.OrganisationLink}}/dashboard">{{template "org/identity" .Org}}</a>{{end}}
+   </div>
+  {{else if not .IsSigned}}<a class="item" href="{{AppSubUrl}}/explore/repos">{{ctx.Locale.Tr "explore_title"}}</a>{{end}}
 
 		{{template "custom/extra_links" .}}
 
@@ -42,7 +28,12 @@
 	</div>
 
 	<!-- the full dropdown menus -->
-	<div class="navbar-right">
+	{{if and .IsSigned (not .MustChangePassword)}}
+ <form class="workspace-global-search" action="{{AppSubUrl}}/explore/repos" role="search">
+  {{svg "octicon-search"}}<input name="q" type="search" data-workspace-search aria-label="{{ctx.Locale.Tr "workspace.search"}}" placeholder="{{ctx.Locale.Tr "workspace.search"}}"><kbd>/</kbd>
+ </form>
+ {{end}}
+ <div class="navbar-right">
 		{{if and .IsSigned .MustChangePassword}}
 			<div class="ui dropdown jump item" data-tooltip-content="{{ctx.Locale.Tr "user_profile_and_more"}}">
 				<span class="text">

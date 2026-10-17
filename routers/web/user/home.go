@@ -82,6 +82,13 @@ func Dashboard(ctx *context.Context) {
 	if ctx.Written() {
 		return
 	}
+	// A single organization opens its workspace directly; the directory stays addressable.
+	if ctx.PathParam("org") == "" && ctx.FormString("view") == "" && ctx.FormString("tab") == "" {
+		if orgs, ok := ctx.Data["Orgs"].([]*organization.Organization); ok && len(orgs) == 1 {
+			ctx.Redirect(orgs[0].OrganisationLink() + "/dashboard")
+			return
+		}
+	}
 	ctx.Data["OrganizationHome"] = ctx.PathParam("org") == "" && ctx.FormString("view") != "personal"
 	if ctx.FormString("tab") == "links" {
 		if !prepareHomeLinks(ctx) {
@@ -129,12 +136,14 @@ func Dashboard(ctx *context.Context) {
 		"uid":         uid,
 	}
 
-	actionsDashboard, err := actions_service.GetDashboardStats(ctx)
-	if err != nil {
-		ctx.ServerError("GetActionsDashboardStats", err)
-		return
+	if ctx.Doer.IsAdmin {
+		actionsDashboard, err := actions_service.GetDashboardStats(ctx)
+		if err != nil {
+			ctx.ServerError("GetActionsDashboardStats", err)
+			return
+		}
+		ctx.Data["ActionsDashboard"] = actionsDashboard
 	}
-	ctx.Data["ActionsDashboard"] = actionsDashboard
 	if notices, err := announcement.Load(ctx); err == nil {
 		ctx.Data["Announcements"] = announcement.Published(notices)
 	}

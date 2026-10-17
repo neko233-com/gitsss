@@ -3,6 +3,7 @@
 	<div role="main" aria-label="{{.Title}}" class="page-content organization packages">
 		{{template "org/header" .}}
 		<div class="ui container">
+			{{template "package/registry_help" .}}
 			{{template "package/shared/list" .}}
 		</div>
 	</div>

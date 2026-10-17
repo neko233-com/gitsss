@@ -1,0 +1,33 @@
+{{template "base/head" .}}
+<main class="page-content organization" aria-label="{{.Title}}">
+ {{template "org/header" .}}
+ <section class="ui container software-center" data-software-center data-base="{{.Org.HomeLink}}/-/software"
+  data-error="{{ctx.Locale.Tr "software.load_error"}}" data-empty="{{ctx.Locale.Tr "software.empty"}}" data-delete="{{ctx.Locale.Tr "software.delete_confirm"}}" data-cancel="{{ctx.Locale.Tr "cancel"}}"
+  data-rename="{{ctx.Locale.Tr "software.rename"}}" data-remove="{{ctx.Locale.Tr "software.delete"}}" data-folder="{{ctx.Locale.Tr "software.folder"}}" data-file="{{ctx.Locale.Tr "software.file"}}" data-new-folder="{{ctx.Locale.Tr "software.new_folder"}}">
+  <div class="software-toolbar">
+   <label class="workspace-filter">{{svg "octicon-search"}}<input type="search" data-software-search placeholder="{{ctx.Locale.Tr "software.search"}}" aria-label="{{ctx.Locale.Tr "software.search"}}"></label>
+   <span data-software-usage></span>
+   <button class="ui basic button" data-software-mkdir>{{svg "octicon-file-directory"}} {{ctx.Locale.Tr "software.new_folder"}}</button>
+   <label class="ui primary button software-upload-label">{{svg "octicon-upload"}} {{ctx.Locale.Tr "software.upload"}}<input type="file" data-software-upload multiple></label>
+  </div>
+  <p data-software-status role="status" aria-live="polite"></p>
+  {{if .IsOrganizationOwner}}<details class="software-quota-settings"><summary>{{ctx.Locale.Tr "software.quota"}}</summary><form class="ui form software-toolbar" data-software-quota><label>{{ctx.Locale.Tr "software.quota"}} (GiB)<input name="gib" type="number" min="1" max="10240" value="100" required></label><button class="ui basic button">{{ctx.Locale.Tr "save"}}</button></form></details>{{end}}
+  <div class="software-layout">
+   <nav class="software-tree" aria-label="{{ctx.Locale.Tr "software.folders"}}"><button data-software-root>{{svg "octicon-home"}} {{ctx.Locale.Tr "software.root"}}</button><div data-software-tree></div></nav>
+   <section class="software-files">
+    <nav class="software-breadcrumbs" data-software-breadcrumbs aria-label="{{ctx.Locale.Tr "software.path"}}"></nav>
+    <div class="software-table-scroll"><table class="ui very basic unstackable compact table">
+     <thead><tr><th>{{ctx.Locale.Tr "name"}}</th><th>{{ctx.Locale.Tr "software.size"}}</th><th>{{ctx.Locale.Tr "software.modified"}}</th><th>{{ctx.Locale.Tr "software.actions"}}</th></tr></thead>
+     <tbody data-software-rows></tbody>
+    </table></div>
+    <p data-software-empty hidden>{{ctx.Locale.Tr "software.empty"}}</p>
+    <nav class="software-pages"><button class="ui basic button" data-software-prev>{{ctx.Locale.Tr "repo.issues.previous"}}</button><span data-software-page></span><button class="ui basic button" data-software-next>{{ctx.Locale.Tr "repo.issues.next"}}</button></nav>
+   </section>
+  </div>
+  <section class="software-uploads" data-software-uploads aria-label="{{ctx.Locale.Tr "software.uploads"}}"></section>
+  <dialog class="software-name-dialog" data-software-dialog>
+   <form class="ui form"><h2 data-software-dialog-title></h2><label>{{ctx.Locale.Tr "name"}}<input name="name" required maxlength="255" autocomplete="off"></label><p data-software-dialog-error role="alert"></p><div class="software-dialog-buttons"><button class="ui basic button" type="button" data-software-dialog-cancel>{{ctx.Locale.Tr "cancel"}}</button><button class="ui primary button" type="submit">{{ctx.Locale.Tr "save"}}</button></div></form>
+  </dialog>
+ </section>
+</main>
+{{template "base/footer" .}}

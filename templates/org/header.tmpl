@@ -1,44 +1,16 @@
-<div class="org-workspace-header">
- <div class="ui container flex-left-right">
-  <div class="flex-text-block">
-   {{ctx.AvatarUtils.Avatar .Org 24}}
-   {{if .IsSigned}}
-   <div class="ui floating filter dropdown jump" data-no-results="{{ctx.Locale.Tr "no_results_found"}}">
-    <strong class="text">{{template "org/identity" .Org}}</strong>{{svg "octicon-triangle-down" 14 "dropdown icon"}}
-    <div class="menu">
-     <div class="header">{{ctx.Locale.Tr "home.switch_dashboard_context"}}</div>
-     <div class="ui icon search input"><i class="icon">{{svg "octicon-search" 16}}</i><input name="search" aria-label="{{ctx.Locale.Tr "search.org_kind"}}" placeholder="{{ctx.Locale.Tr "search.org_kind"}}"></div>
-     <div class="scrolling menu">
-      {{range .Orgs}}
-      <a class="item {{if eq $.Org.ID .ID}}active selected{{end}}" data-text="{{.Name}} {{.DisplayName}}" href="{{if $.PageIsOrgKanban}}{{.HomeLink}}/-/kanban{{else if $.PageIsOrgTeams}}{{.OrganisationLink}}/teams{{else if $.PageIsOrgMembers}}{{.OrganisationLink}}/members{{else if $.PageIsIssues}}{{.OrganisationLink}}/issues{{else if $.PageIsPulls}}{{.OrganisationLink}}/pulls{{else if $.PageIsMilestonesDashboard}}{{.OrganisationLink}}/milestones{{else if $.PageIsHomeLinks}}{{.OrganisationLink}}/dashboard?tab=links{{else if $.PageIsNews}}{{.OrganisationLink}}/dashboard{{else}}{{.HomeLink}}{{end}}">{{ctx.AvatarUtils.Avatar . 24}} {{template "org/identity" .}}</a>
-      {{end}}
-     </div>
-     <a class="item" href="{{AppSubUrl}}/">{{ctx.Locale.Tr "explore.organizations"}}</a>
-    </div>
-   </div>
-   {{else}}<strong>{{template "org/identity" .Org}}</strong>{{end}}
-   {{if .Org.Visibility.IsLimited}}<span class="ui basic label">{{ctx.Locale.Tr "org.settings.visibility.limited_shortname"}}</span>{{end}}
-   {{if .Org.Visibility.IsPrivate}}<span class="ui basic label">{{ctx.Locale.Tr "org.settings.visibility.private_shortname"}}</span>{{end}}
-   {{if .PageIsNews}}{{template "org/team_filter" .}}{{end}}
-  </div>
-  <div class="flex-text-block">
-   {{if .EnableFeed}}<a class="ui basic icon button" href="{{.Org.HomeLink}}.rss" aria-label="{{ctx.Locale.Tr "rss_feed"}}">{{svg "octicon-rss" 16}}</a>{{end}}
-   {{if .IsSigned}}{{template "org/follow_unfollow" .}}{{end}}
-  </div>
+{{template "workspace/sidebar" .}}
+<header class="workspace-heading ui container">
+ <div><h1>{{if .PageIsNews}}{{ctx.Locale.Tr "workspace.overview"}}{{else}}{{.Title}}{{end}}</h1></div>
+ <div class="flex-text-block">
+  {{if .PageIsNews}}{{template "org/team_filter" .}}{{end}}
+  {{if .Org.Visibility.IsPrivate}}<span class="ui basic label">{{ctx.Locale.Tr "org.settings.visibility.private_shortname"}}</span>{{end}}
+  {{if .Org.Visibility.IsLimited}}<span class="ui basic label">{{ctx.Locale.Tr "org.settings.visibility.limited_shortname"}}</span>{{end}}
+  {{if .EnableFeed}}<a class="ui basic icon button" href="{{.Org.HomeLink}}.rss" aria-label="{{ctx.Locale.Tr "rss_feed"}}">{{svg "octicon-rss"}}</a>{{end}}
  </div>
-</div>
-{{if or .RenderedDescription .Org.Location .Org.Website .Org.Email}}<details class="ui container org-workspace-about"><summary>{{ctx.Locale.Tr "org.workspace.about"}}</summary>		{{if .RenderedDescription}}
-			<div class="render-content markup">{{.RenderedDescription}}</div>
-		{{end}}
-		<div>
-			{{if .Org.Location}}
-				<div class="flex-text-block">{{svg "octicon-location"}} <span>{{.Org.Location}}</span></div>
-			{{end}}
-			{{if .Org.Website}}
-				<div class="flex-text-block">{{svg "octicon-link"}} <a class="muted" target="_blank" rel="me" href="{{.Org.Website}}">{{.Org.Website}}</a></div>
-			{{end}}
-			{{if and .IsSigned .Org.Email}}
-				<div class="flex-text-block">{{svg "octicon-mail"}} <a class="muted" href="mailto:{{.Org.Email}}">{{.Org.Email}}</a></div>
-			{{end}}
-		</div></details>{{end}}
-{{template "org/menu" .}}
+</header>
+{{if or .RenderedDescription .Org.Location .Org.Website .Org.Email}}<details class="ui container workspace-about"><summary>{{ctx.Locale.Tr "org.workspace.about"}}</summary>
+ {{if .RenderedDescription}}<div class="render-content markup">{{.RenderedDescription}}</div>{{end}}
+ {{if .Org.Location}}<p>{{svg "octicon-location"}} {{.Org.Location}}</p>{{end}}
+ {{if .Org.Website}}<p><a target="_blank" rel="me noopener" href="{{.Org.Website}}">{{.Org.Website}}</a></p>{{end}}
+ {{if and .IsSigned .Org.Email}}<p><a href="mailto:{{.Org.Email}}">{{.Org.Email}}</a></p>{{end}}
+</details>{{end}}

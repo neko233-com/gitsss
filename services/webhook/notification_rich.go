@@ -259,9 +259,7 @@ func buildNotificationMessage(settings NotificationSettings, t *webhook_model.Ho
 	}
 	if t.EventType == webhook_module.HookEventPush {
 		m.Title = notificationLabel(m.Chinese, "Code updated", "代码更新")
-		if link := notificationURL(data["compare_url"]); link != "" {
-			m.URL = link
-		}
+		m.URL = notificationPushURL(data, m.URL)
 		commits, _ := data["commits"].([]any)
 		m.Total = len(commits)
 		if count, ok := data["total_commits"].(float64); ok && int(count) > m.Total {
@@ -350,6 +348,42 @@ func buildNotificationMessage(settings NotificationSettings, t *webhook_model.Ho
 		m.Body = m.Title
 	}
 	return m, err
+}
+
+// A first push has no comparable base. Some legacy payloads use the site root as compare_url.
+func notificationPushURL(data map[string]any, repositoryURL string) string {
+	after := notificationString(data["after"])
+	before := notificationString(data["before"])
+	isObjectID := func(value string) bool {
+		if len(value) != 40 && len(value) != 64 {
+			return false
+		}
+		for _, char := range value {
+			if !strings.ContainsRune("0123456789abcdefABCDEF", char) {
+				return false
+			}
+		}
+		return strings.Trim(value, "0") != ""
+	}
+	if isObjectID(after) && !isObjectID(before) && repositoryURL != "" {
+		return strings.TrimRight(repositoryURL, "/") + "/commit/" + after
+	}
+	if link := notificationURL(data["compare_url"]); link != "" {
+		u, _ := url.Parse(link)
+		// Never send a button to the site root or an all-zero compare endpoint.
+		if strings.Contains(u.Path, "/compare/") && !strings.Contains(u.Path, strings.Repeat("0", 40)) {
+			return link
+		}
+	}
+	if isObjectID(after) && repositoryURL != "" {
+		return strings.TrimRight(repositoryURL, "/") + "/commit/" + after
+	}
+	if commits, ok := data["commits"].([]any); ok && len(commits) == 1 {
+		if link := notificationURL(notificationMap(commits[0])["url"]); link != "" {
+			return link
+		}
+	}
+	return repositoryURL
 }
 
 func notificationFormattedBody(m notificationMessage, format string, budget int) string {

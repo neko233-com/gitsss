@@ -64,6 +64,9 @@ export default defineComponent({
       finalPage: 1,
       searchQuery,
       isLoading: false,
+      searchError: false,
+      textSearchError: '',
+      textRetry: '',
       staticPrefix: assetUrlPrefix,
       counts: {} as Record<string, number>,
       repoTypes: {
@@ -127,6 +130,8 @@ export default defineComponent({
       textOrgVisibilityPrivate: '',
       subUrl: appSubUrl,
       ...pageData.dashboardRepoList,
+      searchController: null as AbortController | null,
+      searchTimer: undefined as ReturnType<typeof setTimeout> | undefined,
       activeIndex: -1, // don't select anything at load, first cursor down will select
     };
   },
@@ -162,7 +167,7 @@ export default defineComponent({
   mounted() {
 	window.addEventListener('gitsss:dashboard-team', this.changeTeam);
     const el = document.querySelector('#dashboard-repo-list')!;
-    this.changeReposFilter(this.reposFilter);
+    this.searchRepos();
     fomanticQuery(el.querySelector('.ui.dropdown')!).dropdown();
 
     this.textArchivedFilterTitles = {
@@ -179,10 +184,17 @@ export default defineComponent({
   },
 
   beforeUnmount() {
+    if (this.searchController) this.searchController.abort();
+    clearTimeout(this.searchTimer);
     window.removeEventListener('gitsss:dashboard-team', this.changeTeam);
   },
 
   methods: {
+    scheduleSearch() {
+      clearTimeout(this.searchTimer);
+      if (this.searchController) this.searchController.abort();
+      this.searchTimer = setTimeout(() => this.changeReposFilter(this.reposFilter), 180);
+    },
     changeTeam(event: Event) {
       this.teamId = (event as CustomEvent<{teamId: number}>).detail.teamId;
       this.counts = {};
@@ -292,6 +304,10 @@ export default defineComponent({
     },
 
     async searchRepos() {
+      this.searchError = false;
+      if (this.searchController) this.searchController.abort();
+      const controller = new AbortController();
+      this.searchController = controller;
       this.isLoading = true;
 
       const searchedMode = this.repoTypes[this.reposFilter].searchMode;
@@ -304,8 +320,9 @@ export default defineComponent({
         const firstLoad = this.reposTotalCount === null;
         if (this.totalCountScope !== scope) {
           const totalCountSearchURL = `${this.subUrl}/repo/search?count_only=1&uid=${this.uid}&team_id=${this.teamId}&q=&page=1&mode=`;
-          response = await GET(totalCountSearchURL);
-          if (searchedURL !== this.searchURL) return;
+          response = await GET(totalCountSearchURL, {signal: controller.signal});
+          if (!response.ok) throw new Error('repository count request failed');
+          if (controller.signal.aborted || searchedURL !== this.searchURL) return;
           this.reposTotalCount = parseInt(response.headers.get('X-Total-Count') ?? '0');
           this.totalCountScope = scope;
         }
@@ -317,16 +334,18 @@ export default defineComponent({
             }
           });
         }
-        response = await GET(searchedURL);
+        response = await GET(searchedURL, {signal: controller.signal});
+        if (!response.ok) throw new Error('repository search request failed');
         json = await response.json();
       } catch {
-        if (searchedURL === this.searchURL) {
+        if (!controller.signal.aborted && searchedURL === this.searchURL) {
           this.isLoading = false;
+          this.searchError = true;
         }
         return;
       }
 
-      if (searchedURL === this.searchURL) {
+      if (!controller.signal.aborted && searchedURL === this.searchURL) {
         this.repos = json.data.map((webSearchRepo: any) => {
           return {
             ...webSearchRepo.repository,
@@ -425,6 +444,7 @@ export default defineComponent({
           <svg-icon name="octicon-plus"/>
         </a>
       </h4>
+      <div v-if="searchError" class="ui attached segment" role="alert">{{ textSearchError }} <button class="ui basic tiny button" @click="searchRepos">{{ textRetry }}</button></div>
       <div v-if="!reposTotalCount" class="ui attached segment">
         <div v-if="!isLoading" class="empty-repo-or-org">
           <svg-icon name="octicon-git-branch" :size="24"/>
@@ -435,7 +455,7 @@ export default defineComponent({
       </div>
       <div v-else class="ui attached segment repos-search">
         <div class="ui small fluid action left icon input">
-          <input type="search" spellcheck="false" maxlength="255" @input="changeReposFilter(reposFilter)" v-model="searchQuery" ref="search" @keydown="reposFilterKeyControl" :placeholder="textSearchRepos">
+          <input type="search" spellcheck="false" maxlength="255" @input="scheduleSearch" v-model="searchQuery" ref="search" @keydown="reposFilterKeyControl" :placeholder="textSearchRepos">
           <i class="icon loading-icon-3px" :class="{'is-loading': isLoading}"><svg-icon name="octicon-search" :size="16"/></i>
           <div class="ui dropdown icon button" :title="textFilter">
             <svg-icon name="octicon-filter" :size="16"/>

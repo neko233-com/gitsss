@@ -1,23 +1,23 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content dashboard feeds">
-	{{template "user/dashboard/navbar" .}}
-	{{if not .ContextUser.IsOrganization}}{{template "user/dashboard/home_tabs" .}}{{end}}
+	{{if .ContextUser.IsOrganization}}{{template "org/header" .}}{{else}}{{template "workspace/sidebar" .}}
+ <header class="workspace-heading ui container"><div><h1>{{if .PageIsHomeLinks}}{{ctx.Locale.Tr "home.links.title"}}{{else if .OrganizationHome}}{{ctx.Locale.Tr "explore.organizations"}}{{else}}{{ctx.Locale.Tr "home.personal_dashboard"}}{{end}}</h1><p>{{ctx.Locale.Tr "workspace.home_help"}}</p></div>{{if .SignedUser.CanCreateOrganization}}<a class="ui primary button" href="{{AppSubUrl}}/org/create">{{svg "octicon-plus"}} {{ctx.Locale.Tr "new_org"}}</a>{{end}}</header>{{end}}
+
 	{{if .PageIsHomeLinks}}
 	<div class="ui container home-links-container">{{template "user/dashboard/home_links" .}}</div>
 	{{else if .OrganizationHome}}
 	<div class="ui container">
 		{{template "base/alert" .}}
-		<h2>{{ctx.Locale.Tr "explore.organizations"}}</h2>
-		<p>{{ctx.Locale.Tr "home.organizations_first_help"}}</p>
+
 		{{if .Orgs}}<div class="ui icon input org-directory-search">{{svg "octicon-search" 16}}<input type="search" data-org-directory-search placeholder="{{ctx.Locale.Tr "search.org_kind"}}" aria-label="{{ctx.Locale.Tr "search.org_kind"}}"></div>{{end}}
-		<div class="ui cards org-directory">
+		<div class="workspace-directory org-directory">
 			{{range .Orgs}}
-			<div class="ui card" data-org-directory-item data-search="{{.Name}} {{.DisplayName}}">
-				<a class="content flex-text-block" href="{{.OrganisationLink}}/dashboard">
+			<div class="workspace-directory-row" data-org-directory-item data-search="{{.Name}} {{.DisplayName}}">
+				<a class="workspace-directory-identity flex-text-block" href="{{.OrganisationLink}}/dashboard">
 					{{ctx.AvatarUtils.Avatar . 40}}
 					<div><div class="header">{{template "org/identity" .}}</div><div class="meta">{{.NumRepos}} {{ctx.Locale.Tr "org.lower_repositories"}}</div></div>
 				</a>
-				<div class="extra content"><div class="flex-text-block">
+				<div class="workspace-directory-actions"><div class="flex-text-block">
 					<a href="{{.HomeLink}}/-/kanban">{{ctx.Locale.Tr "org.global_kanban"}}</a>
 					<a href="{{.HomeLink}}">{{ctx.Locale.Tr "user.repositories"}}</a>
 				</div></div>
@@ -27,7 +27,7 @@
 			{{end}}
 		</div>
 		<p data-org-directory-empty hidden>{{ctx.Locale.Tr "no_results_found"}}</p>
-		<div class="ui divider"></div>
+		<hr>
 		<div class="flex-text-block">
 			{{if .SignedUser.CanCreateOrganization}}<a class="ui primary button" href="{{AppSubUrl}}/org/create">{{ctx.Locale.Tr "new_org"}}</a>{{end}}
 			<a href="{{AppSubUrl}}/?view=personal">{{ctx.Locale.Tr "home.personal_dashboard"}}</a>
@@ -49,10 +49,10 @@
 			{{end}}
 			</div>
 		</section>
-		<aside class="dashboard-rail" aria-label="{{ctx.Locale.Tr "dashboard.actions.title"}}">
+		{{if or .ActionsDashboard .Announcements}}<aside class="dashboard-rail" aria-label="{{ctx.Locale.Tr "dashboard.actions.title"}}">
 			{{template "user/dashboard/actions" .}}
 			{{if .Announcements}}<section class="dashboard-announcements"><h2>{{ctx.Locale.Tr "dashboard.announcements"}}</h2>{{range .Announcements}}<article><h3>{{.Title}}</h3><p>{{.Body}}</p></article>{{end}}</section>{{end}}
-		</aside>
+		</aside>{{end}}
 	</div>
 	{{end}}
 </div>

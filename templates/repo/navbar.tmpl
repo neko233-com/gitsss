@@ -6,6 +6,7 @@
 		{{ctx.Locale.Tr "repo.activity.navbar.pulse"}}
 	</a>
 	{{if $canReadCode}}
+		<a class="{{if .PageIsContributionReport}}active {{end}}item" href="{{.RepoLink}}/activity/contribution-report">{{ctx.Locale.Tr "contribution.title"}}</a>
 		<a class="{{if .PageIsContributors}}active {{end}}item" href="{{.RepoLink}}/activity/contributors">
 			{{ctx.Locale.Tr "repo.activity.navbar.contributors"}}
 		</a>
