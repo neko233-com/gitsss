@@ -126,7 +126,7 @@ function attachLazyTooltip(el: HTMLElement): void {
   el.addEventListener('mouseover', lazyTooltipOnMouseHover, {capture: true});
 
   // meanwhile, if the element has no aria-label, use the tooltip content as aria-label
-  if (!el.hasAttribute('aria-label')) {
+  if (!el.hasAttribute('aria-label') && el.matches('a[href], button, input, select, textarea, img, svg, [role]:not([role=none]):not([role=presentation])')) {
     const content = el.getAttribute('data-tooltip-content');
     if (content) {
       const isHtml = el.getAttribute('data-tooltip-render') === 'html';

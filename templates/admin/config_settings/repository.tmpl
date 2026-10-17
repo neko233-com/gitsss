@@ -12,7 +12,8 @@
 		</div>
 		<div class="field">
 			{{/* TODO: OPEN-WITH-EDITOR-APP-JSON: use a simple textarea */}}
-			<textarea name="{{$cfg.DynKey}}">{{if $cfg.HasValue ctx}}{{($cfg.Value ctx).ToTextareaString}}{{end}}</textarea>
+			<label for="editor-applications">{{ctx.Locale.Tr "admin.config.editor_applications"}}</label>
+			<textarea id="editor-applications" name="{{$cfg.DynKey}}">{{if $cfg.HasValue ctx}}{{($cfg.Value ctx).ToTextareaString}}{{end}}</textarea>
 		</div>
 
 		{{$cfg = .SystemConfig.Repository.GitGuideRemoteName}}

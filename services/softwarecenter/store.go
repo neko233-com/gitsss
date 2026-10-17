@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"os"
 	"path/filepath"
@@ -69,28 +70,38 @@ func reserveDisk(size int64) (func(), error) {
 }
 
 type Node struct {
-	ID        string `json:"id"`
-	Parent    string `json:"parent"`
-	Name      string `json:"name"`
-	Directory bool   `json:"directory"`
-	Size      int64  `json:"size"`
-	Digest    string `json:"digest,omitempty"`
-	Modified  int64  `json:"modified"`
-	UserID    int64  `json:"user_id"`
+	ID        string  `json:"id"`
+	Parent    string  `json:"parent"`
+	Name      string  `json:"name"`
+	Directory bool    `json:"directory"`
+	Size      int64   `json:"size"`
+	Digest    string  `json:"digest,omitempty"`
+	Modified  int64   `json:"modified"`
+	UserID    int64   `json:"user_id"`
+	CRC32     *uint32 `json:"crc32,omitempty"`
+	UploadKey string  `json:"upload_key,omitempty"`
 }
 
 type Reservation struct {
-	Parent  string `json:"parent"`
-	Name    string `json:"name"`
-	Size    int64  `json:"size"`
-	Started int64  `json:"started"`
+	Parent    string `json:"parent"`
+	Name      string `json:"name"`
+	Size      int64  `json:"size"`
+	Started   int64  `json:"started"`
+	UserID    int64  `json:"user_id,omitempty"`
+	Resumable bool   `json:"resumable,omitempty"`
+	Offset    int64  `json:"offset,omitempty"`
+	ClientKey string `json:"client_key,omitempty"`
+	Chain     string `json:"chain,omitempty"`
+	HashState []byte `json:"hash_state,omitempty"`
+	CRC32     uint32 `json:"crc32,omitempty"`
 }
 type State struct {
-	Version int                    `json:"version"`
-	Quota   int64                  `json:"quota"`
-	Nodes   map[string]*Node       `json:"nodes"`
-	Uploads map[string]Reservation `json:"uploads"`
-	Garbage map[string]int64       `json:"garbage,omitempty"`
+	Version   int                     `json:"version"`
+	Quota     int64                   `json:"quota"`
+	Nodes     map[string]*Node        `json:"nodes"`
+	Uploads   map[string]Reservation  `json:"uploads"`
+	Garbage   map[string]int64        `json:"garbage,omitempty"`
+	Downloads map[string]*DownloadJob `json:"downloads,omitempty"`
 }
 
 func lock(orgID int64) *sync.Mutex {
@@ -126,6 +137,9 @@ func Load(ctx context.Context, orgID int64) (*State, error) {
 	}
 	if state.Garbage == nil {
 		state.Garbage = map[string]int64{}
+	}
+	if state.Downloads == nil {
+		state.Downloads = map[string]*DownloadJob{}
 	}
 	return state, nil
 }
@@ -243,13 +257,23 @@ func (s *State) checkName(parent, name, except string) error {
 func prune(orgID int64, s *State) {
 	reclaim(orgID, s)
 	for id, r := range s.Uploads {
-		if r.Started < time.Now().Add(-24*time.Hour).Unix() {
+		retention := 24 * time.Hour
+		if r.Resumable {
+			retention = 7 * 24 * time.Hour
+		}
+		if r.Started < time.Now().Add(-retention).Unix() {
 			delete(s.Uploads, id)
 			if validID(id) {
-				_ = os.Remove(filepath.Join(root(orgID), id+".part"))
+				s.Garbage["part:"+id] = time.Now().Unix()
 			}
 		}
 	}
+	for id, job := range s.Downloads {
+		if job.Expires < time.Now().Unix() {
+			delete(s.Downloads, id)
+		}
+	}
+	reclaim(orgID, s)
 }
 
 func reclaim(orgID int64, s *State) {
@@ -258,6 +282,14 @@ func reclaim(orgID int64, s *State) {
 		referenced[node.Digest] = true
 	}
 	for digest := range s.Garbage {
+		if id, ok := strings.CutPrefix(digest, "part:"); ok {
+			if validID(id) {
+				if err := os.Remove(filepath.Join(root(orgID), id+".part")); err == nil || errors.Is(err, os.ErrNotExist) {
+					delete(s.Garbage, digest)
+				}
+			}
+			continue
+		}
 		if referenced[digest] {
 			delete(s.Garbage, digest)
 			continue
@@ -347,44 +379,7 @@ func descendants(s *State, id string) map[string]bool {
 }
 
 func Delete(ctx context.Context, orgID int64, id string) error {
-	guard := lock(orgID)
-	guard.Lock()
-	defer guard.Unlock()
-	s, err := Load(ctx, orgID)
-	if err != nil {
-		return err
-	}
-	if s.Nodes[id] == nil {
-		return ErrInvalid
-	}
-	removed := descendants(s, id)
-	for _, r := range s.Uploads {
-		if removed[r.Parent] {
-			return ErrBusy
-		}
-	}
-	digests := map[string]bool{}
-	for nodeID := range removed {
-		node := s.Nodes[nodeID]
-		if node.Digest != "" {
-			digests[node.Digest] = true
-		}
-		delete(s.Nodes, nodeID)
-	}
-	for _, node := range s.Nodes {
-		delete(digests, node.Digest)
-	}
-	for digest := range digests {
-		s.Garbage[digest] = time.Now().Unix()
-	}
-	if err = save(ctx, orgID, s); err != nil {
-		return err
-	}
-	reclaim(orgID, s)
-	if err = save(ctx, orgID, s); err != nil {
-		log.Warn("Software center cleanup receipt pending for organization %d: %v", orgID, err)
-	}
-	return nil
+	return DeleteMany(ctx, orgID, []string{id})
 }
 
 func Upload(ctx context.Context, orgID, userID int64, parent, name string, size int64, body io.Reader) (*Node, error) {
@@ -456,7 +451,8 @@ func Upload(ctx context.Context, orgID, userID int64, parent, name string, size 
 		return nil, err
 	}
 	digest := sha256.New()
-	count, copyErr := io.CopyBuffer(io.MultiWriter(file, digest), io.LimitReader(body, size+1), make([]byte, 128*1024))
+	checksum := crc32.NewIEEE()
+	count, copyErr := io.CopyBuffer(io.MultiWriter(file, digest, checksum), io.LimitReader(body, size+1), make([]byte, 128*1024))
 	syncErr := file.Sync()
 	closeErr := file.Close()
 	if copyErr != nil {
@@ -495,6 +491,8 @@ func Upload(ctx context.Context, orgID, userID int64, parent, name string, size 
 		return nil, err
 	}
 	node := &Node{ID: id, Parent: parent, Name: name, Size: size, Digest: hash, Modified: time.Now().Unix(), UserID: userID}
+	crc := checksum.Sum32()
+	node.CRC32 = &crc
 	delete(s.Uploads, id)
 	delete(s.Garbage, hash)
 	s.Nodes[id] = node

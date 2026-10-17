@@ -65,6 +65,8 @@ gitsss-theme-meta-info {
   /* Text — GitHub Light */
   --color-text-dark: #1f2328;
   --color-text: #1f2328;
+  --color-green: #1f883d;
+  --color-danger-text: #b42318;
   --color-text-light: #59636e;
   --color-text-light-1: #59636e;
   --color-text-light-2: #59636e;

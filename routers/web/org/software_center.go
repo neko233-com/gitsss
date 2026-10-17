@@ -7,6 +7,7 @@ import (
 	"errors"
 	"mime"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,11 +26,18 @@ func SoftwareCenter(ctx *context.Context) {
 	}
 	ctx.Data["Title"] = ctx.Locale.TrString("software.title")
 	ctx.Data["PageIsSoftwareCenter"] = true
+	labels := map[string]string{}
+	for _, key := range []string{"drop", "upload_folder", "move", "move_here", "selected", "select", "select_all", "clear", "download", "download_selected", "delete_selected", "delete_many_confirm", "transfers", "uploading", "downloading", "paused", "complete", "failed", "queued", "preparing", "validating", "pause", "resume", "retry", "choose_original", "cancel_upload", "remove_record", "resume_mismatch", "browser_downloads", "folder_hint", "empty_action", "destination", "up", "transfer_limit", "pause_navigation", "download_started", "clear_completed", "pause_all", "resume_all", "showing_limit", "tree_limit", "invalid"} {
+		labels[key] = ctx.Locale.TrString("software." + key)
+	}
+	ctx.Data["SoftwareStrings"] = labels
 	ctx.HTML(http.StatusOK, templates.TplName("org/software_center"))
 }
 
 func softwareError(ctx *context.Context, err error) {
 	switch {
+	case errors.Is(err, os.ErrNotExist):
+		ctx.NotFound(nil)
 	case errors.Is(err, softwarecenter.ErrInvalid):
 		ctx.JSON(http.StatusBadRequest, map[string]string{"message": ctx.Locale.TrString("software.invalid")})
 	case errors.Is(err, softwarecenter.ErrConflict):

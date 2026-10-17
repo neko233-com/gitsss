@@ -23,7 +23,7 @@
 				<tr>
 					<td><div class="flex-text-block"><a href="{{.HomeLink}}">{{ctx.AvatarUtils.Avatar . 28}}</a><div class="org-member-name">{{template "shared/user/name" .}}{{if not $isPublic}}<span class="ui basic mini label">{{ctx.Locale.Tr "org.members.private"}}</span>{{end}}</div></div></td>
 					{{if not $.PublicOnly}}<td>{{if index $.MembersIsUserOrgOwner .ID}}<span class="flex-text-inline">{{svg "octicon-shield-lock" 14}} {{ctx.Locale.Tr "org.members.owner"}}</span>{{else}}{{ctx.Locale.Tr "org.members.member"}}{{end}}</td>{{end}}
-					{{if $.IsOrganizationOwner}}<td>{{if index $.MembersTwoFaStatus .ID}}<span class="tw-text-green" aria-label="{{ctx.Locale.Tr "enabled"}}">{{svg "octicon-check"}}</span>{{else}}<span class="muted" aria-label="{{ctx.Locale.Tr "disabled"}}">{{svg "octicon-x"}}</span>{{end}}</td>{{end}}
+					{{if $.IsOrganizationOwner}}<td>{{if index $.MembersTwoFaStatus .ID}}<span class="tw-text-green" role="img" aria-label="{{ctx.Locale.Tr "enabled"}}">{{svg "octicon-check"}}</span>{{else}}<span class="muted" role="img" aria-label="{{ctx.Locale.Tr "disabled"}}">{{svg "octicon-x"}}</span>{{end}}</td>{{end}}
 					<td><div class="flex-text-block tw-justify-end">
 						{{if or (eq $.SignedUser.ID .ID) $.IsOrganizationOwner}}
 							{{if $isPublic}}

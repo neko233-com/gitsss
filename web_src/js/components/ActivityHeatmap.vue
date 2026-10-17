@@ -177,6 +177,7 @@ function handleDayClick(date: Date) {
             <rect
               v-if="day.date < now"
               class="heatmap-day"
+              role="img"
               :transform="`translate(0, ${d * cellSize})`"
               :width="squareSize"
               :height="squareSize"

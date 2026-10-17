@@ -12,6 +12,7 @@ gitsss-theme-meta-info {
  */
 :root {
   --is-dark-theme: true;
+  --color-danger-text: #ff7b72;
 
   --gitsss-primary-green: #238636;
   --gitsss-primary-green-hover: #2ea043;

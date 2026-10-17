@@ -1,6 +1,6 @@
 import {svg} from '../../svg.ts';
 import {html, htmlRaw} from '../../utils/html.ts';
-import {createElementFromHTML} from '../../utils/dom.ts';
+import {generateElemId, createElementFromHTML} from '../../utils/dom.ts';
 import {showFomanticModal} from '../../modules/fomantic/modal.ts';
 import {hideToastsAll} from '../../modules/toast.ts';
 
@@ -13,11 +13,12 @@ type ConfirmModalOptions = {
 };
 
 export function createConfirmModal({header = '', content = '', confirmButtonColor = 'primary'}:ConfirmModalOptions = {}): HTMLElement {
+  const contentID = generateElemId('_confirm_content_');
   const headerHtml = header ? html`<div class="header">${header}</div>` : '';
   return createElementFromHTML(html`
-    <div class="ui g-modal-confirm modal">
+    <div class="ui g-modal-confirm modal" role="alertdialog" aria-modal="true" aria-label="${header || i18n.modal_confirm}" aria-describedby="${contentID}">
       ${htmlRaw(headerHtml)}
-      <div class="content">${content}</div>
+      <div class="content" id="${contentID}">${content}</div>
       <div class="actions">
         <button class="ui cancel button">${htmlRaw(svg('octicon-x'))} ${i18n.modal_cancel}</button>
         <button class="ui ${confirmButtonColor} ok button">${htmlRaw(svg('octicon-check'))} ${i18n.modal_confirm}</button>

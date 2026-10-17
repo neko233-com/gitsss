@@ -281,7 +281,6 @@ make release-native VERSION=1.3.0
 
 [MIT](LICENSE)
 
-
 ## 企业默认行为
 
 正式切换需等待管理员明确通知。完整保留原密码、SSH/API/Runner 凭据与 Actions 历史时，必须停止两套应用后执行原生数据库与原存储路径接管；HTTP 试点与端口别名不能代替此步骤。操作系统 SSH 的账号、密码与 22 端口保持不变。
@@ -308,7 +307,6 @@ make release-native VERSION=1.3.0
 
 ![清晰的管理后台与磁盘及 Git/LFS 统计](docs/site/assets/screenshots/storage.png)
 
-
 以下 HTML Docs 与头像风格截图来自 2026-10-17 的隔离演示实例。
 
 ![Repository HTML Docs](docs/site/assets/screenshots/html-docs.png)
@@ -318,14 +316,16 @@ make release-native VERSION=1.3.0
 ## 组织工作区与中心
 
 - 单层桌面导航，组织优先入口，全局搜索与键盘访问。
-- 软件中心：目录树、默认 100 GiB 配额、流式上传、断点下载、搜索、重命名、删除及内容去重。
+- 软件中心：目录树、默认 100 GiB 配额、拖拽及文件夹上传、分块断点续传、批量 ZIP 下载、移动、搜索、重命名、批量删除及内容去重。
 - 原生 Docker/OCI 镜像仓库，沿用软件包权限与存储。
 - 仓库每日、每周、每月贡献统计与 CSV，计数口径明确。
 
-以下软件中心与贡献统计截图来自 2026-10-17 的隔离演示实例。
+以下软件中心截图来自 2026-10-18 的隔离演示实例，贡献统计截图拍摄于 2026-10-17。
 
 ![组织软件中心](docs/site/assets/screenshots/software-center.png)
 
 ![仓库贡献统计](docs/site/assets/screenshots/contributions.png)
 
 参见 [HTML 说明书](docs/site/workspace-centers.html) 与 [兼容性报告](docs/features/workspace-centers.md)。
+
+软件中心传输面板显示上传下载进度与速度，支持暂停上传、刷新后选择原文件校验续传。文件夹上传保留目录结构；拖拽时浏览器提供的空目录也会保留。批量移动和删除先完成冲突检查，再原子提交。批量下载使用虚拟 ZIP64，不在磁盘上额外保存压缩包；下载的暂停、续传及本地完成状态由浏览器下载管理器（Ctrl+J）处理。参见[传输 API、限制与回滚说明](docs/features/software-center-transfers.md)。

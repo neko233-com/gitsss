@@ -95,6 +95,14 @@ function delegateDropdownModule($dropdown: any) {
   };
   dropdownCall('setting', 'templates', dropdownTemplates);
 
+  const dropdownOnHideOld = dropdownCall('setting', 'onHide');
+  dropdownCall('setting', 'onHide', function(this: any, ...args: any[]) {
+    const result = dropdownOnHideOld.apply(this, args);
+    // Fomantic keeps focus on the trigger after Escape; update ARIA after its closing transition.
+    if (result !== false) $dropdown[0][ariaPatchKey].deferredRefreshAriaActiveItem(250);
+    return result;
+  });
+
   // the `onLabelCreate` is used to add necessary aria attributes for dynamically created selection labels
   const dropdownOnLabelCreateOld = dropdownCall('setting', 'onLabelCreate');
   dropdownCall('setting', 'onLabelCreate', function(this: any, value: any, text: string) {
@@ -143,6 +151,17 @@ function attachStaticElements(dropdown: HTMLElement, focusable: HTMLElement, men
   focusable.setAttribute('aria-controls', menu.id);
   focusable.setAttribute('aria-expanded', 'false');
 
+  // Reuse the visible field label for native selects and generated search inputs.
+  if (!focusable.hasAttribute('aria-label') && !focusable.hasAttribute('aria-labelledby')) {
+    const select = dropdown.querySelector('select');
+    const label = select?.labels?.[0] || dropdown.closest('.field')?.querySelector(':scope > label') || dropdown.querySelector(':scope > .text');
+    if (label?.textContent?.trim()) {
+      if (!label.id) label.id = generateElemId('_aria_dropdown_name_');
+      focusable.setAttribute('aria-labelledby', label.id);
+    }
+  }
+  menu.setAttribute('aria-labelledby', focusable.id || (focusable.id = generateElemId('_aria_dropdown_trigger_')));
+
   // use tooltip's content as aria-label if there is no aria-label
   const tooltipContent = dropdown.getAttribute('data-tooltip-content');
   if (tooltipContent && !dropdown.getAttribute('aria-label')) {
@@ -190,8 +209,8 @@ function attachInitElements(dropdown: HTMLElement) {
   // Since #19861 we have prepared the "combobox" solution, but didn't get enough time to put it into practice and test before.
   const isComboBox = dropdown.querySelectorAll('input').length > 0;
 
-  (dropdown as any)[ariaPatchKey].focusableRole = isComboBox ? 'combobox' : 'menu';
-  (dropdown as any)[ariaPatchKey].listPopupRole = isComboBox ? 'listbox' : '';
+  (dropdown as any)[ariaPatchKey].focusableRole = isComboBox ? 'combobox' : 'button';
+  (dropdown as any)[ariaPatchKey].listPopupRole = isComboBox ? 'listbox' : 'menu';
   (dropdown as any)[ariaPatchKey].listItemRole = isComboBox ? 'option' : 'menuitem';
 
   attachDomEvents(dropdown, focusable, menu);
@@ -214,10 +233,12 @@ function attachDomEvents(dropdown: HTMLElement, focusable: HTMLElement, menu: HT
     if (!active) return;
     // if the popup is visible and has an active/selected item, use its id as aria-activedescendant
     if (menuVisible) {
-      focusable.setAttribute('aria-activedescendant', active.id);
+      const activeOwner = (dropdown as any)[ariaPatchKey].focusableRole === 'combobox' ? focusable : menu;
+      activeOwner.setAttribute('aria-activedescendant', active.id);
     } else if ((dropdown as any)[ariaPatchKey].listPopupRole === 'menu') {
       // for menu, when the popup is hidden, no need to keep the aria-activedescendant, and clear the active/selected item
       focusable.removeAttribute('aria-activedescendant');
+      menu.removeAttribute('aria-activedescendant');
       active.classList.remove('active', 'selected');
     }
   };

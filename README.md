@@ -158,7 +158,6 @@ The offline HTML manual is bundled at `/help/` (English default). Native Actions
 
 ![Readable administration with volume and Git/LFS measurements](docs/site/assets/screenshots/storage.png)
 
-
 HTML Docs and avatar styles, captured from an isolated demonstration instance on 2026-10-17.
 
 ![Repository HTML Docs](docs/site/assets/screenshots/html-docs.png)
@@ -168,14 +167,16 @@ HTML Docs and avatar styles, captured from an isolated demonstration instance on
 ## Organization workspace and centers
 
 - One desktop navigation rail, organization-first landing, global search and keyboard access.
-- A tree-based organization software center: 100 GiB default quota, streaming uploads, ranged downloads, search and content deduplication.
+- A tree-based organization software center: 100 GiB default quota, drag-and-drop files/folders, resumable uploads, batch ZIP downloads, moves, search and content deduplication.
 - Native Docker/OCI registry using existing package permissions and storage.
 - Per-repository daily, weekly and monthly contribution reports with CSV export and explicit counting rules.
 
-Desktop center screenshots from the isolated demonstration instance, captured on 2026-10-17.
+Desktop center screenshots from the isolated demonstration instance, captured on 2026-10-18.
 
 ![Organization software center](docs/site/assets/screenshots/software-center.png)
 
 ![Repository contribution report](docs/site/assets/screenshots/contributions.png)
 
 See the [centers manual](docs/site/workspace-centers.html) and [compatibility report](docs/features/workspace-centers.md).
+
+Software center transfers support file/folder pickers, drag-and-drop, nested and empty directories (when supplied by the browser), multi-selection, atomic moves/deletion and resumable 8 MiB chunk uploads. The transfer panel shows progress and speed; after a reload, reselect the original file to verify and resume. Downloads stream directly to the browser with Range/ETag support, including virtual ZIP64 batches without a second archive on disk. Use the browser download manager (Ctrl+J) for download pause/resume and local completion. Read the [transfer API, limits and rollback contract](docs/features/software-center-transfers.md).

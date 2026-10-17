@@ -13,7 +13,7 @@
 		<form class="ui form ignore-dirty tw-my-4" method="get" action="{{$.Link}}">
 			<div class="ui fluid action input">
 				<input type="search" name="q" value="{{$.Keyword}}" placeholder="{{ctx.Locale.Tr "search.team_kind"}}" maxlength="255" spellcheck="false">
-				<button class="ui button" type="submit">{{svg "octicon-search"}}</button>
+				<button class="ui button" type="submit" aria-label="{{ctx.Locale.Tr "search"}}">{{svg "octicon-search"}}</button>
 			</div>
 		</form>
 

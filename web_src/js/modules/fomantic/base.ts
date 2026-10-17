@@ -29,6 +29,10 @@ function patchLabels(parent: ParentNode, containerSelector: string, labelSelecto
     const input = container.querySelector(inputSelector);
     if (!label || !input) return;
     linkLabelAndInput(label, input);
+    if (!label.textContent.trim() && !input.hasAttribute('aria-label')) {
+      const tooltip = container.getAttribute('data-tooltip-content');
+      if (tooltip) input.setAttribute('aria-label', tooltip);
+    }
     container.setAttribute(marker, 'true');
   };
   queryElems(parent, containerSelector, patchLabelContainer);
@@ -38,7 +42,7 @@ function patchLabels(parent: ParentNode, containerSelector: string, labelSelecto
 // link labels and inputs in `.ui.checkbox` and `.ui.form .field` so labels are clickable and accessible
 export function initAriaLabels(container: ParentNode) {
   patchLabels(container, '.ui.checkbox', 'label', 'input', 'data-checkbox-patched');
-  patchLabels(container, '.ui.form .field', ':scope > label', ':scope > input, :scope > select', 'data-field-patched');
+  patchLabels(container, '.ui.form .field', ':scope > label', ':scope > input, :scope > select, :scope > textarea', 'data-field-patched');
 }
 
 export function fomanticQuery(s: string | Element | NodeListOf<Element>): ReturnType<typeof $> {

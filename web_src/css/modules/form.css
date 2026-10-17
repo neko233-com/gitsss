@@ -412,7 +412,7 @@ input:-webkit-autofill:active {
 }
 
 .form .help {
-  color: var(--color-secondary-dark-5);
+  color: var(--color-text-light-1);
   margin-top: 0.25em;
   padding-bottom: 0.6em;
   display: inline-block;

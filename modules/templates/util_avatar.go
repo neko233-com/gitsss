@@ -31,8 +31,8 @@ func NewAvatarUtils(ctx context.Context) *AvatarUtils {
 func AvatarHTML(src string, size int, class, name string) template.HTML {
 	sizeStr := strconv.Itoa(size)
 	name = util.IfZero(name, "avatar")
-	// use empty alt, otherwise if the image fails to load, the width will follow the "alt" text's width
-	return template.HTML(`<img loading="lazy" alt class="` + html.EscapeString(class) + `" src="` + html.EscapeString(src) + `" title="` + html.EscapeString(name) + `" width="` + sizeStr + `" height="` + sizeStr + `">`)
+	// Fixed dimensions keep alternate text from changing the avatar layout.
+	return template.HTML(`<img loading="lazy" alt="` + html.EscapeString(name) + `" class="` + html.EscapeString(class) + `" src="` + html.EscapeString(src) + `" title="` + html.EscapeString(name) + `" width="` + sizeStr + `" height="` + sizeStr + `">`)
 }
 
 // Avatar renders user avatars. args: user, size (int), class (string)

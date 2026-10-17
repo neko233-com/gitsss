@@ -51,6 +51,7 @@ export function initMarkupAnchors(): void {
     for (const heading of markupEl.querySelectorAll('h1, h2, h3, h4, h5, h6')) {
       const a = document.createElement('a');
       a.classList.add('anchor');
+      a.setAttribute('aria-label', heading.textContent.trim());
       a.setAttribute('href', `#${encodeURIComponent(removePrefix(heading.id))}`);
       a.innerHTML = svg('octicon-link');
       heading.prepend(a);

@@ -1,6 +1,6 @@
 import '../../../fomantic/build/fomantic.js';
 import {createElementFromHTML} from '../../utils/dom.ts';
-import {hideScopedEmptyDividers} from './dropdown.ts';
+import {initAriaDropdownPatch, hideScopedEmptyDividers} from './dropdown.ts';
 
 test('dropdown-item-literal-text', () => {
   // a "choice" workflow_dispatch input can offer the string "false" as an option.
@@ -90,4 +90,19 @@ test('hideScopedEmptyDividers-scoped-items', () => {
 <div class="divider hidden" data-scope=""></div>
 <div class="item" data-scope="">c</div>
 `);
+});
+
+test('dropdown popup owns menu semantics and generated selectors reuse visible labels', () => {
+  $.fn.fomanticExt ||= {};
+  initAriaDropdownPatch();
+  const fixture = createElementFromHTML('<div><div class="field"><label>Language</label><div class="ui selection dropdown"><input type="hidden" name="language"><span class="text">English</span><div class="menu"><div class="item" data-value="en">English</div></div></div></div><div class="ui dropdown"><span class="text">More actions</span><div class="menu"><a class="item" href="#one">One</a></div></div></div>');
+  document.body.append(fixture);
+  $(fixture).find('.ui.dropdown').dropdown();
+  const trigger = fixture.querySelectorAll('.ui.dropdown')[1];
+  expect(trigger.getAttribute('role')).toBe('button');
+  expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
+  expect(trigger.querySelector('.menu')!.getAttribute('role')).toBe('menu');
+  const combo = fixture.querySelector('[role="combobox"]')!;
+  expect(document.querySelector(`#${combo.getAttribute('aria-labelledby')!}`)!.textContent).toBe('Language');
+  fixture.remove();
 });
