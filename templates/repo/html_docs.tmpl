@@ -1,0 +1,33 @@
+{{template "base/head" .}}
+<main class="page-content repository html-docs" aria-label="{{.Title}}">
+	{{template "repo/header" .}}
+	<div class="ui container">
+		{{template "base/alert" .}}
+		<div class="html-docs-toolbar flex-text-block tw-justify-between tw-flex-wrap">
+			<div class="flex-text-block">{{svg "octicon-browser" 18}} <strong>Docs</strong>{{if .DocsEntry}}<span class="muted">{{.DocsEntry}} · {{ShortSha .DocsCommit}}</span>{{end}}</div>
+			{{if .DocsSourceURL}}<a class="ui small basic button" href="{{.DocsSourceURL}}">{{svg "octicon-code"}} {{ctx.Locale.Tr "repo.docs.source"}}</a>{{end}}
+		</div>
+		{{if .CanManageDocs}}
+		<details class="ui segment html-docs-settings" {{if not .DocsContentURL}}open{{end}}>
+			<summary>{{ctx.Locale.Tr "repo.docs.settings"}}</summary>
+			<form class="ui form" method="post" action="{{.RepoLink}}/-/docs">
+				{{.CsrfTokenHtml}}<input type="hidden" name="revision" value="{{.DocsSettings.Revision}}">
+				<div class="field"><div class="ui checkbox"><input type="checkbox" name="enabled" {{if .DocsSettings.Enabled}}checked{{end}}><label>{{ctx.Locale.Tr "repo.docs.enabled"}}</label></div></div>
+				<div class="three fields">
+					<div class="field"><label for="docs-ref">{{ctx.Locale.Tr "repo.docs.ref"}}</label><input id="docs-ref" name="ref" maxlength="255" value="{{.DocsSettings.Ref}}" placeholder="{{.Repository.DefaultBranch}}"></div>
+					<div class="field"><label for="docs-directory">{{ctx.Locale.Tr "repo.docs.directory"}}</label><input id="docs-directory" name="directory" maxlength="2048" value="{{.DocsSettings.Directory}}" placeholder="docs/site"></div>
+					<div class="field"><label for="docs-entry">{{ctx.Locale.Tr "repo.docs.entry"}}</label><input id="docs-entry" name="entry" maxlength="2048" value="{{.DocsSettings.Entry}}" placeholder="index.html"></div>
+				</div>
+				<p class="help">{{ctx.Locale.Tr "repo.docs.helper"}}</p>
+				<button class="ui primary small button" type="submit">{{ctx.Locale.Tr "save"}}</button>
+			</form>
+		</details>
+		{{end}}
+		{{if .DocsContentURL}}
+		<iframe class="html-docs-frame" title="{{ctx.Locale.Tr "repo.docs.title"}}" src="{{.DocsContentURL}}" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe>
+		{{else}}
+		<div class="ui placeholder segment"><div class="ui icon header">{{svg "octicon-browser" 32}}<p>{{if not .DocsSettings.Enabled}}{{ctx.Locale.Tr "repo.docs.disabled"}}{{else if .DocsRefMissing}}{{ctx.Locale.Tr "repo.docs.ref_missing"}}{{else}}{{ctx.Locale.Tr "repo.docs.empty"}}{{end}}</p></div><p>{{ctx.Locale.Tr "repo.docs.empty_helper"}}</p></div>
+		{{end}}
+	</div>
+</main>
+{{template "base/footer" .}}

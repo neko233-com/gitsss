@@ -7,6 +7,7 @@ package setting
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	org_model "github.com/neko233-com/gitsss/models/organization"
@@ -96,6 +97,44 @@ func AccountPost(ctx *context.Context) {
 		}
 	}
 
+	ctx.Redirect(setting.AppSubURL + "/user/settings/account")
+}
+
+// ChangeEmailPost changes the primary address without discarding commit aliases.
+func ChangeEmailPost(ctx *context.Context) {
+	if user_model.IsFeatureDisabledWithLoginType(ctx.Doer, setting.UserFeatureManageCredentials) {
+		ctx.NotFound(errors.New("emails are not allowed to be changed"))
+		return
+	}
+	form := web.GetForm(ctx).(*forms.AddEmailForm)
+	if ctx.HasError() {
+		loadAccountData(ctx)
+		ctx.HTML(http.StatusUnprocessableEntity, tplSettingsAccount)
+		return
+	}
+	if setting.Service.RegisterEmailConfirm && ctx.Cache.IsExist("MailResendLimit_"+ctx.Doer.LowerName) {
+		ctx.Redirect(setting.AppSubURL + "/user/settings/account")
+		return
+	}
+	pending, err := user.ChangePrimaryEmail(ctx, ctx.Doer, form.Email)
+	if err != nil {
+		if user_model.IsErrEmailAlreadyUsed(err) {
+			ctx.Flash.Error(ctx.Tr("form.email_been_used"))
+		} else if user_model.IsErrEmailInvalid(err) || user_model.IsErrEmailCharIsNotSupported(err) {
+			ctx.Flash.Error(ctx.Tr("form.email_invalid"))
+		} else {
+			ctx.ServerError("ChangePrimaryEmail", err)
+			return
+		}
+	} else if pending {
+		mailer.SendActivateEmailMail(ctx.Doer, strings.TrimSpace(form.Email))
+		if err := ctx.Cache.Put("MailResendLimit_"+ctx.Doer.LowerName, ctx.Doer.LowerName, 180); err != nil {
+			log.Error("Set cache(MailResendLimit) fail: %v", err)
+		}
+		ctx.Flash.Info(ctx.Tr("settings.change_email_pending"))
+	} else {
+		ctx.Flash.Success(ctx.Tr("settings.change_email_success"))
+	}
 	ctx.Redirect(setting.AppSubURL + "/user/settings/account")
 }
 

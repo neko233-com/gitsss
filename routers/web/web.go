@@ -630,11 +630,13 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 		m.Post("/update_preferences", user_setting.UpdatePreferences)
 		m.Get("/change_password", auth.MustChangePassword)
 		m.Post("/change_password", web.Bind(forms.MustChangePasswordForm{}), auth.MustChangePasswordPost)
+		m.Get("/avatar/generated/{color}", user_setting.GeneratedAvatar)
 		m.Post("/avatar", web.Bind(forms.AvatarForm{}), user_setting.AvatarPost)
 		m.Post("/avatar/delete", user_setting.DeleteAvatar)
 		m.Group("/account", func() {
 			m.Combo("").Get(user_setting.Account).Post(web.Bind(forms.ChangePasswordForm{}), user_setting.AccountPost)
 			m.Post("/email", web.Bind(forms.AddEmailForm{}), user_setting.EmailPost)
+			m.Post("/email/change", web.Bind(forms.AddEmailForm{}), user_setting.ChangeEmailPost)
 			m.Post("/email/delete", user_setting.DeleteEmail)
 			m.Post("/delete", user_setting.DeleteAccount)
 		})
@@ -1304,6 +1306,9 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 
 	// user/org home, including rss feeds like "/{username}/{reponame}.rss"
 	m.Get("/{username}/{reponame}", optSignIn, webAuth.AllowBasic, context.RepoAssignment, context.RepoRefByType(git.RefTypeBranch), repo.SetEditorconfigIfExists, repo.Home)
+	m.Get("/{username}/{reponame}/-/docs", optSignIn, context.RepoAssignment, reqUnitCodeReader, repo.HTMLDocs)
+	m.Get("/{username}/{reponame}/-/docs/content/{sha}/{access}/*", repo.HTMLDocsAuthorize, context.RepoAssignment, reqUnitCodeReader, repo.HTMLDocsContent)
+	m.Post("/{username}/{reponame}/-/docs", reqSignIn, context.RepoAssignment, reqRepoAdmin, repo.HTMLDocsPost)
 
 	m.Post("/{username}/{reponame}/markup", optSignIn, context.RepoAssignment, reqUnitsWithMarkdown, web.Bind(structs.MarkupOption{}), misc.Markup)
 

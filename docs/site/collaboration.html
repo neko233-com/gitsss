@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTML Docs and notifications - GitSSS</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="header">
+    <a class="header-logo" href="index.html"><span>git</span>sss</a>
+    <nav class="header-nav">
+      <a href="getting-started.html">快速开始</a>
+      <a href="configuration.html">配置</a>
+      <a href="storage.html">存储</a>
+      <a href="migration.html">迁移</a>
+      <a href="actions.html">Actions</a>
+      <a href="development.html">开发</a>
+      <a href="virtualbox.html">vbox 验证</a>
+      <a href="en/index.html">English manual</a>
+      <a href="https://github.com/neko233-com/gitsss">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-heading">入门</div>
+        <a href="index.html" class="active">文档首页</a>
+        <a href="getting-started.html">快速开始</a>
+        <a href="configuration.html">配置参考</a>
+        <a href="enterprise.html">企业与组织</a>
+        <a href="collaboration.html">HTML Docs 与通知</a>
+        <a href="storage.html">存储与 Git LFS</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">部署</div>
+        <a href="migration.html">从 Gitea 迁移</a>
+        <a href="actions.html">离线 Actions</a>
+        <a href="operations.html">运维指南</a>
+        <a href="virtualbox.html">vbox 验证</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">开发</div>
+        <a href="development.html">开发指南</a>
+        <a href="architecture.html">架构设计</a>
+        <a href="extensions.html">扩展功能</a>
+        <a href="agents.html">Agent 协作</a>
+      </div>
+    </aside>
+
+    <main class="content"><h1>HTML Docs, notifications and profiles</h1><p>Native repository documentation and configurable collaboration messages.</p><h2>Repository HTML Docs</h2><p>The repository sidebar now includes Docs. Push a static site to docs/site/index.html, docs/index.html, site/, _site/ or the repository root. Administrators can choose a ref, directory and entry file. Relative assets are served from a pinned commit, including repository-owned LFS files up to 32 MiB. No checkout or duplicate tree is created. Private sandbox assets use a signed user/repository/commit/revision read capability expiring after 30 minutes; current account and permissions are rechecked on every request. Reload to renew, and do not share the iframe URL.</p><h2>HTML isolation</h2><p>Code-read permission is required. Content runs in an opaque sandbox with local classic scripts, ES modules, CSS, fonts, images and scoped JSON search indexes. ES modules and fetch/XHR for local JSON search indexes work within the scoped Docs directory. Parent application access, forms, popups, external CDN/API resources and service workers are unavailable. Bundle dependencies locally and use relative URLs. Stale administrator saves return 409. A git push publishes updates without Actions workflows.</p><h2>Eight notification channels</h2><p>Feishu/Lark interactive cards, Discord embeds, Telegram HTML with buttons, WeCom/DingTalk Markdown, Slack Block Kit, Teams Adaptive Cards and Matrix formatted notices. Cards include repository, branch, actor, count, linked commits, authors, changed files and full-change navigation. Each hook has independent events, branch/repository/actor filters, bot exclusion, English/Chinese, commit limits, body detail, templates and supported color/footer settings.</p><h2>Delivery and secrets</h2><p>Native endpoint paths and queries are redacted from delivery history. HTTP 200 responses containing provider error codes fail delivery. Fix the hook and use manual redelivery; automatic timeout retries are intentionally absent. Manual tests bypass routing filters. The administrator REST hook API accepts config.notification as a JSON string and preserves provider metadata on partial edits. Keep webhook URLs, tokens and actual destination settings out of Git.</p><h2>Avatar styles</h2><p>Thirty local presets grouped into anime, original fantasy adventure, Adventurer and Lorelei tabs; eight username-initial palettes; custom upload with automatic square crop/compression. Existing preset IDs remain stable. New fantasy illustrations are original, not bundled game characters. The embedded manifest makes additional styles extensible.</p><h2>Primary email</h2><p>Edit the primary address directly under Account. Uniqueness is global and case-insensitive, including aliases. The old address remains an alias for commit attribution. Confirmation-enabled sites require activation before changing primary email and throttle confirmation sends.</p><h2>Upgrade and rollback</h2><p>No schema migration, repository/LFS relocation, object rewriting, SSH-key change or Actions storage change. Existing app_state and webhook metadata hold settings. Roll back the binary while retaining a configuration/database backup. Do not restart unrelated build or game services.</p><p><a href="../features/html-docs-notifications.md">Complete Markdown reference and API example</a> · <a href="https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot">Feishu</a> · <a href="https://core.telegram.org/bots/api">Telegram</a> · <a href="https://discord.com/developers/docs/resources/webhook">Discord</a></p><h2>Demonstration screenshots · 2026-10-17</h2><p><img src="assets/screenshots/html-docs.png" alt="Git-backed HTML Docs with ES module and JSON search in an isolated demonstration" style="max-width:100%;height:auto"></p><p><img src="assets/screenshots/avatar-styles.png" alt="Tabbed avatar styles in an isolated demonstration" style="max-width:100%;height:auto"></p></main></div></body></html>

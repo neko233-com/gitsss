@@ -142,7 +142,6 @@ func PrepareTestWebhook(ctx context.Context, w *webhook_model.Webhook, event web
 	if err != nil {
 		return fmt.Errorf("JSONPayload for %s: %w", event, err)
 	}
-
 	task, err := webhook_model.CreateHookTask(ctx, &webhook_model.HookTask{
 		HookID:         w.ID,
 		PayloadContent: string(payload),
@@ -188,6 +187,16 @@ func PrepareWebhook(ctx context.Context, w *webhook_model.Webhook, event webhook
 	payload, err := p.JSONPayload()
 	if err != nil {
 		return fmt.Errorf("JSONPayload for %s: %w", event, err)
+	}
+	if NotificationWebhookSupported(w.Type) {
+		settings, err := GetNotificationSettings(w.Meta)
+		if err != nil {
+			return err
+		}
+		matches, err := NotificationMatches(settings, payload)
+		if err != nil || !matches {
+			return err
+		}
 	}
 
 	task, err := webhook_model.CreateHookTask(ctx, &webhook_model.HookTask{

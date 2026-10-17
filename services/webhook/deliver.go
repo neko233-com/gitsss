@@ -159,7 +159,7 @@ func Deliver(ctx context.Context, t *webhook_model.HookTask) error {
 			return
 		}
 		// There was a panic whilst delivering a hook...
-		log.Error("PANIC whilst trying to deliver webhook task[%d] to webhook %s Panic: %v\nStacktrace: %s", t.ID, w.URL, err, log.Stack(2))
+		log.Error("PANIC whilst trying to deliver webhook task[%d] to webhook %s Panic: %v\nStacktrace: %s", t.ID, notificationSafeURL(w.Type, w.URL), err, log.Stack(2))
 	}()
 
 	t.IsDelivered = true
@@ -167,16 +167,24 @@ func Deliver(ctx context.Context, t *webhook_model.HookTask) error {
 	newRequest := webhookRequesters[w.Type]
 	if t.PayloadVersion == 1 || newRequest == nil {
 		newRequest = newDefaultRequest
+	} else if NotificationWebhookSupported(w.Type) {
+		settings, parseErr := GetNotificationSettings(w.Meta)
+		if parseErr != nil {
+			return parseErr
+		}
+		if settings.Style != "legacy" {
+			newRequest = notificationRichRequest
+		}
 	}
 
 	req, body, err := newRequest(ctx, w, t)
 	if err != nil {
-		return fmt.Errorf("cannot create http request for webhook %s[%d %s]: %w", w.Type, w.ID, w.URL, err)
+		return fmt.Errorf("cannot create http request for webhook %s[%d %s]: %w", w.Type, w.ID, notificationSafeURL(w.Type, w.URL), err)
 	}
 
 	// Record delivery information.
 	t.RequestInfo = &webhook_model.HookRequest{
-		URL:        req.URL.String(),
+		URL:        notificationSafeURL(w.Type, req.URL.String()),
 		HTTPMethod: req.Method,
 		Headers:    map[string]string{},
 		Body:       string(body),
@@ -188,7 +196,7 @@ func Deliver(ctx context.Context, t *webhook_model.HookTask) error {
 	// Add Authorization Header
 	authorization, err := w.HeaderAuthorization()
 	if err != nil {
-		return fmt.Errorf("cannot get Authorization header for webhook %s[%d %s]: %w", w.Type, w.ID, w.URL, err)
+		return fmt.Errorf("cannot get Authorization header for webhook %s[%d %s]: %w", w.Type, w.ID, notificationSafeURL(w.Type, w.URL), err)
 	}
 	if authorization != "" {
 		req.Header.Set("Authorization", authorization)
@@ -244,14 +252,19 @@ func Deliver(ctx context.Context, t *webhook_model.HookTask) error {
 	}
 
 	if !w.IsActive {
-		log.Trace("Webhook %s in Webhook Task[%d] is not active", w.URL, t.ID)
+		log.Trace("Webhook %s in Webhook Task[%d] is not active", notificationSafeURL(w.Type, w.URL), t.ID)
 		return nil
 	}
 
 	resp, err := webhookHTTPClient.Do(req.WithContext(ctx))
 	if err != nil {
+		if NotificationWebhookSupported(w.Type) {
+			if endpointError, ok := errors.AsType[*url.Error](err); ok {
+				err = endpointError.Err
+			}
+		}
 		t.ResponseInfo.Body = fmt.Sprintf("Delivery: %v", err)
-		return fmt.Errorf("unable to deliver webhook task[%d] in %s due to error in http client: %w", t.ID, w.URL, err)
+		return fmt.Errorf("unable to deliver webhook task[%d] in %s due to error in http client: %w", t.ID, notificationSafeURL(w.Type, w.URL), err)
 	}
 	defer resp.Body.Close()
 
@@ -265,9 +278,15 @@ func Deliver(ctx context.Context, t *webhook_model.HookTask) error {
 	p, err := util.ReadWithLimit(resp.Body, 1024*1024)
 	if err != nil {
 		t.ResponseInfo.Body = fmt.Sprintf("read body: %s", err)
-		return fmt.Errorf("unable to deliver webhook task[%d] in %s as unable to read response body: %w", t.ID, w.URL, err)
+		return fmt.Errorf("unable to deliver webhook task[%d] in %s as unable to read response body: %w", t.ID, notificationSafeURL(w.Type, w.URL), err)
 	}
 	t.ResponseInfo.Body = string(p)
+	if t.IsSucceed && NotificationWebhookSupported(w.Type) {
+		if err := notificationResponseError(w.Type, p); err != nil {
+			t.IsSucceed = false
+			return err
+		}
+	}
 	return nil
 }
 

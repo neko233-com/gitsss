@@ -13,6 +13,7 @@ import (
 	"unicode"
 
 	user_model "github.com/neko233-com/gitsss/models/user"
+	"github.com/neko233-com/gitsss/modules/httplib"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/web/middleware"
@@ -72,6 +73,14 @@ type accessLogRecorder struct {
 }
 
 func (lr *accessLogRecorder) record(start time.Time, respWriter ResponseWriter, req *http.Request) {
+	if strings.Contains(req.URL.Path, "/-/docs/content/") {
+		copyRequest := req.Clone(req.Context())
+		copyRequest.URL.Path = httplib.RedactHTMLDocsURL(req.URL.Path)
+		copyRequest.URL.RawPath = ""
+		copyRequest.URL.RawQuery = ""
+		copyRequest.RequestURI = httplib.RedactHTMLDocsURL(req.RequestURI)
+		req = copyRequest
+	}
 	var requestID string
 	if lr.needRequestID {
 		requestID = parseRequestIDFromRequestHeader(req)

@@ -217,7 +217,7 @@ func TestWebhookDeliverHookTask(t *testing.T) {
 		URL:         s.URL + "/webhook",
 		HTTPMethod:  "PUT",
 		ContentType: webhook_model.ContentTypeJSON,
-		Meta:        `{"message_type":0}`, // text
+		Meta:        `{"message_type":0,"notification":{"style":"legacy"}}`, // Legacy payload compatibility
 	}
 	assert.NoError(t, webhook_model.CreateWebhook(t.Context(), hook))
 

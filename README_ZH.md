@@ -10,12 +10,18 @@
 
 ![GitSSS 首页](docs/site/assets/screenshots/home.png)
 
-- 首页充分利用桌面宽度，支持公共入口和个人快捷链接，多项添加、编辑、删除均在当前页完成。
+- 首页充分利用桌面宽度，支持组织超链接和个人链接，多项添加、编辑、删除均在当前页完成。
 - 组织英文标识与备注同时显示，首页支持按两者搜索，不改变仓库地址或权限。
 - 仓库功能统一使用一套完整桌面界面，后台采用清晰字号和分组导航，不再提供经典/新版页面切换。
 - 贡献热图默认可见并跟随团队筛选；后台展示磁盘总容量、已用/可用与实测 Git/LFS 文件大小。
 
 ![GitSSS 仓库概览](docs/site/assets/screenshots/repository.png)
+
+- 仓库左侧新增 **Docs**，直接展示 Git/LFS 中的 HTML，继承代码读取权限并隔离运行。
+- 飞书、企业微信、Telegram、Discord 等八类原生通知，支持精美卡片、路由策略和模板。
+- 30 个内置头像按风格分组，支持用户名文字生成、自定义上传及全局唯一邮箱修改。
+
+详见 [HTML 说明书](docs/site/collaboration.html) 与 [行为/API/回滚说明](docs/features/html-docs-notifications.md)。
 
 ## 前置条件
 
@@ -301,3 +307,10 @@ make release-native VERSION=1.3.0
 管理后台正文、侧栏及表格统一使用 15px 字号，说明和按钮为 14px，磁盘统计横向四栏显示。
 
 ![清晰的管理后台与磁盘及 Git/LFS 统计](docs/site/assets/screenshots/storage.png)
+
+
+以下 HTML Docs 与头像风格截图来自 2026-10-17 的隔离演示实例。
+
+![Repository HTML Docs](docs/site/assets/screenshots/html-docs.png)
+
+![Avatar styles](docs/site/assets/screenshots/avatar-styles.png)

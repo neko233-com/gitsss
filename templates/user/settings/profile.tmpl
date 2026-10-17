@@ -99,8 +99,25 @@
 		<h4 class="ui top attached header">
 			{{ctx.Locale.Tr "settings.avatar"}}
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment avatar-settings" data-avatar-picker>
+			<div class="ui secondary pointing menu avatar-style-tabs" role="tablist" aria-label="{{ctx.Locale.Tr "settings.avatar.styles"}}">
+				{{range $index, $style := .BuiltinAvatarStyles}}<button type="button" class="item {{if eq $index 0}}active{{end}}" role="tab" id="avatar-tab-{{$style.ID}}" aria-controls="avatar-panel-{{$style.ID}}" aria-selected="{{if eq $index 0}}true{{else}}false{{end}}" tabindex="{{if eq $index 0}}0{{else}}-1{{end}}" data-avatar-style="{{$style.ID}}">{{ctx.Locale.Tr $style.Label}}</button>{{end}}
+				<button type="button" class="item" role="tab" id="avatar-tab-initials" aria-controls="avatar-panel-initials" aria-selected="false" tabindex="-1" data-avatar-style="initials">{{ctx.Locale.Tr "settings.avatar.style.initials"}}</button>
+				<button type="button" class="item" role="tab" id="avatar-tab-custom" aria-controls="avatar-panel-custom" aria-selected="false" tabindex="-1" data-avatar-style="custom">{{ctx.Locale.Tr "settings.avatar.style.custom"}}</button>
+			</div>
+			{{range $index, $style := .BuiltinAvatarStyles}}
+			<section role="tabpanel" id="avatar-panel-{{$style.ID}}" aria-labelledby="avatar-tab-{{$style.ID}}" data-avatar-panel="{{$style.ID}}" {{if ne $index 0}}hidden{{end}}>
+				<div class="builtin-avatar-picker">{{range $i := $style.Indexes}}
+					<form method="post" action="{{$.Link}}/avatar">{{$.CsrfTokenHtml}}<input type="hidden" name="preset" value="{{$i}}"><button type="submit" aria-label="{{ctx.Locale.Tr "settings.builtin_avatar_choose" (Eval $i "+" 1)}}"><img src="{{AppSubUrl}}/-/builtin-avatar/{{$i}}" width="80" height="80" loading="lazy" alt="{{ctx.Locale.Tr "settings.builtin_avatar_choose" (Eval $i "+" 1)}}"></button></form>
+				{{end}}</div>
+			</section>
+			{{end}}
+			<section role="tabpanel" id="avatar-panel-initials" aria-labelledby="avatar-tab-initials" data-avatar-panel="initials" hidden>
+				<p>{{ctx.Locale.Tr "settings.avatar.initials_help" .SignedUser.Name}}</p><div class="builtin-avatar-picker">{{range $i := 8}}<form method="post" action="{{$.Link}}/avatar">{{$.CsrfTokenHtml}}<input type="hidden" name="preset" value="initials:{{$i}}"><button type="submit" aria-label="{{ctx.Locale.Tr "settings.avatar.initials_choose" (Eval $i "+" 1)}}"><img src="{{AppSubUrl}}/user/settings/avatar/generated/{{$i}}" width="80" height="80" loading="lazy" alt="{{$.SignedUser.Name}}"></button></form>{{end}}</div>
+			</section>
+			<section role="tabpanel" id="avatar-panel-custom" aria-labelledby="avatar-tab-custom" data-avatar-panel="custom" hidden>
 			<form class="ui form" action="{{.Link}}/avatar" method="post" enctype="multipart/form-data">
+				{{.CsrfTokenHtml}}
 				{{if not .DisableGravatar}}
 				<div class="inline field">
 					<div class="ui radio checkbox">
@@ -130,14 +147,9 @@
 					<button class="ui red button link-action" data-url="{{.Link}}/avatar/delete">{{ctx.Locale.Tr "settings.delete_current_avatar"}}</button>
 				</div>
 			</form>
-			<h5>{{ctx.Locale.Tr "settings.builtin_avatars"}}</h5>
-			<p>{{ctx.Locale.Tr "settings.builtin_avatars_help"}}</p>
-			<div class="builtin-avatar-picker">
-				{{range $i := 24}}
-				<form method="post" action="{{$.Link}}/avatar"><input type="hidden" name="preset" value="{{$i}}"><button type="submit" aria-label="{{ctx.Locale.Tr "settings.builtin_avatar_choose" (Eval $i "+" 1)}}"><img src="{{AppSubUrl}}/-/builtin-avatar/{{$i}}" width="80" height="80" alt="{{ctx.Locale.Tr "settings.builtin_avatar_choose" (Eval $i "+" 1)}}"></button></form>
-				{{end}}
-			</div>
-			<small class="text light-2">{{ctx.Locale.Tr "settings.builtin_avatars_credit"}} <a href="{{AppSubUrl}}/help/site/enterprise.html#avatars">Lisa Wischofsky / DiceBear</a></small>
+			</section>
+			<p class="help">{{ctx.Locale.Tr "settings.avatar.library_help"}}</p>
+			<small class="text light-2">{{ctx.Locale.Tr "settings.builtin_avatars_credit"}} <a href="{{AppSubUrl}}/help/site/enterprise.html#avatars">{{ctx.Locale.Tr "settings.avatar.credits"}}</a></small>
 		</div>
 	</div>
 {{template "user/settings/layout_footer" .}}

@@ -22,9 +22,10 @@ Screenshots below show a demonstration instance captured on 2026-10-16; no produ
 - Visible contribution heatmaps with team filtering, and a readable 15px administration overview of volume capacity, usage and measured Git/LFS bytes.
 - A consistent organization workspace with searchable organization/team menus and in-place team filtering.
 - One shared organization board: quick task cards, search, @member assignment and drag-to-change status; repository boards stay independent.
-- Automatic system/browser language, readable desktop themes, and 24 built-in avatars with automatic crop/compression for custom uploads.
-
-- Compact desktop layouts, a separate Quick links tab, and automatic repository team assignment using organization-owned regex rules.
+- Automatic system/browser language, readable desktop themes, and 30 built-in avatars with automatic crop/compression for custom uploads.
+- [Repository HTML Docs and eight native notification channels](docs/site/collaboration.html), with isolated rendering, routing policies and provider failure detection.
+- Avatar style tabs, username initials and globally unique primary-email editing.
+- Compact desktop layouts, a separate Organization links tab, and automatic repository team assignment using organization-owned regex rules.
 - Native [Express233 upload](docs/operations/express233-upload.md) from Actions, with streamed uploads and optional publication.
 
 ![Repository overview](docs/site/assets/screenshots/repository.png)
@@ -156,3 +157,10 @@ Run `task help` to list development targets. Common checks include `task fmt`, `
 The offline HTML manual is bundled at `/help/` (English default). Native Actions runners require Git, Git LFS and Node.js. Operator commands: `tools/verify-git.py`, `tools/agent-ops.py`, and `tools/rehearse-native.py`; use `--help` for their inputs.
 
 ![Readable administration with volume and Git/LFS measurements](docs/site/assets/screenshots/storage.png)
+
+
+HTML Docs and avatar styles, captured from an isolated demonstration instance on 2026-10-17.
+
+![Repository HTML Docs](docs/site/assets/screenshots/html-docs.png)
+
+![Avatar styles](docs/site/assets/screenshots/avatar-styles.png)

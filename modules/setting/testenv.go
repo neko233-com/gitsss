@@ -106,6 +106,7 @@ func SetupGiteaTestEnv() {
 		if err := PrepareAppDataPath(); err != nil {
 			log.Fatal("Can not prepare APP_DATA_PATH: %v", err)
 		}
+		isolateTestSSH(CfgProvider, AppDataPath)
 
 		// register the dummy hash algorithm function used in the test fixtures
 		_ = hash.Register("dummy", hash.NewDummyHasher)
@@ -124,6 +125,20 @@ func SetupGiteaTestEnv() {
 	// TODO: some git repo hooks (test fixtures) still use these env variables, need to be refactored in the future
 	_ = os.Setenv("GITEA_ROOT", giteaRoot)
 	_ = os.Setenv("GITEA_CONF", giteaConf) // test fixture git hooks use "$GITEA_ROOT/$GITEA_CONF" in their scripts
+}
+
+// Test key operations must never inherit the developer's system SSH directory.
+func isolateTestSSH(cfg ConfigProvider, dataPath string) {
+	root := filepath.Join(dataPath, "test-ssh")
+	sec := cfg.Section("server")
+	sec.Key("SSH_ROOT_PATH").SetValue(root)
+	sec.Key("SSH_TRUSTED_USER_CA_KEYS_FILENAME").SetValue(filepath.Join(root, "gitea-trusted-user-ca-keys.pem"))
+	sec.Key("SSH_CREATE_AUTHORIZED_KEYS_FILE").SetValue("false")
+	sec.Key("SSH_CREATE_AUTHORIZED_PRINCIPALS_FILE").SetValue("false")
+	SSH.RootPath = root
+	SSH.TrustedUserCAKeysFile = filepath.Join(root, "gitea-trusted-user-ca-keys.pem")
+	SSH.CreateAuthorizedKeysFile = false
+	SSH.CreateAuthorizedPrincipalsFile = false
 }
 
 func PrepareIntegrationTestConfig() error {

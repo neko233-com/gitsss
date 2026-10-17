@@ -11,7 +11,6 @@ import (
 	"github.com/neko233-com/gitsss/models/db"
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/models/webhook"
-	"github.com/neko233-com/gitsss/modules/json"
 	"github.com/neko233-com/gitsss/modules/setting"
 	api "github.com/neko233-com/gitsss/modules/structs"
 	"github.com/neko233-com/gitsss/modules/util"
@@ -234,30 +233,12 @@ func addHook(ctx *context.APIContext, form *api.CreateHookOption, ownerID, repoI
 		ctx.APIErrorInternal(err)
 		return nil, false
 	}
-	if w.Type == webhook_module.SLACK {
-		channel, ok := form.Config["channel"]
-		if !ok {
-			ctx.APIError(http.StatusUnprocessableEntity, "Missing config option: channel")
-			return nil, false
-		}
-		channel = strings.TrimSpace(channel)
-
-		if !webhook_service.IsValidSlackChannel(channel) {
-			ctx.APIError(http.StatusBadRequest, "Invalid slack channel name")
-			return nil, false
-		}
-
-		meta, err := json.Marshal(&webhook_service.SlackMeta{
-			Channel:  channel,
-			Username: form.Config["username"],
-			IconURL:  form.Config["icon_url"],
-			Color:    form.Config["color"],
-		})
+	if webhook_service.NotificationWebhookSupported(w.Type) {
+		w.Meta, err = webhook_service.NotificationConfigMeta(w.Type, "", form.Config)
 		if err != nil {
-			ctx.APIErrorInternal(err)
+			ctx.APIError(http.StatusUnprocessableEntity, err.Error())
 			return nil, false
 		}
-		w.Meta = string(meta)
 	}
 
 	if err := w.UpdateEvent(); err != nil {
@@ -354,20 +335,13 @@ func editHook(ctx *context.APIContext, form *api.EditHookOption, w *webhook.Webh
 			w.ContentType = webhook.ToHookContentType(ct)
 		}
 
-		if w.Type == webhook_module.SLACK {
-			if channel, ok := form.Config["channel"]; ok {
-				meta, err := json.Marshal(&webhook_service.SlackMeta{
-					Channel:  channel,
-					Username: form.Config["username"],
-					IconURL:  form.Config["icon_url"],
-					Color:    form.Config["color"],
-				})
-				if err != nil {
-					ctx.APIErrorInternal(err)
-					return false
-				}
-				w.Meta = string(meta)
+		if webhook_service.NotificationWebhookSupported(w.Type) {
+			meta, err := webhook_service.NotificationConfigMeta(w.Type, w.Meta, form.Config)
+			if err != nil {
+				ctx.APIError(http.StatusUnprocessableEntity, err.Error())
+				return false
 			}
+			w.Meta = meta
 		}
 	}
 

@@ -1,0 +1,23 @@
+.html-docs-toolbar {
+  min-height: 42px;
+  gap: 12px;
+}
+
+.html-docs-frame {
+  display: block;
+  width: 100%;
+  height: calc(100vh - 156px);
+  min-height: 560px;
+  border: 1px solid var(--color-secondary);
+  border-radius: 6px;
+  background: var(--color-white);
+}
+
+.html-docs-settings > summary {
+  cursor: pointer;
+  font-weight: var(--font-weight-semibold);
+}
+
+.html-docs-settings form {
+  margin-top: 12px;
+}

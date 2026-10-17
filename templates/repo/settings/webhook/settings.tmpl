@@ -47,6 +47,7 @@
 {{end}}
 
 <!-- Branch filter -->
+{{template "repo/settings/webhook/notification" .}}
 <div class="field">
 	<label>{{ctx.Locale.Tr "repo.settings.branch_filter"}}</label>
 	<input name="branch_filter" type="text" value="{{or .Webhook.BranchFilter "*"}}">

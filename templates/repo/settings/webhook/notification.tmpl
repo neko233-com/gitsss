@@ -1,0 +1,26 @@
+{{with .NotificationSettings}}
+<div class="ui segment">
+	<h4>{{ctx.Locale.Tr "repo.settings.webhook.notification_presentation"}}</h4>
+	<div class="three fields">
+		<div class="field"><label for="notification-style">{{ctx.Locale.Tr "repo.settings.webhook.notification_style"}}</label><select id="notification-style" name="notification_style"><option value="rich" {{if ne .Style "legacy"}}selected{{end}}>{{ctx.Locale.Tr "repo.settings.webhook.notification_rich"}}</option><option value="legacy" {{if eq .Style "legacy"}}selected{{end}}>{{ctx.Locale.Tr "repo.settings.webhook.notification_legacy"}}</option></select></div>
+		<div class="field"><label for="notification-language">{{ctx.Locale.Tr "repo.settings.webhook.notification_language"}}</label><select id="notification-language" name="notification_language"><option value="en-US" {{if ne .Language "zh-CN"}}selected{{end}}>English</option><option value="zh-CN" {{if eq .Language "zh-CN"}}selected{{end}}>简体中文</option></select></div>
+		<div class="field"><label for="notification-max">{{ctx.Locale.Tr "repo.settings.webhook.notification_max_commits"}}</label><input id="notification-max" type="number" name="notification_max_commits" min="1" max="10" value="{{or .MaxCommits 5}}"></div>
+	</div>
+	<div class="two fields">
+		<div class="field"><label for="notification-repos">{{ctx.Locale.Tr "repo.settings.webhook.notification_repositories"}}</label><input id="notification-repos" name="notification_repositories" maxlength="512" value="{{.RepositoryFilter}}" placeholder="{engineering/*,tools/*}"></div>
+		<div class="field"><label for="notification-exclude">{{ctx.Locale.Tr "repo.settings.webhook.notification_exclude"}}</label><input id="notification-exclude" name="notification_exclude" maxlength="512" value="{{.ExcludeRepository}}" placeholder="*/scratch-*"></div>
+	</div>
+	<div class="field"><label for="notification-actors">{{ctx.Locale.Tr "repo.settings.webhook.notification_actors"}}</label><input id="notification-actors" name="notification_actors" maxlength="512" value="{{.ActorFilter}}" placeholder="{alice,bob}"></div>
+	<p class="help">{{ctx.Locale.Tr "repo.settings.webhook.notification_routing_help"}}</p>
+	<div class="inline fields">
+		<div class="field"><div class="ui checkbox"><input type="checkbox" name="notification_files" {{if .IncludeFiles}}checked{{end}}><label>{{ctx.Locale.Tr "repo.settings.webhook.notification_files"}}</label></div></div>
+		<div class="field"><div class="ui checkbox"><input type="checkbox" name="notification_commit_body" {{if .IncludeCommitBody}}checked{{end}}><label>{{ctx.Locale.Tr "repo.settings.webhook.notification_commit_body"}}</label></div></div>
+		<div class="field"><div class="ui checkbox"><input type="checkbox" name="notification_skip_bots" {{if .SkipBots}}checked{{end}}><label>{{ctx.Locale.Tr "repo.settings.webhook.notification_skip_bots"}}</label></div></div>
+	</div>
+	<details><summary>{{ctx.Locale.Tr "repo.settings.webhook.notification_customization"}}</summary>
+		<div class="field"><label for="notification-title">{{ctx.Locale.Tr "repo.settings.webhook.notification_title_template"}}</label><input id="notification-title" name="notification_title" maxlength="16384" value="{{.TitleTemplate}}"></div>
+		<div class="field"><label for="notification-body">{{ctx.Locale.Tr "repo.settings.webhook.notification_body_template"}}</label><textarea id="notification-body" name="notification_body" rows="5" maxlength="16384">{{.MessageTemplate}}</textarea><p class="help">{{ctx.Locale.Tr "repo.settings.webhook.message_template_helper" (HTMLFormat "<code>%s</code> <code>%s</code> <code>%s</code>" "\u007b\u007b.Event\u007d\u007d" "\u007b\u007b.Text\u007d\u007d" "\u007b\u007b.Payload.repository.full_name\u007d\u007d")}}</p></div>
+		<div class="two fields"><div class="field"><label for="notification-footer">{{ctx.Locale.Tr "repo.settings.webhook.notification_footer"}}</label><input id="notification-footer" name="notification_footer" maxlength="300" value="{{.Footer}}"></div><div class="field"><label for="notification-color">{{ctx.Locale.Tr "repo.settings.webhook.notification_color"}}</label><input id="notification-color" name="notification_color" maxlength="7" value="{{.Color}}" placeholder="#3b82f6"></div></div>
+	</details>
+</div>
+{{end}}

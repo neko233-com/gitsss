@@ -142,6 +142,9 @@ func WebhooksNew(ctx *context.Context) {
 
 	hookType := checkHookType(ctx)
 	ctx.Data["HookType"] = hookType
+	if webhook_service.NotificationWebhookSupported(hookType) {
+		ctx.Data["NotificationSettings"], _ = webhook_service.GetNotificationSettings("")
+	}
 	if ctx.Written() {
 		return
 	}
@@ -225,13 +228,11 @@ func createWebhook(ctx *context.Context, params webhookParams) {
 		return
 	}
 
-	var meta []byte
-	if params.Meta != nil {
-		meta, err = json.Marshal(params.Meta)
-		if err != nil {
-			ctx.ServerError("Marshal", err)
-			return
-		}
+	meta, err := notificationFormMeta(ctx, params)
+	if err != nil {
+		ctx.Flash.Error(ctx.Tr("repo.settings.webhook.notification_invalid", err))
+		ctx.HTML(http.StatusUnprocessableEntity, orCtx.NewTemplate)
+		return
 	}
 
 	w := &webhook.Webhook{
@@ -244,7 +245,7 @@ func createWebhook(ctx *context.Context, params webhookParams) {
 		HookEvent:       ParseHookEvent(params.WebhookForm),
 		IsActive:        params.WebhookForm.Active,
 		Type:            params.Type,
-		Meta:            string(meta),
+		Meta:            meta,
 		OwnerID:         orCtx.OwnerID,
 		IsSystemWebhook: orCtx.IsSystemWebhook,
 	}
@@ -281,14 +282,11 @@ func editWebhook(ctx *context.Context, params webhookParams) {
 		return
 	}
 
-	var meta []byte
-	var err error
-	if params.Meta != nil {
-		meta, err = json.Marshal(params.Meta)
-		if err != nil {
-			ctx.ServerError("Marshal", err)
-			return
-		}
+	meta, err := notificationFormMeta(ctx, params)
+	if err != nil {
+		ctx.Flash.Error(ctx.Tr("repo.settings.webhook.notification_invalid", err))
+		ctx.HTML(http.StatusUnprocessableEntity, orCtx.NewTemplate)
+		return
 	}
 
 	w.URL = params.URL
@@ -298,7 +296,7 @@ func editWebhook(ctx *context.Context, params webhookParams) {
 	w.HookEvent = ParseHookEvent(params.WebhookForm)
 	w.IsActive = params.WebhookForm.Active
 	w.HTTPMethod = params.HTTPMethod
-	w.Meta = string(meta)
+	w.Meta = meta
 
 	err = w.SetHeaderAuthorization(params.WebhookForm.AuthorizationHeader)
 	if err != nil {
@@ -343,6 +341,19 @@ func giteaHookParams(ctx *context.Context) webhookParams {
 		HTTPMethod:  form.HTTPMethod,
 		WebhookForm: form.WebhookForm,
 	}
+}
+
+func notificationFormMeta(ctx *context.Context, params webhookParams) (string, error) {
+	if webhook_service.NotificationWebhookSupported(params.Type) {
+		settings := params.WebhookForm.NotificationSettings()
+		ctx.Data["NotificationSettings"] = settings
+		return webhook_service.NotificationMeta(params.Meta, settings)
+	}
+	if params.Meta == nil {
+		return "", nil
+	}
+	body, err := json.Marshal(params.Meta)
+	return string(body), err
 }
 
 // GogsHooksNewPost response for creating Gogs webhook
@@ -546,7 +557,7 @@ func feishuHookParams(ctx *context.Context) webhookParams {
 		ContentType: webhook.ContentTypeJSON,
 		WebhookForm: form.WebhookForm,
 		Meta: &webhook_service.FeishuMeta{
-			MessageTemplate: strings.TrimSpace(form.MessageTemplate),
+			MessageTemplate: strings.TrimSpace(form.NotificationBody),
 		},
 	}
 }
@@ -643,6 +654,17 @@ func checkWebhook(ctx *context.Context) (*ownerRepoCtx, *webhook.Webhook) {
 	ctx.Data["History"], err = w.History(ctx, 1)
 	if err != nil {
 		ctx.ServerError("History", err)
+	}
+	if webhook_service.NotificationWebhookSupported(w.Type) {
+		settings, err := webhook_service.GetNotificationSettings(w.Meta)
+		if err != nil {
+			ctx.ServerError("GetNotificationSettings", err)
+			return nil, nil
+		}
+		if w.Type == webhook_module.FEISHU && settings.MessageTemplate == "" {
+			settings.MessageTemplate = webhook_service.GetFeishuHook(w).MessageTemplate
+		}
+		ctx.Data["NotificationSettings"] = settings
 	}
 	return orCtx, w
 }

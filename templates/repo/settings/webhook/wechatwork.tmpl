@@ -6,6 +6,6 @@
 			<input id="payload_url" name="payload_url" type="url" value="{{.Webhook.URL}}" autofocus required>
 		</div>
 		{{/* FIXME: support authorization header or not? */}}
-		{{template "repo/settings/webhook/settings" dict "BaseLink" .BaseLink "Webhook" .Webhook "UseAuthorizationHeader" "optional"}}
+		{{template "repo/settings/webhook/settings" dict "NotificationSettings" $.NotificationSettings "BaseLink" .BaseLink "Webhook" .Webhook "UseAuthorizationHeader" "optional"}}
 	</form>
 {{end}}

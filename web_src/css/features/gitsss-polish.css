@@ -153,3 +153,60 @@
     transform: none;
   }
 }
+
+/* Legacy theme selections retain readable branding and links after upgrades. */
+#navbar-logo .gitsss-brand {
+  flex: none;
+  color: inherit;
+}
+
+html[data-theme*="dark"] img[src$="/img/logo.svg"] {
+  filter: brightness(0) invert(1);
+}
+
+html[data-theme*="dark"] {
+  --gitsss-readable-link: #79b8ff;
+}
+
+html[data-theme*="dark"] a:not(.button, .item, .label, .muted) {
+  color: var(--gitsss-readable-link);
+}
+
+.avatar-style-tabs {
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.avatar-style-tabs button.item {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.avatar-style-tabs button.item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+[data-avatar-panel][hidden] {
+  display: none;
+}
+
+.avatar-settings .builtin-avatar-picker {
+  gap: 12px;
+  padding: 12px 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-theme*="auto"] {
+    --gitsss-readable-link: #79b8ff;
+  }
+
+  html[data-theme*="auto"] a:not(.button, .item, .label, .muted) {
+    color: var(--gitsss-readable-link);
+  }
+
+  html[data-theme*="auto"] img[src$="/img/logo.svg"] {
+    filter: brightness(0) invert(1);
+  }
+}

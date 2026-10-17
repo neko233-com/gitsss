@@ -8,11 +8,6 @@
 			<label for="payload_url">{{ctx.Locale.Tr "repo.settings.payload_url"}}</label>
 			<input id="payload_url" name="payload_url" type="url" value="{{.Webhook.URL}}" autofocus required>
 		</div>
-		<div class="field {{if .Err_MessageTemplate}}error{{end}}">
-			<label for="message_template">{{ctx.Locale.Tr "repo.settings.webhook.message_template"}}</label>
-			<textarea id="message_template" name="message_template" rows="8" maxlength="16384" placeholder="[&#123;&#123;.Event&#125;&#125;] &#123;&#123;.Text&#125;&#125;">{{.FeishuHook.MessageTemplate}}</textarea>
-			<p class="help">{{ctx.Locale.Tr "repo.settings.webhook.message_template_helper" (HTMLFormat "<code>%s</code> <code>%s</code> <code>%s</code>" "\u007b\u007b.Event\u007d\u007d" "\u007b\u007b.Text\u007d\u007d" "\u007b\u007b.Payload.repository.full_name\u007d\u007d")}}</p>
-		</div>
-		{{template "repo/settings/webhook/settings" dict "BaseLink" .BaseLink "Webhook" .Webhook "UseRequestSecret" "optional"}}
+		{{template "repo/settings/webhook/settings" dict "NotificationSettings" $.NotificationSettings "BaseLink" .BaseLink "Webhook" .Webhook "UseRequestSecret" "optional"}}
 	</form>
 {{end}}

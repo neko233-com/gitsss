@@ -24,6 +24,19 @@ type NotificationTemplateData struct {
 	Payload map[string]any
 }
 
+type notificationOutput struct{ bytes.Buffer }
+
+func (w *notificationOutput) Write(data []byte) (int, error) {
+	if w.Len()+len(data) > maxNotificationOutputSize {
+		return 0, errors.New("rendered notification exceeds 64 KiB")
+	}
+	return w.Buffer.Write(data)
+}
+
+func (w *notificationOutput) WriteString(text string) (int, error) {
+	return w.Write([]byte(text))
+}
+
 // ValidateNotificationTemplate checks syntax without executing the template.
 func ValidateNotificationTemplate(source string) error {
 	if len(source) > MaxNotificationTemplateSize {
@@ -53,7 +66,7 @@ func renderNotificationTemplate(source string, event webhook_module.HookEventTyp
 		return "", err
 	}
 
-	var output bytes.Buffer
+	var output notificationOutput
 	if err := tmpl.Execute(&output, NotificationTemplateData{
 		Event:   string(event),
 		Text:    defaultText,

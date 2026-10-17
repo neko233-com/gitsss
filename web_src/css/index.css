@@ -40,6 +40,7 @@
 /* Retained GitSSS views use the original layout classes. */
 @import "./shared/legacy-flex-list.css";
 @import "./shared/settings.css";
+@import "./repo/html-docs.css";
 
 @import "./features/dropzone.css";
 @import "./features/gitgraph.css";

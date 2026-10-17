@@ -88,6 +88,13 @@
 
 		{{if not ($.UserDisabledFeatures.Contains "manage_credentials")}}
 		<div class="ui bottom attached segment">
+			<form class="ui form" action="{{AppSubUrl}}/user/settings/account/email/change" method="post">
+				{{.CsrfTokenHtml}}
+				<div class="required field"><label for="change-primary-email">{{ctx.Locale.Tr "settings.change_email"}}</label><input id="change-primary-email" name="email" type="email" value="{{.SignedUser.Email}}" required></div>
+				<p class="help">{{ctx.Locale.Tr "settings.change_email_help"}}</p>
+				<button class="ui primary button" type="submit">{{ctx.Locale.Tr "settings.change_email"}}</button>
+			</form>
+			<div class="ui divider"></div>
 			<form class="ui form" action="{{AppSubUrl}}/user/settings/account/email" method="post">
 				<div class="required field {{if .Err_Email}}error{{end}}">
 					<label for="email">{{ctx.Locale.Tr "settings.add_new_email"}}</label>

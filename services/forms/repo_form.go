@@ -239,6 +239,30 @@ type WebhookForm struct {
 	BranchFilter             string `binding:"GlobPattern"`
 	AuthorizationHeader      string
 	Secret                   string
+	NotificationStyle        string
+	NotificationLanguage     string
+	NotificationTitle        string
+	NotificationBody         string
+	NotificationFooter       string
+	NotificationColor        string
+	NotificationMaxCommits   int
+	NotificationFiles        bool
+	NotificationCommitBody   bool
+	NotificationRepositories string
+	NotificationExclude      string
+	NotificationActors       string
+	NotificationSkipBots     bool
+}
+
+func (f WebhookForm) NotificationSettings() webhook.NotificationSettings {
+	return webhook.NotificationSettings{
+		Style: f.NotificationStyle, Language: f.NotificationLanguage,
+		TitleTemplate: f.NotificationTitle, MessageTemplate: f.NotificationBody,
+		Footer: f.NotificationFooter, Color: f.NotificationColor,
+		MaxCommits: f.NotificationMaxCommits, IncludeFiles: f.NotificationFiles,
+		IncludeCommitBody: f.NotificationCommitBody, RepositoryFilter: f.NotificationRepositories,
+		ExcludeRepository: f.NotificationExclude, ActorFilter: f.NotificationActors, SkipBots: f.NotificationSkipBots,
+	}
 }
 
 // PushOnly if the hook will be triggered when push

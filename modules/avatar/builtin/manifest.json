@@ -1,5 +1,5 @@
 {
-  "generator": "DiceBear core/styles 10.6.0, resvg 2.6.2",
+  "generator": "DiceBear 10.6.0 and original Imagegen artwork; normalized PNG 256x256",
   "collected_at": "2026-10-16",
   "assets": [
     {
@@ -265,6 +265,96 @@
       "source": "https://www.figma.com/community/file/1198749693280469639",
       "license": "CC0 1.0",
       "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "bytes": 112980,
+      "creator": "GitSSS contributors / Imagegen",
+      "file": "24.png",
+      "license": "MIT",
+      "license_url": "https://github.com/neko233-com/gitsss/blob/main/LICENSE",
+      "prompt": "Original adult anime or fantasy adventurer portrait, friendly expression, centered face and shoulders, clear at small sizes, opaque simple background, no existing characters, logos, or text.",
+      "seed": "anime-sakura",
+      "sha256": "59957f9ce35750e443a070b9db3991fb1218d3148c71af85a7ea446fa6828661",
+      "source": "Original generated avatar artwork, 2026-10-17",
+      "style": "anime"
+    },
+    {
+      "bytes": 100147,
+      "creator": "GitSSS contributors / Imagegen",
+      "file": "25.png",
+      "license": "MIT",
+      "license_url": "https://github.com/neko233-com/gitsss/blob/main/LICENSE",
+      "prompt": "Original adult anime or fantasy adventurer portrait, friendly expression, centered face and shoulders, clear at small sizes, opaque simple background, no existing characters, logos, or text.",
+      "seed": "anime-aoi",
+      "sha256": "73505d302a542584a9ef21207571a20a8075fdc71a3e08269c327d8b6dfe93de",
+      "source": "Original generated avatar artwork, 2026-10-17",
+      "style": "anime"
+    },
+    {
+      "bytes": 110254,
+      "creator": "GitSSS contributors / Imagegen",
+      "file": "26.png",
+      "license": "MIT",
+      "license_url": "https://github.com/neko233-com/gitsss/blob/main/LICENSE",
+      "prompt": "Original adult anime or fantasy adventurer portrait, friendly expression, centered face and shoulders, clear at small sizes, opaque simple background, no existing characters, logos, or text.",
+      "seed": "anime-momo",
+      "sha256": "23cd78f3e59b1c041e6d322129484bbbf5f0af39ed9aa3fda388219dd8d1f96b",
+      "source": "Original generated avatar artwork, 2026-10-17",
+      "style": "anime"
+    },
+    {
+      "bytes": 117610,
+      "creator": "GitSSS contributors / Imagegen",
+      "file": "27.png",
+      "license": "MIT",
+      "license_url": "https://github.com/neko233-com/gitsss/blob/main/LICENSE",
+      "prompt": "Original adult anime or fantasy adventurer portrait, friendly expression, centered face and shoulders, clear at small sizes, opaque simple background, no existing characters, logos, or text.",
+      "seed": "fantasy-luna",
+      "sha256": "017b597646870f1b0bdf21053993e9e75e4dd2c741cccde6655cd00e2e115240",
+      "source": "Original generated avatar artwork, 2026-10-17",
+      "style": "fantasy"
+    },
+    {
+      "bytes": 112503,
+      "creator": "GitSSS contributors / Imagegen",
+      "file": "28.png",
+      "license": "MIT",
+      "license_url": "https://github.com/neko233-com/gitsss/blob/main/LICENSE",
+      "prompt": "Original adult anime or fantasy adventurer portrait, friendly expression, centered face and shoulders, clear at small sizes, opaque simple background, no existing characters, logos, or text.",
+      "seed": "fantasy-ren",
+      "sha256": "1a4a6baf463b409a360edf48390a70c06030cb8e90d7521c148ad05185419085",
+      "source": "Original generated avatar artwork, 2026-10-17",
+      "style": "fantasy"
+    },
+    {
+      "bytes": 119325,
+      "creator": "GitSSS contributors / Imagegen",
+      "file": "29.png",
+      "license": "MIT",
+      "license_url": "https://github.com/neko233-com/gitsss/blob/main/LICENSE",
+      "prompt": "Original adult anime or fantasy adventurer portrait, friendly expression, centered face and shoulders, clear at small sizes, opaque simple background, no existing characters, logos, or text.",
+      "seed": "fantasy-yuki",
+      "sha256": "57cd15f9aaedd9290ae2e32b1dc4ed7c35119b5e28c2fae26e5e029c2d39ddaa",
+      "source": "Original generated avatar artwork, 2026-10-17",
+      "style": "fantasy"
+    }
+  ],
+  "styles": [
+    {
+      "id": "anime",
+      "label": "settings.avatar.style.anime"
+    },
+    {
+      "id": "fantasy",
+      "label": "settings.avatar.style.fantasy"
+    },
+    {
+      "id": "adventurer",
+      "label": "settings.avatar.style.adventurer"
+    },
+    {
+      "id": "lorelei",
+      "label": "settings.avatar.style.lorelei"
     }
   ]
 }

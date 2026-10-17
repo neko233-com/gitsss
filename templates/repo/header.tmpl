@@ -198,6 +198,9 @@
 					</a>
 					{{end}}
 
+					{{if .Permission.CanRead ctx.Consts.RepoUnitTypeCode}}
+						<a class="{{if .PageIsHTMLDocs}}active {{end}}item" href="{{.RepoLink}}/-/docs">{{svg "octicon-browser"}} Docs</a>
+					{{end}}
 					{{if .Permission.CanRead ctx.Consts.RepoUnitTypeWiki}}
 						<a class="{{if .PageIsWiki}}active {{end}}item" href="{{.RepoLink}}/wiki">
 							{{svg "octicon-book"}} {{ctx.Locale.Tr "repo.wiki"}}
@@ -278,6 +281,9 @@
 				{{end}}
 				{{if .Permission.CanRead ctx.Consts.RepoUnitTypeWiki}}
 					<a class="repo-sidebar-link {{if .PageIsWiki}}active{{end}}" href="{{.RepoLink}}/wiki">{{svg "octicon-book" 16}}<span class="repo-sidebar-label">{{ctx.Locale.Tr "repo.wiki"}}</span></a>
+				{{end}}
+				{{if .Permission.CanRead ctx.Consts.RepoUnitTypeCode}}
+					<a class="repo-sidebar-link {{if .PageIsHTMLDocs}}active{{end}}" href="{{.RepoLink}}/-/docs">{{svg "octicon-browser" 16}}<span class="repo-sidebar-label">Docs</span></a>
 				{{end}}
 				{{if .Permission.CanRead ctx.Consts.RepoUnitTypeExternalTracker}}
 					<a class="repo-sidebar-link" href="{{.RepoExternalIssuesLink}}" target="_blank" rel="noopener noreferrer">{{svg "octicon-link-external" 16}}<span class="repo-sidebar-label">{{ctx.Locale.Tr "repo.issues"}}</span></a>

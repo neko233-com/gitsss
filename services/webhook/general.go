@@ -12,6 +12,7 @@ import (
 	user_model "github.com/neko233-com/gitsss/models/user"
 	webhook_model "github.com/neko233-com/gitsss/models/webhook"
 	"github.com/neko233-com/gitsss/modules/base"
+	"github.com/neko233-com/gitsss/modules/json"
 	"github.com/neko233-com/gitsss/modules/setting"
 	api "github.com/neko233-com/gitsss/modules/structs"
 	"github.com/neko233-com/gitsss/modules/util"
@@ -402,6 +403,18 @@ func ToHook(repoLink string, w *webhook_model.Webhook) (*api.Hook, error) {
 		config["username"] = s.Username
 		config["icon_url"] = s.IconURL
 		config["color"] = s.Color
+	}
+
+	if NotificationWebhookSupported(w.Type) {
+		settings, err := GetNotificationSettings(w.Meta)
+		if err != nil {
+			return nil, err
+		}
+		body, err := json.Marshal(settings)
+		if err != nil {
+			return nil, err
+		}
+		config["notification"] = string(body)
 	}
 
 	return &api.Hook{

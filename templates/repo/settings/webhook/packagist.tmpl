@@ -14,6 +14,6 @@
 			<input id="package_url" name="package_url" value="{{.PackagistHook.PackageURL}}" placeholder="https://packagist.org/packages/laravel/framework" required>
 		</div>
 		{{/* FIXME: support authorization header or not? */}}
-		{{template "repo/settings/webhook/settings" dict "BaseLink" .BaseLink "Webhook" .Webhook "UseAuthorizationHeader" "optional"}}
+		{{template "repo/settings/webhook/settings" dict "NotificationSettings" $.NotificationSettings "BaseLink" .BaseLink "Webhook" .Webhook "UseAuthorizationHeader" "optional"}}
 	</form>
 {{end}}

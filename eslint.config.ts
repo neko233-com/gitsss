@@ -1156,6 +1156,15 @@ export default defineConfig([
     languageOptions: {globals: globals.nodeBuiltin},
   },
   {
+    files: ['tools/**/*.cjs'],
+    languageOptions: {sourceType: 'commonjs', globals: globals.node},
+    rules: {
+      'import-x/no-commonjs': [0],
+      '@typescript-eslint/no-require-imports': [0],
+      'unicorn/prefer-module': [0],
+    },
+  },
+  {
     files: ['web_src/**/*'],
     languageOptions: {globals: {...globals.browser, ...globals.jquery}},
     rules: {

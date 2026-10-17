@@ -50,6 +50,7 @@ func Profile(ctx *context.Context) {
 	ctx.Data["PageIsSettingsProfile"] = true
 	ctx.Data["AllowedUserVisibilityModes"] = setting.Service.AllowedUserVisibilityModesSlice.ToVisibleTypeSlice()
 	ctx.Data["DisableGravatar"] = setting.Config().Picture.DisableGravatar.Value(ctx)
+	ctx.Data["BuiltinAvatarStyles"] = avatar.BuiltinStyles()
 
 	ctx.HTML(http.StatusOK, tplSettingsProfile)
 }
@@ -60,6 +61,7 @@ func ProfilePost(ctx *context.Context) {
 	ctx.Data["PageIsSettingsProfile"] = true
 	ctx.Data["AllowedUserVisibilityModes"] = setting.Service.AllowedUserVisibilityModesSlice.ToVisibleTypeSlice()
 	ctx.Data["DisableGravatar"] = setting.Config().Picture.DisableGravatar.Value(ctx)
+	ctx.Data["BuiltinAvatarStyles"] = avatar.BuiltinStyles()
 
 	if ctx.HasError() {
 		ctx.HTML(http.StatusOK, tplSettingsProfile)
@@ -127,6 +129,17 @@ func ProfilePost(ctx *context.Context) {
 // FIXME: limit size.
 func UpdateAvatarSetting(ctx *context.Context, form *forms.AvatarForm, ctxUser *user_model.User) error {
 	if form.Preset != "" {
+		if after, ok := strings.CutPrefix(form.Preset, "initials:"); ok {
+			palette, err := strconv.Atoi(after)
+			if err != nil {
+				return err
+			}
+			data, err := avatar.UsernameAvatarPNG(ctxUser.Name, palette)
+			if err != nil {
+				return err
+			}
+			return user_service.UploadAvatar(ctx, ctxUser, data)
+		}
 		index, err := strconv.Atoi(form.Preset)
 		if err != nil {
 			return err
@@ -198,6 +211,23 @@ func BuiltinAvatar(ctx *context.Context) {
 	}
 	ctx.Resp.Header().Set("Content-Type", "image/png")
 	ctx.Resp.Header().Set("Cache-Control", "public, max-age=86400")
+	_, _ = ctx.Resp.Write(data)
+}
+
+func GeneratedAvatar(ctx *context.Context) {
+	palette, err := strconv.Atoi(ctx.PathParam("color"))
+	if err != nil {
+		ctx.NotFound(err)
+		return
+	}
+	data, err := avatar.UsernameAvatarPNG(ctx.Doer.Name, palette)
+	if err != nil {
+		ctx.NotFound(err)
+		return
+	}
+	ctx.Resp.Header().Set("Content-Type", "image/png")
+	ctx.Resp.Header().Set("Cache-Control", "private, no-store")
+	ctx.Resp.WriteHeader(http.StatusOK)
 	_, _ = ctx.Resp.Write(data)
 }
 
