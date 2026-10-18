@@ -328,4 +328,4 @@ make release-native VERSION=1.3.0
 
 参见 [HTML 说明书](docs/site/workspace-centers.html) 与 [兼容性报告](docs/features/workspace-centers.md)。
 
-软件中心传输面板显示上传下载进度与速度，支持暂停上传、刷新后选择原文件校验续传。文件夹上传保留目录结构；拖拽时浏览器提供的空目录也会保留。批量移动和删除先完成冲突检查，再原子提交。批量下载使用虚拟 ZIP64，不在磁盘上额外保存压缩包；下载的暂停、续传及本地完成状态由浏览器下载管理器（Ctrl+J）处理。参见[传输 API、限制与回滚说明](docs/features/software-center-transfers.md)。
+软件中心的上传、下载统一在传输面板中管理，支持进度、速度、暂停、继续、取消和失败重试。浏览器 IndexedDB 缓存源文件及已接收的 8 MiB 分块，同一浏览器配置、账号和网站地址下，刷新或重开浏览器后自动恢复未暂停的任务。下载完成后在面板内保存并确认，释放缓存；浏览器配额、主动清理和空间回收会限制恢复。批量下载仍使用虚拟 ZIP64，服务器不额外保存压缩包。参见[传输 API、本地缓存与回滚说明](docs/features/software-center-transfers.md)。

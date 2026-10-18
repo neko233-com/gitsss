@@ -174,11 +174,11 @@ body:has(.workspace-sidebar) .page-footer { margin-left: var(--workspace-sidebar
 .software-transfers > summary { cursor: pointer; font-weight: var(--font-weight-semibold); }
 .software-transfers > p { color: var(--color-text-light-1); line-height: 1.6; max-width: 1000px; }
 .software-transfer-toolbar { display: flex; gap: 8px; margin-block: 12px; }
-.software-transfer-row { display: grid; grid-template-columns: minmax(150px, 1fr) 160px minmax(260px, 1.5fr) auto; gap: 16px; align-items: center; padding: 10px 12px; border: 1px solid var(--color-secondary); border-radius: 6px; font-variant-numeric: tabular-nums; }
+.software-transfer-row { display: grid; grid-template-columns: minmax(140px, 1fr) 140px minmax(240px, 1.4fr) auto; gap: 16px; align-items: center; padding: 10px 12px; border: 1px solid var(--color-secondary); border-radius: 6px; font-variant-numeric: tabular-nums; }
 .software-transfer-row > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--font-weight-semibold); }
 .software-transfer-row progress { width: 100%; height: 8px; accent-color: var(--color-primary); }
 .software-transfer-detail { color: var(--color-text-light-1); overflow-wrap: anywhere; }
-.software-transfer-controls { display: flex; gap: 6px; }
+.software-transfer-controls { display: flex; gap: 6px; flex-wrap: wrap; max-width: 400px; }
 .software-transfer-controls .ui.button { margin: 0; white-space: nowrap; }
 .software-transfer-row[data-state="failed"] { border-color: var(--color-red); }
 .software-transfers .software-uploads { margin-block: 8px; max-height: 32vh; overflow: auto; }

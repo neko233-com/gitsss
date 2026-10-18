@@ -179,6 +179,10 @@ func (w *downloadWriter) Write(data []byte) (int, error) {
 
 var softwareDownloadSlots = make(chan struct{}, 8)
 
+func softwareDownloadReceiptRequired(transfer, state string) bool {
+	return transfer != "managed" || state == "complete"
+}
+
 func SoftwareDownloadFile(ctx *context.Context) {
 	select {
 	case softwareDownloadSlots <- struct{}{}:
@@ -223,6 +227,10 @@ func SoftwareDownloadFile(ctx *context.Context) {
 		state = "complete"
 	}
 	update(0, state)
+	// Managed clients commit each range locally; avoid rewriting org metadata per chunk.
+	if !softwareDownloadReceiptRequired(ctx.Req.Header.Get("X-GitSSS-Transfer"), state) {
+		return
+	}
 	receiptContext, cancel := stdcontext.WithTimeout(stdcontext.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	if err := softwarecenter.FinishDownload(receiptContext, ctx.Org.Organization.ID, ctx.Doer.ID, job.ID); err != nil {

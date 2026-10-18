@@ -1,11 +1,11 @@
 import {GET, POST, DELETE} from '../modules/fetch.ts';
 import {confirmModal} from './comp/ConfirmModal.ts';
 import type {HashRequest, HashReply} from './software-hash-worker.ts';
+import {TransferCache, type CachedTransfer} from './software-transfer-cache.ts';
+import {SoftwareDownloads} from './software-downloads.ts';
 
 export type UploadSession = {id: string; name: string; parent: string; size: number; offset: number; chain: string; client_key: string; chunk_size: number; node?: {digest: string}};
-type DownloadJob = {id: string; name: string; size: number};
-type UploadTask = {key: string; name: string; folder: string; size: number; file?: File; session?: UploadSession; paused: boolean; cancelled: boolean; running: boolean; state: string; row?: HTMLElement; xhr?: XMLHttpRequest; bytes: number; speed?: number};
-type DownloadTask = {job: DownloadJob; state: string; row: HTMLElement; lastBytes: number; lastTime: number; polling: boolean; started: number};
+type UploadTask = {key: string; name: string; folder: string; size: number; file?: File; session?: UploadSession; paused: boolean; cancelled: boolean; running: boolean; state: string; row?: HTMLElement; xhr?: XMLHttpRequest; bytes: number; speed?: number; cached?: boolean; cacheError?: boolean; cacheAbort?: AbortController};
 export const formatTransferBytes = (size: number): string => {
   const power = size >= 2 ** 30 ? 30 : size >= 2 ** 20 ? 20 : size >= 2 ** 10 ? 10 : 0;
   return `${(size / 2 ** power).toLocaleString(undefined, {maximumFractionDigits: 1})} ${({0: 'B', 10: 'KiB', 20: 'MiB', 30: 'GiB'})[power]}`;
@@ -43,32 +43,36 @@ export class SoftwareTransfers {
   private words: Record<string, string>;
   private changed: () => void;
   private uploads: UploadTask[] = [];
-  private downloads: DownloadTask[] = [];
+  private downloads!: SoftwareDownloads;
+  private cache: TransferCache;
+  private cacheAvailable = false;
+  private leaving = false;
   private active = 0;
   private sequence = 0;
   private queuePaused = false;
   private ready: Promise<void>;
   private uploading: HTMLElement;
-  private downloading: HTMLElement;
   private summary: HTMLElement;
   constructor(root: HTMLElement, base: string, words: Record<string, string>, changed: () => void) {
     this.root = root; this.base = base; this.words = words; this.changed = changed;
     this.uploading = root.querySelector('[data-transfer-uploads]')!;
-    this.downloading = root.querySelector('[data-transfer-downloads]')!;
+    this.cache = new TransferCache(`${root.getAttribute('data-user-id')}:${base}`);
+    this.downloads = new SoftwareDownloads(root, base, words, this.cache, formatTransferBytes, () => this.recount());
+    window.addEventListener('pagehide', async () => {this.leaving = true; for (const task of this.uploads) {task.paused = true; task.xhr?.abort()} this.downloads.suspend(); try {await this.cache.release()} catch {}});
     this.summary = root.querySelector('[data-transfer-summary]')!;
     root.querySelector('[data-transfer-clear]')!.addEventListener('click', () => {this.clearCompleted()});
-    window.addEventListener('beforeunload', (event) => {if (this.active || this.uploads.some((task) => task.state === 'queued')) {event.preventDefault()}});
+    window.addEventListener('beforeunload', (event) => {if (this.uploads.some((task) => !task.cached && task.file && task.state !== 'complete')) {event.preventDefault()}});
     root.querySelector('[data-transfer-pause]')!.addEventListener('click', () => {
-      this.queuePaused = true;
-      for (const task of this.uploads.filter((item) => item.state !== 'complete' && !item.cancelled)) {task.paused = true; task.xhr?.abort(); task.state = 'paused'; if (task.row) this.show(task, 'paused');}
+      this.queuePaused = true; this.downloads.pauseAll();
+      for (const task of this.uploads.filter((item) => item.state !== 'complete' && !item.cancelled)) {task.paused = true; task.xhr?.abort(); task.state = 'paused'; if (task.row) this.show(task, 'paused'); this.persistQuietly(task)}
       this.recount();
     });
     root.querySelector('[data-transfer-resume]')!.addEventListener('click', () => {
-      this.queuePaused = false;
-      for (const task of this.uploads.filter((item) => item.file && !item.cancelled && item.state === 'paused')) {task.paused = false; task.state = 'queued'}
+      this.queuePaused = false; this.downloads.resumeAll();
+      for (const task of this.uploads.filter((item) => item.file && !item.cancelled && (item.state === 'paused' || item.state === 'failed'))) {task.paused = false; task.state = 'queued'}
       this.pump();
     });
-    window.addEventListener('focus', () => {for (const task of this.downloads.filter((item) => item.state === 'queued')) this.poll(task);});
+    window.addEventListener('pageshow', (event) => {if (event.persisted) window.location.reload();});
     this.ready = this.restore();
   }
   private async json(url: string, init?: URLSearchParams, method: 'POST' | 'GET' | 'DELETE' = 'POST'): Promise<any> {
@@ -77,11 +81,11 @@ export class SoftwareTransfers {
     return response.json();
   }
   private recount() {
-    const queued = this.uploads.filter((task) => task.state === 'queued').length;
+    const queued = this.uploads.filter((task) => task.state === 'queued' || task.state === 'caching').length;
     const paused = this.uploads.filter((task) => task.state === 'paused').length;
-    this.root.querySelector<HTMLButtonElement>('[data-transfer-pause]')!.disabled = !this.active && !queued;
-    this.root.querySelector<HTMLButtonElement>('[data-transfer-resume]')!.disabled = this.uploads.some((task) => task.running && task.paused) || this.uploads.every((task) => !(task.file && task.paused && !task.cancelled));
-    this.summary.textContent = `${this.words.transfers} · ${this.words.uploading}: ${this.active} · ${this.words.queued}: ${queued} · ${this.words.paused}: ${paused}`;
+    this.root.querySelector<HTMLButtonElement>('[data-transfer-pause]')!.disabled = !this.active && !queued && !this.downloads.busy;
+    this.root.querySelector<HTMLButtonElement>('[data-transfer-resume]')!.disabled = !this.downloads.paused && (this.uploads.some((task) => task.running && task.paused) || this.uploads.every((task) => !(task.file && (task.paused || task.state === 'failed') && !task.cancelled)));
+    this.summary.textContent = `${this.words.transfers} · ${this.words.uploading}: ${this.active} · ${this.words.queued}: ${queued} · ${this.words.paused}: ${paused} · ${this.words.downloading}: ${this.downloads.busy}`;
   }
   async enqueue(files: Array<{file: File; folder: string}>) {
     await this.ready;
@@ -89,14 +93,31 @@ export class SoftwareTransfers {
     const index = new Map(this.uploads.filter((task) => !task.cancelled && task.state !== 'complete').map((task) => [JSON.stringify([task.folder, task.name, task.size]), task]));
     for (const {file, folder} of files) {
       const existing = index.get(JSON.stringify([folder, file.name.normalize('NFC'), file.size]));
-      if (existing) {if (!existing.running) {existing.file = file; existing.paused = false; existing.state = 'queued'} continue}
-      this.uploads.push({key: `local-${++this.sequence}`, name: file.name.normalize('NFC'), folder, size: file.size, file, paused: false, cancelled: false, running: false, state: 'queued', bytes: 0});
+      if (existing) {if (!existing.running) {existing.file = file; existing.cached = false; existing.cacheError = false; existing.paused = false; existing.state = 'queued'} continue}
+      this.uploads.push({key: `upload-${Date.now()}-${++this.sequence}-${Math.random()}`, name: file.name.normalize('NFC'), folder, size: file.size, file, paused: false, cancelled: false, running: false, state: 'queued', bytes: 0});
     }
+    for (const task of this.uploads.filter((item) => item.state === 'queued' && item.file && !item.cached)) await this.stage(task);
     this.pump();
   }
+  private async stage(task: UploadTask) {
+    if (task.cancelled) return;
+    try {
+      if (this.cacheAvailable) {
+        task.state = 'caching'; task.cacheAbort = new AbortController();
+        if (this.uploads.indexOf(task) < 40) this.show(task, 'caching'); this.recount();
+        await this.cache.put(this.record(task, task.paused ? 'paused' : 'queued'), task.file, task.cacheAbort.signal);
+        if (task.cancelled) {await this.cache.remove(task.key); return}
+        task.cached = true; task.state = task.paused ? 'paused' : 'queued'; await this.persist(task); if (task.paused && task.row) this.show(task, 'paused');
+      }
+    } catch {if (!task.cancelled) {task.cacheError = true; task.state = task.paused ? 'paused' : 'queued'}} finally {task.cacheAbort = undefined}
+  }
+  private record(task: UploadTask, state = task.state): CachedTransfer {return {scope: this.cache.scope, key: task.key, kind: 'upload', state, offset: task.bytes, updated: Date.now(), data: {name: task.name, folder: task.folder, size: task.size, session: task.session}}}
+  private async persist(task: UploadTask) {if (task.cached && !this.leaving) await this.cache.put(this.record(task));}
+  private async persistQuietly(task: UploadTask) {try {await this.persist(task)} catch {}}
+  private async resumeTask(task: UploadTask) {await this.persistQuietly(task); this.pump()}
   private pump() {
-    while (!this.queuePaused && this.active < 2) {
-      const task = this.uploads.find((item) => item.state === 'queued' && !item.running && !item.paused && !item.cancelled);
+    while (!this.leaving && !this.queuePaused && this.active < 2) {
+      const task = this.uploads.find((item) => item.state === 'queued' && (item.cached || item.cacheError || !this.cacheAvailable) && !item.running && !item.paused && !item.cancelled);
       if (!task) break;
       task.running = true; task.state = 'preparing'; this.active++;
       this.runQueued(task);
@@ -117,36 +138,37 @@ export class SoftwareTransfers {
   }
   private show(task: UploadTask, state: string, bytes = task.bytes, speed = 0, message = '') {
     task.state = state; task.bytes = bytes;
+    if (!task.row && !task.running && this.uploads.filter((entry) => entry.row?.isConnected).length >= 100) return;
     if (speed) task.speed = speed;
     if (state === 'complete') speed = task.speed || 0;
     const row = this.row(task); row.setAttribute('data-state', state);
     row.querySelector('progress')!.value = state === 'complete' && task.size === 0 ? 1 : bytes;
-    row.querySelector('.software-transfer-detail')!.textContent = `${this.words[state] || state} · ${formatTransferBytes(bytes)} / ${formatTransferBytes(task.size)}${speed ? ` · ${formatTransferBytes(speed)}/s` : ''}${message ? ` · ${message}` : ''}`;
+    row.querySelector('.software-transfer-detail')!.textContent = `${this.words[state] || state} · ${formatTransferBytes(bytes)} / ${formatTransferBytes(task.size)}${speed ? ` · ${formatTransferBytes(speed)}/s` : ''}${message ? ` · ${message}` : ''}${task.cacheError || !this.cacheAvailable ? ` · ${this.words.cache_unavailable}` : ''}`;
     this.controls(task);
   }
   private controls(task: UploadTask) {
     if (!task.row) return;
     const controls = task.row.querySelector<HTMLElement>('.software-transfer-controls')!;
     // Keep focused controls in place while progress updates arrive.
-    const mode = task.cancelled || task.state === 'complete' ? 'done' : task.running && !task.paused ? 'running' : task.running ? 'stopping' : 'paused';
+    const mode = task.cancelled || task.state === 'complete' ? 'done' : task.state === 'caching' ? 'caching' : task.running && !task.paused ? 'running' : task.running ? 'stopping' : 'paused';
     if (controls.getAttribute('data-mode') === mode) return;
     controls.setAttribute('data-mode', mode); controls.replaceChildren();
     if (mode === 'done' || mode === 'stopping') return;
-    if (mode === 'running') controls.append(actionButton(this.words.pause, () => {task.paused = true; task.xhr?.abort(); this.show(task, 'paused')}));
-    else controls.append(actionButton(task.file ? this.words.resume : this.words.choose_original, () => {
-      if (task.file) {this.queuePaused = false; task.paused = false; task.state = 'queued'; this.pump()} else {
+    if (mode === 'running') controls.append(actionButton(this.words.pause, () => {task.paused = true; task.xhr?.abort(); this.show(task, 'paused'); this.persistQuietly(task)}));
+    else if (mode !== 'caching') controls.append(actionButton(task.file ? (task.state === 'failed' ? this.words.retry : this.words.resume) : this.words.choose_original, () => {
+      if (task.file) {this.queuePaused = false; task.paused = false; task.state = 'queued'; this.resumeTask(task)} else {
         const input = document.createElement('input'); input.type = 'file';
-        input.addEventListener('change', () => {if (input.files?.[0]) {task.file = input.files[0]; this.queuePaused = false; task.paused = false; task.state = 'queued'; this.pump()}}, {once: true}); input.click();
+        input.addEventListener('change', async () => {if (input.files?.[0]) {task.file = input.files[0]; task.cached = false; task.cacheError = false; this.queuePaused = false; task.paused = false; task.state = 'queued'; await this.stage(task); this.pump()}}, {once: true}); input.click();
       }
     }));
     controls.append(actionButton(this.words.cancel_upload, () => {this.cancel(task)}));
   }
   private async cancel(task: UploadTask) {
     if (!await confirmModal({header: this.words.cancel_upload, content: `${this.words.cancel_upload}\n${task.name}`, confirmButtonColor: 'red'})) return;
-    task.cancelled = true; task.paused = true; task.xhr?.abort();
-    if (!task.running && !task.session) {task.row?.remove(); this.uploads = this.uploads.filter((item) => item !== task)}
+    task.cancelled = true; task.paused = true; task.xhr?.abort(); task.cacheAbort?.abort();
+    if (!task.running && !task.session) {try {if (this.cacheAvailable) await this.cache.remove(task.key); task.row?.remove(); this.uploads = this.uploads.filter((item) => item !== task)} catch (error) {task.cancelled = false; this.show(task, 'failed', task.bytes, 0, String(error))}}
     if (!task.running && task.session) {
-      try {await this.json(`${this.base}/uploads/${task.session.id}`, undefined, 'DELETE'); task.row?.remove(); this.uploads = this.uploads.filter((item) => item !== task); this.changed()} catch (error) {task.cancelled = false; this.show(task, 'failed', task.bytes, 0, String(error))}
+      try {await this.json(`${this.base}/uploads/${task.session.id}`, undefined, 'DELETE'); if (task.cached) await this.cache.remove(task.key); task.row?.remove(); this.uploads = this.uploads.filter((item) => item !== task); this.changed()} catch (error) {task.cancelled = false; this.show(task, 'failed', task.bytes, 0, String(error))}
     }
     this.recount();
   }
@@ -162,23 +184,25 @@ export class SoftwareTransfers {
         if (task.session.client_key !== key || task.session.size !== file.size) throw new Error(this.words.resume_mismatch);
         task.session = await this.json(`${this.base}/uploads/${task.session.id}`, undefined, 'GET');
       } else task.session = await this.json(`${this.base}/uploads`, new URLSearchParams({parent: task.folder, name: task.name, size: String(file.size), client_key: key}));
+      await this.persist(task);
       const session = task.session!; this.ensureRunning(task);
       const size = session.chunk_size || 8 * 1024 * 1024;
       let chain = ''; let offset = 0;
       const prefix = session.node ? file.size : session.offset;
       const validatingStarted = performance.now();
       while (offset < prefix) {
-        this.ensureRunning(task); const end = Math.min(offset + size, prefix);
+        this.ensureRunning(task); if (task.cached) await this.cache.check(); const end = Math.min(offset + size, prefix);
         const chunk = await hash.hash(file.slice(offset, end), true);
         chain = (await hash.request({op: 'chain', chain, digest: chunk.value, offset: end})).value;
         offset = end; this.show(task, 'validating', offset, offset / Math.max((performance.now() - validatingStarted) / 1000, .1));
       }
       if (!session.node && chain !== session.chain) throw new Error(this.words.resume_mismatch);
+      const transferStarted = performance.now();
       if (session.node) {
         if ((await hash.request({op: 'finish'})).value !== session.node.digest) throw new Error(this.words.resume_mismatch);
       } else {
         while (offset < file.size) {
-          this.ensureRunning(task); const end = Math.min(offset + size, file.size);
+          this.ensureRunning(task); if (task.cached) await this.cache.check(); const end = Math.min(offset + size, file.size);
           const chunk = await hash.hash(file.slice(offset, end), true);
           const expected = (await hash.request({op: 'chain', chain, digest: chunk.value, offset: end})).value;
           let acknowledged = false;
@@ -191,23 +215,24 @@ export class SoftwareTransfers {
               else await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
             }
           }
-          chain = expected; offset = end; this.show(task, 'uploading', offset);
+          chain = expected; offset = end; this.show(task, 'uploading', offset); await this.persist(task);
         }
         this.ensureRunning(task);
         const digest = (await hash.request({op: 'finish'})).value;
         const node = await this.json(`${this.base}/uploads/${session.id}/complete`);
         if (node.digest !== digest) throw new Error(this.words.resume_mismatch);
       }
-      this.show(task, 'complete', file.size); task.file = undefined;
+      if (!session.node) task.speed = (file.size - session.offset) / Math.max((performance.now() - transferStarted) / 1000, .01);
+      this.show(task, 'complete', file.size); task.file = undefined; await this.persist(task); if (task.cached) await this.cache.remove(task.key, true);
       const completed = this.uploads.filter((item) => item.state === 'complete' && item.row?.isConnected);
-      for (const item of completed.slice(0, -40)) {item.row!.remove(); this.uploads = this.uploads.filter((entry) => entry !== item)}
+      for (const item of completed.slice(0, -40)) {if (item.cached) await this.cache.remove(item.key); item.row!.remove(); this.uploads = this.uploads.filter((entry) => entry !== item)}
     } catch (error) {
       if (error instanceof Error && error.message === this.words.resume_mismatch) task.file = undefined;
       this.show(task, task.paused || task.cancelled ? 'paused' : 'failed', task.bytes, 0, task.paused || task.cancelled ? '' : error instanceof Error ? error.message : this.root.getAttribute('data-error')!);
     } finally {
-      hash.close(); task.xhr = undefined;
-      if (task.cancelled && !task.session) {task.row?.remove(); this.uploads = this.uploads.filter((item) => item !== task)}
-      if (task.cancelled && task.session) {try {await this.json(`${this.base}/uploads/${task.session.id}`, undefined, 'DELETE'); task.row?.remove(); this.uploads = this.uploads.filter((item) => item !== task)} catch (error) {task.cancelled = false; this.show(task, 'failed', task.bytes, 0, String(error))}}
+      hash.close(); task.xhr = undefined; if (!task.cancelled) await this.persistQuietly(task);
+      if (task.cancelled && !task.session) {if (task.cached) await this.cache.remove(task.key); task.row?.remove(); this.uploads = this.uploads.filter((item) => item !== task)}
+      if (task.cancelled && task.session) {try {await this.json(`${this.base}/uploads/${task.session.id}`, undefined, 'DELETE'); if (task.cached) await this.cache.remove(task.key); task.row?.remove(); this.uploads = this.uploads.filter((item) => item !== task)} catch (error) {task.cancelled = false; this.show(task, 'failed', task.bytes, 0, String(error))}}
     }
   }
   private send(task: UploadTask, data: ArrayBuffer, offset: number, digest: string): Promise<UploadSession> {
@@ -222,57 +247,45 @@ export class SoftwareTransfers {
     });
   }
   async download(ids: string[]) {
-    const status = this.root.querySelector<HTMLElement>('[data-software-status]')!; status.textContent = this.words.preparing;
-    try {
-      const params = new URLSearchParams(); for (const id of ids) params.append('ids', id);
-      const job: DownloadJob = await this.json(`${this.base}/downloads`, params);
-      const task = this.addDownload(job); this.openDownload(task); status.textContent = this.words.download_started;
-    } catch (error) {status.textContent = error instanceof Error ? error.message : this.root.getAttribute('data-error')!}
-  }
-  private addDownload(job: DownloadJob): DownloadTask {
-    const existing = this.downloads.find((task) => task.job.id === job.id); if (existing) return existing;
-    const row = document.createElement('article'); row.className = 'software-transfer-row'; row.setAttribute('data-download-task', job.id);
-    const name = document.createElement('strong'); name.textContent = job.name;
-    const progress = document.createElement('progress'); progress.max = job.size || 1; progress.setAttribute('aria-label', job.name);
-    const detail = document.createElement('span'); detail.className = 'software-transfer-detail'; detail.setAttribute('aria-live', 'off');
-    const actions = document.createElement('div'); actions.className = 'software-transfer-controls';
-    const task: DownloadTask = {job, state: 'queued', row, lastBytes: 0, lastTime: performance.now(), polling: false, started: 0};
-    actions.append(actionButton(this.words.retry, () => this.openDownload(task)), actionButton(this.words.remove_record, () => {this.removeDownload(task)}));
-    row.append(name, progress, detail, actions); this.downloading.prepend(row); this.downloads.push(task); return task;
-  }
-  private openDownload(task: DownloadTask) {
-    const link = document.createElement('a'); link.href = `${this.base}/downloads/${task.job.id}/file`; link.download = task.job.name; document.body.append(link); link.click(); link.remove();
-    task.state = 'downloading'; task.lastTime = performance.now(); task.started = performance.now(); this.poll(task);
-  }
-  private async poll(task: DownloadTask) {
-    if (task.polling) return; task.polling = true;
-    try {
-      const progress = await this.json(`${this.base}/downloads/${task.job.id}`, undefined, 'GET');
-      const now = performance.now(); const speed = progress.speed || 0;
-      task.lastBytes = progress.bytes; task.lastTime = now; task.state = progress.state;
-      task.row.querySelector('progress')!.value = progress.bytes;
-      task.row.querySelector('.software-transfer-detail')!.textContent = `${this.words[progress.state] || progress.state} · ${formatTransferBytes(progress.bytes)} / ${formatTransferBytes(progress.total)} · ${formatTransferBytes(speed)}/s`;
-    } catch (error) {task.state = 'failed'; task.row.querySelector('.software-transfer-detail')!.textContent = error instanceof Error ? error.message : this.root.getAttribute('data-error')!} finally {task.polling = false}
-    if (task.row.isConnected && (task.state === 'downloading' || (task.state === 'queued' && task.started > 0 && performance.now() - task.started < 30000))) setTimeout(() => {this.poll(task)}, 500);
-  }
-  private async removeDownload(task: DownloadTask) {
-    try {await this.json(`${this.base}/downloads/${task.job.id}`, undefined, 'DELETE'); task.row.remove(); this.downloads = this.downloads.filter((item) => item !== task)} catch (error) {task.row.querySelector('.software-transfer-detail')!.textContent = String(error)}
+    await this.ready;
+    const status = this.root.querySelector<HTMLElement>('[data-software-status]')!;
+    try {if (!this.cacheAvailable) throw new Error(this.words.cache_required); await this.downloads.create(ids); status.textContent = this.words.download_started} catch (error) {status.textContent = error instanceof Error ? error.message : this.words.failed}
   }
   private async clearCompleted() {
-    for (const task of this.uploads.filter((item) => item.state === 'complete')) task.row?.remove();
+    for (const task of this.uploads.filter((item) => item.state === 'complete')) {task.row?.remove(); if (task.cached) await this.cache.remove(task.key);}
     this.uploads = this.uploads.filter((item) => item.state !== 'complete');
-    for (const task of this.downloads.filter((item) => item.state === 'complete')) await this.removeDownload(task);
+    await this.downloads.clearCompleted();
   }
   private async restore() {
+    const status = this.root.querySelector<HTMLElement>('[data-software-status]')!;
     try {
+      try {
+        await this.cache.open();
+        while (!await this.cache.claim()) {status.textContent = this.words.other_tab; await new Promise((resolve) => setTimeout(resolve, 2000)); if (this.leaving) return;}
+        if (status.textContent === this.words.other_tab) status.textContent = '';
+        this.cacheAvailable = true; await this.cache.prune();
+        const heartbeat = setInterval(async () => {
+          if (this.leaving) {clearInterval(heartbeat); return}
+          try {if (!await this.cache.claim()) {this.queuePaused = true; for (const task of this.uploads) {task.paused = true; task.xhr?.abort()} this.downloads.pauseAll(); status.textContent = this.words.other_tab}} catch {}
+        }, 3000);
+      } catch {status.textContent = this.words.cache_unavailable}
+      const records = this.cacheAvailable ? await this.cache.list() : [];
       const sessions: UploadSession[] = await this.json(`${this.base}/uploads`, undefined, 'GET');
-      for (const session of sessions) {
+      for (const record of records.filter((entry) => entry.kind === 'upload')) {
+        const session = sessions.find((entry) => entry.id === record.data.session?.id);
+        const file = record.state === 'complete' ? undefined : await this.cache.source(record.key);
+        const paused = ['paused', 'failed'].includes(record.state) || !file;
+        const task: UploadTask = {...record.data, key: record.key, file, session: session || record.data.session, paused, cancelled: false, running: false, cached: true, state: record.state === 'complete' ? 'complete' : paused ? 'paused' : 'queued', bytes: session?.offset || record.offset};
+        // Expired reservations are safely recreated with the same source fingerprint.
+        if (task.state !== 'complete' && !session) task.session = undefined;
+        this.uploads.push(task); this.show(task, task.state, task.bytes);
+      }
+      for (const session of sessions.filter((entry) => this.uploads.every((task) => task.session?.id !== entry.id))) {
         const task: UploadTask = {key: session.id, name: session.name, folder: session.parent, size: session.size, session, paused: true, cancelled: false, running: false, state: 'paused', bytes: session.offset};
         this.uploads.push(task); this.show(task, 'paused', session.offset);
       }
-      const jobs: DownloadJob[] = await this.json(`${this.base}/downloads`, undefined, 'GET');
-      for (const job of jobs) this.poll(this.addDownload(job));
-      this.recount();
-    } catch (error) {this.root.querySelector('[data-software-status]')!.textContent = String(error)}
+      if (this.cacheAvailable) await this.downloads.restore(records);
+      this.recount(); this.pump();
+    } catch (error) {status.textContent = String(error)}
   }
 }

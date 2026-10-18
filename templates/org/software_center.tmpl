@@ -1,7 +1,7 @@
 {{template "base/head" .}}
 <main class="page-content organization" aria-label="{{.Title}}">
  {{template "org/header" .}}
- <section class="ui container software-center" data-software-center data-base="{{.Org.HomeLink}}/-/software" data-labels="{{JsonUtils.EncodeToString .SoftwareStrings}}"
+ <section class="ui container software-center" data-software-center data-user-id="{{.SignedUser.ID}}" data-base="{{.Org.HomeLink}}/-/software" data-labels="{{JsonUtils.EncodeToString .SoftwareStrings}}"
   data-error="{{ctx.Locale.Tr "software.load_error"}}" data-empty="{{ctx.Locale.Tr "software.empty"}}" data-delete="{{ctx.Locale.Tr "software.delete_confirm"}}" data-cancel="{{ctx.Locale.Tr "cancel"}}"
   data-rename="{{ctx.Locale.Tr "software.rename"}}" data-remove="{{ctx.Locale.Tr "software.delete"}}" data-folder="{{ctx.Locale.Tr "software.folder"}}" data-file="{{ctx.Locale.Tr "software.file"}}" data-new-folder="{{ctx.Locale.Tr "software.new_folder"}}">
   <div class="software-toolbar">
