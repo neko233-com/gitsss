@@ -264,7 +264,7 @@ func ConnectOpenIDPost(ctx *context.Context) {
 		return
 	}
 
-	u, _, err := auth.UserSignIn(ctx, form.UserName, form.Password)
+	u, _, err := auth.UserSignIn(auth.WithLoginRequest(ctx, ctx.Req), form.UserName, form.Password)
 	if err != nil {
 		handleSignInError(ctx, form.UserName, &form, tplConnectOID, "ConnectOpenIDPost", err)
 		return

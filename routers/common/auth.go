@@ -4,6 +4,9 @@
 package common
 
 import (
+	"errors"
+	"strconv"
+
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/web/middleware"
 	auth_service "github.com/neko233-com/gitsss/services/auth"
@@ -18,6 +21,9 @@ type AuthResult struct {
 func AuthShared(ctx *context.Base, sessionStore auth_service.SessionStore, authMethod auth_service.Method) (ar AuthResult, err error) {
 	ar.Doer, err = authMethod.Verify(ctx.Req, ctx.Resp, ctx, sessionStore)
 	if err != nil {
+		if limit, ok := errors.AsType[*auth_service.LoginRateLimitError](err); ok {
+			ctx.Resp.Header().Set("Retry-After", strconv.Itoa(limit.RetryAfter))
+		}
 		return ar, err
 	}
 	if ar.Doer != nil {

@@ -39,6 +39,7 @@ var (
 	ReverseProxyLimit                  int
 	ReverseProxyLogoutRedirect         string
 	ReverseProxyTrustedProxies         []string
+	ReverseProxyProtoHeader            string
 	MinPasswordLength                  int
 	ImportLocalPaths                   bool
 	DisableGitHooks                    = true
@@ -51,6 +52,7 @@ var (
 	DisableQueryAuthToken              bool
 	RecordUserSignupMetadata           = false
 	TwoFactorAuthEnforced              = false
+	LoginProtectionEnabled             = true
 )
 
 // loadSecret load the secret from ini by uriKey or verbatimKey, only one of them could be set
@@ -117,6 +119,7 @@ func generateSaveInternalToken(rootCfg ConfigProvider) {
 func loadSecurityFrom(rootCfg ConfigProvider) {
 	sec := rootCfg.Section("security")
 	LogInRememberDays = sec.Key("LOGIN_REMEMBER_DAYS").MustInt(31)
+	LoginProtectionEnabled = sec.Key("LOGIN_PROTECTION_ENABLED").MustBool(true)
 	SecretKey = loadSecret(sec, "SECRET_KEY_URI", "SECRET_KEY")
 	if SecretKey == "" {
 		// FIXME: https://github.com/go-gitea/gitea/issues/16832
@@ -131,6 +134,7 @@ func loadSecurityFrom(rootCfg ConfigProvider) {
 	ReverseProxyAuthFullName = sec.Key("REVERSE_PROXY_AUTHENTICATION_FULL_NAME").MustString("X-WEBAUTH-FULLNAME")
 
 	ReverseProxyLimit = sec.Key("REVERSE_PROXY_LIMIT").MustInt(1)
+	ReverseProxyProtoHeader = sec.Key("REVERSE_PROXY_PROTO_HEADER").MustString("X-Forwarded-Proto")
 	ReverseProxyLogoutRedirect = sec.Key("REVERSE_PROXY_LOGOUT_REDIRECT").String()
 	ReverseProxyTrustedProxies = sec.Key("REVERSE_PROXY_TRUSTED_PROXIES").Strings(",")
 	if len(ReverseProxyTrustedProxies) == 0 {

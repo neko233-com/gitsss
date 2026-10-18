@@ -1,6 +1,17 @@
 import {isDarkTheme} from '../utils.ts';
 
 export async function initCaptcha() {
+  for (const button of document.querySelectorAll<HTMLButtonElement>('[data-captcha-refresh]')) {
+    button.addEventListener('click', () => {
+      const image = button.parentElement!.querySelector<HTMLImageElement>('.captcha-img')!;
+      const url = new URL(image.src);
+      url.searchParams.set('reload', String(Date.now()));
+      image.src = url.href;
+      const input = button.closest('form')!.querySelector<HTMLInputElement>('input[name="captcha"]')!;
+      input.value = '';
+      input.focus();
+    });
+  }
   const captchaEl = document.querySelector('#captcha');
   if (!captchaEl) return;
 

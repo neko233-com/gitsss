@@ -139,9 +139,9 @@ func (b *Basic) Verify(req *http.Request, w http.ResponseWriter, store DataStore
 	}
 
 	log.Trace("Basic Authorization: Attempting SignIn for %s", uname)
-	u, source, err := UserSignIn(req.Context(), uname, passwd)
+	u, source, err := UserSignIn(WithLoginRequest(req.Context(), req), uname, passwd)
 	if err != nil {
-		if !user_model.IsErrUserNotExist(err) {
+		if !user_model.IsErrUserNotExist(err) && LoginErrorStatus(err) != http.StatusTooManyRequests {
 			log.Error("UserSignIn: %v", err)
 		}
 		return nil, err
@@ -178,6 +178,9 @@ func validateTOTP(req *http.Request, u *user_model.User) error {
 		return err
 	}
 	// Consume the passcode atomically so a captured OTP cannot be replayed within its validity window.
+	if err := AllowSecondFactor(u.ID); err != nil {
+		return err
+	}
 	if ok, err := twofa.ValidateAndConsumeTOTP(req.Context(), req.Header.Get("X-Gitea-OTP")); err != nil {
 		return err
 	} else if !ok {

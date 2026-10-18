@@ -60,6 +60,13 @@
 
       <h2>离线生产策略</h2>
       <p>gitsss 启动和运行完全不需要外部网络。更新检查器默认关闭，Actions Runner 不会下载未知远程 Action。</p>
+      <h2 id="public-login">公网入口与登录防护</h2>
+      <p><code>[security] LOGIN_PROTECTION_ENABLED = true</code> 默认开启。网页账号或账号与来源组合连续失败 5 次后要求本地一次性验证码；一分钟内账号 10 次、组合 5 次、来源 60 次尝试，或来源 15 分钟内失败 30 次，也会要求验证。正常登录不永久锁账号，也不整段封禁共用出口 IP。</p>
+      <p>HTTP Basic 新密码尝试每分钟限制：账号与来源组合 10 次、账号 30 次、来源 120 次；超出返回 <code>429</code> 和 <code>Retry-After</code>。近期验证成功的凭据可绕过异常尝试预算，但每次仍重新校验密码、账号状态及二次验证。访问令牌优先验证，SSH 不变。正常网页验证也是新客户端恢复 Git HTTP 访问的入口。同一出口受到攻击时，首次网页登录可能需要验证码，首次 Basic 密码请求可能需要短暂重试。</p>
+      <p>TOTP 与恢复码在密码已正确后共用每账号每分钟 10 次预算。最多并发验证 16 个密码，记录 32,768 个限速项和 4,096 个凭据 HMAC；不保存明文密码。计数在进程内保存并过期，重启清空，多进程之间不共享。验证码和限速不能替代强密码、TOTP 或网络层抗 DDoS。</p>
+      <p>可信代理仅填写精确地址或网段，公网部署不要设为 <code>*</code>。从右向左检查 <code>X-Forwarded-For</code>，遇到首个非可信节点停止，最多检查 <code>REVERSE_PROXY_LIMIT</code> 跳；优先使用此链而非 <code>X-Real-IP</code>。直接客户端伪造的来源与协议头会被忽略。</p>
+      <p>TLS 入口应覆盖客户端传入的转发头。若 frp 把 <code>X-Forwarded-Proto</code> 改成内部 HTTP，可在 TLS 入口覆盖 <code>X-Original-Proto</code>，并配置 <code>REVERSE_PROXY_PROTO_HEADER = X-Original-Proto</code>。默认仍使用 <code>X-Forwarded-Proto</code>。frps 的 HTTP 后端端口必须仅对代理开放，IPv4、IPv6 都要检查，避免绕过 HTTPS。公网虚拟主机为 Cookie 设置 Secure，原有内网 HTTP 可独立保留。</p>
+      <p>升级不修改数据库、Git/LFS 路径、SSH 密钥或对象。回滚使用旧二进制和配置；独立恢复代理配置与后端端口规则。升级前后用隔离账号验证验证码、同出口登录、Token 与 MFA，并验证实际公网来源和原有 Git/SSH/LFS。完整阈值、代理配置示例、验收与回滚见仓库 <code>docs/operations/public-access.md</code>。</p>
 
       <h2>更新</h2>
       <p>更新时必须保留原安装目录与 Docker 数据卷。获取新的离线镜像包后，用原来的端口、根 URL、安装目录和数据卷重跑安装器；安装器加载镜像、更新安装目录文件并重建容器，不会删除现有数据。</p>

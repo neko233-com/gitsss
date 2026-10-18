@@ -281,7 +281,7 @@ func DeleteAccount(ctx *context.Context) {
 		return
 	}
 
-	if _, _, err := auth.UserSignIn(ctx, ctx.Doer.Name, ctx.FormString("password")); err != nil {
+	if _, _, err := auth.UserSignIn(auth.WithLoginRequest(ctx, ctx.Req), ctx.Doer.Name, ctx.FormString("password")); err != nil {
 		switch {
 		case user_model.IsErrUserNotExist(err):
 			ctx.JSONError(ctx.Tr("form.user_not_exist"))

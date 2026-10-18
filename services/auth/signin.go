@@ -25,6 +25,18 @@ import (
 
 // UserSignIn validates user name and password.
 func UserSignIn(ctx context.Context, username, password string) (*user_model.User, *auth.Source, error) {
+	finish, err := beginPasswordLogin(ctx, username, password)
+	if err != nil {
+		return nil, nil, err
+	}
+	success := false
+	defer func() { finish(success) }()
+	u, source, err := userSignIn(ctx, username, password)
+	success = err == nil && u != nil
+	return u, source, err
+}
+
+func userSignIn(ctx context.Context, username, password string) (*user_model.User, *auth.Source, error) {
 	var user *user_model.User
 	isEmail := false
 	if strings.Contains(username, "@") {

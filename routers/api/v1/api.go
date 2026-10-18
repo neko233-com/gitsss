@@ -853,7 +853,7 @@ func apiAuth(authMethod auth.Method) func(*context.APIContext) {
 		if err != nil {
 			msg, ok := auth.ErrAsUserAuthMessage(err)
 			msg = util.Iif(ok, msg, "invalid username, password or token")
-			ctx.APIError(http.StatusUnauthorized, msg)
+			ctx.APIError(auth.LoginErrorStatus(err), msg)
 			return
 		}
 		ctx.Doer = ar.Doer

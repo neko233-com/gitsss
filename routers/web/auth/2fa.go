@@ -13,6 +13,7 @@ import (
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/templates"
 	"github.com/neko233-com/gitsss/modules/web"
+	auth_service "github.com/neko233-com/gitsss/services/auth"
 	"github.com/neko233-com/gitsss/services/context"
 	"github.com/neko233-com/gitsss/services/forms"
 )
@@ -52,6 +53,10 @@ func TwoFactorPost(ctx *context.Context) {
 	}
 
 	id := idSess.(int64)
+	if err := auth_service.AllowSecondFactor(id); err != nil {
+		renderLoginProtectionError(ctx, err, tplTwofa, form)
+		return
+	}
 	twofa, err := auth.GetTwoFactorByUID(ctx, id)
 	if err != nil {
 		ctx.ServerError("UserSignIn", err)
@@ -119,6 +124,10 @@ func TwoFactorScratchPost(ctx *context.Context) {
 	}
 
 	id := idSess.(int64)
+	if err := auth_service.AllowSecondFactor(id); err != nil {
+		renderLoginProtectionError(ctx, err, tplTwofaScratch, form)
+		return
+	}
 	twofa, err := auth.GetTwoFactorByUID(ctx, id)
 	if err != nil {
 		ctx.ServerError("UserSignIn", err)

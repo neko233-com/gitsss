@@ -6,6 +6,10 @@ Explicit existing configuration continues to take precedence. Match the source
 Gitea's registration, visibility, organization and repository permissions before
 cutover.
 
+Public HTTPS deployments include adaptive login verification without permanent
+shared-IP bans. Configure the trusted proxy chain and keep tunnel backend ports
+private; see [public access and login protection](public-access.md).
+
 The signed-in home page lists the viewer's accessible organizations first.
 `/?view=personal` opens the personal dashboard. Organization membership and
 repository access are still checked on the server.
@@ -265,7 +269,6 @@ comes from spacing rather than tiny text. Storage,
 schema and backend operation contracts are unchanged. Rollback is the previous
 binary and its embedded templates/assets, preserving the existing data.
 
-
 ## Production takeover and visible contribution history
 
 After explicit operator approval, stop both writers and preserve the original
@@ -299,7 +302,6 @@ shows its measurement time, localized categories and an explicit lower-bound
 warning on truncation/read errors. CACHE_TTL and MAX_ENTRIES remain the existing
 storage_awareness settings. No storage layout, provider, object bytes or API
 payload fields change; rollback is the previous binary and embedded assets.
-
 
 ### Actions defaults and managed runner selection
 

@@ -6,6 +6,9 @@ package context
 import (
 	"fmt"
 	"image/color"
+	"net/http"
+	"path"
+	"strings"
 	"sync"
 
 	"github.com/neko233-com/gitsss/modules/cache"
@@ -21,8 +24,9 @@ import (
 )
 
 var (
-	imageCaptchaOnce sync.Once
-	cpt              *captcha.Captcha
+	imageCaptchaOnce     sync.Once
+	imageCaptchaVerifyMu sync.Mutex
+	cpt                  *captcha.Captcha
 )
 
 // GetImageCaptcha returns global image captcha
@@ -45,6 +49,29 @@ func GetImageCaptcha() *captcha.Captcha {
 	return cpt
 }
 
+// VerifyImageCaptcha serializes the provider's read/delete pair to prevent replay races.
+func VerifyImageCaptcha(req *http.Request) bool {
+	imageCaptchaVerifyMu.Lock()
+	defer imageCaptchaVerifyMu.Unlock()
+	return GetImageCaptcha().VerifyReq(req)
+}
+
+// ProtectImageCaptcha prevents reload requests from creating or reviving arbitrary IDs.
+func ProtectImageCaptcha(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Query().Get("reload") != "" {
+			imageCaptchaVerifyMu.Lock()
+			defer imageCaptchaVerifyMu.Unlock()
+			id, _, _ := strings.Cut(path.Base(req.URL.Path), ".")
+			if !GetImageCaptcha().Store.IsExist(GetImageCaptcha().CachePrefix + id) {
+				http.NotFound(w, req)
+				return
+			}
+		}
+		next.ServeHTTP(w, req)
+	})
+}
+
 const (
 	gRecaptchaResponseField  = "g-recaptcha-response"
 	hCaptchaResponseField    = "h-captcha-response"
@@ -63,7 +90,7 @@ func VerifyCaptcha(ctx *Context, tpl templates.TplName, form any) {
 	var err error
 	switch setting.Service.CaptchaType {
 	case setting.ImageCaptcha:
-		valid = GetImageCaptcha().VerifyReq(ctx.Req)
+		valid = VerifyImageCaptcha(ctx.Req)
 	case setting.ReCaptcha:
 		valid, err = recaptcha.Verify(ctx, ctx.Req.Form.Get(gRecaptchaResponseField))
 	case setting.HCaptcha:

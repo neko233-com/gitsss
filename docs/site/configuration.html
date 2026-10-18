@@ -181,6 +181,8 @@ gitsss update check --mirror https://mirror.example --mirror https://backup.exam
 gitsss update download --asset gitsss-linux-amd64.tar.gz --output /tmp</code></pre>
       </div>
 
+      <h2>公网登录与代理信任</h2>
+      <p><code>[security] LOGIN_PROTECTION_ENABLED = true</code> 默认开启自适应登录验证。<code>REVERSE_PROXY_LIMIT</code> 限制可信跳数，<code>REVERSE_PROXY_TRUSTED_PROXIES</code> 仅填写真实代理地址；<code>REVERSE_PROXY_PROTO_HEADER</code> 默认 <code>X-Forwarded-Proto</code>，隧道覆盖该头时可使用 TLS 入口覆盖的 <code>X-Original-Proto</code>。完整阈值、兼容边界与回滚见<a href="operations.html#public-login">公网入口与登录防护</a>。</p>
       <script>
       function copyCode(btn) {
         const code = btn.parentElement.querySelector('code');

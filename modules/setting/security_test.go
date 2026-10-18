@@ -22,6 +22,8 @@ CONTENT_SECURITY_POLICY_GENERAL = "script-src *; foo"
 `)
 	assert.NoError(t, err)
 	loadSecurityFrom(cfg)
+	assert.True(t, LoginProtectionEnabled)
+	assert.Equal(t, "X-Forwarded-Proto", ReverseProxyProtoHeader)
 	assert.Equal(t, "DENY", Security.XFrameOptions)
 	assert.Equal(t, "unset", Security.XContentTypeOptions)
 	assert.Equal(t, "foo", Security.AllowedHostList)

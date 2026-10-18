@@ -153,7 +153,7 @@ func newWebAuthMiddleware() *AuthMiddleware {
 		ar, err := common.AuthShared(ctx.Base, ctx.Session, group)
 		if err != nil {
 			log.Error("Failed to verify user: %v", err)
-			ctx.HTTPError(http.StatusUnauthorized, "Failed to authenticate user")
+			ctx.HTTPError(auth_service.LoginErrorStatus(err), "Failed to authenticate user")
 			return
 		}
 		ctx.Doer = ar.Doer
@@ -283,9 +283,9 @@ func Routes() *web.Router {
 		mid = append(mid, wrapper)
 	}
 
-	if setting.Service.EnableCaptcha {
+	if setting.Service.EnableCaptcha || setting.LoginProtectionEnabled {
 		// The captcha http.Handler should only fire on /captcha/* so we can just mount this on that url
-		routes.Methods("GET,HEAD", "/captcha/*", append(mid, captcha.Captchaer(context.GetImageCaptcha()))...)
+		routes.Methods("GET,HEAD", "/captcha/*", append(mid, context.ProtectImageCaptcha, captcha.Captchaer(context.GetImageCaptcha()))...)
 	}
 
 	if setting.Metrics.Enabled {

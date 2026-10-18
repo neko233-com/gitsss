@@ -189,4 +189,6 @@ Desktop center screenshots from the isolated demonstration instance, captured on
 
 See the [centers manual](docs/site/workspace-centers.html) and [compatibility report](docs/features/workspace-centers.md).
 
+Public HTTPS deployments include adaptive login verification, bounded HTTP password and MFA attempts, and trusted proxy parsing without permanent shared-IP bans. See [public access and rollback](docs/operations/public-access.md).
+
 Software center transfers support file/folder pickers, drag-and-drop, nested directories, atomic moves and batch deletion. Uploads and downloads share one transfer panel with progress, speed, pause, resume, cancel and retry. Browser-local IndexedDB caches sources and received 8 MiB ranges for automatic refresh/restart recovery in the same profile, account and origin. Completed downloads are saved from the panel; confirm saving to release their cache. Browser quotas and eviction can limit recovery. Virtual ZIP64 batches create no extra archive on the server. Read the [transfer API, cache limits and rollback contract](docs/features/software-center-transfers.md).

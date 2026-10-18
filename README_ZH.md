@@ -6,6 +6,8 @@
 
 [English README](README.md) · [HTML 英文说明书](docs/site/en/index.html)
 
+公网 HTTPS 部署默认提供自适应验证码、HTTP 密码与 MFA 限速，以及可信代理解析；不永久封禁共用出口 IP。配置与回滚见[公网访问与登录防护](docs/operations/public-access.md)。
+
 首页截图来自 2026-10-18 的隔离演示实例，不包含生产仓库数据。
 
 ![GitSSS 首页](docs/site/assets/screenshots/home.png)

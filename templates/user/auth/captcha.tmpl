@@ -1,10 +1,14 @@
 {{if .EnableCaptcha}}{{if eq .CaptchaType "image"}}
-	<div class="inline field tw-text-center">
-		{{.Captcha.CreateHTML}}
+	{{if .LoginProtectionChallenge}}<p id="login-verification-hint" role="status">{{ctx.Locale.Tr "auth.login_verification_hint"}}</p>{{end}}
+	{{$captchaID := .Captcha.CreateCaptcha}}
+	<input type="hidden" name="{{.Captcha.FieldIdName}}" value="{{$captchaID}}">
+	<div class="inline field tw-flex tw-items-center tw-justify-center tw-gap-2">
+		<img class="captcha-img" src="{{.Captcha.SubURL}}{{.Captcha.URLPrefix}}{{$captchaID}}.png" alt="{{ctx.Locale.Tr "captcha"}}" width="{{.Captcha.StdWidth}}" height="{{.Captcha.StdHeight}}">
+		<button class="ui icon button" type="button" data-captcha-refresh aria-label="{{ctx.Locale.Tr "auth.login_verification_refresh"}}">{{svg "octicon-sync" 16}}</button>
 	</div>
 	<div class="required field {{if .Err_Captcha}}error{{end}}">
 		<label for="captcha">{{ctx.Locale.Tr "captcha"}}</label>
-		<input id="captcha" name="captcha" value="{{.captcha}}" autocomplete="off">
+		<input id="captcha" name="captcha" autocomplete="off" required{{if .LoginProtectionChallenge}} aria-describedby="login-verification-hint"{{end}}{{if .Err_Captcha}} aria-invalid="true"{{end}}>
 	</div>
 {{else if eq .CaptchaType "recaptcha"}}
 	<div class="inline field tw-text-center required">
