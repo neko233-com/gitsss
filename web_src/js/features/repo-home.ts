@@ -12,70 +12,90 @@ export function initRepoTopicBar() {
 
   const editDiv = document.querySelector('#topic_edit')!;
   const viewDiv = document.querySelector('#repo-topics')!;
-  const topicDropdown = editDiv.querySelector('.ui.dropdown')!;
+  const topicDropdown = editDiv.querySelector<HTMLElement>('.ui.dropdown')!;
+  const errorText = editDiv.querySelector<HTMLElement>('#repo-topic-error')!;
+  const saveButton = editDiv.querySelector<HTMLButtonElement>('#save_topic')!;
+  const cancelButton = editDiv.querySelector<HTMLButtonElement>('#cancel_topic_edit')!;
+  let savedTopics = editDiv.querySelector<HTMLInputElement>('input[name=topics]')!.value.split(',').filter(Boolean);
+  let saving = false;
   let lastErrorToast: Toast | null = null;
 
   mgrBtn.addEventListener('click', () => {
     hideElem([viewDiv, mgrBtn]);
     showElem(editDiv);
+    errorText.hidden = true;
     topicDropdown.querySelector<HTMLInputElement>('input.search')!.focus();
   });
 
   document.querySelector('#cancel_topic_edit')!.addEventListener('click', () => {
     lastErrorToast?.hideToast();
     hideElem(editDiv);
+    fomanticQuery(topicDropdown).dropdown('set exactly', savedTopics);
     showElem([viewDiv, mgrBtn]);
     mgrBtn.focus();
   });
 
-  document.querySelector<HTMLButtonElement>('#save_topic')!.addEventListener('click', async (e) => {
+  saveButton.addEventListener('click', async () => {
+    if (saving) return;
+    saving = true; saveButton.disabled = true; cancelButton.disabled = true; errorText.hidden = true;
     lastErrorToast?.hideToast();
     const topics = editDiv.querySelector<HTMLInputElement>('input[name=topics]')!.value;
 
     const data = new FormData();
     data.append('topics', topics);
 
-    const response = await POST((e.target as HTMLElement).getAttribute('data-link')!, {data});
+    try {
+      const response = await POST(saveButton.getAttribute('data-link')!, {data});
 
-    if (response.ok) {
-      const responseData = await response.json();
-      if (responseData.status === 'ok') {
-        queryElemChildren(viewDiv, '.repo-topic', (el) => el.remove());
-        if (topics.length) {
-          const topicArray = topics.split(',');
-          topicArray.sort();
-          for (const topic of topicArray) {
-            // TODO: sort items in topicDropdown, or items in edit div will have different order to the items in view div
-            // !!!! it SHOULD and MUST match the code in "home_sidebar_top.tmpl" !!!!
-            const link = document.createElement('a');
-            link.classList.add('repo-topic', 'ui', 'large', 'label', 'gt-ellipsis');
-            link.href = `${appSubUrl}/explore/repos?q=${encodeURIComponent(topic)}&topic=1`;
-            link.textContent = topic;
-            viewDiv.append(link);
+      if (response.ok) {
+        const responseData = await response.json();
+        if (responseData.status === 'ok') {
+          savedTopics = responseData.topics || topics.split(',').filter(Boolean);
+          queryElemChildren(viewDiv, '.repo-topic', (el) => el.remove());
+          if (topics.length) {
+            const topicArray: string[] = Array.from(savedTopics);
+            topicArray.sort();
+            for (const topic of topicArray) {
+              // TODO: sort items in topicDropdown, or items in edit div will have different order to the items in view div
+              // !!!! it SHOULD and MUST match the code in "home_sidebar_top.tmpl" !!!!
+              const link = document.createElement('a');
+              link.classList.add('repo-topic', 'ui', 'large', 'label', 'gt-ellipsis');
+              link.href = `${appSubUrl}/explore/repos?q=${encodeURIComponent(topic)}&topic=1`;
+              link.textContent = topic;
+              viewDiv.append(link);
+            }
+          }
+          hideElem(editDiv);
+          fomanticQuery(topicDropdown).dropdown('set exactly', savedTopics);
+          showElem([viewDiv, mgrBtn]);
+          mgrBtn.focus();
+        }
+      } else if (response.status === 422) {
+        // how to test: input topic like " invalid topic " (with spaces), and select it from the list, then "Save"
+        const responseData = await response.json();
+        errorText.textContent = responseData.message; errorText.hidden = false;
+        lastErrorToast = showErrorToast(responseData.message, {duration: 5000});
+        if (responseData.invalidTopics && responseData.invalidTopics.length > 0) {
+          const {invalidTopics} = responseData;
+          const topicLabels = queryElemChildren(topicDropdown, 'a.ui.label');
+          for (const [index, value] of topics.split(',').entries()) {
+            if (invalidTopics.includes(value)) {
+              topicLabels[index].classList.remove('green');
+              topicLabels[index].classList.add('red');
+            }
           }
         }
-        hideElem(editDiv);
-        showElem([viewDiv, mgrBtn]);
-      }
-    } else if (response.status === 422) {
-      // how to test: input topic like " invalid topic " (with spaces), and select it from the list, then "Save"
-      const responseData = await response.json();
-      lastErrorToast = showErrorToast(responseData.message, {duration: 5000});
-      if (responseData.invalidTopics && responseData.invalidTopics.length > 0) {
-        const {invalidTopics} = responseData;
-        const topicLabels = queryElemChildren(topicDropdown, 'a.ui.label');
-        for (const [index, value] of topics.split(',').entries()) {
-          if (invalidTopics.includes(value)) {
-            topicLabels[index].classList.remove('green');
-            topicLabels[index].classList.add('red');
-          }
-        }
-      }
+      } else {throw new Error(editDiv.getAttribute('data-error')!)}
+    } catch {
+      errorText.textContent = editDiv.getAttribute('data-error')!; errorText.hidden = false;
+    } finally {
+      saving = false; saveButton.disabled = false; cancelButton.disabled = false;
     }
   });
 
   fomanticQuery(topicDropdown).dropdown({
     allowAdditions: true,
+    maxSelections: 25,
     forceSelection: false,
     fullTextSearch: 'exact',
     fields: {name: 'description', value: 'data-value'},
@@ -133,7 +153,7 @@ export function initRepoTopicBar() {
     },
     onLabelCreate(value: string) {
       value = value.toLowerCase().trim();
-      this.attr('data-value', value).contents().first().replaceWith(value);
+      this.attr('data-value', value).contents().first().replaceWith(document.createTextNode(value));
       return fomanticQuery(this);
     },
     onAdd(addedValue: string, _addedText: any, $addedChoice: any) {
@@ -142,4 +162,17 @@ export function initRepoTopicBar() {
       $addedChoice[0].setAttribute('data-text', addedValue);
     },
   });
+  topicDropdown.addEventListener('keydown', (event: KeyboardEvent) => {
+    if (event.key !== 'Enter' || event.isComposing) return;
+    // Enter selects a tag even while remote suggestions are pending; it must not quick-save the form.
+    event.stopPropagation();
+    const input = topicDropdown.querySelector<HTMLInputElement>('input.search')!;
+    const value = stripTags(input.value).trim().toLowerCase();
+    if (value) {
+      event.preventDefault();
+      fomanticQuery(topicDropdown).dropdown('set selected', value);
+      input.value = '';
+    }
+  });
+  topicDropdown.querySelector<HTMLInputElement>('input.search')!.setAttribute('aria-label', mgrBtn.textContent.trim());
 }

@@ -56,5 +56,6 @@ func TopicsPost(ctx *context.Context) {
 
 	ctx.JSON(http.StatusOK, map[string]any{
 		"status": "ok",
+		"topics": validTopics,
 	})
 }

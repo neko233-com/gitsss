@@ -62,3 +62,13 @@ func TestTimeSince(t *testing.T) {
 	actual = du.TimeSince(timeutil.TimeStampNano(refTime.UnixNano()))
 	assert.EqualValues(t, `<relative-time prefix="" tense="past" datetime="2017-12-31T19:00:00-05:00" data-tooltip-content data-tooltip-interactive="true">2017-12-31 19:00:00 -05:00</relative-time>`, actual)
 }
+
+func TestActivityTime(t *testing.T) {
+	du := NewDateUtils()
+	for _, value := range []any{nil, 0, time.Time{}, timeutil.TimeStamp(0)} {
+		assert.EqualValues(t, "-", du.ActivityTime(value))
+	}
+	ref := time.Date(2026, time.October, 16, 9, 8, 7, 0, time.FixedZone("local", 8*60*60))
+	assert.EqualValues(t, `<relative-time format="activity" datetime="2026-10-16T09:08:07+08:00" data-tooltip-content data-tooltip-interactive="true">2026-10-16 09:08:07 Fri +08:00</relative-time>`, du.ActivityTime(ref))
+	assert.Equal(t, du.ActivityTime(ref), du.ActivityTime(&ref))
+}

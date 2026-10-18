@@ -39,6 +39,16 @@ func (du *DateUtils) TimeSince(time any) template.HTML {
 	return TimeSince(time)
 }
 
+// ActivityTime keeps an exact timestamp alongside the live relative label.
+func (du *DateUtils) ActivityTime(value any) template.HTML {
+	t, isZero := anyToTime(value)
+	if isZero {
+		return "-"
+	}
+	return template.HTML(fmt.Sprintf(`<relative-time format="activity" datetime="%s" data-tooltip-content data-tooltip-interactive="true">%s</relative-time>`,
+		html.EscapeString(t.Format(time.RFC3339)), html.EscapeString(t.Format("2006-01-02 15:04:05 Mon -07:00"))))
+}
+
 // ParseLegacy parses the datetime in legacy format, eg: "2016-01-02" in server's timezone.
 // It shouldn't be used in new code. New code should use Time or TimeStamp as much as possible.
 func (du *DateUtils) ParseLegacy(datetime string) time.Time {

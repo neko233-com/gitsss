@@ -1,13 +1,14 @@
 <div id="activity-feed" class="flex-divided-list items-with-main" data-ref-issue-container>
 	{{range .Feeds}}
-		<div class="item">
+		<div class="item activity-card" data-activity-type="{{.GetOpType}}">
 			<div class="item-leading">
-				{{ctx.AvatarUtils.AvatarByAction .}}
+				{{ctx.AvatarUtils.AvatarByAction . 28}}
 			</div>
 			<div class="item-main tw-gap-2">
-				<div>
+				<div class="activity-card-heading">
 					{{if gt .ActUser.ID 0}}
-						<a href="{{AppSubUrl}}/{{(.GetActUserName ctx) | PathEscape}}" title="{{.GetActDisplayNameTitle ctx}}">{{.GetActDisplayName ctx}}</a>
+						<a class="activity-card-actor" href="{{AppSubUrl}}/{{(.GetActUserName ctx) | PathEscape}}">{{.GetActUserName ctx}}</a>
+						{{with .GetActFullName ctx}}<span class="activity-card-remark">（{{.}}）</span>{{end}}
 					{{else}}
 						{{.ShortActUserName ctx}}
 					{{end}}
@@ -17,7 +18,7 @@
 						{{ctx.Locale.Tr "action.rename_repo" .GetContent (.GetRepoLink ctx) (.ShortRepoPath ctx)}}
 					{{else if .GetOpType.InActions "commit_repo"}}
 						{{if .Content}}
-							{{ctx.Locale.Tr "action.commit_repo" (.GetRepoLink ctx) (.GetRefLink ctx) .GetBranch (.ShortRepoPath ctx)}}
+							{{ctx.Locale.Tr "action.feed_push" (.GetRepoLink ctx) (.GetRepoPath ctx)}}
 						{{else}}
 							{{ctx.Locale.Tr "action.create_branch" (.GetRepoLink ctx) (.GetRefLink ctx) .GetBranch (.ShortRepoPath ctx)}}
 						{{end}}
@@ -56,7 +57,7 @@
 						{{$index := index .GetIssueInfos 0}}
 						{{ctx.Locale.Tr "action.delete_branch" (.GetRepoLink ctx) .GetBranch (.ShortRepoPath ctx)}}
 					{{else if .GetOpType.InActions "mirror_sync_push"}}
-						{{ctx.Locale.Tr "action.mirror_sync_push" (.GetRepoLink ctx) (.GetRefLink ctx) .RefName (.ShortRepoPath ctx)}}
+						{{ctx.Locale.Tr "action.feed_mirror_push" (.GetRepoLink ctx) (.GetRepoPath ctx)}}
 					{{else if .GetOpType.InActions "mirror_sync_create"}}
 						{{ctx.Locale.Tr "action.mirror_sync_create" (.GetRepoLink ctx) (.GetRefLink ctx) .RefName (.ShortRepoPath ctx)}}
 					{{else if .GetOpType.InActions "mirror_sync_delete"}}
@@ -81,26 +82,30 @@
 						{{$index := index .GetIssueInfos 0}}
 						{{ctx.Locale.Tr "action.auto_merge_pull_request" (printf "%s/pulls/%s" (.GetRepoLink ctx) $index) $index (.ShortRepoPath ctx)}}
 					{{end}}
-					{{DateUtils.TimeSince .GetCreate}}
 				</div>
+				<dl class="activity-card-meta">
+					{{if and .RefName (.GetOpType.InActions "commit_repo" "mirror_sync_push" "create_branch" "delete_branch")}}
+						<div><dt>{{ctx.Locale.Tr "action.feed_branch"}}</dt><dd>{{if .GetOpType.InActions "delete_branch"}}{{.GetBranch}}{{else}}<a href="{{.GetRefLink ctx}}">{{.GetBranch}}</a>{{end}}</dd></div>
+					{{end}}
+					<div><dt>{{ctx.Locale.Tr "action.feed_time"}}</dt><dd>{{DateUtils.ActivityTime .GetCreate}}</dd></div>
+				</dl>
 				{{if .GetOpType.InActions "commit_repo" "mirror_sync_push"}}
 					{{$push := ActionContent2Commits .}}
 					{{$repoLink := (.GetRepoLink ctx)}}
 					{{$repo := .Repo}}
-					<div class="tw-flex tw-flex-col tw-gap-1">
+					<ul class="activity-card-messages" aria-label="{{ctx.Locale.Tr "action.feed_messages"}}">
 						{{range $pushCommit := $push.Commits}}
 							{{$commitLink := printf "%s/commit/%s" $repoLink $pushCommit.Sha1}}
-							<div class="flex-text-block">
-								{{ctx.RenderUtils.AvatarStackPushCommit $pushCommit}}
-								<a class="ui sha label" href="{{$commitLink}}">{{ShortSha $pushCommit.Sha1}}</a>
-								<span class="tw-inline-block tw-truncate">
+							<li>
+								<span>
 									{{ctx.RenderUtils.RenderCommitMessage $pushCommit.Message $repo}}
 								</span>
-							</div>
+								<a class="activity-card-commit muted" href="{{$commitLink}}" aria-label="{{ctx.Locale.Tr "action.feed_view_commit"}}: {{$pushCommit.Sha1}}" data-tooltip-content="{{$pushCommit.Sha1}}">{{svg "octicon-arrow-up-right" 16}}</a>
+							</li>
 						{{end}}
-					</div>
+					</ul>
 					{{if and (gt $push.Len 1) $push.CompareURL}}
-						<a href="{{AppSubUrl}}/{{$push.CompareURL}}">{{ctx.Locale.Tr "action.compare_commits" $push.Len}} »</a>
+						<a class="activity-card-compare" href="{{AppSubUrl}}/{{$push.CompareURL}}">{{ctx.Locale.Tr "action.compare_commits_general"}} {{svg "octicon-arrow-right" 14}}</a>
 					{{end}}
 				{{else if .GetOpType.InActions "create_issue"}}
 					<span class="tw-inline-block tw-truncate issue title">{{index .GetIssueInfos 1 | ctx.RenderUtils.RenderIssueSimpleTitle}}</span>
@@ -122,7 +127,7 @@
 				{{end}}
 			</div>
 			<div class="item-trailing">
-				{{svg (printf "octicon-%s" (ActionIcon .GetOpType)) 32 "tw-text-text-light tw-mr-1"}}
+				{{svg (printf "octicon-%s" (ActionIcon .GetOpType)) 16 "tw-text-text-light"}}
 			</div>
 		</div>
 	{{end}}

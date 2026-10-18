@@ -171,8 +171,8 @@ function getRelativeTimeUnit(duration: Duration, opts?: {relativeTo?: Date | num
   return [0, 'second'];
 }
 
-type Format = 'auto' | 'datetime' | 'relative' | 'duration';
-type ResolvedFormat = 'datetime' | 'relative' | 'duration';
+type Format = 'auto' | 'datetime' | 'relative' | 'duration' | 'activity';
+type ResolvedFormat = Exclude<Format, 'auto'>;
 type Tense = 'auto' | 'past' | 'future';
 
 const emptyDuration = new Duration();
@@ -189,7 +189,7 @@ function getUnitFactor(el: RelativeTime): number {
   const ms = Math.abs(Date.now() - el.date.getTime());
   if (ms < 60 * 1000) return 1000;
   if (ms < 60 * 60 * 1000) return 60 * 1000;
-  return 60 * 60 * 1000;
+  return el.format === 'activity' ? 60 * 1000 : 60 * 60 * 1000;
 }
 
 const dateObserver = new (class {
@@ -344,6 +344,7 @@ class RelativeTime extends HTMLElement {
     if (format === 'datetime') return 'datetime';
     if (format === 'relative') return 'relative';
     if (format === 'duration') return 'duration';
+    if (format === 'activity') return 'activity';
     return 'auto';
   }
 
@@ -404,6 +405,7 @@ class RelativeTime extends HTMLElement {
     const format = this.format;
     if (format === 'datetime') return 'datetime';
     if (format === 'duration') return 'duration';
+    if (format === 'activity') return 'activity';
     if ((format === 'auto' || format === 'relative') && typeof Intl !== 'undefined' && Intl.RelativeTimeFormat) {
       const tense = this.tense;
       if (tense === 'past' || tense === 'future') return 'relative';
@@ -452,7 +454,7 @@ class RelativeTime extends HTMLElement {
     if (tense === 'future' && duration.sign !== 1) duration = emptyDuration;
     if (tense === 'past' && duration.sign !== -1) duration = emptyDuration;
     const [int, unit] = getRelativeTimeUnit(duration);
-    if (unit === 'second' && int < 10) {
+    if (unit === 'second' && Math.abs(int) < 10) {
       return relativeFormat.format(0, 'second');
     }
     return relativeFormat.format(int, unit);
@@ -472,6 +474,20 @@ class RelativeTime extends HTMLElement {
     return `${this.prefix} ${formatter.format(date)}`.trim();
   }
 
+  #getActivityFormat(date: Date, now: number, duration: Duration): string {
+    const pad = (value: number) => String(value).padStart(2, '0');
+    const exact = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    const weekday = new Intl.DateTimeFormat(this.#lang, {weekday: 'short'}).format(date);
+    const today = new Date(now);
+    // Calendar days preserve yesterday/the day before yesterday across midnight and DST.
+    const day = (value: Date) => Date.UTC(value.getFullYear(), value.getMonth(), value.getDate());
+    const days = Math.round((day(date) - day(today)) / 86400000);
+    const relative = days && Math.abs(days) <= 7 ?
+      new Intl.RelativeTimeFormat(this.#lang, {numeric: 'auto'}).format(days, 'day') :
+      this.#getRelativeFormat(duration);
+    return `${exact} ${weekday} | ${relative}`;
+  }
+
   update(): void {
     const date = this.date;
     if (typeof Intl === 'undefined' || !Intl.DateTimeFormat || !date) {
@@ -479,7 +495,8 @@ class RelativeTime extends HTMLElement {
       return;
     }
     const now = Date.now();
-    const tooltip = this.#getFormattedTitle(date);
+    const activity = this.format === 'activity' ? this.#getActivityFormat(date, now, elapsedTime(date, now)) : '';
+    const tooltip = activity ? `${activity} (${new Intl.DateTimeFormat().resolvedOptions().timeZone})` : this.#getFormattedTitle(date);
     if (tooltip && this.getAttribute('data-tooltip-content') !== tooltip) {
       this.setAttribute('data-tooltip-content', tooltip);
       this.setAttribute('aria-label', tooltip);
@@ -488,7 +505,9 @@ class RelativeTime extends HTMLElement {
     const duration = elapsedTime(date, now);
     const format = this.#resolveFormat(elapsedMs);
     let newText: string;
-    if (format === 'duration') {
+    if (format === 'activity') {
+      newText = activity;
+    } else if (format === 'duration') {
       newText = this.#getDurationFormat(duration);
     } else if (format === 'relative') {
       newText = this.#getRelativeFormat(duration);
@@ -497,7 +516,7 @@ class RelativeTime extends HTMLElement {
     }
     newText ||= (this.shadowRoot === this.#renderRoot && this.textContent) || '';
     if (this.#span.textContent !== newText) this.#span.textContent = newText;
-    if (format === 'relative' || format === 'duration') {
+    if (format === 'relative' || format === 'duration' || format === 'activity') {
       dateObserver.observe(this);
     } else {
       dateObserver.unobserve(this);

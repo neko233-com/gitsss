@@ -287,9 +287,14 @@ func TopicSearch(ctx *context.APIContext) {
 		Keyword:     ctx.FormString("q"),
 		ListOptions: utils.GetListOptions(ctx),
 	}
+	opts.VisibleRepoCond = repo_model.SearchRepositoryCondition(repo_model.SearchRepoOptions{Actor: ctx.Doer, Private: ctx.Doer != nil && !ctx.PublicOnly})
 
 	topics, total, err := db.FindAndCount[repo_model.Topic](ctx, opts)
 	if err != nil {
+		ctx.APIErrorInternal(err)
+		return
+	}
+	if err := repo_model.LoadVisibleTopicCounts(ctx, topics, opts.VisibleRepoCond); err != nil {
 		ctx.APIErrorInternal(err)
 		return
 	}

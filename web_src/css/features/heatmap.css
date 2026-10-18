@@ -1,65 +1,36 @@
-#user-heatmap {
-  width: 100%;
-  font-size: 11px;
-  min-width: 660px;
-  position: relative;
-}
-
-.activity-heatmap-container {
-  container-type: inline-size;
-  overflow-x: auto;
-  padding-bottom: 6px;
-}
-
-#user-heatmap:not(.is-loading) { height: auto; }
-
-@container (width > 0) {
-  #user-heatmap {
-    /* Set element to fixed height so that it does not resize after load. The calculation is complex
-       because the element does not scale with a fixed aspect ratio. */
-    height: calc((100cqw / 5) - (100cqw / 25) + 20px);
-  }
-}
-
-/* Fallback height adjustment above for browsers that don't support container queries */
-@supports not (container-type: inline-size) {
-  /* Before the Vue component is mounted, show a loading indicator with dummy size */
-  /* The ratio is guesswork for legacy browsers, new browsers use the "@container" approach above  */
-  #user-heatmap.is-loading {
-    aspect-ratio: 5.4823972051; /* the size is about 816 x 148.84 */
-  }
-  .user.profile #user-heatmap.is-loading {
-    aspect-ratio: 5.6290608387; /* the size is about 953 x 169.3 */
-  }
-}
-
-#user-heatmap text {
-  fill: currentcolor !important;
-}
-
-#user-heatmap .heatmap-footer {
-  display: flex;
-  font-size: 13px;
-  justify-content: space-between;
-}
-
-/* "Less [colors] More" scale */
-#user-heatmap .heatmap-legend {
-  display: flex;
-  align-items: center;
-  justify-content: right;
-}
-
-#user-heatmap .heatmap-legend-svg {
-  margin-right: -12px;
-}
-
-#user-heatmap .heatmap-legend > div:first-child,
-#user-heatmap .heatmap-legend > div:last-child {
-  display: inline-block;
-  padding: 0 5px;
-}
-
-#user-heatmap .heatmap-day:hover {
-  outline: 1.5px solid var(--color-text);
-}
+#user-heatmap { width: 100%; position: relative; font-size: 13px; }
+.activity-heatmap-container { min-width: 0; padding-bottom: 8px; }
+#user-heatmap.is-loading { min-height: 200px; }
+.heatmap-card { min-width: 0; }
+.heatmap-summary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 24px; margin: 0 0 16px; }
+.heatmap-summary > div { display: flex; flex-direction: column; gap: 5px; }
+.heatmap-summary dt { color: var(--color-text-light-1); font-weight: var(--font-weight-normal); }
+.heatmap-summary dd { margin: 0; font-size: 21px; font-weight: var(--font-weight-semibold); font-variant-numeric: tabular-nums; }
+.heatmap-summary small { color: var(--color-text-light-1); font-size: 12px; font-weight: var(--font-weight-normal); }
+.heatmap-calendar-scroll { overflow-x: auto; padding: 3px; }
+.heatmap-calendar { --heatmap-weeks: 53; min-width: 650px; }
+.heatmap-months { display: grid; grid-template-columns: repeat(var(--heatmap-weeks), minmax(0, 1fr)); gap: 3px; margin: 0 0 6px 40px; }
+.heatmap-months span { white-space: nowrap; color: var(--color-text-light-1); }
+.heatmap-body { display: flex; gap: 8px; }
+.heatmap-day-labels { display: grid; flex: 0 0 32px; grid-template-rows: repeat(7, 12px); gap: 3px; color: var(--color-text-light-1); line-height: 12px; white-space: nowrap; }
+.heatmap-weeks { display: grid; flex: 1; min-width: 0; grid-template-columns: repeat(var(--heatmap-weeks), minmax(0, 1fr)); gap: 3px; }
+.heatmap-week { display: grid; grid-template-rows: repeat(7, 12px); gap: 3px; }
+#user-heatmap .heatmap-day { display: block; width: 100%; height: 12px; min-width: 0; border: 0; border-radius: 2px; padding: 0; cursor: pointer; }
+#user-heatmap .heatmap-day:hover,
+#user-heatmap .heatmap-day:focus-visible,
+#user-heatmap .heatmap-day.is-selected { outline: 2px solid var(--color-text); outline-offset: 1px; }
+.heatmap-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-top: 12px; color: var(--color-text-light-1); }
+.heatmap-footer p { margin: 0; }
+.heatmap-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-variant-numeric: tabular-nums; }
+.heatmap-legend > span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.heatmap-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--color-secondary-alpha-60); }
+.heatmap-preferences { margin-top: 8px; }
+.heatmap-preferences summary { cursor: pointer; width: fit-content; color: var(--color-primary); padding: 4px 0; }
+.heatmap-preferences form { padding: 12px; border: 1px solid var(--color-secondary); border-radius: var(--border-radius); margin-top: 8px; background: var(--color-box-body); }
+.heatmap-range-fields { display: flex; flex-wrap: wrap; gap: 12px; }
+.heatmap-range-fields label { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 100px; }
+.heatmap-range-inputs { display: flex; gap: 6px; }
+.heatmap-range-inputs input[type="number"] { width: 80px; flex: 1; min-width: 0; padding: 6px; border: 1px solid var(--color-secondary); border-radius: var(--border-radius); background: var(--color-input-background); color: var(--color-text); }
+.heatmap-range-inputs input[type="color"] { width: 32px; height: 32px; flex: none; border: 1px solid var(--color-secondary); padding: 2px; background: var(--color-body); cursor: pointer; }
+.heatmap-preference-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.heatmap-preference-actions > span { color: var(--color-text-light-1); }

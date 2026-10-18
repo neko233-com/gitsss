@@ -20,9 +20,14 @@ func TopicSearch(ctx *context.Context) {
 		Page:     ctx.FormInt("page"),
 		PageSize: convert.ToCorrectPageSize(ctx.FormInt("limit")),
 	}
+	opts.VisibleRepoCond = repo_model.SearchRepositoryCondition(repo_model.SearchRepoOptions{Actor: ctx.Doer, Private: ctx.Doer != nil})
 
 	topics, total, err := db.FindAndCount[repo_model.Topic](ctx, opts)
 	if err != nil {
+		ctx.HTTPError(http.StatusInternalServerError)
+		return
+	}
+	if err := repo_model.LoadVisibleTopicCounts(ctx, topics, opts.VisibleRepoCond); err != nil {
 		ctx.HTTPError(http.StatusInternalServerError)
 		return
 	}

@@ -4,6 +4,7 @@
 package repo_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/neko233-com/gitsss/models/db"
@@ -11,6 +12,7 @@ import (
 	"github.com/neko233-com/gitsss/models/unittest"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAddTopic(t *testing.T) {
@@ -66,7 +68,37 @@ func TestAddTopic(t *testing.T) {
 	assert.Len(t, topics, repo2NrOfTopics)
 }
 
+func TestCustomTagsSearchAndVisibility(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	const shared = "研发_工具"
+	const hidden = "私有构建工具"
+	require.NoError(t, repo_model.SaveTopics(t.Context(), 1, shared))
+	require.NoError(t, repo_model.SaveTopics(t.Context(), 2, shared, hidden))
+	public := repo_model.SearchRepositoryCondition(repo_model.SearchRepoOptions{})
+	opts := &repo_model.FindTopicOptions{Keyword: "工具", VisibleRepoCond: public}
+	topics, total, err := db.FindAndCount[repo_model.Topic](t.Context(), opts)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, total)
+	require.Len(t, topics, 1)
+	assert.Equal(t, shared, topics[0].Name)
+	require.NoError(t, repo_model.LoadVisibleTopicCounts(t.Context(), topics, public))
+	assert.Equal(t, 1, topics[0].RepoCount)
+	repos, _, err := repo_model.SearchRepository(t.Context(), repo_model.SearchRepoOptions{Keyword: shared})
+	require.NoError(t, err)
+	require.Len(t, repos, 1)
+	assert.EqualValues(t, 1, repos[0].ID)
+	valid, invalid := repo_model.SanitizeAndValidateTopics([]string{" 研发_工具 ", "CI_CD", "ci_cd", "bad tag", "研发_工具"})
+	assert.Equal(t, []string{shared, "ci_cd"}, valid)
+	assert.Equal(t, []string{"bad tag"}, invalid)
+}
+
 func TestTopicValidator(t *testing.T) {
+	assert.True(t, repo_model.ValidateTopic("游戏客户端"))
+	assert.True(t, repo_model.ValidateTopic("ci_cd-构建.工具"))
+	assert.True(t, repo_model.ValidateTopic(strings.Repeat("中", 35)))
+	assert.False(t, repo_model.ValidateTopic(strings.Repeat("中", 36)))
+	assert.False(t, repo_model.ValidateTopic("<script>"))
+	assert.False(t, repo_model.ValidateTopic("CI/CD"))
 	assert.True(t, repo_model.ValidateTopic("12345"))
 	assert.True(t, repo_model.ValidateTopic("2-test"))
 	assert.True(t, repo_model.ValidateTopic("foo.bar"))

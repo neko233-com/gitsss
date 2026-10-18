@@ -176,3 +176,48 @@ test('batches multiple attribute changes into single update', async () => {
   await Promise.resolve();
   expect(updateCount).toBe(1);
 });
+
+test('activity combines exact local time, weekday and a calendar-day relative label', {concurrent: false}, async () => {
+  vi.useFakeTimers();
+  try {
+    vi.setSystemTime(new Date(2026, 9, 18, 0, 1));
+    const el = createRelativeTime(new Date(2026, 9, 16, 23, 59, 5).toISOString(), {format: 'activity', lang: 'zh-CN'});
+    await Promise.resolve();
+    expect(getText(el)).toBe('2026-10-16 23:59:05 周五 | 前天');
+    expect(el.getAttribute('aria-label')).toContain(getText(el));
+    el.setAttribute('lang', 'en-US');
+    await Promise.resolve();
+    expect(getText(el)).toBe('2026-10-16 23:59:05 Fri | 2 days ago');
+    el.setAttribute('datetime', new Date(2026, 9, 19, 0, 0, 1).toISOString());
+    await Promise.resolve();
+    expect(getText(el)).toBe('2026-10-19 00:00:01 Mon | tomorrow');
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test('activity remains relative for older timestamps and updates across midnight', {concurrent: false}, async () => {
+  vi.useFakeTimers();
+  const el = createRelativeTime(new Date(2026, 9, 16, 12, 34, 56).toISOString(), {format: 'activity', lang: 'zh-CN'});
+  try {
+    vi.setSystemTime(new Date(2026, 9, 17, 23, 59, 40));
+    document.body.append(el);
+    await Promise.resolve();
+    expect(getText(el)).toBe('2026-10-16 12:34:56 周五 | 昨天');
+    vi.setSystemTime(new Date(2026, 9, 18, 0, 0, 40));
+    (el as any).update();
+    expect(getText(el)).toBe('2026-10-16 12:34:56 周五 | 前天');
+    vi.setSystemTime(new Date(2027, 9, 18, 12));
+    (el as any).update();
+    expect(getText(el)).toBe('2026-10-16 12:34:56 周五 | 去年');
+  } finally {
+    el.remove();
+    vi.useRealTimers();
+  }
+});
+
+test('past seconds outside the now window remain visible', async () => {
+  const el = createRelativeTime(new Date(Date.now() - 50_000).toISOString());
+  await Promise.resolve();
+  expect(getText(el)).toBe('50 seconds ago');
+});

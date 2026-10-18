@@ -60,6 +60,7 @@ export async function initHeatmap() {
       tooltipUnit: el.getAttribute('data-locale-contributions') || 'contributions',
       textTotalContributions,
       noDataText: el.getAttribute('data-locale-no-contributions'),
+      labels: JSON.parse(el.getAttribute('data-locale-summary') || '{}'),
     };
 
     const {default: ActivityHeatmap} = await import('../components/ActivityHeatmap.vue');

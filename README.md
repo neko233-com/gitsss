@@ -4,7 +4,7 @@ GitSSS is an organization-first Git collaboration platform for enterprise privat
 
 [简体中文](README_ZH.md) · [HTML manual](docs/site/en/index.html) · [Enterprise operations](docs/operations/enterprise.md) · [License](LICENSE)
 
-Screenshots below show a demonstration instance captured on 2026-10-17; no production repository data is included.
+The activity workspace below shows a demonstration instance captured on 2026-10-18; no production repository data is included.
 
 ![GitSSS home page](docs/site/assets/screenshots/home.png)
 
@@ -16,6 +16,9 @@ Public entrance, isolated desktop demonstration captured on 2026-10-18:
 
 - A distinct GitSSS entrance with a local shader visual, gray documentation comments, and configurable Google/Feishu/WeChat account binding.
 - Global Ctrl+K / ⌘K search, localized date/time pickers, commit-linked Actions trackId and sandboxed per-file HTML preview.
+- Readable activity cards with account remarks, separate branch/message fields, and exact local timestamps plus weekday and live relative time.
+- Full-width activity calendars with 7/30-day summaries, active-day/peak totals and editable color/count ranges.
+- Up to 25 custom repository tags, including Chinese; repository and global search match tags.
 
 - Git over HTTP(S), SSH, and Git LFS.
 - Issues, pull requests, reviews, releases, wiki, packages, and Actions.

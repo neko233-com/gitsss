@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/modules/container"
@@ -22,7 +23,7 @@ func init() {
 	db.RegisterModel(new(RepoTopic))
 }
 
-var topicPattern = regexp.MustCompile(`^[a-z0-9][-.a-z0-9]*$`)
+var topicPattern = regexp.MustCompile(`^[\p{Ll}\p{Lo}\p{Lm}\p{N}][\p{Ll}\p{Lo}\p{Lm}\p{M}\p{N}_.-]*$`)
 
 // Topic represents a topic of repositories
 type Topic struct {
@@ -55,7 +56,7 @@ func (err ErrTopicNotExist) Unwrap() error {
 
 // ValidateTopic checks a topic by length and match pattern rules
 func ValidateTopic(topic string) bool {
-	return len(topic) <= 35 && topicPattern.MatchString(topic)
+	return utf8.RuneCountInString(topic) <= 35 && topicPattern.MatchString(topic)
 }
 
 // SanitizeAndValidateTopics sanitizes and checks an array or topics
@@ -168,8 +169,9 @@ func RemoveTopicsFromRepo(ctx context.Context, repoID int64) error {
 // FindTopicOptions represents the options when fdin topics
 type FindTopicOptions struct {
 	db.ListOptions
-	RepoID  int64
-	Keyword string
+	RepoID          int64
+	Keyword         string
+	VisibleRepoCond builder.Cond
 }
 
 func (opts *FindTopicOptions) ToConds() builder.Cond {
@@ -181,8 +183,43 @@ func (opts *FindTopicOptions) ToConds() builder.Cond {
 	if opts.Keyword != "" {
 		cond = cond.And(builder.Like{"topic.name", opts.Keyword})
 	}
+	if opts.VisibleRepoCond != nil {
+		cond = cond.And(builder.In("topic.id", builder.Select("topic_id").From("repo_topic").Where(
+			builder.In("repo_id", builder.Select("id").From("repository").Where(opts.VisibleRepoCond)),
+		)))
+	}
 
 	return cond
+}
+
+// LoadVisibleTopicCounts avoids disclosing how many inaccessible repositories use a tag.
+func LoadVisibleTopicCounts(ctx context.Context, topics []*Topic, repoCond builder.Cond) error {
+	if len(topics) == 0 {
+		return nil
+	}
+	ids := make([]int64, len(topics))
+	for i, topic := range topics {
+		ids[i] = topic.ID
+		topic.RepoCount = 0
+	}
+	var counts []struct {
+		TopicID   int64
+		RepoCount int
+	}
+	err := db.GetEngine(ctx).Table("repo_topic").Select("topic_id, COUNT(*) AS repo_count").
+		Where(builder.In("topic_id", ids)).And(builder.In("repo_id", builder.Select("id").From("repository").Where(repoCond))).
+		GroupBy("topic_id").Find(&counts)
+	if err != nil {
+		return err
+	}
+	byID := make(map[int64]int, len(counts))
+	for _, count := range counts {
+		byID[count.TopicID] = count.RepoCount
+	}
+	for _, topic := range topics {
+		topic.RepoCount = byID[topic.ID]
+	}
+	return nil
 }
 
 func (opts *FindTopicOptions) ToOrders() string {

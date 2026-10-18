@@ -54,6 +54,55 @@
   margin: 0 1px; /* Accommodate for Semantic's 1px hacks on .attached elements */
 }
 
+#activity-feed {
+  gap: 10px;
+}
+
+#activity-feed > .activity-card {
+  padding: 14px;
+  border: 1px solid var(--color-secondary);
+  border-radius: var(--border-radius);
+  background: var(--color-box-body);
+  gap: 12px;
+}
+
+.activity-card-heading {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.activity-card-actor { font-weight: var(--font-weight-semibold); }
+.activity-card-remark { color: var(--color-text-light-1); }
+.activity-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin: 0;
+  color: var(--color-text-light-1);
+  font-size: .92rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-card-meta > div { display: flex; gap: 6px; min-width: 0; }
+.activity-card-meta dt { flex: none; font-weight: var(--font-weight-normal); }
+.activity-card-meta dt::after { content: " ="; }
+.activity-card-meta dd { margin: 0; overflow-wrap: anywhere; }
+.activity-card-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0 0;
+  margin: 0;
+  border-top: 1px solid var(--color-secondary);
+  list-style: none;
+}
+
+.activity-card-messages li { display: flex; align-items: flex-start; gap: 8px; }
+.activity-card-messages li > span { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.6; }
+.activity-card-commit { display: inline-flex; flex: none; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; }
+.activity-card-compare { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; font-size: .92rem; }
+
 .dashboard .secondary-nav {
   padding: 1px 12px; /* match .overflow-menu-items in height */
 }
@@ -373,10 +422,10 @@
 .dashboard-workspace .dashboard-stream { min-width: 0; }
 .dashboard-workspace .dashboard-stream-header h2 { margin: 0 0 12px; font-size: 1.25rem; }
 .dashboard-contributions { margin-bottom: 16px; border-bottom: 1px solid var(--color-secondary); }
-.dashboard-contributions summary { display: flex; align-items: center; gap: 8px; padding: 8px 0 12px; color: var(--color-text-light-2); cursor: pointer; }
-.dashboard-contributions summary::after { content: "+"; margin-left: auto; }
-.dashboard-contributions[open] summary::after { content: "−"; }
-.dashboard-contributions .activity-heatmap-container { max-width: 900px; }
+.dashboard-contributions > summary { display: flex; align-items: center; gap: 8px; padding: 8px 0 12px; color: var(--color-text-light-2); cursor: pointer; }
+.dashboard-contributions > summary::after { content: "+"; margin-left: auto; }
+.dashboard-contributions[open] > summary::after { content: "−"; }
+.dashboard-contributions .activity-heatmap-container { max-width: none; }
 .dashboard-workspace #dashboard-repo-list,
 .dashboard-rail { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
 .dashboard-rail .dashboard-actions-panel { box-shadow: none; padding: 14px; }
