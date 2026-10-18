@@ -12,6 +12,8 @@ import (
 	"github.com/neko233-com/gitsss/models/unittest"
 	webhook_model "github.com/neko233-com/gitsss/models/webhook"
 	"github.com/neko233-com/gitsss/modules/json"
+	"github.com/neko233-com/gitsss/modules/setting"
+	"github.com/neko233-com/gitsss/modules/test"
 	webhook_module "github.com/neko233-com/gitsss/modules/webhook"
 
 	"github.com/stretchr/testify/assert"
@@ -20,11 +22,24 @@ import (
 
 func feishuPushFixture(t *testing.T) map[string]any {
 	t.Helper()
+	t.Cleanup(test.MockVariableValue(&setting.AppURL, "https://git.example.com/"))
 	var data map[string]any
 	require.NoError(t, json.Unmarshal([]byte(richFixture), &data))
 	data["before"], data["after"] = strings.Repeat("b", 40), strings.Repeat("a", 40)
 	data["sender"] = map[string]any{"login": "alice", "full_name": "艾丽丝 @everyone"}
 	return data
+}
+
+func TestFeishuPublicLinksFromLoopbackPayload(t *testing.T) {
+	data := feishuPushFixture(t)
+	t.Cleanup(test.MockVariableValue(&setting.AppURL, "https://git.example.com/gitsss/"))
+	notificationMap(data["repository"])["html_url"] = "http://127.0.0.1:3000/engineering/demo"
+	_, track := notificationTrack(data, &webhook_model.HookTask{})
+	assert.Equal(t, "https://git.example.com/gitsss/engineering/demo/commit/"+strings.Repeat("a", 40), track)
+	for _, path := range []string{"/actions", "/actions/runs/9", "/compare/aaa...bbb?expand=1#diff-1"} {
+		assert.Equal(t, "https://git.example.com/gitsss/engineering/demo"+path, notificationPublicRepositoryLink(data, "http://127.0.0.1:3000/engineering/demo"+path))
+	}
+	assert.Equal(t, "https://external.example/status", notificationPublicRepositoryLink(data, "https://external.example/status"))
 }
 
 func TestFeishuConcisePushCard(t *testing.T) {

@@ -6,6 +6,7 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -13,8 +14,39 @@ import (
 	"github.com/neko233-com/gitsss/models/db"
 	webhook_model "github.com/neko233-com/gitsss/models/webhook"
 	"github.com/neko233-com/gitsss/modules/json"
+	"github.com/neko233-com/gitsss/modules/setting"
 	webhook_module "github.com/neko233-com/gitsss/modules/webhook"
 )
+
+func notificationRepositoryURL(data map[string]any) string {
+	repository := notificationMap(data["repository"])
+	parts := strings.Split(notificationString(repository["full_name"]), "/")
+	base := notificationURL(setting.AppURL)
+	if base != "" && len(parts) == 2 && parts[0] != "" && parts[1] != "" && parts[0] != "." && parts[0] != ".." && parts[1] != "." && parts[1] != ".." {
+		return strings.TrimRight(base, "/") + "/" + url.PathEscape(parts[0]) + "/" + url.PathEscape(parts[1])
+	}
+	return notificationURL(repository["html_url"])
+}
+
+// API-generated payloads may contain a loopback request origin; shared cards use the configured site URL.
+func notificationPublicRepositoryLink(data map[string]any, link string) string {
+	original, err := url.Parse(notificationURL(notificationMap(data["repository"])["html_url"]))
+	if err != nil || original.Path == "" {
+		return link
+	}
+	target, err := url.Parse(link)
+	if err != nil || (target.Path != original.Path && !strings.HasPrefix(target.Path, strings.TrimRight(original.Path, "/")+"/")) {
+		return link
+	}
+	canonical, err := url.Parse(notificationRepositoryURL(data))
+	if err != nil || canonical.Host == "" {
+		return link
+	}
+	canonical.Path = strings.TrimRight(canonical.Path, "/") + strings.TrimPrefix(target.Path, strings.TrimRight(original.Path, "/"))
+	canonical.RawPath = ""
+	canonical.RawQuery, canonical.Fragment = target.RawQuery, target.Fragment
+	return canonical.String()
+}
 
 func notificationActorDisplay(data map[string]any) string {
 	login := notificationActor(data)
@@ -54,7 +86,7 @@ func notificationTrack(data map[string]any, task *webhook_model.HookTask) (id, l
 			}
 		}
 	}
-	repoURL := notificationURL(notificationMap(data["repository"])["html_url"])
+	repoURL := notificationRepositoryURL(data)
 	if notificationObjectID(sha) {
 		if repoURL != "" {
 			link = strings.TrimRight(repoURL, "/") + "/commit/" + sha
@@ -164,6 +196,7 @@ func notificationFeishuBody(m notificationMessage) string {
 func notificationFeishuCard(ctx context.Context, w *webhook_model.Webhook, task *webhook_model.HookTask, m notificationMessage) map[string]any {
 	var data map[string]any
 	_ = json.Unmarshal([]byte(task.PayloadContent), &data)
+	m.URL = notificationPublicRepositoryLink(data, m.URL)
 	workflow := notificationMap(data["workflow_run"])
 	if workflow == nil {
 		workflow = notificationMap(data["workflow_job"])
@@ -200,13 +233,13 @@ func notificationFeishuCard(ctx context.Context, w *webhook_model.Webhook, task 
 		} else {
 			status = notificationPushActions(ctx, data, m.Chinese)
 		}
-		actionsURL := notificationURL(notificationMap(data["repository"])["html_url"])
+		actionsURL := notificationRepositoryURL(data)
 		if actionsURL != "" {
 			actionsURL = strings.TrimRight(actionsURL, "/") + "/actions"
 		}
 		if workflow != nil {
 			if link := notificationURL(workflow["html_url"]); link != "" {
-				actionsURL = link
+				actionsURL = notificationPublicRepositoryLink(data, link)
 			}
 			if !m.CustomBody {
 				m.Body = notificationString(workflow["display_title"])
