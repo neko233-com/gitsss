@@ -11,6 +11,16 @@ gitsss-theme-meta-info {
  * Subtle, brand-neutral polish only (GitHub is a flat, functional UI).
  */
 :root {
+  --color-syntax-comment: #6e7781;
+  --color-syntax-comment-special: #6e7781;
+  --color-syntax-keyword: #0033b3;
+  --color-syntax-control: #0033b3;
+  --color-syntax-bool: #0033b3;
+  --color-syntax-type: #0033b3;
+  --color-syntax-string: #067d17;
+  --color-syntax-number: #1750eb;
+  --color-syntax-function: #00627a;
+  --color-syntax-string-special: #067d17;
   --is-dark-theme: false;
 
   --gitsss-primary-green: #1f883d;

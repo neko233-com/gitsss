@@ -4,7 +4,7 @@
 	<div class="ui container">
 		{{template "base/alert" .}}
 		<div class="html-docs-toolbar flex-text-block tw-justify-between tw-flex-wrap">
-			<div class="flex-text-block">{{svg "octicon-browser" 18}} <strong>Docs</strong>{{if .DocsEntry}}<span class="muted">{{.DocsEntry}} · {{ShortSha .DocsCommit}}</span>{{end}}</div>
+			<div class="flex-text-block">{{svg "octicon-browser" 18}} <strong>{{if .DocsPreview}}{{.Title}}{{else}}Docs{{end}}</strong>{{if .DocsEntry}}<span class="muted">{{.DocsEntry}} · {{ShortSha .DocsCommit}}</span>{{end}}</div>
 			{{if .DocsSourceURL}}<a class="ui small basic button" href="{{.DocsSourceURL}}">{{svg "octicon-code"}} {{ctx.Locale.Tr "repo.docs.source"}}</a>{{end}}
 		</div>
 		{{if .CanManageDocs}}

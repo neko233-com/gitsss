@@ -100,7 +100,7 @@ export class ConfigFormValueMapper {
     if (el.matches('[type="checkbox"]')) {
       if (valType !== 'boolean') requireExplicitValueType(el);
       el.checked = Boolean(val ?? el.checked);
-    } else if (el.matches('[type="datetime-local"]')) {
+    } else if (el.matches('[type="datetime-local"], [data-picker-type="datetime-local"]')) {
       if (valType !== 'timestamp') requireExplicitValueType(el);
       if (val) el.value = toDatetimeLocalValue(val);
     } else if (el.matches('textarea') || (el.matches('input') && (el.getAttribute('type') ?? 'text') === 'text')) {
@@ -119,9 +119,10 @@ export class ConfigFormValueMapper {
       //  it needs to iterate the "namedElems" to find all the checkboxes with the same name and collect values accordingly,
       //  and set the namedElems[matchedIdx] to null to avoid duplicate processing.
       val = collectCheckboxBooleanValue(el);
-    } else if (el.matches('[type="datetime-local"]')) {
+    } else if (el.matches('[type="datetime-local"], [data-picker-type="datetime-local"]')) {
       if (valType !== 'timestamp') requireExplicitValueType(el);
-      val = Math.floor(new Date(el.value).getTime() / 1000) ?? 0; // NaN is fine to JSON.stringify, it becomes null.
+      val = el.value ? Math.floor(new Date(el.value).getTime() / 1000) : 0;
+      if (!Number.isFinite(val)) throw new Error('Invalid date and time');
     } else if (el.matches('textarea') || (el.matches('input') && (el.getAttribute('type') ?? 'text') === 'text')) {
       val = el.value;
     } else {

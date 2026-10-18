@@ -31,7 +31,7 @@ func TestHTMLDocsPaths(t *testing.T) {
 
 func TestHTMLDocsAccessScopeAndExpiry(t *testing.T) {
 	now := time.Now()
-	access := HTMLDocsAccess{UserID: 2, RepoID: 1, Commit: "abc", Revision: 3, Expires: now.Add(30 * time.Minute).Unix()}
+	access := HTMLDocsAccess{UserID: 2, RepoID: 1, Commit: "abc", Revision: 3, Preview: true, Expires: now.Add(30 * time.Minute).Unix()}
 	token, err := SignHTMLDocsAccess(access)
 	require.NoError(t, err)
 	decoded, err := VerifyHTMLDocsAccess(token, now)

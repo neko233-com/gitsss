@@ -39,6 +39,10 @@ func (b *BaseProvider) IconHTML(size int) template.HTML {
 	switch b.name {
 	case "gplus":
 		svgName = "gitea-google"
+	case "feishu":
+		svgName = "octicon-paper-airplane"
+	case "wechat":
+		svgName = "octicon-comment-discussion"
 	case "github":
 		svgName = "octicon-mark-github"
 	}

@@ -167,6 +167,9 @@ func prepareFileView(ctx *context.Context, entry *git.TreeEntry) {
 	ctx.Data["FileIsSymlink"] = entry.IsLink()
 	ctx.Data["FileTreePath"] = ctx.Repo.TreePath
 	ctx.Data["RawFileLink"] = ctx.Repo.RepoLink + "/raw/" + ctx.Repo.RefTypeNameSubURL() + "/" + util.PathEscapeSegments(ctx.Repo.TreePath)
+	if strings.HasSuffix(strings.ToLower(ctx.Repo.TreePath), ".html") || strings.HasSuffix(strings.ToLower(ctx.Repo.TreePath), ".htm") {
+		ctx.Data["HTMLPreviewURL"] = ctx.Repo.RepoLink + "/-/preview/" + ctx.Repo.CommitID + "/" + util.PathEscapeSegments(ctx.Repo.TreePath)
+	}
 
 	if ctx.Repo.TreePath == ".editorconfig" {
 		_, editorconfigWarning, editorconfigErr := ctx.Repo.GetEditorconfig(ctx.Repo.Commit)

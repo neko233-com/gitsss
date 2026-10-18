@@ -60,6 +60,9 @@ importers:
       '@deltablot/dropzone':
         specifier: 7.4.3
         version: 7.4.3
+      '@github/combobox-nav':
+        specifier: 3.0.2
+        version: 3.0.2
       '@github/markdown-toolbar-element':
         specifier: 2.2.3
         version: 2.2.3
@@ -81,6 +84,9 @@ importers:
       '@noble/hashes':
         specifier: 2.4.0
         version: 2.4.0
+      '@paper-design/shaders':
+        specifier: 0.0.81
+        version: 0.0.81
       '@primer/octicons':
         specifier: 19.28.1
         version: 19.28.1
@@ -144,6 +150,9 @@ importers:
       esbuild:
         specifier: 0.28.1
         version: 0.28.1
+      flatpickr:
+        specifier: 4.6.13
+        version: 4.6.13
       idiomorph:
         specifier: 0.7.4
         version: 0.7.4
@@ -901,6 +910,9 @@ packages:
   '@github/combobox-nav@2.3.1':
     resolution: {integrity: sha512-gwxPzLw8XKecy1nP63i9lOBritS3bWmxl02UX6G0TwMQZbMem1BCS1tEZgYd3mkrkiDrUMWaX+DbFCuDFo3K+A==}
 
+  '@github/combobox-nav@3.0.2':
+    resolution: {integrity: sha512-txEw3G7oK2b7G5olc5+xDEUJcHvyp9N+yx+LIjAwKsfOq22CGAx5zUL/6yVsHiCF/tRZlKMuFTAgpOHoCrNrzA==}
+
   '@github/markdown-toolbar-element@2.2.3':
     resolution: {integrity: sha512-AlquKGee+IWiAMYVB0xyHFZRMnu4n3X4HTvJHu79GiVJ1ojTukCWyxMlF5NMsecoLcBKsuBhx3QPv2vkE/zQ0A==}
 
@@ -1076,6 +1088,9 @@ packages:
 
   '@oxc-project/types@0.139.0':
     resolution: {integrity: sha512-r9gHphtCs+1M7J0pw6Sn/hh/Wpa/iQrOOkrNAlVLF/gHq+/CJmHIWKKUUhdWjcD6CIa8idarspCsASiXCXvFUw==}
+
+  '@paper-design/shaders@0.0.81':
+    resolution: {integrity: sha512-jeGdyjMscZ2bxmQdo8lhwUufHUf4iq3s1ayjh8PXU7Go42Rw8E3I0It1FZdc3HuWt5J82m//DRWaxsRqRfA4Gg==}
 
   '@playwright/test@1.61.1':
     resolution: {integrity: sha512-8nKv6+0RJSL9FE4jYOEGXnPeM/Hg12qZpmqzZjRh3qM0Y7c3z1mrOTfFLids72RDQYVh9WpLEfR5WdpNX4fkig==}
@@ -2844,6 +2859,9 @@ packages:
 
   flat-cache@6.1.23:
     resolution: {integrity: sha512-f++BY9pTk+983xK1FLzlLpmM0i0z+jHmx3QESGkURMXujQZz1k5wzwX6hjnQ8goaD0B+sYnDK1yZ6MTyZfUaqA==}
+
+  flatpickr@4.6.13:
+    resolution: {integrity: sha512-97PMG/aywoYpB4IvbvUJi0RQi8vearvU0oov1WW3k0WZPBMrTQVqekSX5CjSG/M4Q3i6A/0FKXC7RyAoAUUSPw==}
 
   flatted@3.4.2:
     resolution: {integrity: sha512-PjDse7RzhcPkIJwy5t7KPWQSZ9cAbzQXcafsetQoD7sOJRQlGikNbx7yZp2OotDnJyrDcbyRq3Ttb18iYOqkxA==}
@@ -5350,6 +5368,8 @@ snapshots:
 
   '@github/combobox-nav@2.3.1': {}
 
+  '@github/combobox-nav@3.0.2': {}
+
   '@github/markdown-toolbar-element@2.2.3': {}
 
   '@github/paste-markdown@1.5.3': {}
@@ -5584,6 +5604,8 @@ snapshots:
       fastq: 1.20.1
 
   '@oxc-project/types@0.139.0': {}
+
+  '@paper-design/shaders@0.0.81': {}
 
   '@playwright/test@1.61.1':
     dependencies:
@@ -7572,6 +7594,8 @@ snapshots:
       cacheable: 2.5.0
       flatted: 3.4.2
       hookified: 1.15.1
+
+  flatpickr@4.6.13: {}
 
   flatted@3.4.2: {}
 

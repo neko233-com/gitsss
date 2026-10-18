@@ -4,6 +4,9 @@ import '../css/index.css';
 
 import {initDashboardRepoList} from './features/dashboard.ts';
 import {initWorkspace} from './features/workspace.ts';
+import {initLandingShader} from './features/landing-shader.ts';
+import {initWorkspaceSearch} from './features/workspace-search.ts';
+import {initDatePickers} from './features/datetime-picker.ts';
 import {initContributionReport} from './features/contribution-report.ts';
 import {initSoftwareCenter} from './features/software-center.ts';
 import {initDashboardActions} from './features/dashboard-actions.ts';
@@ -129,6 +132,9 @@ const initPerformanceTracer = callInitFunctions([
 
   initDashboardRepoList,
   initWorkspace,
+  initLandingShader,
+  initWorkspaceSearch,
+  initDatePickers,
   initContributionReport,
   initSoftwareCenter,
   initDashboardActions,

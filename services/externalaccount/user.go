@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/neko233-com/gitsss/models/auth"
 	issues_model "github.com/neko233-com/gitsss/models/issues"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	user_model "github.com/neko233-com/gitsss/models/user"
@@ -40,6 +41,9 @@ func toExternalLoginUser(authSourceID int64, user *user_model.User, gothUser got
 
 // LinkAccountToUser link the gothUser to the user
 func LinkAccountToUser(ctx context.Context, authSourceID int64, user *user_model.User, gothUser goth.User) error {
+	if source, err := auth.GetSourceByID(ctx, authSourceID); err == nil && NativeIdentitySource(source) {
+		return BindVerifiedIdentity(ctx, source, user, gothUser, false)
+	}
 	externalLoginUser := toExternalLoginUser(authSourceID, user, gothUser)
 
 	if err := user_model.LinkExternalToUser(ctx, user, externalLoginUser); err != nil {

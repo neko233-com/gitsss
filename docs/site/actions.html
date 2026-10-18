@@ -53,6 +53,7 @@
       <h1>离线 Actions</h1>
       <p class="subtitle">内置 CI/CD，无需公网访问</p>
 
+      <h2>提交与触发追踪</h2><p>运行列表显示触发事件、账号与备注，以及链接到完整提交的 trackId。运行摘要单独展示 trackId；重新运行时以当前 attempt 的操作人为准，原始提交与发起账号继续保留在运行数据中。push、定时、手动和重跑保留各自原因，不因查看页面而执行任何工作流。</p>
       <h2>概述</h2>
       <p>gitsss 将服务端、内置 Runner、Node.js、Go、Git LFS、Docker 和常用 Action 打包在一个 Ubuntu 24.04 镜像中。默认使用服务进程内置 Runner，启动后无需外部 Docker 服务、Runner 注册进程或公网依赖即可运行 CI/CD 工作流。</p>
       <p>Linux 和 macOS 都不需要像 Gitea 那样另外下载 <code>act_runner</code>。服务进程直接领取 <code>self-hosted:host</code>、<code>ubuntu-latest:host</code>、<code>ubuntu-24.04:host</code>。这些标签沿用 GitHub 习惯，任务在 gitsss 所在主机上执行。macOS 上的 <code>ubuntu-latest:host</code> 也是在这台 Mac 上跑，不会另起一台 Ubuntu 虚拟机。</p>

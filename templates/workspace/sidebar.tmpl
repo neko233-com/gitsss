@@ -11,11 +11,12 @@
   <a href="{{AppSubUrl}}/pulls">{{svg "octicon-git-pull-request"}} {{ctx.Locale.Tr "pull_requests"}}</a>
  </nav>
  {{end}}
- {{if .Orgs}}
+ {{if .SignedUser}}
  <section class="workspace-organizations">
   <label class="workspace-filter">{{svg "octicon-search"}}<input type="search" data-workspace-org-filter aria-label="{{ctx.Locale.Tr "search.org_kind"}}" placeholder="{{ctx.Locale.Tr "search.org_kind"}}"></label>
   <nav aria-label="{{ctx.Locale.Tr "home.switch_dashboard_context"}}">
    {{range .Orgs}}<a class="workspace-org {{if and $.Org (eq $.Org.ID .ID)}}selected{{end}}" data-workspace-org data-search="{{.Name}} {{.FullName}}" href="{{.OrganisationLink}}/dashboard">{{ctx.AvatarUtils.Avatar . 24}}<span>{{template "org/identity" .}}</span></a>{{end}}
+   <a class="workspace-org {{if and (not .Org) (not .OrganizationHome)}}selected{{end}}" data-workspace-org data-search="{{.SignedUser.Name}} {{ctx.Locale.Tr "workspace.personal"}}" href="{{AppSubUrl}}/?view=personal">{{ctx.AvatarUtils.Avatar .SignedUser 24}}<span>{{.SignedUser.Name}} <small>({{ctx.Locale.Tr "workspace.personal"}})</small></span></a>
   </nav>
   <p data-workspace-org-empty hidden>{{ctx.Locale.Tr "no_results_found"}}</p>
  </section>

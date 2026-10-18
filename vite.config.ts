@@ -335,6 +335,7 @@ export default defineConfig(commonViteOpts({
         for (const {name, version, licenseText} of deps) {
           combined[`${name}@${version}`] = wrap(licenseText, 80).trim();
         }
+        combined['Paper Shaders NOTICE'] = readFileSync(join(import.meta.dirname, 'node_modules/@paper-design/shaders/NOTICE'), 'utf8').trim();
         const content = Object.entries(combined)
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([title, body]) => `${line}\n${title}\n${line}\n${body}`).join('\n');

@@ -25,7 +25,6 @@ import (
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	"github.com/neko233-com/gitsss/models/unit"
 	"github.com/neko233-com/gitsss/modules/actions"
-	"github.com/neko233-com/gitsss/modules/base"
 	"github.com/neko233-com/gitsss/modules/cache"
 	"github.com/neko233-com/gitsss/modules/git"
 	"github.com/neko233-com/gitsss/modules/gitrepo"
@@ -370,6 +369,7 @@ type ViewRunAttempt struct {
 	Latest            bool   `json:"latest"`
 	TriggeredAt       int64  `json:"triggeredAt"`
 	TriggerUserName   string `json:"triggerUserName"`
+	TriggerUserLogin  string `json:"triggerUserLogin"`
 	TriggerUserLink   string `json:"triggerUserLink"`
 	TriggerUserAvatar string `json:"triggerUserAvatar"`
 }
@@ -388,6 +388,7 @@ type ViewCommit struct {
 
 type ViewUser struct {
 	DisplayName string `json:"displayName"`
+	Login       string `json:"login"`
 	Link        string `json:"link"`
 	AvatarLink  string `json:"avatarLink,omitempty"`
 }
@@ -655,6 +656,7 @@ func fillViewRunResponseSummary(ctx *context_module.Context, resp *ViewResponse,
 			Latest:            runAttempt.ID == run.LatestAttemptID,
 			TriggeredAt:       runAttempt.Created.AsTime().Unix(),
 			TriggerUserName:   runAttempt.TriggerUser.GetDisplayName(),
+			TriggerUserLogin:  runAttempt.TriggerUser.Name,
 			TriggerUserLink:   runAttempt.TriggerUser.HomeLink(),
 			TriggerUserAvatar: runAttempt.TriggerUser.AvatarLinkWithSize(ctx, 16),
 		})
@@ -662,13 +664,14 @@ func fillViewRunResponseSummary(ctx *context_module.Context, resp *ViewResponse,
 
 	pusher := ViewUser{
 		DisplayName: run.TriggerUser.GetDisplayName(),
+		Login:       run.TriggerUser.Name,
 		Link:        run.TriggerUser.HomeLink(),
 		AvatarLink:  run.TriggerUser.AvatarLinkWithSize(ctx, 16),
 	}
 
 	refInfo := getViewSummaryRefInfo(ctx, run)
 	resp.State.Run.Commit = ViewCommit{
-		ShortSha: base.ShortSha(run.CommitSHA),
+		ShortSha: actionsTrackID(run.CommitSHA),
 		Link:     fmt.Sprintf("%s/commit/%s", run.Repo.Link(), run.CommitSHA),
 		Pusher:   pusher,
 		Branch:   refInfo.Branch,
@@ -1520,4 +1523,11 @@ func canViewScopedWorkflowFile(ctx *context_module.Context, run *actions_model.A
 		return false
 	}
 	return perm.CanRead(unit.TypeCode)
+}
+
+func actionsTrackID(sha string) string {
+	if len(sha) > 12 {
+		return sha[:12]
+	}
+	return sha
 }

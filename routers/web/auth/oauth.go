@@ -46,14 +46,28 @@ func SignInOAuth(ctx *context.Context) {
 		return
 	}
 
+	if authSource == nil {
+		ctx.NotFound(nil)
+		return
+	}
 	rememberAuthRedirectLink(ctx)
+	if ctx.Doer != nil && externalaccount.NativeIdentitySource(authSource) {
+		for key, value := range map[string]any{"oauth_binding_user": ctx.Doer.ID, "oauth_binding_source": authSource.ID, "oauth_binding_replace": ctx.FormString("bind") == "replace", "oauth_binding_time": time.Now().Unix()} {
+			if err := ctx.Session.Set(key, value); err != nil {
+				ctx.ServerError("SetBindingIntent", err)
+				return
+			}
+		}
+	}
 
 	// try to do a direct callback flow, so we don't authenticate the user again but use the valid accesstoken to get the user
-	user, gothUser, err := oAuth2UserLoginCallback(ctx, authSource, ctx.Req, ctx.Resp)
-	if err == nil && user != nil {
-		// we got the user without going through the whole OAuth2 authentication flow again
-		handleOAuth2SignIn(ctx, authSource, user, gothUser)
-		return
+	if ctx.Doer == nil {
+		user, gothUser, err := oAuth2UserLoginCallback(ctx, authSource, ctx.Req, ctx.Resp)
+		if err == nil && user != nil {
+			// A normal sign-in may reuse its existing provider session.
+			handleOAuth2SignIn(ctx, authSource, user, gothUser)
+			return
+		}
 	}
 
 	if err = authSource.Cfg.(*oauth2.Source).Callout(ctx.Req, ctx.Resp); err != nil {
@@ -126,6 +140,42 @@ func SignInOAuthCallback(ctx *context.Context) {
 			return
 		}
 		ctx.ServerError("UserSignIn", err)
+		return
+	}
+
+	if boundUser, _ := ctx.Session.Get("oauth_binding_user").(int64); boundUser > 0 && ctx.Doer == nil {
+		for _, key := range []string{"oauth_binding_user", "oauth_binding_source", "oauth_binding_time", "oauth_binding_replace"} {
+			if err := ctx.Session.Delete(key); err != nil {
+				ctx.ServerError("ClearBindingIntent", err)
+				return
+			}
+		}
+		ctx.Flash.Error(ctx.Tr("settings.identity_binding_invalid"))
+		ctx.Redirect(setting.AppSubURL + "/user/login")
+		return
+	}
+	if ctx.Doer != nil && externalaccount.NativeIdentitySource(authSource) {
+		boundUser, _ := ctx.Session.Get("oauth_binding_user").(int64)
+		boundSource, _ := ctx.Session.Get("oauth_binding_source").(int64)
+		started, _ := ctx.Session.Get("oauth_binding_time").(int64)
+		replace, _ := ctx.Session.Get("oauth_binding_replace").(bool)
+		for _, key := range []string{"oauth_binding_user", "oauth_binding_source", "oauth_binding_time", "oauth_binding_replace"} {
+			if err := ctx.Session.Delete(key); err != nil {
+				ctx.ServerError("ClearBindingIntent", err)
+				return
+			}
+		}
+		if boundUser != ctx.Doer.ID || boundSource != authSource.ID || started < time.Now().Add(-10*time.Minute).Unix() || started > time.Now().Unix() || (u != nil && u.ID != ctx.Doer.ID) {
+			ctx.Flash.Error(ctx.Tr("settings.identity_binding_invalid"))
+			ctx.Redirect(setting.AppSubURL + "/user/settings/security")
+			return
+		}
+		if err := externalaccount.BindVerifiedIdentity(ctx, authSource, ctx.Doer, gothUser, replace); err != nil {
+			ctx.Flash.Error(ctx.Tr("settings.identity_binding_failed"))
+		} else {
+			ctx.Flash.Success(ctx.Tr("settings.identity_binding_success"))
+		}
+		ctx.Redirect(setting.AppSubURL + "/user/settings/security")
 		return
 	}
 
@@ -354,6 +404,12 @@ func oauth2UpdateAvatarIfNeed(ctx *context.Context, avatarURL string, u *user_mo
 }
 
 func handleOAuth2SignIn(ctx *context.Context, authSource *auth.Source, u *user_model.User, gothUser goth.User) {
+	if u.IsActive && !u.ProhibitLogin {
+		if err := externalaccount.SyncGoogleEmail(ctx, authSource, u, gothUser); err != nil {
+			ctx.Flash.Error(ctx.Tr("settings.identity_email_conflict"))
+		}
+	}
+
 	oauth2SignInSync(ctx, authSource.ID, u, gothUser)
 	if ctx.Written() {
 		return

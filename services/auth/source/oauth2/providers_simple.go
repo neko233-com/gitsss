@@ -13,8 +13,10 @@ import (
 	"github.com/markbates/goth/providers/dropbox"
 	"github.com/markbates/goth/providers/facebook"
 	"github.com/markbates/goth/providers/google"
+	"github.com/markbates/goth/providers/lark"
 	"github.com/markbates/goth/providers/microsoftonline"
 	"github.com/markbates/goth/providers/twitter"
+	"github.com/markbates/goth/providers/wechat"
 	"github.com/markbates/goth/providers/yandex"
 )
 
@@ -49,6 +51,15 @@ func NewSimpleProvider(name, displayName string, scopes []string, newFn SimplePr
 var _ GothProvider = &SimpleProvider{}
 
 func init() {
+	RegisterGothProvider(NewSimpleProvider("feishu", "飞书", nil,
+		func(clientKey, secret, callbackURL string, scopes ...string) goth.Provider {
+			return lark.New(clientKey, secret, callbackURL, scopes...)
+		}))
+	RegisterGothProvider(NewSimpleProvider("wechat", "微信", nil,
+		func(clientKey, secret, callbackURL string, _ ...string) goth.Provider {
+			return wechat.New(clientKey, secret, callbackURL, wechat.WECHAT_LANG_CN)
+		}))
+
 	RegisterGothProvider(
 		NewSimpleProvider("bitbucket", "Bitbucket", []string{"account"},
 			func(clientKey, secret, callbackURL string, scopes ...string) goth.Provider {

@@ -515,6 +515,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 	// Especially some AJAX requests, we can reduce middleware number to improve performance.
 
 	m.Get("/", Home)
+	m.Get("/workspace/search", reqSignIn, user.WorkspaceSearch)
 	manualHandler := manual.Handler(setting.AppSubURL+"/help", "/help")
 	m.Get("/help", func(ctx *context.Context) { manualHandler.ServeHTTP(ctx.Resp, ctx.Req) })
 	m.Get("/help/*", func(ctx *context.Context) { manualHandler.ServeHTTP(ctx.Resp, ctx.Req) })
@@ -1325,6 +1326,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 
 	// user/org home, including rss feeds like "/{username}/{reponame}.rss"
 	m.Get("/{username}/{reponame}", optSignIn, webAuth.AllowBasic, context.RepoAssignment, context.RepoRefByType(git.RefTypeBranch), repo.SetEditorconfigIfExists, repo.Home)
+	m.Get("/{username}/{reponame}/-/preview/{sha}/*", optSignIn, context.RepoAssignment, reqUnitCodeReader, repo.HTMLPreview)
 	m.Get("/{username}/{reponame}/-/docs", optSignIn, context.RepoAssignment, reqUnitCodeReader, repo.HTMLDocs)
 	m.Get("/{username}/{reponame}/-/docs/content/{sha}/{access}/*", repo.HTMLDocsAuthorize, context.RepoAssignment, reqUnitCodeReader, repo.HTMLDocsContent)
 	m.Post("/{username}/{reponame}/-/docs", reqSignIn, context.RepoAssignment, reqRepoAdmin, repo.HTMLDocsPost)

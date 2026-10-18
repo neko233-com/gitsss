@@ -91,6 +91,73 @@ func HTMLDocs(ctx *context.Context) {
 	ctx.HTML(http.StatusOK, templates.TplName("repo/html_docs"))
 }
 
+// HTMLPreview pins an arbitrary repository HTML file and its relative assets to one commit.
+func HTMLPreview(ctx *context.Context) {
+	if !checkDownloadTokenScope(ctx) {
+		return
+	}
+	file, err := repo_service.CleanHTMLDocsPath(ctx.PathParam("*"))
+	if err != nil || (strings.ToLower(path.Ext(file)) != ".html" && strings.ToLower(path.Ext(file)) != ".htm") {
+		ctx.NotFound(err)
+		return
+	}
+	sha := ctx.PathParam("sha")
+	if !htmlPreviewObjectID(sha) {
+		ctx.NotFound(nil)
+		return
+	}
+	repo, err := git.OpenRepository(ctx, ctx.Repo.Repository.RepoPath())
+	if err != nil {
+		ctx.ServerError("OpenRepository", err)
+		return
+	}
+	defer repo.Close()
+	commit, err := repo.GetCommit(sha)
+	if err != nil {
+		ctx.NotFound(err)
+		return
+	}
+	entry, err := commit.GetTreeEntryByPath(file)
+	if err != nil || !entry.IsRegular() {
+		ctx.NotFound(err)
+		return
+	}
+	settings, err := repo_service.GetHTMLDocsSettings(ctx, ctx.Repo.Repository.ID)
+	if err != nil {
+		ctx.ServerError("GetHTMLDocsSettings", err)
+		return
+	}
+	access := repo_service.HTMLDocsAccess{RepoID: ctx.Repo.Repository.ID, Revision: settings.Revision, Commit: commit.ID.String(), Expires: time.Now().Add(30 * time.Minute).Unix(), Preview: true}
+	if ctx.Doer != nil {
+		access.UserID = ctx.Doer.ID
+	}
+	token, err := repo_service.SignHTMLDocsAccess(access)
+	if err != nil {
+		ctx.ServerError("SignHTMLDocsAccess", err)
+		return
+	}
+	ctx.Data["Title"] = ctx.Tr("repo.html_preview")
+	ctx.Data["DocsPreview"] = true
+	ctx.Data["DocsSettings"] = settings
+	ctx.Data["DocsEntry"] = file
+	ctx.Data["DocsCommit"] = commit.ID.String()
+	ctx.Data["DocsContentURL"] = ctx.Repo.RepoLink + "/-/docs/content/" + commit.ID.String() + "/" + token + "/" + util.PathEscapeSegments(file)
+	ctx.Data["DocsSourceURL"] = ctx.Repo.RepoLink + "/src/commit/" + commit.ID.String() + "/" + util.PathEscapeSegments(file)
+	ctx.HTML(http.StatusOK, templates.TplName("repo/html_docs"))
+}
+
+func htmlPreviewObjectID(sha string) bool {
+	if len(sha) != 40 && len(sha) != 64 {
+		return false
+	}
+	for _, char := range sha {
+		if !strings.ContainsRune("0123456789abcdefABCDEF", char) {
+			return false
+		}
+	}
+	return true
+}
+
 // HTMLDocsAuthorize replaces unavailable SameSite cookies only on this read-only content route.
 func HTMLDocsAuthorize(ctx *context.Context) {
 	access, err := repo_service.VerifyHTMLDocsAccess(ctx.PathParam("access"), time.Now())
@@ -140,7 +207,7 @@ func HTMLDocsContent(ctx *context.Context) {
 		return
 	}
 	settings, err := repo_service.GetHTMLDocsSettings(ctx, ctx.Repo.Repository.ID)
-	if err != nil || !settings.Enabled || ctx.Repo.Repository.IsEmpty {
+	if err != nil || ctx.Repo.Repository.IsEmpty {
 		ctx.NotFound(err)
 		return
 	}
@@ -160,18 +227,33 @@ func HTMLDocsContent(ctx *context.Context) {
 		ctx.NotFound(err)
 		return
 	}
-	pinned := *settings
-	pinned.Ref = sha
-	commit, siteEntry, err := resolveHTMLDocs(repo, &pinned, ctx.Repo.Repository.DefaultBranch)
-	if err != nil || siteEntry == "" {
+	var commit *git.Commit
+	root := ""
+	if access.Preview {
+		commit, err = repo.GetCommit(sha)
+	} else {
+		if !settings.Enabled {
+			ctx.NotFound(nil)
+			return
+		}
+		pinned := *settings
+		pinned.Ref = sha
+		var siteEntry string
+		commit, siteEntry, err = resolveHTMLDocs(repo, &pinned, ctx.Repo.Repository.DefaultBranch)
+		if siteEntry == "" {
+			ctx.NotFound(err)
+			return
+		}
+		root = settings.Directory
+		if root == "" {
+			root = strings.TrimSuffix(strings.TrimSuffix(siteEntry, settings.Entry), "/")
+		}
+	}
+	if err != nil {
 		ctx.NotFound(err)
 		return
 	}
 	file, err := repo_service.CleanHTMLDocsPath(ctx.PathParam("*"))
-	root := settings.Directory
-	if root == "" {
-		root = strings.TrimSuffix(strings.TrimSuffix(siteEntry, settings.Entry), "/")
-	}
 	if err != nil || (root != "" && file != root && !strings.HasPrefix(file, root+"/")) {
 		ctx.NotFound(err)
 		return

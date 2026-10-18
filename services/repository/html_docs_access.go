@@ -22,6 +22,7 @@ type HTMLDocsAccess struct {
 	Revision int64  `json:"revision"`
 	Commit   string `json:"commit"`
 	Expires  int64  `json:"expires"`
+	Preview  bool   `json:"preview,omitempty"`
 }
 
 func SignHTMLDocsAccess(access HTMLDocsAccess) (string, error) {

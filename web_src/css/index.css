@@ -94,4 +94,8 @@
 @import "./helpers.css";
 @import "./features/workspace.css";
 
+@import "./features/workspace-controls.css";
+
+@import "./features/landing.css";
+
 @tailwind utilities;

@@ -38,6 +38,7 @@ export type ActionsRun = {
     link: string,
     pusher: {
       displayName: string,
+      login?: string,
       link: string,
       avatarLink: string,
     },
@@ -64,6 +65,7 @@ export type ActionsRunAttempt = {
   latest: boolean;
   triggeredAt: number;
   triggerUserName: string;
+  triggerUserLogin?: string;
   triggerUserLink: string;
   triggerUserAvatar: string;
 };

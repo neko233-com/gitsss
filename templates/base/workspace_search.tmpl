@@ -1,0 +1,11 @@
+<dialog class="workspace-search-dialog" aria-labelledby="workspace-search-title"
+ data-loading="{{ctx.Locale.Tr "workspace.search_loading"}}" data-empty="{{ctx.Locale.Tr "workspace.search_empty"}}" data-error="{{ctx.Locale.Tr "workspace.search_error"}}" data-results="{{ctx.Locale.Tr "workspace.search_results"}}"
+ data-repos="{{ctx.Locale.Tr "workspace.search_repos"}}" data-issues="{{ctx.Locale.Tr "workspace.search_issues"}}" data-orgs="{{ctx.Locale.Tr "workspace.search_orgs"}}" data-pages="{{ctx.Locale.Tr "workspace.search_pages"}}">
+ <div class="workspace-search-heading"><h2 id="workspace-search-title">{{ctx.Locale.Tr "workspace.search_title"}}</h2><button class="ui basic compact button" type="button" data-search-close aria-label="{{ctx.Locale.Tr "workspace.search_close"}}">Esc</button></div>
+ <label for="workspace-search-input">{{ctx.Locale.Tr "workspace.search_hint"}}</label>
+ <input id="workspace-search-input" type="search" autocomplete="off" maxlength="160" placeholder="{{ctx.Locale.Tr "workspace.search"}}">
+ <p class="workspace-search-status" role="status" aria-live="polite"></p>
+ <ul id="workspace-search-results" role="listbox" aria-label="{{ctx.Locale.Tr "workspace.search_title"}}"></ul>
+ <footer><kbd>↑</kbd><kbd>↓</kbd> · <kbd>Enter</kbd><a data-search-all href="{{AppSubUrl}}/explore/repos">{{ctx.Locale.Tr "explore.repos"}}</a><a data-search-code href="{{AppSubUrl}}/explore/code">{{ctx.Locale.Tr "workspace.search_code"}}</a></footer>
+</dialog>
+<div id="datetime-labels" hidden data-today="{{ctx.Locale.Tr "datetime.today"}}" data-clear="{{ctx.Locale.Tr "datetime.clear"}}" data-invalid="{{ctx.Locale.Tr "datetime.invalid"}}" data-timezone="{{ctx.Locale.Tr "datetime.timezone"}}"></div>

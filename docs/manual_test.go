@@ -19,7 +19,7 @@ func TestOfflineManual(t *testing.T) {
 		require.Equal(t, http.StatusTemporaryRedirect, w.Code)
 		require.Equal(t, "/gitsss/help/site/en/", w.Header().Get("Location"))
 	}
-	for _, path := range []string{"/gitsss/help/site/en/", "/gitsss/help/site/enterprise.html", "/gitsss/help/site/assets/screenshots/home.png"} {
+	for _, path := range []string{"/gitsss/help/site/en/", "/gitsss/help/site/enterprise.html", "/gitsss/help/site/assets/screenshots/home.png", "/gitsss/help/features/enterprise-identities.md", "/gitsss/help/features/workspace-navigation.md", "/gitsss/help/verification/software-transfer-panel-2026-10-18.md"} {
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
 		require.Equal(t, http.StatusOK, w.Code, path)

@@ -46,3 +46,15 @@ test('ConfigFormValueMapper', () => {
     'struct': '{"SubBoolean":true,"SubTimestamp":123456780,"OtherKey":"other-value","NewKey":"new-value"}',
   });
 });
+
+test('enhanced datetime controls preserve timestamp mapping and explicit clearing', () => {
+  document.body.innerHTML = `<form><input type="hidden" data-config-dyn-key="clock" data-config-value-json='{"Time":123456789}'><input name="clock.Time" type="text" data-picker-type="datetime-local" data-config-value-type="timestamp"></form>`;
+  const form = document.querySelector('form')!;
+  const mapper = new ConfigFormValueMapper(form);
+  mapper.fillFromSystemConfig();
+  const input = form.querySelector<HTMLInputElement>('[data-picker-type]')!;
+  expect(input.value).toContain('T');
+  input.value = '';
+  const data = mapper.collectToFormData();
+  expect(data.get('value')).toBe('{"Time":0}');
+});

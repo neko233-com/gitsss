@@ -1,0 +1,36 @@
+.workspace-search-dialog {
+  width: min(680px, calc(100vw - 48px));
+  max-height: min(720px, calc(100dvh - 80px));
+  margin: 10dvh auto auto;
+  padding: 20px;
+  color: var(--color-text);
+  background: var(--color-body);
+  border: 1px solid var(--color-secondary);
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow-kbd);
+}
+.workspace-search-dialog::backdrop { background: var(--color-overlay-backdrop); }
+.workspace-search-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.workspace-search-heading h2 { margin: 0; font-size: 18px; }
+.workspace-search-dialog label { display: block; margin-block: 16px 8px; color: var(--color-text-light-1); }
+.workspace-search-dialog input { width: 100%; padding: 10px 12px; color: var(--color-input-text); background: var(--color-input-background); border: 1px solid var(--color-input-border); border-radius: var(--border-radius); }
+.workspace-search-dialog input:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.workspace-search-status { min-height: 20px; color: var(--color-text-light-1); font-size: 13px; }
+.workspace-search-dialog ul { padding: 0; margin: 0; max-height: 48dvh; overflow: auto; list-style: none; }
+.workspace-search-dialog li { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--border-radius); cursor: pointer; overflow-wrap: anywhere; }
+.workspace-search-dialog li[aria-selected="true"], .workspace-search-dialog li:hover { background: var(--color-primary-light-6); }
+.workspace-search-dialog li span { font-size: 12px; color: var(--color-text-light-1); }
+.workspace-search-dialog footer { display: flex; gap: 8px; align-items: center; border-top: 1px solid var(--color-secondary); padding-top: 12px; margin-top: 12px; }
+.workspace-search-dialog footer a:first-of-type { margin-left: auto; }
+:root .flatpickr-calendar { color: var(--color-text); background: var(--color-body); border: 1px solid var(--color-secondary); box-shadow: var(--box-shadow-kbd); }
+:root .flatpickr-months .flatpickr-month, :root .flatpickr-current-month .flatpickr-monthDropdown-months, :root .flatpickr-current-month .flatpickr-monthDropdown-months option, :root .flatpickr-weekdays, :root span.flatpickr-weekday { background: var(--color-body); color: var(--color-text); }
+:root .flatpickr-day, :root .flatpickr-time input, :root .flatpickr-time .flatpickr-time-separator { color: var(--color-text); }
+:root .flatpickr-day.flatpickr-disabled, :root .flatpickr-day.prevMonthDay, :root .flatpickr-day.nextMonthDay { color: var(--color-text-light-2); }
+:root .flatpickr-day:hover, :root .flatpickr-day:focus, :root .flatpickr-time input:hover, :root .flatpickr-time input:focus { background: var(--color-hover); border-color: var(--color-secondary); }
+:root .flatpickr-day.selected { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-primary-contrast); }
+:root .flatpickr-months .flatpickr-prev-month, :root .flatpickr-months .flatpickr-next-month { color: var(--color-text); fill: var(--color-text); }
+:root .flatpickr-calendar::before, :root .flatpickr-calendar::after { display: none; }
+.datetime-picker-footer { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; border-top: 1px solid var(--color-secondary); }
+.datetime-picker-footer button { background: var(--color-button); color: var(--color-text); border: 1px solid var(--color-secondary); border-radius: var(--border-radius); padding: 4px 10px; cursor: pointer; }
+.datetime-picker-footer button:focus-visible { outline: 2px solid var(--color-primary); }
+.datetime-picker-footer small { flex-basis: 100%; color: var(--color-text-light-1); }

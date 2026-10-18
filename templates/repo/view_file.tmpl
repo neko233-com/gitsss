@@ -46,6 +46,7 @@
 			</div>
 			{{if not .ReadmeInList}}
 				<div class="ui buttons tw-mr-1">
+					{{if $.HTMLPreviewURL}}<a class="ui mini primary button" href="{{$.HTMLPreviewURL}}" target="_blank" rel="noopener noreferrer">{{svg "octicon-browser"}} {{ctx.Locale.Tr "repo.html_preview"}}</a>{{end}}
 					<a class="ui mini basic button" href="{{$.RawFileLink}}">{{ctx.Locale.Tr "repo.file_raw"}}</a>
 					{{if or .RefFullName.IsBranch .RefFullName.IsTag}}
 						<a class="ui mini basic button" href="{{.RepoLink}}/src/commit/{{PathEscape .CommitID}}/{{PathEscapeSegments .TreePath}}">{{ctx.Locale.Tr "repo.file_permalink"}}</a>

@@ -183,3 +183,8 @@ func TestPendingNeeds(t *testing.T) {
 		assert.Equal(t, []string{"build"}, pendingNeeds(scoped, jobs))
 	})
 }
+
+func TestActionsTrackID(t *testing.T) {
+	assert.Equal(t, "abcdef123456", actionsTrackID("abcdef1234567890"))
+	assert.Equal(t, "abc", actionsTrackID("abc"))
+}

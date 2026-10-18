@@ -7,7 +7,7 @@
 			<span>
 			{{ctx.Locale.Tr "version"}}:
 			{{if .IsAdmin}}
-				<a href="{{AppSubUrl}}/-/admin/config">{{AppVer}}</a>
+				<a class="tw-underline" href="{{AppSubUrl}}/-/admin/config">{{AppVer}}</a>
 			{{else}}
 				{{AppVer}}
 			{{end}}

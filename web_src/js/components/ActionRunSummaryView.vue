@@ -27,6 +27,7 @@ const triggerUser = computed(() => {
   if (currentAttempt) {
     return {
       name: currentAttempt.triggerUserName,
+      login: currentAttempt.triggerUserLogin,
       link: currentAttempt.triggerUserLink,
       avatar: currentAttempt.triggerUserAvatar,
     };
@@ -34,6 +35,7 @@ const triggerUser = computed(() => {
   const pusher = run.value.commit.pusher;
   return pusher.displayName ? {
     name: pusher.displayName,
+    login: pusher.login,
     link: pusher.link,
     avatar: pusher.avatarLink,
   } : null;
@@ -77,7 +79,7 @@ onBeforeUnmount(() => {
               height="16"
               :alt="triggerUser.name"
             >
-            <span>{{ triggerUser.name }}</span>
+            <span>{{ triggerUser.login || triggerUser.name }}<template v-if="triggerUser.login && triggerUser.login !== triggerUser.name"> · {{ triggerUser.name }}</template></span>
           </component>
           <a v-if="run.pullRequest" class="action-run-summary-pr silenced" :href="run.pullRequest.link">{{ run.pullRequest.index }}</a>
           <span v-else-if="run.commit.branch.name" class="action-run-summary-branch-label tw-max-w-full">
@@ -97,6 +99,11 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="action-run-summary-stat-divider"/>
+
+      <div class="action-run-summary-stat">
+        <span class="action-run-summary-label">trackId</span>
+        <a class="action-run-summary-stat-value action-run-track" :href="run.commit.link">{{ run.commit.shortSHA }}</a>
+      </div>
 
       <div class="action-run-summary-stat">
         <span class="action-run-summary-label">{{ locale.statusLabel }}</span>
@@ -225,6 +232,8 @@ onBeforeUnmount(() => {
   margin: 8px 0;
   border-bottom: 1px solid var(--color-secondary);
 }
+
+.action-run-track { font-family: var(--fonts-monospace); }
 
 .action-run-summary-stat-value {
   display: block;

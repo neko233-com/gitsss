@@ -8,7 +8,14 @@ Screenshots below show a demonstration instance captured on 2026-10-17; no produ
 
 ![GitSSS home page](docs/site/assets/screenshots/home.png)
 
+Public entrance, isolated desktop demonstration captured on 2026-10-18:
+
+![GitSSS entrance](docs/site/assets/screenshots/entrance-1.11-light.png)
+
 ## Highlights
+
+- A distinct GitSSS entrance with a local shader visual, gray documentation comments, and configurable Google/Feishu/WeChat account binding.
+- Global Ctrl+K / ⌘K search, localized date/time pickers, commit-linked Actions trackId and sandboxed per-file HTML preview.
 
 - Git over HTTP(S), SSH, and Git LFS.
 - Issues, pull requests, reviews, releases, wiki, packages, and Actions.

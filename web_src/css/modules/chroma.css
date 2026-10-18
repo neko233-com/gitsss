@@ -48,7 +48,7 @@
 .chroma .nc { color: var(--color-syntax-type); } /* NameClass */
 .chroma .nd { color: var(--color-syntax-decorator); } /* NameDecorator */
 .chroma .ne { color: var(--color-syntax-keyword); } /* NameException */
-.chroma .nf { color: var(--color-syntax-name); } /* NameFunction */
+.chroma .nf { color: var(--color-syntax-function); } /* NameFunction */
 .chroma .ni { color: var(--color-syntax-entity); } /* NameEntity */
 .chroma .nl { color: var(--color-syntax-keyword); } /* NameLabel */
 .chroma .nn { color: var(--color-syntax-namespace); } /* NameNamespace */
@@ -77,3 +77,7 @@
 .chroma .vi { color: var(--color-syntax-variable); } /* NameVariableInstance */
 .chroma .w { color: var(--color-syntax-whitespace); } /* TextWhitespace */
 .chroma .err {/* not styled because Chroma uses it on too many things like JSX */} /* Error */
+
+/* Documentation comments stay neutral even when a lexer emits nested markup. */
+.chroma :is(.c, .c1, .ch, .cm, .cs, .sd),
+.chroma :is(.c, .c1, .ch, .cm, .cs, .sd) * { color: var(--color-syntax-comment); }

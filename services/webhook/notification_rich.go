@@ -13,7 +13,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	webhook_model "github.com/neko233-com/gitsss/models/webhook"
@@ -354,18 +353,8 @@ func buildNotificationMessage(settings NotificationSettings, t *webhook_model.Ho
 func notificationPushURL(data map[string]any, repositoryURL string) string {
 	after := notificationString(data["after"])
 	before := notificationString(data["before"])
-	isObjectID := func(value string) bool {
-		if len(value) != 40 && len(value) != 64 {
-			return false
-		}
-		for _, char := range value {
-			if !strings.ContainsRune("0123456789abcdefABCDEF", char) {
-				return false
-			}
-		}
-		return strings.Trim(value, "0") != ""
-	}
-	if isObjectID(after) && !isObjectID(before) && repositoryURL != "" {
+
+	if notificationObjectID(after) && !notificationObjectID(before) && repositoryURL != "" {
 		return strings.TrimRight(repositoryURL, "/") + "/commit/" + after
 	}
 	if link := notificationURL(data["compare_url"]); link != "" {
@@ -375,7 +364,7 @@ func notificationPushURL(data map[string]any, repositoryURL string) string {
 			return link
 		}
 	}
-	if isObjectID(after) && repositoryURL != "" {
+	if notificationObjectID(after) && repositoryURL != "" {
 		return strings.TrimRight(repositoryURL, "/") + "/commit/" + after
 	}
 	if commits, ok := data["commits"].([]any); ok && len(commits) == 1 {
@@ -469,21 +458,7 @@ func notificationRichRequest(ctx context.Context, w *webhook_model.Webhook, t *w
 	var payload any
 	switch w.Type {
 	case webhook_module.FEISHU:
-		fields := []any{}
-		for _, fact := range facts {
-			fields = append(fields, map[string]any{"is_short": true, "text": map[string]any{"tag": "lark_md", "content": "**" + fact["title"].(string) + "**\n" + notificationMarkdown(fact["value"].(string))}})
-		}
-		elements := []any{map[string]any{"tag": "div", "fields": fields}, map[string]any{"tag": "hr"}, map[string]any{"tag": "div", "text": map[string]any{"tag": "lark_md", "content": notificationFormattedBody(m, "markdown", 6000)}}}
-		if m.URL != "" {
-			elements = append(elements, map[string]any{"tag": "action", "actions": []any{map[string]any{"tag": "button", "text": map[string]any{"tag": "plain_text", "content": label}, "type": "primary", "url": m.URL}}})
-		}
-		elements = append(elements, map[string]any{"tag": "note", "elements": []any{map[string]any{"tag": "plain_text", "content": m.Footer}}})
-		value := map[string]any{"msg_type": "interactive", "card": map[string]any{"config": map[string]any{"wide_screen_mode": true}, "header": map[string]any{"template": "blue", "title": map[string]any{"tag": "plain_text", "content": plain}}, "elements": elements}}
-		if w.Secret != "" {
-			now := time.Now().Unix()
-			value["timestamp"], value["sign"] = now, feishuGenSign(w.Secret, now)
-		}
-		payload = value
+		payload = notificationFeishuCard(ctx, w, t, m)
 	case webhook_module.DISCORD:
 		fields := []any{}
 		for _, fact := range facts {

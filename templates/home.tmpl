@@ -1,51 +1,24 @@
 {{template "base/head" .}}
-<div role="main" aria-label="{{if .IsSigned}}{{ctx.Locale.Tr "dashboard"}}{{else}}{{ctx.Locale.Tr "home_title"}}{{end}}" class="page-content home">
-	<div class="tw-mb-8 tw-px-8">
-		<div class="center">
-			<img class="logo" width="220" height="220" src="{{AssetUrlPrefix}}/img/logo.svg" alt="{{ctx.Locale.Tr "logo"}}">
-			<div class="hero">
-				<h1 class="ui icon header title tw-text-balance">
-					{{AppName}}
-				</h1>
-				<h2 class="tw-text-balance">{{ctx.Locale.Tr "startpage.app_desc"}}</h2>
-			</div>
-		</div>
-	</div>
-	<div class="ui stackable middle very relaxed page grid">
-		<div class="eight wide center column">
-			<h1 class="hero ui icon header">
-				{{svg "octicon-flame"}} {{ctx.Locale.Tr "startpage.install"}}
-			</h1>
-			<p class="large tw-text-balance">
-				{{ctx.Locale.Tr "startpage.install_desc" "https://github.com/neko233-com/gitsss/releases" "https://github.com/neko233-com/gitsss/pkgs/container/gitsss" "https://github.com/neko233-com/gitsss"}}
-			</p>
-		</div>
-		<div class="eight wide center column">
-			<h1 class="hero ui icon header">
-				{{svg "octicon-device-desktop"}} {{ctx.Locale.Tr "startpage.platform"}}
-			</h1>
-			<p class="large tw-text-balance">
-				{{ctx.Locale.Tr "startpage.platform_desc" "https://go.dev/"}}
-			</p>
-		</div>
-	</div>
-	<div class="ui stackable middle very relaxed page grid">
-		<div class="eight wide center column">
-			<h1 class="hero ui icon header">
-				{{svg "octicon-rocket"}} {{ctx.Locale.Tr "startpage.lightweight"}}
-			</h1>
-			<p class="large tw-text-balance">
-				{{ctx.Locale.Tr "startpage.lightweight_desc"}}
-			</p>
-		</div>
-		<div class="eight wide center column">
-			<h1 class="hero ui icon header">
-				{{svg "octicon-code"}} {{ctx.Locale.Tr "startpage.license"}}
-			</h1>
-			<p class="large tw-text-balance">
-				{{ctx.Locale.Tr "startpage.license_desc" "https://github.com/neko233-com/gitsss" "github.com/neko233-com/gitsss" "https://github.com/neko233-com/gitsss"}}
-			</p>
-		</div>
-	</div>
-</div>
+<main class="page-content home gitsss-landing" aria-label="{{ctx.Locale.Tr "home_title"}}">
+ <div class="landing-content">
+  <section class="landing-hero">
+   <div class="landing-copy">
+    <h1>{{ctx.Locale.Tr "home.workspace_title"}}<br>{{ctx.Locale.Tr "home.workspace_title_end"}}</h1>
+    <p class="landing-description">{{ctx.Locale.Tr "home.workspace_description"}}</p>
+    <div class="landing-actions"><a class="landing-primary" href="{{AppSubUrl}}/user/login">{{ctx.Locale.Tr "home.workspace_login"}} {{svg "octicon-arrow-right" 22}}</a><a href="{{AppSubUrl}}/help/">{{ctx.Locale.Tr "home.workspace_docs"}}</a></div>
+    <p class="landing-account">{{ctx.Locale.Tr "home.workspace_account"}}</p>
+   </div>
+   <div class="landing-visual">
+    <div class="landing-shader" data-landing-shader aria-hidden="true"></div>
+    <svg class="landing-shader-fallback" viewBox="0 0 760 560" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.5"><path d="M0 280C180 280 220 100 440 100H760M0 280C240 280 230 220 440 220H760M0 280C210 280 280 330 440 330H760M0 280C240 280 240 460 620 460H760"/><circle cx="290" cy="194" r="9"/><circle cx="438" cy="100" r="9"/><circle cx="490" cy="220" r="9"/><circle cx="375" cy="317" r="9"/><circle cx="620" cy="460" r="9"/></g></svg>
+    <button type="button" class="landing-motion" data-landing-motion data-play="{{ctx.Locale.Tr "home.workspace_play"}}" data-pause="{{ctx.Locale.Tr "home.workspace_pause"}}" hidden>{{ctx.Locale.Tr "home.workspace_pause"}}</button>
+   </div>
+  </section>
+  <section class="landing-capabilities" aria-label="{{ctx.Locale.Tr "home.workspace_resources"}}">
+   <div>{{svg "octicon-git-branch" 36}}<h2>{{ctx.Locale.Tr "home.workspace_code"}}</h2><p>{{ctx.Locale.Tr "home.workspace_code_desc"}}</p></div>
+   <div>{{svg "octicon-gear" 36}}<h2>{{ctx.Locale.Tr "home.workspace_delivery"}}</h2><p>{{ctx.Locale.Tr "home.workspace_delivery_desc"}}</p></div>
+   <div>{{svg "octicon-people" 36}}<h2>{{ctx.Locale.Tr "home.workspace_resources"}}</h2><p>{{ctx.Locale.Tr "home.workspace_resources_desc"}}</p></div>
+  </section>
+ </div>
+</main>
 {{template "base/footer" .}}

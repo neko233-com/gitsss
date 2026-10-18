@@ -35,11 +35,14 @@
 					<span class="item-title" data-tooltip-content="{{$provider}}">
 						{{$loginSource.Name}}
 					</span>
+					{{$identity := index $.ExternalIdentityDetails $loginSource.ID}}
+					{{if $identity}}<span class="flex-text-body">{{$identity.Name}}{{if $identity.Email}} · {{$identity.Email}}{{end}}</span>{{end}}
 					{{if $loginSource.IsActive}}
 					<span class="flex-text-body tw-text-primary">{{ctx.Locale.Tr "repo.settings.active"}}</span>
 					{{end}}
 				</div>
 				<div class="item-trailing">
+					{{if index $.NativeIdentitySources $loginSource.ID}}<a class="ui basic tiny button" href="{{AppSubUrl}}/user/oauth2/{{$loginSource.Name | PathEscape}}?bind=replace">{{ctx.Locale.Tr "settings.identity_replace"}}</a>{{end}}
 					<button class="ui red tiny button link-action" data-modal-confirm="#delete-account-link" data-url="{{AppSubUrl}}/user/settings/security/account_link?id={{$loginSource.ID}}">
 						{{ctx.Locale.Tr "settings.delete_key"}}
 					</button>
