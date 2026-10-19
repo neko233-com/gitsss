@@ -230,7 +230,7 @@ func createWebhook(ctx *context.Context, params webhookParams) {
 
 	meta, err := notificationFormMeta(ctx, params)
 	if err != nil {
-		ctx.Flash.Error(ctx.Tr("repo.settings.webhook.notification_invalid", err))
+		showNotificationSettingsError(ctx, err)
 		ctx.HTML(http.StatusUnprocessableEntity, orCtx.NewTemplate)
 		return
 	}
@@ -284,7 +284,7 @@ func editWebhook(ctx *context.Context, params webhookParams) {
 
 	meta, err := notificationFormMeta(ctx, params)
 	if err != nil {
-		ctx.Flash.Error(ctx.Tr("repo.settings.webhook.notification_invalid", err))
+		showNotificationSettingsError(ctx, err)
 		ctx.HTML(http.StatusUnprocessableEntity, orCtx.NewTemplate)
 		return
 	}
@@ -341,6 +341,11 @@ func giteaHookParams(ctx *context.Context) webhookParams {
 		HTTPMethod:  form.HTTPMethod,
 		WebhookForm: form.WebhookForm,
 	}
+}
+
+func showNotificationSettingsError(ctx *context.Context, err error) {
+	// This response renders the form directly, without a redirect to consume flash cookies.
+	ctx.Flash.Error(ctx.Tr("repo.settings.webhook.notification_invalid", err), true)
 }
 
 func notificationFormMeta(ctx *context.Context, params webhookParams) (string, error) {
