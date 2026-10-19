@@ -162,3 +162,8 @@
 .notifications-item:hover .notifications-updated {
   display: none;
 }
+
+.identity-password-summary { display: flex; align-items: center; gap: 14px; padding-block: 4px 18px; border-bottom: 1px solid var(--color-secondary); margin-bottom: 16px; }
+.identity-password-summary > div { flex: 1; min-width: 0; }
+.identity-password-summary p { margin: 4px 0; overflow-wrap: anywhere; }
+.identity-password-summary small, .identity-unconfigured { color: var(--color-text-light-1); }

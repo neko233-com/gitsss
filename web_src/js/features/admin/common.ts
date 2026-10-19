@@ -261,9 +261,14 @@ function initAdminAuthentication() {
   const elAuthName = document.querySelector<HTMLInputElement>('#auth_name')!;
   const onAuthNameChange = function () {
     // appSubUrl is either empty or is a path that starts with `/` and doesn't have a trailing slash.
-    document.querySelector('#oauth2-callback-url')!.textContent = `${window.location.origin}${appSubUrl}/user/oauth2/${pathEscape(elAuthName.value)}/callback`;
+    const callback = document.querySelector('#oauth2-callback-url')!;
+    const override = document.querySelector<HTMLInputElement>('#oauth2_callback_base');
+    const value = override?.value.trim();
+    const base = value ? `${value.replace(/\/+$/, '')}/` : callback.getAttribute('data-callback-base') || `${window.location.origin}${appSubUrl}/`;
+    callback.textContent = `${base}user/oauth2/${pathEscape(elAuthName.value)}/callback`;
   };
   elAuthName.addEventListener('input', onAuthNameChange);
+  document.querySelector('#oauth2_callback_base')?.addEventListener('input', onAuthNameChange);
   onAuthNameChange();
 }
 

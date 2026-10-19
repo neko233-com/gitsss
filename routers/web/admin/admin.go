@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	activities_model "github.com/neko233-com/gitsss/models/activities"
@@ -44,9 +45,14 @@ const (
 	tplStats        templates.TplName = "admin/stats"
 )
 
-var sysStatus struct {
-	StartTime    string
-	NumGoroutine int
+type systemStatus struct {
+	HeapAllocatedBytes int64
+	HeapCapacityBytes  int64
+	RetainedBytes      int64
+	SystemBytes        int64
+	MemRetained        string
+	StartTime          string
+	NumGoroutine       int
 
 	// General statistics.
 	MemAllocated string // bytes allocated and still in use
@@ -85,11 +91,34 @@ var sysStatus struct {
 	NumGC        uint32
 }
 
-func updateSystemStatus() {
+var systemStatusCache struct {
+	sync.Mutex
+	expires time.Time
+	value   systemStatus
+}
+
+func readSystemStatus() systemStatus {
+	systemStatusCache.Lock()
+	defer systemStatusCache.Unlock()
+	if time.Now().Before(systemStatusCache.expires) {
+		return systemStatusCache.value
+	}
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	systemStatusCache.value = makeSystemStatus(m)
+	systemStatusCache.expires = time.Now().Add(time.Second)
+	return systemStatusCache.value
+}
+
+func makeSystemStatus(m runtime.MemStats) systemStatus {
+	var sysStatus systemStatus
+	sysStatus.HeapAllocatedBytes = int64(m.HeapAlloc)
+	sysStatus.HeapCapacityBytes = int64(m.HeapSys)
+	sysStatus.RetainedBytes = int64(m.Sys - min(m.Sys, m.HeapReleased))
+	sysStatus.SystemBytes = int64(m.Sys)
+	sysStatus.MemRetained = base.FileSize(sysStatus.RetainedBytes)
 	sysStatus.StartTime = setting.AppStartTime.Format(time.RFC3339)
 
-	m := new(runtime.MemStats)
-	runtime.ReadMemStats(m)
 	sysStatus.NumGoroutine = runtime.NumGoroutine()
 
 	sysStatus.MemAllocated = base.FileSize(int64(m.Alloc))
@@ -121,6 +150,7 @@ func updateSystemStatus() {
 	sysStatus.PauseTotalNs = fmt.Sprintf("%.1fs", float64(m.PauseTotalNs)/1000/1000/1000)
 	sysStatus.PauseNs = fmt.Sprintf("%.3fs", float64(m.PauseNs[(m.NumGC+255)%256])/1000/1000/1000)
 	sysStatus.NumGC = m.NumGC
+	return sysStatus
 }
 
 func prepareStartupProblemsAlert(ctx *context.Context) {
@@ -139,8 +169,7 @@ func Dashboard(ctx *context.Context) {
 	ctx.Data["PageIsAdminDashboard"] = true
 	ctx.Data["NeedUpdate"] = updatechecker.GetNeedUpdate(ctx)
 	ctx.Data["RemoteVersion"] = updatechecker.GetRemoteVersion(ctx)
-	updateSystemStatus()
-	ctx.Data["SysStatus"] = sysStatus
+	ctx.Data["SysStatus"] = readSystemStatus()
 	ctx.Data["SSH"] = setting.SSH
 	if storageService, err := storageawareness.Get(); err == nil {
 		ctx.Data["StorageSnapshot"] = storageService.Snapshot()
@@ -152,8 +181,7 @@ func Dashboard(ctx *context.Context) {
 }
 
 func SystemStatus(ctx *context.Context) {
-	updateSystemStatus()
-	ctx.Data["SysStatus"] = sysStatus
+	ctx.Data["SysStatus"] = readSystemStatus()
 	ctx.HTML(http.StatusOK, tplSystemStatus)
 }
 
@@ -162,8 +190,7 @@ func DashboardPost(ctx *context.Context) {
 	form := web.GetForm(ctx).(*forms.AdminDashboardForm)
 	ctx.Data["Title"] = ctx.Tr("admin.dashboard")
 	ctx.Data["PageIsAdminDashboard"] = true
-	updateSystemStatus()
-	ctx.Data["SysStatus"] = sysStatus
+	ctx.Data["SysStatus"] = readSystemStatus()
 
 	// Run operation.
 	if form.Op != "" {

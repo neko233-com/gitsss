@@ -99,6 +99,12 @@ func NewAuthSource(ctx *context.Context) {
 	ctx.Data["SMTPAuths"] = smtp.Authenticators
 	oauth2providers := oauth2.GetSupportedOAuth2Providers(ctx)
 	ctx.Data["OAuth2Providers"] = oauth2providers
+	callbackBase, callbackErr := oauth2.CallbackURLBase()
+	if callbackErr != nil {
+		ctx.ServerError("OAuth2 callback configuration", callbackErr)
+		return
+	}
+	ctx.Data["OAuth2CallbackURLBase"] = callbackBase
 
 	ctx.Data["SSPIAutoCreateUsers"] = true
 	ctx.Data["SSPIAutoActivateUsers"] = true
@@ -191,6 +197,7 @@ func parseOAuth2Config(form forms.AuthenticationForm) *oauth2.Source {
 		Provider:                      form.Oauth2Provider,
 		ClientID:                      form.Oauth2Key,
 		ClientSecret:                  form.Oauth2Secret,
+		CallbackURLBase:               form.Oauth2CallbackBase,
 		OpenIDConnectAutoDiscoveryURL: form.OpenIDConnectAutoDiscoveryURL,
 		CustomURLMapping:              customURLMapping,
 		IconURL:                       form.Oauth2IconURL,
@@ -246,6 +253,12 @@ func NewAuthSourcePost(ctx *context.Context) {
 	ctx.Data["SMTPAuths"] = smtp.Authenticators
 	oauth2providers := oauth2.GetSupportedOAuth2Providers(ctx)
 	ctx.Data["OAuth2Providers"] = oauth2providers
+	callbackBase, callbackErr := oauth2.CallbackURLBase()
+	if callbackErr != nil {
+		ctx.ServerError("OAuth2 callback configuration", callbackErr)
+		return
+	}
+	ctx.Data["OAuth2CallbackURLBase"] = callbackBase
 
 	ctx.Data["SSPIAutoCreateUsers"] = true
 	ctx.Data["SSPIAutoActivateUsers"] = true
@@ -270,6 +283,10 @@ func NewAuthSourcePost(ctx *context.Context) {
 	case auth.OAuth2:
 		config = parseOAuth2Config(form)
 		oauth2Config := config.(*oauth2.Source)
+		if _, err := oauth2Config.CallbackBaseURL(); err != nil {
+			ctx.RenderWithErrDeprecated(ctx.Tr("admin.auths.invalid_callback_base"), tplAuthNew, form)
+			return
+		}
 		if oauth2Config.Provider == "openidConnect" {
 			discoveryURL, err := url.Parse(oauth2Config.OpenIDConnectAutoDiscoveryURL)
 			if err != nil || (discoveryURL.Scheme != "http" && discoveryURL.Scheme != "https") {
@@ -338,6 +355,12 @@ func EditAuthSource(ctx *context.Context) {
 	ctx.Data["SMTPAuths"] = smtp.Authenticators
 	oauth2providers := oauth2.GetSupportedOAuth2Providers(ctx)
 	ctx.Data["OAuth2Providers"] = oauth2providers
+	callbackBase, callbackErr := oauth2.CallbackURLBase()
+	if callbackErr != nil {
+		ctx.ServerError("OAuth2 callback configuration", callbackErr)
+		return
+	}
+	ctx.Data["OAuth2CallbackURLBase"] = callbackBase
 
 	source, err := auth.GetSourceByID(ctx, ctx.PathParamInt64("authid"))
 	if err != nil {
@@ -372,6 +395,12 @@ func EditAuthSourcePost(ctx *context.Context) {
 	ctx.Data["SMTPAuths"] = smtp.Authenticators
 	oauth2providers := oauth2.GetSupportedOAuth2Providers(ctx)
 	ctx.Data["OAuth2Providers"] = oauth2providers
+	callbackBase, callbackErr := oauth2.CallbackURLBase()
+	if callbackErr != nil {
+		ctx.ServerError("OAuth2 callback configuration", callbackErr)
+		return
+	}
+	ctx.Data["OAuth2CallbackURLBase"] = callbackBase
 
 	source, err := auth.GetSourceByID(ctx, ctx.PathParamInt64("authid"))
 	if err != nil {
@@ -400,6 +429,10 @@ func EditAuthSourcePost(ctx *context.Context) {
 	case auth.OAuth2:
 		config = parseOAuth2Config(form)
 		oauth2Config := config.(*oauth2.Source)
+		if _, err := oauth2Config.CallbackBaseURL(); err != nil {
+			ctx.RenderWithErrDeprecated(ctx.Tr("admin.auths.invalid_callback_base"), tplAuthEdit, form)
+			return
+		}
 		if oauth2Config.Provider == "openidConnect" {
 			discoveryURL, err := url.Parse(oauth2Config.OpenIDConnectAutoDiscoveryURL)
 			if err != nil || (discoveryURL.Scheme != "http" && discoveryURL.Scheme != "https") {

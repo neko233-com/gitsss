@@ -1,30 +1,33 @@
 .gitsss-landing, .landing-nav { font-family: var(--fonts-proportional), "Microsoft YaHei UI", "PingFang SC", sans-serif; }
 .gitsss-landing { --landing-primary: #0969da; --landing-primary-contrast: #fff; --landing-primary-weight: 700; }
-.landing-nav { height: 72px; padding-inline: max(48px, calc((100vw - 1400px) / 2)); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--color-secondary); background: var(--color-body); }
+body:has(.gitsss-landing) { min-height: 100dvh; height: auto; }
+body:has(.gitsss-landing) > .full.height { display: flex; flex-direction: column; padding-bottom: 0; }
+body .page-content.gitsss-landing { display: flex; flex-direction: column; flex: 1; }
+.landing-nav { flex: none; height: 64px; padding-inline: max(48px, calc((100vw - 1400px) / 2)); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--color-secondary); background: var(--color-body); }
 .landing-brand { display: inline-flex; align-items: center; gap: 16px; font-size: 30px; font-weight: var(--font-weight-bold); color: var(--color-text); }
 .landing-brand svg { color: var(--color-primary); }
 .landing-nav-links { display: flex; align-items: center; gap: 40px; font-size: 16px; }
 .landing-nav-links > a { color: var(--color-text); }
 .landing-nav-links .landing-login { color: var(--color-primary); border: 1px solid var(--color-primary); border-radius: 6px; padding: 10px 24px; }
-.landing-content { width: min(1400px, calc(100% - 96px)); min-height: calc(100dvh - 128px); margin: auto; display: flex; flex-direction: column; }
-.landing-hero { display: grid; grid-template-columns: minmax(440px, 0.9fr) minmax(480px, 1.2fr); align-items: center; min-height: 600px; flex: 1; gap: 32px; }
-.landing-copy { padding-block: 48px; position: relative; z-index: 1; }
-.landing-copy h1 { color: var(--color-text); font-size: clamp(52px, 4.8vw, 76px); font-weight: var(--font-weight-bold); line-height: 1.25; margin: 0 0 28px; text-wrap: balance; }
-.landing-description { max-width: 560px; font-size: 22px; line-height: 1.7; color: var(--color-text-light-1); text-wrap: pretty; }
-.landing-actions { display: flex; align-items: center; gap: 36px; margin-top: 36px; font-size: 20px; font-weight: var(--font-weight-semibold); }
-body .gitsss-landing .landing-actions .landing-primary { display: inline-flex; align-items: center; gap: 18px; min-height: 64px; padding: 16px 26px; background: var(--landing-primary); color: var(--landing-primary-contrast); font-weight: var(--landing-primary-weight); border-radius: 8px; }
+body .gitsss-landing > .landing-content { width: min(1400px, calc(100% - 96px)); margin: 0 auto; flex: 1; display: flex; flex-direction: column; }
+.landing-hero { display: grid; grid-template-columns: minmax(440px, 0.9fr) minmax(480px, 1.2fr); align-items: center; min-height: 0; flex: 1; gap: 32px; }
+.landing-copy { padding-block: clamp(16px, 3dvh, 40px); position: relative; z-index: 1; }
+.landing-copy h1 { color: var(--color-text); font-size: clamp(44px, 4vw, 72px); font-weight: var(--font-weight-bold); line-height: 1.25; margin: 0 0 24px; text-wrap: balance; }
+.landing-description { max-width: 560px; font-size: clamp(18px, 1.3vw, 22px); line-height: 1.6; color: var(--color-text-light-1); text-wrap: pretty; }
+.landing-actions { display: flex; align-items: center; gap: 36px; margin-top: 28px; font-size: 18px; font-weight: var(--font-weight-semibold); }
+body .gitsss-landing .landing-actions .landing-primary { display: inline-flex; align-items: center; gap: 18px; min-height: 52px; padding: 12px 24px; background: var(--landing-primary); color: var(--landing-primary-contrast); font-weight: var(--landing-primary-weight); border-radius: 8px; }
 .landing-primary:hover { filter: brightness(0.95); }
-.landing-account { margin-top: 24px; font-size: 16px; line-height: 1.6; color: var(--color-text-light-1); }
-.landing-visual { height: 560px; position: relative; color: var(--color-primary); }
+.landing-account { margin-top: 20px; font-size: 14px; line-height: 1.6; color: var(--color-text-light-1); }
+.landing-visual { height: clamp(260px, 47dvh, 560px); position: relative; color: var(--color-primary); }
 .landing-shader, .landing-shader-fallback { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .landing-shader canvas { width: 100%; height: 100%; }
 .landing-shader[data-ready] + .landing-shader-fallback { display: none; }
 .landing-motion { position: absolute; bottom: 8px; right: 8px; padding: 6px 10px; background: var(--color-body); color: var(--color-text-light-1); border: 1px solid var(--color-secondary); border-radius: 6px; font-size: 12px; cursor: pointer; }
-.landing-capabilities { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 56px; padding: 32px 12px 44px; }
-.landing-capabilities > div + div { border-left: 1px solid var(--color-secondary); padding-left: 56px; }
-.landing-capabilities svg { color: var(--color-primary); margin-bottom: 16px; }
-.landing-capabilities h2 { font-size: 24px; margin: 0 0 10px; }
-.landing-capabilities p { color: var(--color-text-light-1); font-size: 17px; line-height: 1.7; }
+.landing-capabilities { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px; padding: 20px 12px 28px; }
+.landing-capabilities > div + div { border-left: 1px solid var(--color-secondary); padding-left: 40px; }
+.landing-capabilities svg { color: var(--color-primary); margin-bottom: 12px; }
+.landing-capabilities h2 { font-size: 22px; margin: 0 0 8px; }
+.landing-capabilities p { color: var(--color-text-light-1); font-size: 16px; line-height: 1.5; margin: 0; }
 body:has(.gitsss-landing) .page-footer { padding: 16px max(48px, calc((100vw - 1400px) / 2)); }
 .gitsss-landing a:focus-visible, .landing-nav a:focus-visible, .landing-motion:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 4px; }
 .gitsss-landing a, .landing-nav a { text-decoration: none; }
@@ -34,4 +37,40 @@ body:has(.gitsss-landing) .page-footer { padding: 16px max(48px, calc((100vw - 1
   .landing-description { font-size: 18px; }
   .landing-capabilities { gap: 28px; }
   .landing-capabilities > div + div { padding-left: 28px; }
+}
+
+.landing-flow-node { animation: landing-flow 5s linear infinite; animation-play-state: paused; }
+.landing-flow-node:nth-of-type(2) { animation-delay: -1.2s; }
+.landing-flow-node:nth-of-type(3) { animation-delay: -2.5s; }
+.landing-flow-node:nth-of-type(4) { animation-delay: -3.7s; }
+.landing-visual[data-motion="playing"] .landing-flow-node { animation-play-state: running; }
+@keyframes landing-flow {
+  0% { transform: translateX(-220px); opacity: 0; }
+  15%, 80% { opacity: 1; }
+  100% { transform: translateX(50px); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-flow-node { animation: none; }
+}
+@media (max-height: 800px) {
+  .landing-copy h1 { font-size: 48px; }
+  .landing-capabilities { padding-block: 12px 20px; }
+  .landing-capabilities svg { width: 28px; height: 28px; margin-bottom: 8px; }
+  .landing-capabilities h2 { font-size: 20px; }
+}
+
+.landing-particles { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; fill: currentcolor; }
+.landing-pointer-particles { transform: translate(var(--landing-pointer-x, 380px), var(--landing-pointer-y, 280px)); opacity: 0; }
+.landing-visual[data-motion="playing"][data-pointer] .landing-pointer-particles { opacity: .7; }
+.landing-pointer-particles circle { animation: landing-particle 2.4s ease-out infinite paused; }
+.landing-pointer-particles circle:nth-child(even) { animation-delay: -1.2s; }
+.landing-visual[data-motion="playing"][data-pointer] .landing-pointer-particles circle { animation-play-state: running; }
+@keyframes landing-particle {
+  0% { transform: translateY(10px); opacity: 0; }
+  35% { opacity: 1; }
+  100% { transform: translateY(-16px); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-particles { display: none; }
+  .landing-pointer-particles circle { animation: none; }
 }

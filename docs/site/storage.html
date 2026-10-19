@@ -27,6 +27,7 @@
         <div class="sidebar-heading">入门</div>
         <a href="index.html">文档首页</a>
         <a href="getting-started.html">快速开始</a>
+        <a href="identity-channels.html">第三方渠道接入</a>
         <a href="configuration.html">配置参考</a>
         <a href="enterprise.html">企业与组织</a>
         <a href="collaboration.html">HTML Docs 与通知</a>
@@ -115,6 +116,10 @@ LFS_MAX_FILE_SIZE = 10737418240</code></pre></div>
       </ul>
 
       <h2>存储可观测性</h2>
+      <h2>容量与 Go 内存进度条</h2>
+      <p>管理首页和磁盘详情共用原生进度条，显示全盘已用 / 容量、百分比和可用空间。告警、写保护仍用文字标识；测量失败不显示虚假的 0%。Git/LFS 文件量独立显示，扫描不完整时是下限，并非全盘占用。</p>
+      <p>系统状态显示「Go 堆当前分配 / 堆保留空间」与「Go 当前保留（Sys − HeapReleased）/ 已申请总量（Sys）」。它们不是进程 RSS，也不是整机物理内存。启动以来累计分配包含已释放对象，不代表当前占用。采样在一秒内复用，页面可见时每五秒刷新，后台标签暂停请求。</p>
+      <p>互不重叠的存储目录扫描不再保留逐文件完整路径去重表；重叠目录维持精确路径去重和先扫描分类优先。扫描上限、缓存、错误与符号链接策略不变。多语言字典改用索引数组和存在位图，减少常驻映射，保留全部语言、空值语义与自定义覆盖；不强制 GC、不改变内存限制、不清理业务缓存、不修改仓库或 LFS 字节；回滚只需还原二进制。</p>
       <p>管理员可在 <code>/-/admin/storage</code> 查看数据盘总容量、全盘已用/可用、实测 Git/LFS 文件字节和待清理对象。管理首页同步显示概览。分类、测量时间和扫描不完整状态均明确显示；扫描受 MAX_ENTRIES 和 CACHE_TTL 限制时，文件字节为下限。磁盘已用包含其他应用，仓库记录的估算大小可能重复计算共享 LFS，不能直接当作物理磁盘用量。任何写保护状态都应先处理底层磁盘或对象存储告警，再恢复写入。</p>
       <h2>LFS 清理</h2>
       <p>游戏仓库会留下指针已经删除的 LFS 对象。<code>gitsss admin lfs-gc</code> 默认只扫描并输出 JSON。<code>--apply</code> 才删除，而且只删除早于 <code>--older-than</code>（默认 168 小时）的元数据。短于 24 小时会被拒绝，除非加上 <code>--force</code>。管理页是 <code>/-/admin/lfs-gc</code>，API 是 <code>POST /api/v1/admin/lfs-gc</code>。对象路径和 oid 布局不变。说明见 <code>docs/operations/lfs-gc.md</code>。</p>

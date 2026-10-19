@@ -43,3 +43,47 @@ Tag suggestions and their repository counts now include only repositories visibl
 The signed-out entrance uses one locally bundled Paper Shaders canvas, capped below 300,000 pixels. Reduced-motion preference starts it paused; users can pause/resume it. The library suspends rendering offscreen/in the background, and WebGL failure falls back to a static SVG. No shader library is requested on signed-in pages. Organization-first navigation also includes the current account as `username (Personal)` alongside the organization list; the existing personal URL remains `/?view=personal`. Code, diff, blame and editor comments, including documentation comments, share neutral gray tokens in each theme.
 
 The embedded offline manual also includes its linked feature contracts and acceptance reports. These text-only directories are bundled with the binary; runtime source files remain inaccessible.
+
+## Entrance viewport and animation
+
+The signed-out desktop entrance fits the available viewport, including navigation,
+feature summaries and footer, at 1280×720 and larger desktop sizes at 100% zoom.
+Content is allowed to scroll at higher text zoom or unusually short windows so
+controls never disappear. There is no forced overflow clipping.
+
+Paper Shaders is bundled locally and capped at 180,000 physical pixels (previously
+298,000). Moving branch nodes and eight pointer-responsive particles also have a lightweight SVG/CSS fallback when WebGL
+is unavailable. Pause/play is available in either mode. Animation stops outside
+the viewport or in a hidden tab, respects reduced motion (static SVG, no canvas
+allocation), and preserves its state across browser back/forward restoration.
+Only the signed-out entrance loads the shader module. The global search hint is
+shown as a non-wrapping `Ctrl+K`; Control+K and Command+K both remain supported.
+
+## Administrator resource meters
+
+The admin home and storage page show used disk bytes / measured filesystem capacity
+with a percentage and a native accessible progress bar. Warning and protection
+states also retain text labels; unavailable measurements never show a fake zero
+percent. Git/LFS inventory remains a separate figure, marked as a lower bound if
+the scan is incomplete; disk usage includes other applications on the same volume.
+
+System status shows two Go runtime meters: allocated heap / reserved heap address
+space, and retained runtime memory (`Sys - HeapReleased`) / total obtained (`Sys`).
+Neither denominator is physical RAM or an enforced memory limit. These values are
+not process RSS. The cumulative allocation counter includes objects already freed
+and is labelled separately. Read-only samples are shared for one second under a
+lock; admin refresh requests pause while the tab is hidden and resume at the next
+five-second tick. No forced GC, memory limit or cache eviction is introduced.
+
+Disjoint storage inventory roots no longer retain a full-path deduplication map
+for every file. Overlapping roots still deduplicate exact paths with first-root
+category precedence, and scan bounds, errors, symlink handling and cache TTL stay
+unchanged. Repository/LFS bytes, paths, refs and storage APIs do not change; rollback
+uses the previous binary without a data migration.
+
+Locale translations now use indexed strings plus presence bits rather than one
+integer-key map per language. Language discovery, custom JSON overrides, nested
+keys, explicit empty values, fallback languages and formatting remain compatible.
+All languages stay available; this does not unload languages or affect accounts.
+Local all-locale benchmarks measure the retained dictionary and initialization
+allocations separately from process RSS. No runtime memory-limit tuning is applied.

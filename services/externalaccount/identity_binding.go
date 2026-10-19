@@ -26,7 +26,12 @@ var (
 
 func NativeIdentitySource(source *auth.Source) bool {
 	config, ok := source.Cfg.(*oauth2.Source)
-	return ok && (config.Provider == "gplus" || config.Provider == "feishu" || config.Provider == "wechat")
+	return ok && oauth2.IsNativeIdentityProvider(config.Provider)
+}
+
+func identitySourceUsable(source *auth.Source) bool {
+	cfg, oauth := source.Cfg.(*oauth2.Source)
+	return source.IsActive && (!oauth || cfg.IsConfigured())
 }
 
 // UnlinkIdentitySource retains a usable login method and removes a legacy primary OAuth identity too.
@@ -58,13 +63,13 @@ func UnlinkIdentitySource(ctx context.Context, user *user_model.User, sourceID i
 				continue
 			}
 			other, err := auth.GetSourceByID(ctx, link.LoginSourceID)
-			if err == nil && other.IsActive {
+			if err == nil && identitySourceUsable(other) {
 				usable = true
 			}
 		}
 		if user.LoginSource > 0 && user.LoginSource != sourceID {
 			other, err := auth.GetSourceByID(ctx, user.LoginSource)
-			if err == nil && other.IsActive {
+			if err == nil && identitySourceUsable(other) {
 				usable = true
 			}
 		}

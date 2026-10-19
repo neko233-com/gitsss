@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-//go:embed site operations architecture features verification
+//go:embed site operations architecture features verification 第三方渠道接入
 var manualFiles embed.FS
 
 // Handler serves the bundled manual with English as its default entry point.

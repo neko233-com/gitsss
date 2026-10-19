@@ -12,6 +12,8 @@
 			<div><span>{{ctx.Locale.Tr "admin.storage_awareness.available"}}</span><strong>{{FileSize .StorageSnapshot.AvailableBytes}}</strong></div>
 			<div><span>{{ctx.Locale.Tr "admin.storage_awareness.git_lfs"}}</span><strong>{{if or .StorageSnapshot.InventoryTruncated .StorageSnapshot.InventoryError}}≥ {{end}}{{FileSize .StorageSnapshot.GitLFSBytes}}</strong></div>
 		</div>
+		{{template "admin/usage_meter" (dict "Label" (ctx.Locale.Tr "admin.storage_awareness.used") "Used" .StorageSnapshot.UsedBytes "Capacity" .StorageSnapshot.CapacityBytes "Warning" .StorageSnapshot.Warning "Critical" .StorageSnapshot.WriteProtected)}}
+		{{if .StorageSnapshot.MeasurementError}}<p class="storage-measurement-note">{{ctx.Locale.Tr "admin.storage_awareness.measurement_failed"}}</p>{{end}}
 		{{if .StorageSnapshot.WriteProtected}}<div class="ui negative message">{{ctx.Locale.Tr "admin.storage_awareness.protected"}}</div>{{else if .StorageSnapshot.Warning}}<div class="ui warning message">{{ctx.Locale.Tr "admin.storage_awareness.warning"}}</div>{{end}}
 	</div>
 	{{end}}
@@ -117,7 +119,7 @@
 		{{/* TODO: make these stats work in multi-server deployments, likely needs per-server stats in DB */}}
 		<div class="ui attached table segment">
 			<div class="no-loading-indicator tw-hidden"></div>
-			<div hx-get="{{$.Link}}/system_status" hx-swap="morph:innerHTML" hx-trigger="every 5s" hx-indicator=".no-loading-indicator">
+			<div>
 				{{template "admin/system_status" .}}
 			</div>
 		</div>

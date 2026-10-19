@@ -27,7 +27,7 @@
 .workspace-filter input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; }
 .workspace-global-search input::placeholder,
 .workspace-filter input::placeholder { color: var(--color-text-light-2); opacity: 1; }
-.workspace-global-search kbd { font-size: 12px; padding: 0 4px; border: 1px solid var(--color-secondary); border-radius: 3px; }
+.workspace-global-search kbd { flex: none; white-space: nowrap; font-size: 12px; line-height: 20px; padding: 0 4px; border: 1px solid var(--color-secondary); border-radius: 3px; }
 .workspace-global-search:focus-within,
 .workspace-filter:focus-within { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .workspace-global-search svg,

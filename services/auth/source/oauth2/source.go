@@ -4,6 +4,8 @@
 package oauth2
 
 import (
+	"strings"
+
 	"github.com/neko233-com/gitsss/models/auth"
 	"github.com/neko233-com/gitsss/modules/json"
 )
@@ -15,6 +17,7 @@ type Source struct {
 	Provider                      string
 	ClientID                      string
 	ClientSecret                  string
+	CallbackURLBase               string
 	OpenIDConnectAutoDiscoveryURL string
 	CustomURLMapping              *CustomURLMapping
 	IconURL                       string
@@ -45,4 +48,27 @@ func (source *Source) ToDB() ([]byte, error) {
 
 func init() {
 	auth.RegisterTypeConfig(auth.OAuth2, &Source{})
+}
+
+// IsConfigured keeps unfinished native sources out of sign-in and binding menus.
+func (source *Source) IsConfigured() bool {
+	if !IsNativeIdentityProvider(source.Provider) {
+		return true
+	}
+	return strings.TrimSpace(source.ClientID) != "" && strings.TrimSpace(source.ClientSecret) != ""
+}
+
+func IsNativeIdentityProvider(name string) bool {
+	switch name {
+	case "gplus", "feishu", "wechat", "discord":
+		return true
+	}
+	return false
+}
+
+func (source *Source) CallbackBaseURL() (string, error) {
+	if strings.TrimSpace(source.CallbackURLBase) == "" {
+		return CallbackURLBase()
+	}
+	return normalizeCallbackURLBase(source.CallbackURLBase)
 }

@@ -1,4 +1,10 @@
-<dl class="admin-dl-horizontal" data-fetch-url="{{AppSubUrl}}/-/admin/system_status" data-fetch-sync="$morph" data-fetch-trigger="every 5s">
+<div class="admin-system-status" data-fetch-url="{{AppSubUrl}}/-/admin/system_status" data-fetch-sync="$morph" data-fetch-trigger="every 5s">
+	<div class="admin-memory-overview">
+		{{template "admin/usage_meter" (dict "Label" (ctx.Locale.Tr "admin.dashboard.heap_usage_meter") "Used" .SysStatus.HeapAllocatedBytes "Capacity" .SysStatus.HeapCapacityBytes)}}
+		{{template "admin/usage_meter" (dict "Label" (ctx.Locale.Tr "admin.dashboard.runtime_usage_meter") "Used" .SysStatus.RetainedBytes "Capacity" .SysStatus.SystemBytes)}}
+	</div>
+	<p class="admin-memory-note">{{ctx.Locale.Tr "admin.dashboard.memory_meter_help"}}</p>
+<dl class="admin-dl-horizontal">
 	<dt>{{ctx.Locale.Tr "admin.dashboard.server_uptime"}}</dt>
 	<dd><relative-time format="duration" datetime="{{.SysStatus.StartTime}}">{{.SysStatus.StartTime}}</relative-time></dd>
 	<dt>{{ctx.Locale.Tr "admin.dashboard.current_goroutine"}}</dt>
@@ -6,6 +12,8 @@
 	<div class="divider"></div>
 	<dt>{{ctx.Locale.Tr "admin.dashboard.current_memory_usage"}}</dt>
 	<dd>{{.SysStatus.MemAllocated}}</dd>
+	<dt>{{ctx.Locale.Tr "admin.dashboard.memory_retained"}}</dt>
+	<dd>{{.SysStatus.MemRetained}}</dd>
 	<dt>{{ctx.Locale.Tr "admin.dashboard.total_memory_allocated"}}</dt>
 	<dd>{{.SysStatus.MemTotal}}</dd>
 	<dt>{{ctx.Locale.Tr "admin.dashboard.memory_obtained"}}</dt>
@@ -60,3 +68,4 @@
 	<dt>{{ctx.Locale.Tr "admin.dashboard.gc_times"}}</dt>
 	<dd>{{.SysStatus.NumGC}}</dd>
 </dl>
+</div>

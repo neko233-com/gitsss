@@ -9,9 +9,11 @@ import (
 	"fmt"
 	"html"
 	"html/template"
+	"net/netip"
 	"net/url"
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/neko233-com/gitsss/models/auth"
 	"github.com/neko233-com/gitsss/models/db"
@@ -154,6 +156,9 @@ func GetOAuth2Providers(ctx context.Context, isActive optional.Option[bool]) ([]
 
 	providers := make([]Provider, 0, len(authSources))
 	for _, source := range authSources {
+		if cfg, ok := source.Cfg.(*Source); ok && !cfg.IsConfigured() {
+			continue
+		}
 		provider, err := CreateProviderFromSource(source)
 		if err != nil {
 			return nil, err
@@ -222,10 +227,13 @@ var ErrAuthSourceNotActivated = errors.New("auth source is not activated")
 
 // used to create different types of goth providers
 func createProvider(providerName string, source *Source) (goth.Provider, error) {
-	callbackURL := setting.AppURL + "user/oauth2/" + url.PathEscape(providerName) + "/callback"
+	base, err := source.CallbackBaseURL()
+	if err != nil {
+		return nil, err
+	}
+	callbackURL := base + "user/oauth2/" + url.PathEscape(providerName) + "/callback"
 
 	var provider goth.Provider
-	var err error
 
 	p, ok := gothProviders[source.Provider]
 	if !ok {
@@ -243,4 +251,26 @@ func createProvider(providerName string, source *Source) (goth.Provider, error) 
 	}
 
 	return provider, err
+}
+
+// CallbackURLBase isolates public OAuth callbacks from legacy Git and SSH URLs.
+func CallbackURLBase() (string, error) {
+	raw := strings.TrimSpace(setting.OAuth2Client.CallbackURLBase)
+	if raw == "" {
+		return setting.AppURL, nil
+	}
+	return normalizeCallbackURLBase(raw)
+}
+
+func normalizeCallbackURLBase(raw string) (string, error) {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return "", errors.New("invalid OAuth callback base URL")
+	}
+	address, _ := netip.ParseAddr(parsed.Hostname())
+	localHTTP := parsed.Scheme == "http" && (parsed.Hostname() == "localhost" || address.IsLoopback() || address.IsPrivate())
+	if (parsed.Scheme != "https" && !localHTTP) || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" || parsed.Opaque != "" {
+		return "", errors.New("OAuth callback base must be HTTPS or private/loopback HTTP, without credentials, query or fragment")
+	}
+	return strings.TrimRight(parsed.String(), "/") + "/", nil
 }

@@ -1,3 +1,5 @@
+import type {ShaderMount} from '../modules/paper-shader.ts';
+
 // The original branch-field fragment uses Paper Shaders only for the WebGL lifecycle.
 const branchField = `#version 300 es
 precision highp float;
@@ -5,6 +7,7 @@ uniform vec2 u_resolution;
 uniform float u_time;
 uniform vec3 u_background;
 uniform vec3 u_ink;
+uniform vec2 u_pointer;
 out vec4 fragColor;
 float branch(float x, float spread) { return .51 + spread * smoothstep(.08,.82,x) + .018*sin(x*7.+spread*3.); }
 void main() {
@@ -33,7 +36,8 @@ void main() {
    dots+=spine*step(.55,fract(uv.y*70.))*.55;
   }
  }
- float field=clamp((dots+lines)*fade,0.,.8);
+ float proximity = 1.-smoothstep(.02,.28,length((uv-u_pointer)*vec2(u_resolution.x/u_resolution.y,1.)));
+ float field=clamp((dots+lines)*(1.+proximity*.8)*fade,0.,.8);
  color=mix(color,u_ink,field);
  color=mix(color,u_ink,clamp(nodes,0.,1.)*fade);
  color=mix(color,u_background,clamp(rings,0.,1.)*fade);
@@ -43,32 +47,70 @@ void main() {
 export async function initLandingShader(): Promise<void> {
   const target = document.querySelector<HTMLElement>('[data-landing-shader]');
   if (!target) return;
+  const visual = target.closest<HTMLElement>('.landing-visual')!;
   const motion = document.querySelector<HTMLButtonElement>('[data-landing-motion]')!;
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const colors = getComputedStyle(target);
-  const rgb = (value: string) => {
-    const parsed = value.match(/[\d.]+/g)!.slice(0, 3).map((part) => Number(part) / 255);
-    return parsed;
+  let playing = !reduced.matches;
+  let visible = true;
+  let shader: ShaderMount | undefined;
+  let pointerFrame = 0;
+  const update = () => {
+    const active = playing && !reduced.matches && visible && !document.hidden;
+    visual.setAttribute('data-motion', active ? 'playing' : 'paused');
+    shader?.setSpeed(active ? 1 : 0);
+    if (!active) {cancelAnimationFrame(pointerFrame); pointerFrame = 0; visual.removeAttribute('data-pointer')}
+    motion.textContent = motion.getAttribute(playing ? 'data-pause' : 'data-play');
+    motion.setAttribute('aria-pressed', String(playing));
+    motion.hidden = reduced.matches;
   };
+  visual.addEventListener('pointermove', (event) => {
+    if (visual.getAttribute('data-motion') !== 'playing' || pointerFrame) return;
+    pointerFrame = requestAnimationFrame(() => {
+      pointerFrame = 0;
+      const rect = visual.getBoundingClientRect();
+      const x = (event.clientX - rect.left) / rect.width;
+      const y = (event.clientY - rect.top) / rect.height;
+      visual.style.setProperty('--landing-pointer-x', `${x * 760}px`);
+      visual.style.setProperty('--landing-pointer-y', `${y * 560}px`);
+      visual.setAttribute('data-pointer', '');
+      shader?.setUniforms({u_pointer: [x, 1 - y]});
+    });
+  });
+  visual.addEventListener('pointerleave', () => {
+    cancelAnimationFrame(pointerFrame); pointerFrame = 0;
+    visual.removeAttribute('data-pointer'); shader?.setUniforms({u_pointer: [-1, -1]});
+  });
+  motion.addEventListener('click', () => {playing = !playing; update()});
+  const preferenceChanged = () => {playing = !reduced.matches; update()};
+  reduced.addEventListener('change', preferenceChanged);
+  document.addEventListener('visibilitychange', update);
+  window.addEventListener('pageshow', update);
+  const observer = new IntersectionObserver(([entry]) => {visible = entry.isIntersecting; update()});
+  observer.observe(visual);
+  window.addEventListener('pagehide', (event) => {
+    if (event.persisted) return;
+    observer.disconnect(); cancelAnimationFrame(pointerFrame); shader?.dispose();
+    document.removeEventListener('visibilitychange', update);
+    window.removeEventListener('pageshow', update);
+    reduced.removeEventListener('change', preferenceChanged);
+  });
+  target.setAttribute('data-shader-status', 'fallback');
+  update();
+  if (reduced.matches) return;
+  const rgb = (value: string) => value.match(/[\d.]+/g)!.slice(0, 3).map((part) => Number(part) / 255);
   try {
     const {ShaderMount} = await import('../modules/paper-shader.ts');
-    const background = getComputedStyle(document.body).backgroundColor;
-    const shader = new ShaderMount(target, branchField, {u_background: rgb(background), u_ink: rgb(colors.color)}, {alpha: false, antialias: false, powerPreference: 'low-power'}, reduced.matches ? 0 : 0.35, 18000, 1, 298000);
+    shader = new ShaderMount(target, branchField, {u_background: rgb(getComputedStyle(document.body).backgroundColor), u_ink: rgb(getComputedStyle(target).color), u_pointer: [-1, -1]}, {alpha: false, antialias: false, powerPreference: 'low-power'}, 0, 18000, 1, 180000);
     if (!target.querySelector('canvas')) throw new Error('WebGL unavailable');
     target.setAttribute('data-ready', 'true');
     target.setAttribute('data-shader-status', 'ready');
-    motion.hidden = false;
-    let playing = !reduced.matches;
-    const update = () => {shader.setSpeed(playing ? 0.35 : 0); motion.textContent = motion.getAttribute(playing ? 'data-pause' : 'data-play'); motion.setAttribute('aria-pressed', String(playing))};
-    motion.addEventListener('click', () => {playing = !playing; update()});
-    reduced.addEventListener('change', () => {playing = !reduced.matches; update()});
-    target.querySelector('canvas')!.addEventListener('webglcontextlost', (event) => {event.preventDefault(); shader.dispose(); target.setAttribute('data-shader-status', 'fallback'); target.removeAttribute('data-ready'); motion.hidden = true}, {once: true});
-    window.addEventListener('pagehide', () => shader.dispose(), {once: true});
+    target.querySelector('canvas')!.addEventListener('webglcontextlost', (event) => {
+      event.preventDefault(); shader!.dispose(); shader = undefined;
+      target.setAttribute('data-shader-status', 'fallback'); target.removeAttribute('data-ready');
+    }, {once: true});
     update();
   } catch {
-    target.setAttribute('data-shader-status', 'fallback');
-    target.replaceChildren();
-    target.removeAttribute('data-ready');
-    motion.hidden = true;
+    shader?.dispose(); shader = undefined;
+    target.replaceChildren(); target.removeAttribute('data-ready');
   }
 }

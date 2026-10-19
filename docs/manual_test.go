@@ -44,3 +44,13 @@ func TestOfflineManualNormalizedRouterPaths(t *testing.T) {
 		require.Contains(t, w.Body.String(), "GitSSS Manual")
 	}
 }
+
+func TestIdentityChannelManual(t *testing.T) {
+	handler := Handler("/help", "/help")
+	for _, path := range []string{"site/identity-channels.html", "第三方渠道接入/README.md", "第三方渠道接入/飞书.md", "第三方渠道接入/微信.md", "第三方渠道接入/Google.md", "第三方渠道接入/Discord.md", "第三方渠道接入/邮箱.md"} {
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/help/"+path, nil))
+		require.Equal(t, http.StatusOK, w.Code, path)
+		require.NotEmpty(t, w.Body.Bytes())
+	}
+}

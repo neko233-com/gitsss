@@ -68,6 +68,7 @@ type AuthenticationForm struct {
 	// Oauth2 & OIDC
 	Oauth2Provider                string
 	Oauth2Key                     string
+	Oauth2CallbackBase            string `binding:"MaxSize(2048)"`
 	Oauth2Secret                  string
 	OpenIDConnectAutoDiscoveryURL string
 	Oauth2UseCustomURL            bool

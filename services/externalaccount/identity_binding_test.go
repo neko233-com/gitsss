@@ -101,3 +101,32 @@ func TestIdentityReplacementRetainsOtherProvidersAndRollsBackConflict(t *testing
 	require.NoError(t, err)
 	assert.True(t, companionExists)
 }
+
+func TestDiscordBindingReplacementRetainsCompanion(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+	other := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 4})
+	discord := &auth.Source{Type: auth.OAuth2, Name: "Discord binding", IsActive: true, Cfg: &oauth2.Source{Provider: "discord"}}
+	wechat := &auth.Source{Type: auth.OAuth2, Name: "WeChat binding", IsActive: true, Cfg: &oauth2.Source{Provider: "wechat"}}
+	require.NoError(t, auth.CreateSource(t.Context(), discord))
+	require.NoError(t, auth.CreateSource(t.Context(), wechat))
+	require.NoError(t, BindVerifiedIdentity(t.Context(), discord, user, goth.User{UserID: "discord-old"}, false))
+	require.NoError(t, BindVerifiedIdentity(t.Context(), wechat, user, goth.User{UserID: "wechat"}, false))
+	assert.ErrorIs(t, BindVerifiedIdentity(t.Context(), discord, other, goth.User{UserID: "discord-old"}, false), ErrIdentityOwned)
+	require.NoError(t, BindVerifiedIdentity(t.Context(), discord, user, goth.User{UserID: "discord-new"}, true))
+	_, old, err := user_model.GetExternalLogin(t.Context(), discord.ID, "discord-old")
+	require.NoError(t, err)
+	assert.False(t, old)
+	_, companion, err := user_model.GetExternalLogin(t.Context(), wechat.ID, "wechat")
+	require.NoError(t, err)
+	assert.True(t, companion)
+}
+
+func TestIncompleteSourceIsNotAUsableFallback(t *testing.T) {
+	source := &auth.Source{IsActive: true, Cfg: &oauth2.Source{Provider: "discord", ClientID: "id"}}
+	assert.False(t, identitySourceUsable(source))
+	source.Cfg.(*oauth2.Source).ClientSecret = "secret"
+	assert.True(t, identitySourceUsable(source))
+	source.IsActive = false
+	assert.False(t, identitySourceUsable(source))
+}

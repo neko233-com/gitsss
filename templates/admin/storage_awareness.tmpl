@@ -3,7 +3,6 @@
 	<h4 class="ui top attached header">{{ctx.Locale.Tr "admin.storage_awareness.title"}}</h4>
 	<div class="ui attached segment">
 		{{$snapshot := .StorageSnapshot}}
-		{{$usagePercent := Eval $snapshot.UsageRatio "*" 100}}
 		<div class="storage-awareness-summary">
 			<div>
 				<div class="storage-awareness-statistics">
@@ -12,14 +11,7 @@
 					<div class="statistic"><div class="value">{{FileSize $snapshot.AvailableBytes}}</div><div class="label">{{ctx.Locale.Tr "admin.storage_awareness.available"}}</div></div>
 					<div class="statistic"><div class="value">{{if or $snapshot.InventoryTruncated $snapshot.InventoryError}}≥ {{end}}{{FileSize $snapshot.GitLFSBytes}}</div><div class="label">{{ctx.Locale.Tr "admin.storage_awareness.git_lfs"}}</div></div>
 				</div>
-				<div class="storage-capacity-progress">
-					<div class="storage-capacity-progress-label">
-						<span>{{ctx.Locale.Tr "admin.storage_awareness.used"}} / {{ctx.Locale.Tr "admin.storage_awareness.capacity"}}</span>
-						<strong>{{printf "%.0f%%" $usagePercent}}</strong>
-					</div>
-					<progress value="{{$snapshot.UsedBytes}}" max="{{$snapshot.CapacityBytes}}" aria-label="{{ctx.Locale.Tr "admin.storage_awareness.used"}} {{printf "%.0f%%" $usagePercent}}"></progress>
-					<div class="storage-capacity-progress-detail">{{FileSize $snapshot.UsedBytes}} / {{FileSize $snapshot.CapacityBytes}}</div>
-				</div>
+				{{template "admin/usage_meter" (dict "Label" (ctx.Locale.Tr "admin.storage_awareness.used") "Used" $snapshot.UsedBytes "Capacity" $snapshot.CapacityBytes "Warning" $snapshot.Warning "Critical" $snapshot.WriteProtected)}}
 			</div>
 			<div id="storage-capacity-chart" class="storage-capacity-chart" data-used-bytes="{{$snapshot.UsedBytes}}" data-capacity-bytes="{{$snapshot.CapacityBytes}}" data-label-used="{{ctx.Locale.Tr "admin.storage_awareness.used"}}" data-label-available="{{ctx.Locale.Tr "admin.storage_awareness.available"}}" aria-label="{{ctx.Locale.Tr "admin.storage_awareness.title"}}"></div>
 		</div>

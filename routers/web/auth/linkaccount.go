@@ -37,6 +37,10 @@ func prepareLinkAccountPageData(ctx *context.Context) {
 	ctx.Data["SignUpLink"] = setting.AppSubURL + "/user/link_account_signup"
 	ctx.Data["ShowRegistrationButton"] = false
 	ctx.Data["DisableRegistration"] = setting.Service.DisableRegistration
+	registrationAllowed := !setting.Service.DisableRegistration && !setting.Service.AllowOnlyInternalRegistration
+	registerMode, _ := ctx.Data["LinkAccountModeRegister"].(bool)
+	ctx.Data["LinkAccountRegistrationAllowed"] = registrationAllowed
+	ctx.Data["LinkAccountModeSignIn"] = !registerMode || !registrationAllowed
 
 	prepareCommonAuthPageData(ctx, CommonAuthOptions{
 		EnableCaptcha: setting.Service.EnableCaptcha && setting.Service.RequireExternalRegistrationCaptcha,
@@ -124,7 +128,8 @@ func LinkAccountPostSignIn(ctx *context.Context) {
 
 	linkAccountData := oauth2GetLinkAccountData(ctx)
 	if linkAccountData == nil {
-		ctx.ServerError("UserSignIn", errors.New("not in LinkAccount session"))
+		ctx.Flash.Error(ctx.Tr("settings.identity_binding_invalid"))
+		ctx.Redirect(setting.AppSubURL + "/user/login")
 		return
 	}
 
@@ -164,6 +169,10 @@ func oauth2LinkAccount(ctx *context.Context, u *user_model.User, linkAccountData
 
 		err = externalaccount.LinkAccountToUser(ctx, linkAccountData.AuthSourceID, u, linkAccountData.GothUser)
 		if err != nil {
+			if errors.Is(err, externalaccount.ErrIdentityOwned) || errors.Is(err, externalaccount.ErrProviderBound) || errors.Is(err, util.ErrInvalidArgument) || errors.Is(err, util.ErrAlreadyExist) {
+				ctx.RenderWithErrDeprecated(ctx.Tr("settings.identity_binding_failed"), tplLinkAccount, nil)
+				return
+			}
 			ctx.ServerError("UserLinkAccount", err)
 			return
 		}

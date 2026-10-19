@@ -85,7 +85,9 @@ func init() {
 			if setting.OAuth2Client.UpdateAvatar || setting.OAuth2Client.EnableAutoRegistration {
 				scopes = append(scopes, "profile")
 			}
-			return google.New(clientKey, secret, callbackURL, scopes...)
+			provider := google.New(clientKey, secret, callbackURL, scopes...)
+			provider.SetPrompt("select_account")
+			return provider
 		}))
 
 	RegisterGothProvider(NewSimpleProvider("twitter", "Twitter", nil,

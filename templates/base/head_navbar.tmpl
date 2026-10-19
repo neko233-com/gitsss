@@ -34,7 +34,7 @@
 	{{if and .IsSigned (not .MustChangePassword)}}
  {{template "base/workspace_search" .}}
  <form class="workspace-global-search" action="{{AppSubUrl}}/explore/repos" role="search">
-  {{svg "octicon-search"}}<input name="q" type="search" data-workspace-search aria-label="{{ctx.Locale.Tr "workspace.search"}}" placeholder="{{ctx.Locale.Tr "workspace.search"}}"><kbd>Ctrl K</kbd>
+  {{svg "octicon-search"}}<input name="q" type="search" data-workspace-search aria-label="{{ctx.Locale.Tr "workspace.search"}}" placeholder="{{ctx.Locale.Tr "workspace.search"}}"><kbd>Ctrl+K</kbd>
  </form>
  {{end}}
  <div class="navbar-right">

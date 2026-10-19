@@ -42,6 +42,9 @@ func (source *Source) Callback(request *http.Request, response http.ResponseWrit
 	if err != nil {
 		return user, err
 	}
+	if source.Provider == "feishu" {
+		return feishuUserIdentity(user)
+	}
 
 	return user, nil
 }

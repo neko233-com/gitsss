@@ -332,7 +332,7 @@ function initFetchActionTriggerEvery(el: HTMLElement, trigger: string) {
   const intervalMs = unit === 's' ? num * 1000 : num;
   const fn = async () => {
     try {
-      await performFetchActionTrigger(el, 'every');
+      if (!document.hidden && document.contains(el)) await performFetchActionTrigger(el, 'every');
     } finally {
       // only continue if the element is still in the document
       if (document.contains(el)) {

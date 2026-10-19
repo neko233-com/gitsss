@@ -1,0 +1,9 @@
+<div class="resource-meter{{if .Warning}} resource-meter-warning{{end}}{{if .Critical}} resource-meter-critical{{end}}">
+	{{if gt .Capacity 0}}
+	<div class="resource-meter-heading"><span>{{.Label}}</span><strong>{{printf "%.1f%%" (Eval .Used "*" 100.0 "/" .Capacity)}}</strong></div>
+	<progress value="{{.Used}}" max="{{.Capacity}}" aria-label="{{.Label}}" aria-valuetext="{{FileSize .Used}} / {{FileSize .Capacity}}"></progress>
+	<div class="resource-meter-caption">{{FileSize .Used}} / {{FileSize .Capacity}}</div>
+	{{else}}
+	<div class="resource-meter-heading"><span>{{.Label}}</span><span>{{ctx.Locale.Tr "admin.dashboard.measurement_unavailable"}}</span></div>
+	{{end}}
+</div>

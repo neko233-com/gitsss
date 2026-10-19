@@ -342,11 +342,28 @@ func makeSnapshot(source, path string, capacity, available, reserve int64, usage
 func scanInventories(roots []InventoryRoot, maxEntries int) ([]Usage, []AssetUsage, bool, error) {
 	usage := make(map[Category]Usage)
 	assets := make(map[string]AssetUsage)
-	seen := make(map[string]struct{})
+	// Disjoint roots cannot repeat paths; only overlapping roots need per-file tracking.
+	overlap := make([]bool, len(roots))
+	for i, root := range roots {
+		left, err := filepath.Abs(root.Path)
+		if err != nil {
+			return nil, nil, false, err
+		}
+		for j := range i {
+			right, err := filepath.Abs(roots[j].Path)
+			if err != nil {
+				return nil, nil, false, err
+			}
+			if inventoryContains(left, right) || inventoryContains(right, left) {
+				overlap[i], overlap[j] = true, true
+			}
+		}
+	}
+	var seen map[string]struct{}
 	entries := 0
 	truncated := false
 	var inventoryErr error
-	for _, root := range roots {
+	for rootIndex, root := range roots {
 		err := filepath.WalkDir(root.Path, func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
@@ -365,15 +382,19 @@ func scanInventories(roots []InventoryRoot, maxEntries int) ([]Usage, []AssetUsa
 				truncated = true
 				return fs.SkipAll
 			}
-			absolute, err := filepath.Abs(path)
-			if err != nil {
-				return err
+			if overlap[rootIndex] {
+				absolute, err := filepath.Abs(path)
+				if err != nil {
+					return err
+				}
+				if _, exists := seen[absolute]; exists {
+					return nil
+				}
+				if seen == nil {
+					seen = make(map[string]struct{})
+				}
+				seen[absolute] = struct{}{}
 			}
-			absolute = filepath.Clean(absolute)
-			if _, exists := seen[absolute]; exists {
-				return nil
-			}
-			seen[absolute] = struct{}{}
 			info, err := entry.Info()
 			if err != nil {
 				return err
@@ -403,6 +424,11 @@ func scanInventories(roots []InventoryRoot, maxEntries int) ([]Usage, []AssetUsa
 		}
 	}
 	return usageList(usage), assetList(assets), truncated, inventoryErr
+}
+
+func inventoryContains(parent, path string) bool {
+	rel, err := filepath.Rel(parent, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func usageList(values map[Category]Usage) []Usage {

@@ -18,8 +18,13 @@
 	</div>
 	<div class="required field">
 		<label for="oauth2_secret">{{ctx.Locale.Tr "admin.auths.oauth2_clientSecret"}}</label>
-		<input id="oauth2_secret" name="oauth2_secret" value="{{.oauth2_secret}}">
+		<input type="password" autocomplete="new-password" id="oauth2_secret" name="oauth2_secret" value="{{.oauth2_secret}}">
 	</div>
+  <div class="optional field">
+    <label for="oauth2_callback_base">{{ctx.Locale.Tr "admin.auths.callback_base"}}</label>
+    <input type="url" id="oauth2_callback_base" name="oauth2_callback_base" value="{{.oauth2_callback_base}}" placeholder="{{.OAuth2CallbackURLBase}}">
+    <p class="help">{{ctx.Locale.Tr "admin.auths.callback_base_help"}}</p>
+  </div>
 	<div class="optional field">
 		<label for="oauth2_icon_url">{{ctx.Locale.Tr "admin.auths.oauth2_icon_url"}}</label>
 		<input id="oauth2_icon_url" name="oauth2_icon_url" value="{{.oauth2_icon_url}}">

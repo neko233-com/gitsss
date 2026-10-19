@@ -46,7 +46,7 @@ func SignInOAuth(ctx *context.Context) {
 		return
 	}
 
-	if authSource == nil {
+	if authSource == nil || !authSource.Cfg.(*oauth2.Source).IsConfigured() {
 		ctx.NotFound(nil)
 		return
 	}
@@ -61,7 +61,8 @@ func SignInOAuth(ctx *context.Context) {
 	}
 
 	// try to do a direct callback flow, so we don't authenticate the user again but use the valid accesstoken to get the user
-	if ctx.Doer == nil {
+	// Google must start a fresh authorization so an existing provider session cannot skip account choice.
+	if ctx.Doer == nil && authSource.Cfg.(*oauth2.Source).Provider != "gplus" {
 		user, gothUser, err := oAuth2UserLoginCallback(ctx, authSource, ctx.Req, ctx.Resp)
 		if err == nil && user != nil {
 			// A normal sign-in may reuse its existing provider session.
@@ -107,7 +108,7 @@ func SignInOAuthCallback(ctx *context.Context) {
 		return
 	}
 
-	if authSource == nil {
+	if authSource == nil || !authSource.Cfg.(*oauth2.Source).IsConfigured() {
 		ctx.ServerError("SignIn", errors.New("no valid provider found, check configured callback url in provider"))
 		return
 	}
@@ -190,7 +191,7 @@ func SignInOAuthCallback(ctx *context.Context) {
 
 			ctx.Redirect(setting.AppSubURL + "/user/settings/security")
 			return
-		} else if !setting.Service.AllowOnlyInternalRegistration && setting.OAuth2Client.EnableAutoRegistration {
+		} else if !externalaccount.NativeIdentitySource(authSource) && !setting.Service.AllowOnlyInternalRegistration && setting.OAuth2Client.EnableAutoRegistration {
 			// create new user with details from oauth2 provider
 			var missingFields []string
 			if gothUser.UserID == "" {

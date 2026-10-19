@@ -206,3 +206,22 @@ func TestWebAuthOAuth2(t *testing.T) {
 		})
 	})
 }
+
+func TestNativeOAuthUnknownIdentityRequiresBinding(t *testing.T) {
+	defer test.MockVariableValue(&setting.OAuth2Client.EnableAutoRegistration, true)()
+	defer test.MockVariableValue(&setting.Service.AllowOnlyInternalRegistration, false)()
+	require.NoError(t, oauth2.Init(t.Context()))
+	addOAuth2Source(t, "native-bind-fixture", oauth2.Source{Provider: "feishu", ClientID: "fixture", ClientSecret: "fixture"})
+	defer test.MockVariableValue(&gothic.CompleteUserAuth, func(http.ResponseWriter, *http.Request) (goth.User, error) {
+		return goth.User{Provider: "native-bind-fixture", UserID: "ou-native-fixture", Email: "fixture@example.invalid", NickName: "fixture"}, nil
+	})()
+	mockOpt := contexttest.MockContextOption{SessionStore: session.NewMockMemStore("native-bind-fixture")}
+	ctx, resp := contexttest.MockContext(t, "/user/oauth2/native-bind-fixture/callback?code=fixture", mockOpt)
+	ctx.SetPathParamRaw("provider", "native-bind-fixture")
+	SignInOAuthCallback(ctx)
+	assert.Equal(t, http.StatusSeeOther, resp.Code)
+	assert.Equal(t, "/user/link_account", test.RedirectURL(resp))
+	ctx, _ = contexttest.MockContext(t, "/user/link_account", mockOpt)
+	LinkAccount(ctx)
+	assert.Equal(t, true, ctx.Data["LinkAccountModeSignIn"])
+}

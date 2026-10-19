@@ -52,6 +52,7 @@ func (accountLinking OAuth2AccountLinkingType) isValid() bool {
 
 // OAuth2Client settings
 var OAuth2Client struct {
+	CallbackURLBase        string
 	RegisterEmailConfirm   bool
 	OpenIDConnectScopes    []string
 	EnableAutoRegistration bool
@@ -62,6 +63,7 @@ var OAuth2Client struct {
 
 func loadOAuth2ClientFrom(rootCfg ConfigProvider) {
 	sec := rootCfg.Section("oauth2_client")
+	OAuth2Client.CallbackURLBase = sec.Key("CALLBACK_URL_BASE").String()
 	OAuth2Client.RegisterEmailConfirm = sec.Key("REGISTER_EMAIL_CONFIRM").MustBool(Service.RegisterEmailConfirm)
 	OAuth2Client.OpenIDConnectScopes = parseScopes(sec, "OPENID_CONNECT_SCOPES")
 	OAuth2Client.EnableAutoRegistration = sec.Key("ENABLE_AUTO_REGISTRATION").MustBool()

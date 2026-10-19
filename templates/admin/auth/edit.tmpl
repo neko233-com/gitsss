@@ -269,8 +269,13 @@
 					</div>
 					<div class="required field">
 						<label for="oauth2_secret">{{ctx.Locale.Tr "admin.auths.oauth2_clientSecret"}}</label>
-						<input id="oauth2_secret" name="oauth2_secret" value="{{$cfg.ClientSecret}}" required>
+						<input type="password" autocomplete="new-password" id="oauth2_secret" name="oauth2_secret" value="{{$cfg.ClientSecret}}" required>
 					</div>
+  <div class="optional field">
+    <label for="oauth2_callback_base">{{ctx.Locale.Tr "admin.auths.callback_base"}}</label>
+    <input type="url" id="oauth2_callback_base" name="oauth2_callback_base" value="{{$cfg.CallbackURLBase}}" placeholder="{{.OAuth2CallbackURLBase}}">
+    <p class="help">{{ctx.Locale.Tr "admin.auths.callback_base_help"}}</p>
+  </div>
 					<div class="optional field">
 						<label for="oauth2_icon_url">{{ctx.Locale.Tr "admin.auths.oauth2_icon_url"}}</label>
 						<input id="oauth2_icon_url" name="oauth2_icon_url" value="{{$cfg.IconURL}}">
@@ -445,7 +450,7 @@
 			<p>Host: smtp.gmail.com, Port: 587, Enable TLS Encryption: true</p>
 
 			<h5 class="oauth2">{{ctx.Locale.Tr "admin.auths.tips.oauth2.general"}}:</h5>
-			<p class="oauth2">{{ctx.Locale.Tr "admin.auths.tips.oauth2.general.tip"}} <b id="oauth2-callback-url"></b></p>
+			<p class="oauth2">{{ctx.Locale.Tr "admin.auths.tips.oauth2.general.tip"}} <b id="oauth2-callback-url" data-callback-base="{{.OAuth2CallbackURLBase}}"></b></p>
 		</div>
 	</div>
 {{template "admin/layout_footer" .}}

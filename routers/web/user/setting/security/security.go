@@ -129,6 +129,7 @@ func loadSecurityData(ctx *context.Context) {
 		}
 	}
 	ctx.Data["AccountLinks"] = sources
+	ctx.Data["HasLocalPassword"] = setting.Service.EnablePasswordSignInForm && ctx.Doer.IsPasswordSet()
 	ctx.Data["ExternalIdentityDetails"] = identities
 
 	authSources, err := db.Find[auth_model.Source](ctx, auth_model.FindSourcesOptions{
@@ -144,14 +145,14 @@ func loadSecurityData(ctx *context.Context) {
 	var orderedOAuth2Names []string
 	oauth2Providers := make(map[string]oauth2.Provider)
 	for _, source := range authSources {
-		nativeSources[source.ID] = externalaccount.NativeIdentitySource(source)
+		nativeSources[source.ID] = externalaccount.NativeIdentitySource(source) && source.IsActive && source.Cfg.(*oauth2.Source).IsConfigured()
 		provider, err := oauth2.CreateProviderFromSource(source)
 		if err != nil {
 			ctx.ServerError("CreateProviderFromSource", err)
 			return
 		}
 		oauth2Providers[source.Name] = provider
-		if source.IsActive {
+		if source.IsActive && source.Cfg.(*oauth2.Source).IsConfigured() && (!nativeSources[source.ID] || identities[source.ID] == nil) {
 			orderedOAuth2Names = append(orderedOAuth2Names, source.Name)
 		}
 	}
