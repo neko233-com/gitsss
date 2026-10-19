@@ -171,8 +171,10 @@ Native emails use an inline-styled, table-based HTML layout compatible with comm
 
 ## Product identity
 
-The default logo and SVG/PNG favicons use an original vector **SSS / Git** mark. High contrast blue/white remains visible in light and dark navigation. Generated Actions status badges continue to compose over the favicon. The frontend source fingerprint covers all four logo/favicon files as well as UI source, preventing an older embedded logo bundle from passing the build gate. Existing custom deployment logos remain an operator override.
+The default logo and SVG/PNG favicons use an original vector **SSS / Git** mark. A graphite background, ice-white angular SSS lettering and ember-orange Git baseline remain legible in light and dark navigation. Generated Actions status badges continue to compose over the favicon. The frontend source fingerprint covers all four logo/favicon files as well as UI source, preventing an older embedded logo bundle from passing the build gate. Existing custom deployment logos remain an operator override.
 
 Notification settings validation errors appear on the same HTTP 422 page, with channel recipients and template values retained. Invalid templates never replace saved hooks.
 
 The default colored mark bypasses legacy monochrome image filters in both themes; versioned icon URLs refresh cached logos during upgrades.
+
+The mark uses original chamfered geometry and slanted stencil lettering, with no animation or remote font dependency. SVG and PNG fallbacks share the same artwork.

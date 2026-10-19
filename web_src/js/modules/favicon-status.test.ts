@@ -2,9 +2,9 @@ import {buildStatusFaviconSvg, resetActionFavicon, syncActionRunFavicon} from '.
 
 test('buildStatusFaviconSvg uses action status icons', () => {
   const success = buildStatusFaviconSvg('success');
-  expect(success).toContain('viewBox="0 0 96 96"');
-  expect(success).toContain('fill="#0969da"');
-  expect(success).toContain('translate(44.1, 44.1)');
+  expect(success).toContain('viewBox="0 0 128 128"');
+  expect(success).toContain('fill="#11151b"');
+  expect(success).toContain('fill="#ff6b3d"');
   expect(success).toContain('data-actions-status-name="success"');
 
   const running = buildStatusFaviconSvg('running');
