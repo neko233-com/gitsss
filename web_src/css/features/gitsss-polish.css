@@ -156,6 +156,7 @@
 
 /* Legacy theme selections retain readable branding and links after upgrades. */
 #navbar-logo .gitsss-brand {
+  filter: none;
   flex: none;
   color: inherit;
 }
