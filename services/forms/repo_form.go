@@ -209,59 +209,67 @@ func (f *ProtectBranchForm) Validate(req *http.Request, errs binding.Errors) bin
 
 // WebhookForm form for changing web hook
 type WebhookForm struct {
-	Name                     string `binding:"MaxSize(255)"`
-	Events                   string
-	Create                   bool
-	Delete                   bool
-	Fork                     bool
-	Push                     bool
-	Issues                   bool
-	IssueAssign              bool
-	IssueLabel               bool
-	IssueMilestone           bool
-	IssueComment             bool
-	PullRequest              bool
-	PullRequestAssign        bool
-	PullRequestLabel         bool
-	PullRequestMilestone     bool
-	PullRequestComment       bool
-	PullRequestReview        bool
-	PullRequestSync          bool
-	PullRequestReviewRequest bool
-	Wiki                     bool
-	Repository               bool
-	Release                  bool
-	Package                  bool
-	Status                   bool
-	WorkflowRun              bool
-	WorkflowJob              bool
-	Active                   bool
-	BranchFilter             string `binding:"GlobPattern"`
-	AuthorizationHeader      string
-	Secret                   string
-	NotificationStyle        string
-	NotificationLanguage     string
-	NotificationTitle        string
-	NotificationBody         string
-	NotificationFooter       string
-	NotificationColor        string
-	NotificationMaxCommits   int
-	NotificationFiles        bool
-	NotificationCommitBody   bool
-	NotificationRepositories string
-	NotificationExclude      string
-	NotificationActors       string
-	NotificationSkipBots     bool
+	Name                               string `binding:"MaxSize(255)"`
+	Events                             string
+	Create                             bool
+	Delete                             bool
+	Fork                               bool
+	Push                               bool
+	Issues                             bool
+	IssueAssign                        bool
+	IssueLabel                         bool
+	IssueMilestone                     bool
+	IssueComment                       bool
+	PullRequest                        bool
+	PullRequestAssign                  bool
+	PullRequestLabel                   bool
+	PullRequestMilestone               bool
+	PullRequestComment                 bool
+	PullRequestReview                  bool
+	PullRequestSync                    bool
+	PullRequestReviewRequest           bool
+	Wiki                               bool
+	Repository                         bool
+	Release                            bool
+	Package                            bool
+	Status                             bool
+	WorkflowRun                        bool
+	WorkflowJob                        bool
+	Active                             bool
+	BranchFilter                       string `binding:"GlobPattern"`
+	AuthorizationHeader                string
+	Secret                             string
+	NotificationStyle                  string
+	NotificationLanguage               string
+	NotificationTitle                  string
+	NotificationBody                   string
+	NotificationPayload                string
+	NotificationFooter                 string
+	NotificationColor                  string
+	NotificationFeishuHeaderColor      string
+	NotificationFeishuRepositoryColors string
+	NotificationMaxCommits             int
+	NotificationFiles                  bool
+	NotificationCommitBody             bool
+	NotificationRepositories           string
+	NotificationExclude                string
+	NotificationActors                 string
+	NotificationSkipBots               bool
+	NotificationEventPolicy            string
+	NotificationTagFilter              string
 }
 
 func (f WebhookForm) NotificationSettings() webhook.NotificationSettings {
 	return webhook.NotificationSettings{
 		Style: f.NotificationStyle, Language: f.NotificationLanguage,
 		TitleTemplate: f.NotificationTitle, MessageTemplate: f.NotificationBody,
-		Footer: f.NotificationFooter, Color: f.NotificationColor,
+		PayloadTemplate: f.NotificationPayload,
+		Footer:          f.NotificationFooter, Color: f.NotificationColor,
+		FeishuHeaderColor: f.NotificationFeishuHeaderColor, FeishuRepositoryColors: f.NotificationFeishuRepositoryColors,
 		MaxCommits: f.NotificationMaxCommits, IncludeFiles: f.NotificationFiles,
 		IncludeCommitBody: f.NotificationCommitBody, RepositoryFilter: f.NotificationRepositories,
 		ExcludeRepository: f.NotificationExclude, ActorFilter: f.NotificationActors, SkipBots: f.NotificationSkipBots,
+		EventPolicy: f.NotificationEventPolicy, TagFilter: f.NotificationTagFilter,
 	}
 }
 
@@ -392,6 +400,17 @@ type NewMSTeamsHookForm struct {
 
 // Validate validates the fields
 func (f *NewMSTeamsHookForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
+	ctx := context.GetValidateContext(req)
+	return middleware.Validate(errs, ctx.Data, f, ctx.Locale)
+}
+
+// NewEmailHookForm configures recipients using the site's mail transport.
+type NewEmailHookForm struct {
+	Recipients string `binding:"Required;MaxSize(4096)"`
+	WebhookForm
+}
+
+func (f *NewEmailHookForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
 	ctx := context.GetValidateContext(req)
 	return middleware.Validate(errs, ctx.Data, f, ctx.Locale)
 }

@@ -5,6 +5,7 @@
 
 package public
 
+//go:generate node ../../tools/frontend-build.mjs check
 //go:generate go run ../../build/generate-bindata.go ../../public bindata.dat
 
 import (

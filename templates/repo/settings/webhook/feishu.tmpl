@@ -8,6 +8,32 @@
 			<label for="payload_url">{{ctx.Locale.Tr "repo.settings.payload_url"}}</label>
 			<input id="payload_url" name="payload_url" type="url" value="{{.Webhook.URL}}" autofocus required>
 		</div>
+		{{with .NotificationSettings}}
+		<div class="field">
+			<label for="feishu-header-color">{{ctx.Locale.Tr "repo.settings.webhook.feishu_header_color"}}</label>
+			<select id="feishu-header-color" name="notification_feishu_header_color">
+				<option value="auto" {{if or (eq .FeishuHeaderColor "") (eq .FeishuHeaderColor "auto")}}selected{{end}}>{{ctx.Locale.Tr "repo.settings.webhook.feishu_color_auto"}}</option>
+				<option value="blue" {{if eq .FeishuHeaderColor "blue"}}selected{{end}}>🔵 Blue</option>
+				<option value="wathet" {{if eq .FeishuHeaderColor "wathet"}}selected{{end}}>🩵 Wathet</option>
+				<option value="turquoise" {{if eq .FeishuHeaderColor "turquoise"}}selected{{end}}>🩵 Turquoise</option>
+				<option value="green" {{if eq .FeishuHeaderColor "green"}}selected{{end}}>🟢 Green</option>
+				<option value="yellow" {{if eq .FeishuHeaderColor "yellow"}}selected{{end}}>🟡 Yellow</option>
+				<option value="orange" {{if eq .FeishuHeaderColor "orange"}}selected{{end}}>🟠 Orange</option>
+				<option value="red" {{if eq .FeishuHeaderColor "red"}}selected{{end}}>🔴 Red</option>
+				<option value="carmine" {{if eq .FeishuHeaderColor "carmine"}}selected{{end}}>🌸 Carmine</option>
+				<option value="violet" {{if eq .FeishuHeaderColor "violet"}}selected{{end}}>🟣 Violet</option>
+				<option value="purple" {{if eq .FeishuHeaderColor "purple"}}selected{{end}}>🟣 Purple</option>
+				<option value="indigo" {{if eq .FeishuHeaderColor "indigo"}}selected{{end}}>🔵 Indigo</option>
+				<option value="grey" {{if eq .FeishuHeaderColor "grey"}}selected{{end}}>⚪ Grey</option>
+			</select>
+			<p class="help">{{ctx.Locale.Tr "repo.settings.webhook.feishu_color_help"}}</p>
+		</div>
+		<details class="field">
+			<summary>{{ctx.Locale.Tr "repo.settings.webhook.feishu_repository_colors"}}</summary>
+			<label for="feishu-repository-colors">{{ctx.Locale.Tr "repo.settings.webhook.feishu_repository_colors_help"}}</label>
+			<textarea id="feishu-repository-colors" name="notification_feishu_repository_colors" rows="4" maxlength="16384" placeholder="engineering/backend = green&#10;engineering/client = purple">{{.FeishuRepositoryColors}}</textarea>
+		</details>
+		{{end}}
 		{{template "repo/settings/webhook/settings" dict "NotificationSettings" $.NotificationSettings "BaseLink" .BaseLink "Webhook" .Webhook "UseRequestSecret" "optional"}}
 	</form>
 {{end}}

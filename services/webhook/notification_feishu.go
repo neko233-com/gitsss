@@ -5,8 +5,12 @@ package webhook
 
 import (
 	"context"
+	"crypto/sha256"
+	"errors"
 	"fmt"
 	"net/url"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -178,17 +182,11 @@ func notificationFeishuBody(m notificationMessage) string {
 		return notificationFormattedBody(m, "markdown", 6000)
 	}
 	lines := make([]string, 0, len(m.Commits)+1)
-	size := 0
 	for _, commit := range m.Commits {
-		line := notificationMarkdown(commit.Message)
-		if size+len(line)+100 > 6000 {
-			break
-		}
-		lines = append(lines, line)
-		size += len(line) + 2
+		lines = append(lines, notificationMarkdown(commit.Message))
 	}
-	if m.Total > len(lines) {
-		lines = append(lines, notificationLabel(m.Chinese, "Open changes for all messages", "查看变更以阅读全部消息"))
+	if m.More > 0 {
+		lines = append(lines, notificationLabel(m.Chinese, "The source payload omitted further commits; open changes for the full list.", "源事件未附带其余提交，请查看变更阅读完整列表。"))
 	}
 	return strings.Join(lines, "\n\n")
 }
@@ -231,7 +229,10 @@ func notificationFeishuCard(ctx context.Context, w *webhook_model.Webhook, task 
 				addField(notificationLabel(m.Chinese, "Attempt", "运行批次"), fmt.Sprintf("#%.0f", attempt), true)
 			}
 		} else {
-			status = notificationPushActions(ctx, data, m.Chinese)
+			status = m.ActionStatus
+			if status == "" {
+				status = notificationPushActions(ctx, data, m.Chinese)
+			}
 		}
 		actionsURL := notificationRepositoryURL(data)
 		if actionsURL != "" {
@@ -240,15 +241,6 @@ func notificationFeishuCard(ctx context.Context, w *webhook_model.Webhook, task 
 		if workflow != nil {
 			if link := notificationURL(workflow["html_url"]); link != "" {
 				actionsURL = notificationPublicRepositoryLink(data, link)
-			}
-			if !m.CustomBody {
-				m.Body = notificationString(workflow["display_title"])
-				if m.Body == "" {
-					m.Body = notificationString(workflow["name"])
-				}
-				if m.Body == "" {
-					m.Body = m.Title
-				}
 			}
 		}
 		addField("CI/CD · Actions", notificationMarkdownLink(status, actionsURL), false)
@@ -262,10 +254,69 @@ func notificationFeishuCard(ctx context.Context, w *webhook_model.Webhook, task 
 		elements = append(elements, map[string]any{"tag": "action", "actions": []any{map[string]any{"tag": "button", "text": map[string]any{"tag": "plain_text", "content": notificationLabel(m.Chinese, "Open changes", "查看变更")}, "type": "primary", "url": m.URL}}})
 	}
 	elements = append(elements, map[string]any{"tag": "note", "elements": []any{map[string]any{"tag": "plain_text", "content": m.Footer}}})
-	value := map[string]any{"msg_type": "interactive", "card": map[string]any{"config": map[string]any{"wide_screen_mode": true}, "header": map[string]any{"template": "blue", "title": map[string]any{"tag": "plain_text", "content": notificationLimit(m.Title, 120)}}, "elements": elements}}
+	settings, _ := GetNotificationSettings(w.Meta)
+	value := map[string]any{"msg_type": "interactive", "card": map[string]any{"config": map[string]any{"wide_screen_mode": true}, "header": map[string]any{"template": notificationFeishuColor(settings, data, m.Repository), "title": map[string]any{"tag": "plain_text", "content": notificationLimit(m.Title, 120)}}, "elements": elements}}
 	if w.Secret != "" {
 		now := time.Now().Unix()
 		value["timestamp"], value["sign"] = now, feishuGenSign(w.Secret, now)
 	}
 	return value
+}
+
+// Feishu exposes named header themes; arbitrary RGB values are not supported.
+var feishuHeaderColors = []string{"blue", "turquoise", "green", "orange", "purple", "indigo", "wathet", "yellow", "red", "carmine", "violet", "grey"}
+
+func validFeishuColor(color string) bool {
+	return slices.Contains(feishuHeaderColors, color)
+}
+
+func parseFeishuRepositoryColors(source string) (map[string]string, error) {
+	if len(source) > 16384 {
+		return nil, errors.New("Feishu repository color rules exceed 16384 bytes")
+	}
+	colors := map[string]string{}
+	for line := range strings.SplitSeq(source, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		name, color, ok := strings.Cut(line, "=")
+		name, color = strings.ToLower(strings.TrimSpace(name)), strings.TrimSpace(color)
+		parts := strings.Split(name, "/")
+		if !ok || len(parts) != 2 || parts[0] == "" || parts[1] == "" || strings.ContainsAny(name, "\t\r *?[]{}\\") || !validFeishuColor(color) {
+			return nil, errors.New("Feishu repository colors require owner/repository = theme, using an available theme")
+		}
+		if _, duplicate := colors[name]; duplicate {
+			return nil, errors.New("duplicate Feishu repository color rule")
+		}
+		colors[name] = color
+	}
+	if len(colors) > 200 {
+		return nil, errors.New("at most 200 Feishu repository color rules are allowed")
+	}
+	return colors, nil
+}
+
+func validateFeishuColors(color, rules string) error {
+	if color != "" && color != "auto" && !validFeishuColor(color) {
+		return errors.New("unknown Feishu header color")
+	}
+	_, err := parseFeishuRepositoryColors(rules)
+	return err
+}
+
+func notificationFeishuColor(settings NotificationSettings, data map[string]any, repository string) string {
+	colors, _ := parseFeishuRepositoryColors(settings.FeishuRepositoryColors)
+	if color := colors[strings.ToLower(repository)]; color != "" {
+		return color
+	}
+	if validFeishuColor(settings.FeishuHeaderColor) {
+		return settings.FeishuHeaderColor
+	}
+	identity := strings.ToLower(repository)
+	if id, ok := notificationMap(data["repository"])["id"].(float64); ok && id > 0 {
+		identity = "repository:" + strconv.FormatInt(int64(id), 10)
+	}
+	hash := sha256.Sum256([]byte(identity))
+	return feishuHeaderColors[int(hash[0])%len(feishuHeaderColors)]
 }

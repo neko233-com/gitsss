@@ -15,6 +15,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -164,8 +165,12 @@ func Deliver(ctx context.Context, t *webhook_model.HookTask) error {
 
 	t.IsDelivered = true
 
+	richNotification := false
 	newRequest := webhookRequesters[w.Type]
-	if t.PayloadVersion == 1 || newRequest == nil {
+	if w.Type == webhook_module.EMAIL {
+		richNotification = true
+		newRequest = notificationRichRequest
+	} else if t.PayloadVersion == 1 || newRequest == nil {
 		newRequest = newDefaultRequest
 	} else if NotificationWebhookSupported(w.Type) {
 		settings, parseErr := GetNotificationSettings(w.Meta)
@@ -173,14 +178,23 @@ func Deliver(ctx context.Context, t *webhook_model.HookTask) error {
 			return parseErr
 		}
 		if settings.Style != "legacy" {
+			richNotification = true
 			newRequest = notificationRichRequest
 		}
 	}
 
-	req, body, err := newRequest(ctx, w, t)
-	if err != nil {
-		return fmt.Errorf("cannot create http request for webhook %s[%d %s]: %w", w.Type, w.ID, notificationSafeURL(w.Type, w.URL), err)
+	var parts []notificationPart
+	if richNotification {
+		parts, err = notificationRichRequests(ctx, w, t)
+	} else {
+		req, body, requestErr := newRequest(ctx, w, t)
+		err = requestErr
+		parts = []notificationPart{{req, body}}
 	}
+	if err != nil {
+		return fmt.Errorf("cannot create notification for webhook %s[%d]: %w", w.Type, w.ID, err)
+	}
+	req, body := parts[0].Request, parts[0].Body
 
 	// Record delivery information.
 	t.RequestInfo = &webhook_model.HookRequest{
@@ -191,6 +205,16 @@ func Deliver(ctx context.Context, t *webhook_model.HookTask) error {
 	}
 	for k, vals := range req.Header {
 		t.RequestInfo.Headers[k] = strings.Join(vals, ",")
+	}
+
+	if len(parts) > 1 {
+		hashes := make([]string, 0, len(parts))
+		for _, part := range parts {
+			sum := sha256.Sum256(part.Body)
+			hashes = append(hashes, hex.EncodeToString(sum[:]))
+		}
+		t.RequestInfo.Headers["X-GitSSS-Part-SHA256"] = strings.Join(hashes, ",")
+		t.RequestInfo.Headers["X-GitSSS-Parts"] = strconv.Itoa(len(parts))
 	}
 
 	// Add Authorization Header
@@ -255,8 +279,61 @@ func Deliver(ctx context.Context, t *webhook_model.HookTask) error {
 		log.Trace("Webhook %s in Webhook Task[%d] is not active", notificationSafeURL(w.Type, w.URL), t.ID)
 		return nil
 	}
+	completed := 0
+	for index, part := range parts {
+		if index > 0 {
+			timer := time.NewTimer(notificationPartInterval(w.Type))
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				t.IsSucceed = false
+				t.ResponseInfo.Body = fmt.Sprintf("Accepted %d/%d parts; delivery canceled.", completed, len(parts))
+				return ctx.Err()
+			case <-timer.C:
+			}
+		}
+		if err := ctx.Err(); err != nil {
+			t.IsSucceed = false
+			t.ResponseInfo.Body = fmt.Sprintf("Accepted %d/%d parts; delivery canceled.", completed, len(parts))
+			return err
+		}
+		if authorization != "" {
+			part.Request.Header.Set("Authorization", authorization)
+		}
+		t.IsSucceed = false
+		t.ResponseInfo.Headers["X-GitSSS-Parts"] = strconv.Itoa(len(parts))
+		t.ResponseInfo.Headers["X-GitSSS-Parts-Accepted"] = strconv.Itoa(completed)
+		if err := deliverNotificationPart(ctx, w, t, part); err != nil || !t.IsSucceed {
+			t.ResponseInfo.Body = fmt.Sprintf("Accepted %d/%d parts; part %d failed. %s", completed, len(parts), index+1, t.ResponseInfo.Body)
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("notification part %d/%d rejected", index+1, len(parts))
+		}
+		completed++
+		t.ResponseInfo.Headers["X-GitSSS-Parts-Accepted"] = strconv.Itoa(completed)
+	}
+	if len(parts) > 1 {
+		t.ResponseInfo.Body = fmt.Sprintf("Accepted all %d parts. %s", len(parts), t.ResponseInfo.Body)
+	}
 
-	resp, err := webhookHTTPClient.Do(req.WithContext(ctx))
+	return nil
+}
+
+func deliverNotificationPart(ctx context.Context, w *webhook_model.Webhook, t *webhook_model.HookTask, part notificationPart) error {
+	if w.Type == webhook_module.EMAIL {
+		t.RequestInfo.HTTPMethod = "SMTP"
+		err := deliverNotificationEmail(w, part.Body)
+		t.IsSucceed = err == nil
+		if err != nil {
+			t.ResponseInfo.Body = "SMTP delivery failed: " + err.Error()
+			return err
+		}
+		t.ResponseInfo.Status = 250
+		t.ResponseInfo.Body = "Accepted by the configured mail transport; inbox delivery is not confirmed."
+		return nil
+	}
+	resp, err := webhookHTTPClient.Do(part.Request.WithContext(ctx))
 	if err != nil {
 		if NotificationWebhookSupported(w.Type) {
 			if endpointError, ok := errors.AsType[*url.Error](err); ok {
@@ -264,25 +341,23 @@ func Deliver(ctx context.Context, t *webhook_model.HookTask) error {
 			}
 		}
 		t.ResponseInfo.Body = fmt.Sprintf("Delivery: %v", err)
-		return fmt.Errorf("unable to deliver webhook task[%d] in %s due to error in http client: %w", t.ID, notificationSafeURL(w.Type, w.URL), err)
+		return fmt.Errorf("unable to deliver webhook task[%d]: %w", t.ID, err)
 	}
 	defer resp.Body.Close()
-
-	// Status code is 20x can be seen as succeed.
 	t.IsSucceed = resp.StatusCode/100 == 2
 	t.ResponseInfo.Status = resp.StatusCode
 	for k, vals := range resp.Header {
 		t.ResponseInfo.Headers[k] = strings.Join(vals, ",")
 	}
-
-	p, err := util.ReadWithLimit(resp.Body, 1024*1024)
+	body, err := util.ReadWithLimit(resp.Body, 1024*1024)
 	if err != nil {
-		t.ResponseInfo.Body = fmt.Sprintf("read body: %s", err)
-		return fmt.Errorf("unable to deliver webhook task[%d] in %s as unable to read response body: %w", t.ID, notificationSafeURL(w.Type, w.URL), err)
+		t.IsSucceed = false
+		t.ResponseInfo.Body = "Unable to read provider response"
+		return err
 	}
-	t.ResponseInfo.Body = string(p)
+	t.ResponseInfo.Body = string(body)
 	if t.IsSucceed && NotificationWebhookSupported(w.Type) {
-		if err := notificationResponseError(w.Type, p); err != nil {
+		if err := notificationResponseError(w.Type, body); err != nil {
 			t.IsSucceed = false
 			return err
 		}

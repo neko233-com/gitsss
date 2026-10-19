@@ -37,9 +37,7 @@ func TestNotificationRichChannels(t *testing.T) {
 			assert.Contains(t, string(body), "engineering/demo")
 			assert.Contains(t, string(body), "main")
 			assert.Contains(t, string(body), "alice")
-			if kind != webhook_module.FEISHU {
-				assert.Contains(t, string(body), "abcdef123456")
-			}
+			assert.Contains(t, string(body), "Detailed body")
 			if kind != webhook_module.FEISHU {
 				assert.Contains(t, string(body), "docs/index.html")
 				assert.Contains(t, string(body), "11")

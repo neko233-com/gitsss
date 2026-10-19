@@ -65,7 +65,7 @@ func TestFeishuConcisePushCard(t *testing.T) {
 	for _, omitted := range []string{"abcdef", "Alice", "docs/index.html", "提交数", "—", "11"} {
 		assert.NotContains(t, body, omitted)
 	}
-	assert.NotContains(t, body, "Detailed body")
+	assert.Contains(t, body, "Detailed body")
 	assert.Contains(t, notificationMap(notificationMap(fields[4])["text"])["content"], "暂时无法确认")
 }
 

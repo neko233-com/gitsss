@@ -345,9 +345,19 @@ func giteaHookParams(ctx *context.Context) webhookParams {
 
 func notificationFormMeta(ctx *context.Context, params webhookParams) (string, error) {
 	if webhook_service.NotificationWebhookSupported(params.Type) {
+		if params.Type == webhook_module.EMAIL {
+			ctx.Data["EmailRecipients"] = params.Meta.(map[string]any)["recipients"]
+		}
 		settings := params.WebhookForm.NotificationSettings()
 		ctx.Data["NotificationSettings"] = settings
-		return webhook_service.NotificationMeta(params.Meta, settings)
+		if err := settings.ValidateForChannel(params.Type); err != nil {
+			return "", err
+		}
+		meta, err := webhook_service.NotificationMeta(params.Meta, settings)
+		if err != nil {
+			return "", err
+		}
+		return webhook_service.NotificationConfigMeta(params.Type, meta, map[string]string{})
 	}
 	if params.Meta == nil {
 		return "", nil
@@ -451,6 +461,23 @@ func telegramHookParams(ctx *context.Context) webhookParams {
 			ChatID:   form.ChatID,
 			ThreadID: form.ThreadID,
 		},
+	}
+}
+
+func EmailHooksNewPost(ctx *context.Context) {
+	createWebhook(ctx, emailHookParams(ctx))
+}
+
+func EmailHooksEditPost(ctx *context.Context) {
+	editWebhook(ctx, emailHookParams(ctx))
+}
+
+func emailHookParams(ctx *context.Context) webhookParams {
+	form := web.GetForm(ctx).(*forms.NewEmailHookForm)
+	ctx.Data["EmailRecipients"] = form.Recipients
+	return webhookParams{
+		Type: webhook_module.EMAIL, URL: "mailto:configured-smtp", ContentType: webhook.ContentTypeJSON,
+		WebhookForm: form.WebhookForm, Meta: map[string]any{"recipients": form.Recipients},
 	}
 }
 
@@ -645,6 +672,13 @@ func checkWebhook(ctx *context.Context) (*ownerRepoCtx, *webhook.Webhook) {
 		ctx.Data["FeishuHook"] = webhook_service.GetFeishuHook(w)
 	case webhook_module.TELEGRAM:
 		ctx.Data["TelegramHook"] = webhook_service.GetTelegramHook(w)
+	case webhook_module.EMAIL:
+		var meta map[string]any
+		if err := json.Unmarshal([]byte(w.Meta), &meta); err != nil {
+			ctx.ServerError("EmailHook", err)
+			return nil, nil
+		}
+		ctx.Data["EmailRecipients"] = meta["recipients"]
 	case webhook_module.MATRIX:
 		ctx.Data["MatrixHook"] = webhook_service.GetMatrixHook(w)
 	case webhook_module.PACKAGIST:

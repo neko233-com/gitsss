@@ -31,6 +31,28 @@ func TestWebhookService(t *testing.T) {
 	t.Run("WebhookUserMail", testWebhookUserMail)
 	t.Run("CheckBranchFilter", testWebhookCheckBranchFilter)
 	t.Run("PrepareTestWebhookIgnoresGates", testPrepareTestWebhookIgnoresGates)
+	t.Run("IndependentChannelPolicies", testIndependentChannelPolicies)
+}
+
+func testIndependentChannelPolicies(t *testing.T) {
+	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
+	newHook := func(kind string, settings NotificationSettings) *webhook_model.Webhook {
+		meta, err := NotificationMeta(map[string]any{"recipients": "release@example.invalid"}, settings)
+		require.NoError(t, err)
+		hook := &webhook_model.Webhook{RepoID: repo.ID, Type: kind, URL: "https://notify.example.invalid/test", ContentType: webhook_model.ContentTypeJSON, Events: `{"send_everything":true}`, IsActive: true, Meta: meta}
+		require.NoError(t, webhook_model.CreateWebhook(t.Context(), hook))
+		return hook
+	}
+	feishu := newHook(webhook_module.FEISHU, NotificationSettings{})
+	email := newHook(webhook_module.EMAIL, NotificationSettings{EventPolicy: "formal_release", TagFilter: "v*"})
+	push := &api.PushPayload{Ref: "refs/heads/main", Commits: []*api.PayloadCommit{{}}}
+	require.NoError(t, PrepareWebhooks(t.Context(), EventSource{Repository: repo}, webhook_module.HookEventPush, push))
+	unittest.AssertExistsAndLoadBean(t, &webhook_model.HookTask{HookID: feishu.ID, EventType: webhook_module.HookEventPush})
+	unittest.AssertNotExistsBean(t, &webhook_model.HookTask{HookID: email.ID, EventType: webhook_module.HookEventPush})
+	release := &api.ReleasePayload{Action: api.HookReleasePublished, Release: &api.Release{TagName: "v1.2.3"}}
+	require.NoError(t, PrepareWebhooks(t.Context(), EventSource{Repository: repo}, webhook_module.HookEventRelease, release))
+	unittest.AssertExistsAndLoadBean(t, &webhook_model.HookTask{HookID: feishu.ID, EventType: webhook_module.HookEventRelease})
+	unittest.AssertExistsAndLoadBean(t, &webhook_model.HookTask{HookID: email.ID, EventType: webhook_module.HookEventRelease})
 }
 
 func testWebhookGetSlackHook(t *testing.T) {

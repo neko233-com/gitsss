@@ -45,7 +45,7 @@ func ValidateNotificationTemplate(source string) error {
 	if strings.TrimSpace(source) == "" {
 		return nil
 	}
-	_, err := template.New("notification").Option("missingkey=error").Parse(source)
+	_, err := template.New("notification").Funcs(notificationAliasFunctions(nil)).Option("missingkey=error").Parse(source)
 	return err
 }
 
@@ -61,7 +61,8 @@ func renderNotificationTemplate(source string, event webhook_module.HookEventTyp
 	if err := json.Unmarshal(payloadJSON, &payload); err != nil {
 		return "", fmt.Errorf("decode notification payload: %w", err)
 	}
-	tmpl, err := template.New("notification").Option("missingkey=error").Parse(source)
+	aliases := notificationAliases(event, defaultText, payload)
+	tmpl, err := template.New("notification").Funcs(notificationAliasFunctions(aliases)).Option("missingkey=error").Parse(source)
 	if err != nil {
 		return "", err
 	}

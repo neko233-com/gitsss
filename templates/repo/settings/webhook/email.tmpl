@@ -1,0 +1,10 @@
+{{if eq .HookType "email"}}
+	<p>{{ctx.Locale.Tr "repo.settings.webhook.email_help"}}</p>
+	<form class="ui form" action="{{.BaseLink}}/email/{{or .Webhook.ID "new"}}" method="post">
+		<div class="required field">
+			<label for="email-recipients">{{ctx.Locale.Tr "repo.settings.webhook.email_recipients"}}</label>
+			<input id="email-recipients" name="recipients" value="{{.EmailRecipients}}" maxlength="4096" placeholder="releases@example.com, owner@example.com" required autofocus>
+		</div>
+		{{template "repo/settings/webhook/settings" dict "NotificationSettings" $.NotificationSettings "BaseLink" .BaseLink "Webhook" .Webhook}}
+	</form>
+{{end}}

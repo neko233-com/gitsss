@@ -13,13 +13,16 @@ import (
 	"net/smtp"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/setting"
 )
 
 // SMTPSender Sender SMTP mail sender
-type SMTPSender struct{}
+type SMTPSender struct {
+	Timeout time.Duration
+}
 
 var _ Sender = &SMTPSender{}
 
@@ -37,11 +40,16 @@ func (s *SMTPSender) Send(from string, to []string, msg io.WriterTo) error {
 		address = net.JoinHostPort(opts.SMTPAddr, opts.SMTPPort)
 	}
 
-	conn, err := net.Dial(network, address)
+	conn, err := net.DialTimeout(network, address, s.Timeout)
 	if err != nil {
 		return fmt.Errorf("failed to establish network connection to SMTP server: %w", err)
 	}
 	defer conn.Close()
+	if s.Timeout > 0 {
+		if err := conn.SetDeadline(time.Now().Add(s.Timeout)); err != nil {
+			return err
+		}
+	}
 
 	var tlsconfig *tls.Config
 	if opts.Protocol == "smtps" || opts.Protocol == "smtp+starttls" {

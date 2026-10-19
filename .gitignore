@@ -137,3 +137,9 @@ Makefile.local
 
 # Python operator tools
 __pycache__/
+# Independent git-next child repository: only its submodule pointer is tracked.
+/git-next/
+/public/assets/frontend-build.json
+
+# Local browser acceptance artifacts
+/.playwright-cli/

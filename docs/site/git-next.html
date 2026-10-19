@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent 协作 - gitsss</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="header">
+    <a class="header-logo" href="index.html"><span>git</span>sss</a>
+    <nav class="header-nav">
+      <a href="getting-started.html">快速开始</a>
+      <a href="configuration.html">配置</a>
+      <a href="storage.html">存储</a>
+      <a href="migration.html">迁移</a>
+      <a href="actions.html">Actions</a>
+      <a href="development.html">开发</a>
+      <a href="virtualbox.html">vbox 验证</a>
+      <a href="https://github.com/neko233-com/gitsss">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-heading">入门</div>
+        <a href="index.html">文档首页</a>
+        <a href="getting-started.html">快速开始</a>
+        <a href="configuration.html">配置参考</a>
+        <a href="enterprise.html">企业与组织</a>
+        <a href="identity-channels.html">第三方渠道接入</a>
+        <a href="collaboration.html">HTML Docs 与通知</a>
+        <a href="storage.html">存储与 Git LFS</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">部署</div>
+        <a href="migration.html">从 Gitea 迁移</a>
+        <a href="actions.html">离线 Actions</a>
+        <a href="operations.html">运维指南</a>
+        <a href="virtualbox.html">vbox 验证</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">开发</div>
+        <a href="development.html">开发指南</a>
+        <a href="architecture.html">架构设计</a>
+        <a href="workspace-centers.html">软件中心与研发统计</a>
+        <a href="extensions.html">扩展功能</a>
+        <a href="agents.html" class="active">Agent 协作</a>
+      </div>
+    </aside>
+
+    <main class="content"><h1>git-next child repository</h1>
+<p>Public source: https://github.com/neko233-com/git-next . The parent records only a gitlink. <code>.gitmodules</code> sets <code>ignore=all</code>, branch main and fetchRecurseSubmodules=false. Parent <code>.gitignore</code> also ignores the directory. Inspect deliberately with <code>git diff --ignore-submodules=none</code> and <code>git -C git-next status</code>. Child source, builds and dependencies are independent of GitSSS; production keeps its established Git/OpenSSH executable.</p>
+<p>Current client is experimental; read the child's compatibility matrix. Its installer installs a separate git-next preview and keeps a git-named preview outside PATH. Full replacement remains blocked until complete compatibility is proven. Installation on one workstation does not authorize replacing Git on another machine. Source publication is separate from a consolidated binary release.</p>
+<p>Use explicit scoped child commits and normal pushes before updating the parent pointer. No workflows or GitHub Actions. Parent releases must not bundle ignored child caches or imply the child has passed full Git conformance. Roll back only the gitlink for a parent dependency rollback; it does not modify production Git repositories, LFS objects, users or SSH keys.</p>
+<section><h2>Git Terminal</h2><p>提供本机仓库终端入口，Windows 使用 PowerShell，支持开始菜单和可选目录右键；Unix 使用原生 Shell。保留原 Git 与 Git Bash，尚不提供完整 Bash/POSIX 模拟，也不代表 Git 全功能已验收。</p></section></main>
+  </div>
+</body>
+</html>

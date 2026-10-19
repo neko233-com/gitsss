@@ -406,6 +406,13 @@ func ToHook(repoLink string, w *webhook_model.Webhook) (*api.Hook, error) {
 	}
 
 	if NotificationWebhookSupported(w.Type) {
+		if w.Type == webhook_module.EMAIL {
+			meta := map[string]any{}
+			if err := json.Unmarshal([]byte(w.Meta), &meta); err != nil {
+				return nil, err
+			}
+			config["recipients"] = notificationString(meta["recipients"])
+		}
 		settings, err := GetNotificationSettings(w.Meta)
 		if err != nil {
 			return nil, err

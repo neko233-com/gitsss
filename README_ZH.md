@@ -342,3 +342,5 @@ make release-native VERSION=1.3.0
 参见 [HTML 说明书](docs/site/workspace-centers.html) 与 [兼容性报告](docs/features/workspace-centers.md)。
 
 软件中心的上传、下载统一在传输面板中管理，支持进度、速度、暂停、继续、取消和失败重试。浏览器 IndexedDB 缓存源文件及已接收的 8 MiB 分块，同一浏览器配置、账号和网站地址下，刷新或重开浏览器后自动恢复未暂停的任务。下载完成后在面板内保存并确认，释放缓存；浏览器配额、主动清理和空间回收会限制恢复。批量下载仍使用虚拟 ZIP64，服务器不额外保存压缩包。参见[传输 API、本地缓存与回滚说明](docs/features/software-center-transfers.md)。
+
+- 多渠道独立策略、精美邮件卡片、完整多行消息与自动分页、DIY JSON 模板，以及每仓库稳定飞书颜色。

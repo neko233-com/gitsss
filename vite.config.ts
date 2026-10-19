@@ -9,6 +9,7 @@ import tailwindcss from 'tailwindcss';
 import tailwindConfig from './tailwind.config.ts';
 import type {InlineConfig, Plugin, Rolldown} from 'vite';
 import {camelize} from 'vue';
+import {writeFrontendBuildStamp} from './tools/frontend-build.mjs';
 
 const isProduction = env.NODE_ENV !== 'development';
 
@@ -311,6 +312,7 @@ export default defineConfig(commonViteOpts({
     __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: false,
   },
   plugins: [
+    {name: 'gitsss-frontend-build-stamp', apply: 'build', closeBundle: writeFrontendBuildStamp},
     iifePlugin('iife.ts'),
     iifePlugin('external-render-helper.ts'),
     viteDevServerPortPlugin(),

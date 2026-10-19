@@ -1,0 +1,6 @@
+[submodule "git-next"]
+	path = git-next
+	url = https://github.com/neko233-com/git-next.git
+	branch = main
+	ignore = all
+	fetchRecurseSubmodules = false

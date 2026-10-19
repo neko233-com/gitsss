@@ -83,6 +83,9 @@ func checkCreateHookOption(ctx *context.APIContext, form *api.CreateHookOption) 
 		ctx.APIError(http.StatusUnprocessableEntity, "Invalid hook type: "+form.Type)
 		return false
 	}
+	if form.Type == webhook_module.EMAIL {
+		form.Config["url"], form.Config["content_type"] = "mailto:configured-smtp", "json"
+	}
 	for _, name := range []string{"url", "content_type"} {
 		if _, ok := form.Config[name]; !ok {
 			ctx.APIError(http.StatusUnprocessableEntity, "Missing config option: "+name)
@@ -93,7 +96,7 @@ func checkCreateHookOption(ctx *context.APIContext, form *api.CreateHookOption) 
 		ctx.APIError(http.StatusUnprocessableEntity, "Invalid content type")
 		return false
 	}
-	if !validation.IsValidURL(form.Config["url"]) {
+	if form.Type != webhook_module.EMAIL && !validation.IsValidURL(form.Config["url"]) {
 		ctx.APIError(http.StatusUnprocessableEntity, "Invalid url")
 		return false
 	}
@@ -321,7 +324,9 @@ func EditRepoHook(ctx *context.APIContext, form *api.EditHookOption, hookID int6
 func editHook(ctx *context.APIContext, form *api.EditHookOption, w *webhook.Webhook) bool {
 	if form.Config != nil {
 		if url, ok := form.Config["url"]; ok {
-			if !validation.IsValidURL(url) {
+			if w.Type == webhook_module.EMAIL {
+				url = "mailto:configured-smtp"
+			} else if !validation.IsValidURL(url) {
 				ctx.APIError(http.StatusUnprocessableEntity, "Invalid url")
 				return false
 			}

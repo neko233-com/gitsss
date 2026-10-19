@@ -35,7 +35,7 @@ func RegisterWebhookRequester(hookType webhook_module.HookType, requester Reques
 
 // IsValidHookTaskType returns true if a webhook registered
 func IsValidHookTaskType(name string) bool {
-	if name == webhook_module.GITEA || name == webhook_module.GOGS {
+	if name == webhook_module.GITEA || name == webhook_module.GOGS || name == webhook_module.EMAIL {
 		return true
 	}
 	_, ok := webhookRequesters[name]
@@ -192,6 +192,9 @@ func PrepareWebhook(ctx context.Context, w *webhook_model.Webhook, event webhook
 		settings, err := GetNotificationSettings(w.Meta)
 		if err != nil {
 			return err
+		}
+		if !notificationEventMatches(settings, event, payload) {
+			return nil
 		}
 		matches, err := NotificationMatches(settings, payload)
 		if err != nil || !matches {

@@ -456,6 +456,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 		m.Post("/matrix/new", web.Bind(forms.NewMatrixHookForm{}), repo_setting.MatrixHooksNewPost)
 		m.Post("/msteams/new", web.Bind(forms.NewMSTeamsHookForm{}), repo_setting.MSTeamsHooksNewPost)
 		m.Post("/feishu/new", web.Bind(forms.NewFeishuHookForm{}), repo_setting.FeishuHooksNewPost)
+		m.Post("/email/new", web.Bind(forms.NewEmailHookForm{}), repo_setting.EmailHooksNewPost)
 		m.Post("/wechatwork/new", web.Bind(forms.NewWechatWorkHookForm{}), repo_setting.WechatworkHooksNewPost)
 		m.Post("/packagist/new", web.Bind(forms.NewPackagistHookForm{}), repo_setting.PackagistHooksNewPost)
 	}
@@ -470,6 +471,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 		m.Post("/matrix/{id}", web.Bind(forms.NewMatrixHookForm{}), repo_setting.MatrixHooksEditPost)
 		m.Post("/msteams/{id}", web.Bind(forms.NewMSTeamsHookForm{}), repo_setting.MSTeamsHooksEditPost)
 		m.Post("/feishu/{id}", web.Bind(forms.NewFeishuHookForm{}), repo_setting.FeishuHooksEditPost)
+		m.Post("/email/{id}", web.Bind(forms.NewEmailHookForm{}), repo_setting.EmailHooksEditPost)
 		m.Post("/wechatwork/{id}", web.Bind(forms.NewWechatWorkHookForm{}), repo_setting.WechatworkHooksEditPost)
 		m.Post("/packagist/{id}", web.Bind(forms.NewPackagistHookForm{}), repo_setting.PackagistHooksEditPost)
 	}

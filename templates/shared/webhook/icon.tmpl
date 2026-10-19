@@ -18,6 +18,8 @@
 	<img alt width="{{$size}}" height="{{$size}}" src="{{AssetUrlPrefix}}/img/msteams.png">
 {{else if eq .HookType "feishu"}}
 	{{svg "gitea-feishu" $size "img"}}
+{{else if eq .HookType "email"}}
+	{{svg "octicon-mail" $size "img"}}
 {{else if eq .HookType "matrix"}}
 	{{svg "gitea-matrix" $size "img"}}
 {{else if eq .HookType "wechatwork"}}

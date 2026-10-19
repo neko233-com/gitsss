@@ -23,6 +23,8 @@ func NotificationConfigMeta(kind webhook_module.HookType, existing string, confi
 	}
 	keys := []string{}
 	switch kind {
+	case webhook_module.EMAIL:
+		keys = []string{"recipients"}
 	case webhook_module.SLACK:
 		keys = []string{"channel", "username", "icon_url", "color"}
 	case webhook_module.DISCORD:
@@ -39,6 +41,11 @@ func NotificationConfigMeta(kind webhook_module.HookType, existing string, confi
 			fields[key] = strings.TrimSpace(value)
 		}
 	}
+	if kind == webhook_module.EMAIL {
+		if _, err := notificationEmailRecipients(notificationString(fields["recipients"])); err != nil {
+			return "", err
+		}
+	}
 	if kind == webhook_module.SLACK && !IsValidSlackChannel(notificationString(fields["channel"])) {
 		return "", errors.New("invalid Slack channel")
 	}
@@ -47,7 +54,7 @@ func NotificationConfigMeta(kind webhook_module.HookType, existing string, confi
 		if err := json.Unmarshal([]byte(source), &settings); err != nil {
 			return "", errors.New("invalid notification configuration JSON")
 		}
-		if err := settings.Validate(); err != nil {
+		if err := settings.ValidateForChannel(kind); err != nil {
 			return "", err
 		}
 		fields["notification"] = settings
@@ -57,6 +64,9 @@ func NotificationConfigMeta(kind webhook_module.HookType, existing string, confi
 }
 
 func notificationSafeURL(kind webhook_module.HookType, raw string) string {
+	if kind == webhook_module.EMAIL {
+		return "[configured mail transport]"
+	}
 	if !NotificationWebhookSupported(kind) {
 		return raw
 	}

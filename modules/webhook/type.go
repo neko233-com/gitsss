@@ -125,6 +125,7 @@ const (
 	TELEGRAM   HookType = "telegram"
 	MSTEAMS    HookType = "msteams"
 	FEISHU     HookType = "feishu"
+	EMAIL      HookType = "email"
 	MATRIX     HookType = "matrix"
 	WECHATWORK HookType = "wechatwork"
 	PACKAGIST  HookType = "packagist"

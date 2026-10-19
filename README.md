@@ -1,5 +1,7 @@
 # GitSSS
 
+![GitSSS SSS / Git mark](public/assets/img/logo.svg)
+
 GitSSS is an organization-first Git collaboration platform for enterprise private networks. It includes Git hosting, issues, pull requests, Actions, packages, releases, wiki, and Git LFS.
 
 [简体中文](README_ZH.md) · [HTML manual](docs/site/en/index.html) · [Enterprise operations](docs/operations/enterprise.md) · [License](LICENSE)
@@ -14,6 +16,7 @@ Public entrance, isolated desktop demonstration captured on 2026-10-18:
 
 ## Highlights
 
+- Per-channel policies and native email cards, complete multiline messages with provider-aware pagination, DIY JSON templates and stable per-repository Feishu colors.
 - A distinct GitSSS entrance with a local shader visual, gray documentation comments, and configurable Google/Feishu/WeChat account binding.
 - Global Ctrl+K / ⌘K search, localized date/time pickers, commit-linked Actions trackId and sandboxed per-file HTML preview.
 - Readable activity cards with account remarks, separate branch/message fields, and exact local timestamps plus weekday and live relative time.

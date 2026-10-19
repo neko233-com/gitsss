@@ -13,7 +13,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 
 	webhook_model "github.com/neko233-com/gitsss/models/webhook"
 	"github.com/neko233-com/gitsss/modules/glob"
@@ -23,24 +22,29 @@ import (
 
 // NotificationSettings is stored inside existing webhook metadata; routing and delivery IDs stay unchanged.
 type NotificationSettings struct {
-	Style             string `json:"style,omitempty"`
-	Language          string `json:"language,omitempty"`
-	TitleTemplate     string `json:"title_template,omitempty"`
-	MessageTemplate   string `json:"message_template,omitempty"`
-	Footer            string `json:"footer,omitempty"`
-	Color             string `json:"color,omitempty"`
-	MaxCommits        int    `json:"max_commits,omitempty"`
-	IncludeFiles      bool   `json:"include_files"`
-	IncludeCommitBody bool   `json:"include_commit_body"`
-	RepositoryFilter  string `json:"repository_filter,omitempty"`
-	ExcludeRepository string `json:"exclude_repository,omitempty"`
-	ActorFilter       string `json:"actor_filter,omitempty"`
-	SkipBots          bool   `json:"skip_bots"`
+	Style                  string `json:"style,omitempty"`
+	Language               string `json:"language,omitempty"`
+	TitleTemplate          string `json:"title_template,omitempty"`
+	MessageTemplate        string `json:"message_template,omitempty"`
+	PayloadTemplate        string `json:"payload_template,omitempty"`
+	Footer                 string `json:"footer,omitempty"`
+	Color                  string `json:"color,omitempty"`
+	FeishuHeaderColor      string `json:"feishu_header_color,omitempty"`
+	FeishuRepositoryColors string `json:"feishu_repository_colors,omitempty"`
+	MaxCommits             int    `json:"max_commits,omitempty"`
+	IncludeFiles           bool   `json:"include_files"`
+	IncludeCommitBody      bool   `json:"include_commit_body"`
+	RepositoryFilter       string `json:"repository_filter,omitempty"`
+	ExcludeRepository      string `json:"exclude_repository,omitempty"`
+	ActorFilter            string `json:"actor_filter,omitempty"`
+	SkipBots               bool   `json:"skip_bots"`
+	EventPolicy            string `json:"event_policy,omitempty"`
+	TagFilter              string `json:"tag_filter,omitempty"`
 }
 
 func NotificationWebhookSupported(kind webhook_module.HookType) bool {
 	switch kind {
-	case webhook_module.FEISHU, webhook_module.WECHATWORK, webhook_module.TELEGRAM,
+	case webhook_module.FEISHU, webhook_module.EMAIL, webhook_module.WECHATWORK, webhook_module.TELEGRAM,
 		webhook_module.DISCORD, webhook_module.SLACK, webhook_module.DINGTALK,
 		webhook_module.MSTEAMS, webhook_module.MATRIX:
 		return true
@@ -67,6 +71,20 @@ func GetNotificationSettings(meta string) (NotificationSettings, error) {
 }
 
 func (n NotificationSettings) Validate() error {
+	if n.EventPolicy != "" && n.EventPolicy != "all" && n.EventPolicy != "formal_release" && n.EventPolicy != "tag_created" {
+		return errors.New("unknown notification event policy")
+	}
+	if n.PayloadTemplate != "" {
+		if n.Style == "legacy" {
+			return errors.New("custom JSON templates require rich notification presentation")
+		}
+		if _, err := renderNotificationJSON(n.PayloadTemplate, notificationAliases("push", "example", map[string]any{})); err != nil {
+			return err
+		}
+	}
+	if err := validateFeishuColors(n.FeishuHeaderColor, n.FeishuRepositoryColors); err != nil {
+		return err
+	}
 	if n.Style != "" && n.Style != "rich" && n.Style != "legacy" {
 		return errors.New("unknown notification presentation")
 	}
@@ -79,7 +97,7 @@ func (n NotificationSettings) Validate() error {
 	if n.Color != "" && !regexp.MustCompile(`^#[0-9a-fA-F]{6}$`).MatchString(n.Color) {
 		return errors.New("notification color must use #RRGGBB")
 	}
-	for _, pattern := range []string{n.RepositoryFilter, n.ExcludeRepository, n.ActorFilter} {
+	for _, pattern := range []string{n.RepositoryFilter, n.ExcludeRepository, n.ActorFilter, n.TagFilter} {
 		if len(pattern) > 512 {
 			return errors.New("notification filter exceeds 512 bytes")
 		}
@@ -175,6 +193,8 @@ type notificationMessage struct {
 	More                                                int
 	Chinese                                             bool
 	CustomBody                                          bool
+	ActionStatus, TrackID, TrackURL, Timestamp          string
+	Page, Pages                                         int
 }
 
 func notificationLimit(text string, count int) string {
@@ -183,20 +203,6 @@ func notificationLimit(text string, count int) string {
 		return string(runes[:count-1]) + "…"
 	}
 	return text
-}
-
-func notificationBytes(text string, count int) string {
-	if count < 4 {
-		return ""
-	}
-	if len(text) <= count {
-		return text
-	}
-	end := count - len("…")
-	for end > 0 && !utf8.RuneStart(text[end]) {
-		end--
-	}
-	return text[:end] + "…"
 }
 
 func notificationURL(value any) string {
@@ -265,15 +271,9 @@ func buildNotificationMessage(settings NotificationSettings, t *webhook_model.Ho
 			m.Total = int(count)
 		}
 		for _, value := range commits {
-			if len(m.Commits) >= settings.MaxCommits {
-				break
-			}
 			row := notificationMap(value)
-			message := notificationString(row["message"])
-			if !settings.IncludeCommitBody {
-				message = strings.SplitN(message, "\n", 2)[0]
-			}
-			commit := notificationCommit{SHA: notificationString(row["id"]), URL: notificationURL(row["url"]), Message: notificationLimit(message, 300), Author: notificationLimit(notificationString(notificationMap(row["author"])["name"]), 80)}
+			message, _ := row["message"].(string)
+			commit := notificationCommit{SHA: notificationString(row["id"]), URL: notificationURL(row["url"]), Message: message, Author: notificationLimit(notificationString(notificationMap(row["author"])["name"]), 80)}
 			if len(commit.SHA) > 12 {
 				commit.SHA = commit.SHA[:12]
 			}
@@ -300,12 +300,15 @@ func buildNotificationMessage(settings NotificationSettings, t *webhook_model.Ho
 			}
 			title := notificationString(item["title"])
 			if title == "" {
+				title = notificationString(item["display_title"])
+			}
+			if title == "" {
 				title = notificationString(item["name"])
 			}
-			m.Body = notificationLimit(title+"\n"+notificationString(item["body"]), 1200)
+			m.Body = title + "\n" + notificationString(item["body"])
 			for _, field := range []string{"state", "status", "conclusion", "tag_name", "content", "description"} {
 				if value := notificationString(item[field]); value != "" {
-					m.Body += "\n" + field + ": " + notificationLimit(value, 300)
+					m.Body += "\n" + field + ": " + value
 				}
 			}
 			if link := notificationURL(item["html_url"]); link != "" {
@@ -326,7 +329,10 @@ func buildNotificationMessage(settings NotificationSettings, t *webhook_model.Ho
 	var plain strings.Builder
 	plain.WriteString(m.Body)
 	for _, commit := range m.Commits {
-		fmt.Fprintf(&plain, "\n%s  %s — %s", commit.SHA, commit.Message, commit.Author)
+		if plain.Len() > 0 {
+			plain.WriteString("\n\n")
+		}
+		plain.WriteString(commit.Message)
 		if commit.Files != "" {
 			plain.WriteString("\n" + commit.Files)
 		}
@@ -340,9 +346,8 @@ func buildNotificationMessage(settings NotificationSettings, t *webhook_model.Ho
 		return m, err
 	}
 	m.Title = notificationLimit(m.Title, 180)
-	m.Body, err = renderNotificationTemplate(settings.MessageTemplate, t.EventType, strings.TrimSpace(plain.String()), []byte(t.PayloadContent))
+	m.Body, err = renderNotificationTemplate(settings.MessageTemplate, t.EventType, plain.String(), []byte(t.PayloadContent))
 	m.CustomBody = strings.TrimSpace(settings.MessageTemplate) != ""
-	m.Body = notificationLimit(m.Body, 2800)
 	if m.Body == "" {
 		m.Body = m.Title
 	}
@@ -375,56 +380,22 @@ func notificationPushURL(data map[string]any, repositoryURL string) string {
 	return repositoryURL
 }
 
-func notificationFormattedBody(m notificationMessage, format string, budget int) string {
-	escape := notificationMarkdown
+func notificationFormattedBody(m notificationMessage, format string, _ int) string {
 	switch format {
 	case "html":
-		escape = html.EscapeString
+		return html.EscapeString(m.Body)
 	case "slack":
-		escape = SlackTextFormatter
+		return SlackTextFormatter(m.Body)
+	default:
+		return notificationMarkdown(m.Body)
 	}
-	if m.CustomBody || len(m.Commits) == 0 {
-		body := m.Body
-		for len(escape(body)) > budget && len(body) > 0 {
-			body = string([]rune(body)[:len([]rune(body))/2])
-		}
-		return escape(body)
-	}
-	var body strings.Builder
-	shown := 0
-	for _, commit := range m.Commits {
-		sha := escape(commit.SHA)
-		link := strings.NewReplacer("(", "%28", ")", "%29").Replace(commit.URL)
-		if link != "" {
-			switch format {
-			case "html":
-				sha = "<a href=\"" + html.EscapeString(link) + "\">" + sha + "</a>"
-			case "slack":
-				sha = SlackLinkFormatter(link, commit.SHA)
-			default:
-				sha = "[" + sha + "](" + link + ")"
-			}
-		}
-		line := sha + "  " + escape(commit.Message)
-		if commit.Author != "" {
-			line += " — " + escape(commit.Author)
-		}
-		if commit.Files != "" {
-			line += "\n" + escape(commit.Files)
-		}
-		if body.Len()+len(line)+100 > budget {
-			break
-		}
-		body.WriteString(line + "\n\n")
-		shown++
-	}
-	if m.Total > shown {
-		fmt.Fprintf(&body, "+%d %s", m.Total-shown, notificationLabel(m.Chinese, "more commits — open changes for the full list", "条提交，点击查看完整变更"))
-	}
-	return strings.TrimSpace(body.String())
 }
 
 func notificationRichRequest(ctx context.Context, w *webhook_model.Webhook, t *webhook_model.HookTask) (*http.Request, []byte, error) {
+	return notificationRichRequestPart(ctx, w, t, nil)
+}
+
+func notificationRichRequestPart(ctx context.Context, w *webhook_model.Webhook, t *webhook_model.HookTask, part *notificationMessage) (*http.Request, []byte, error) {
 	settings, err := GetNotificationSettings(w.Meta)
 	if err != nil {
 		return nil, nil, err
@@ -432,9 +403,32 @@ func notificationRichRequest(ctx context.Context, w *webhook_model.Webhook, t *w
 	if w.Type == webhook_module.FEISHU && settings.MessageTemplate == "" && strings.TrimSpace(w.Meta) != "" {
 		settings.MessageTemplate = GetFeishuHook(w).MessageTemplate
 	}
-	m, err := buildNotificationMessage(settings, t)
-	if err != nil {
+	var m notificationMessage
+	if part != nil {
+		m = *part
+	} else {
+		m, err = buildNotificationMessage(settings, t)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	data := map[string]any{}
+	if err := json.Unmarshal([]byte(t.PayloadContent), &data); err != nil {
 		return nil, nil, err
+	}
+	m.URL = notificationPublicRepositoryLink(data, m.URL)
+	m.Actor = notificationActorDisplay(data)
+	m.TrackID, m.TrackURL = notificationTrack(data, t)
+	aliases := notificationAliases(t.EventType, m.Body, data)
+	m.Timestamp = aliases["timestamp"]
+	if m.Branch == "" {
+		m.Branch = aliases["branch"]
+	}
+	if m.ActionStatus == "" && t.EventType == webhook_module.HookEventPush {
+		m.ActionStatus = notificationPushActions(ctx, data, m.Chinese)
+	}
+	if m.Page > 0 && m.Pages > 1 {
+		m.Title += fmt.Sprintf(" · %d/%d", m.Page, m.Pages)
 	}
 	label := notificationLabel(m.Chinese, "Open changes", "查看变更")
 	plain := notificationLimit(m.Title+" · "+m.Repository, 240)
@@ -447,7 +441,7 @@ func notificationRichRequest(ctx context.Context, w *webhook_model.Webhook, t *w
 		color = "#3b82f6"
 	}
 	facts := []map[string]any{}
-	for _, field := range [][2]string{{notificationLabel(m.Chinese, "Repository", "仓库"), m.Repository}, {notificationLabel(m.Chinese, "Branch / tag", "分支 / 标签"), m.Branch}, {notificationLabel(m.Chinese, "Actor", "操作人"), m.Actor}, {notificationLabel(m.Chinese, "Commits", "提交数"), strconv.Itoa(m.Total)}} {
+	for _, field := range [][2]string{{notificationLabel(m.Chinese, "Repository", "仓库"), m.Repository}, {notificationLabel(m.Chinese, "Branch / tag", "分支 / 标签"), m.Branch}, {notificationLabel(m.Chinese, "Actor", "操作人"), m.Actor}, {"trackId", m.TrackID}, {"CI/CD · Actions", m.ActionStatus}} {
 		if t.EventType != webhook_module.HookEventPush && field[0] == notificationLabel(m.Chinese, "Commits", "提交数") {
 			continue
 		}
@@ -457,6 +451,8 @@ func notificationRichRequest(ctx context.Context, w *webhook_model.Webhook, t *w
 	}
 	var payload any
 	switch w.Type {
+	case webhook_module.EMAIL:
+		payload = notificationEmailPayload(m)
 	case webhook_module.FEISHU:
 		payload = notificationFeishuCard(ctx, w, t, m)
 	case webhook_module.DISCORD:
@@ -479,16 +475,17 @@ func notificationRichRequest(ctx context.Context, w *webhook_model.Webhook, t *w
 		}
 		payload = value
 	case webhook_module.WECHATWORK, webhook_module.DINGTALK:
-		text := "### " + notificationMarkdown(plain) + "\n"
+		var textBuilder strings.Builder
+		textBuilder.WriteString("### " + notificationMarkdown(plain) + "\n")
 		for _, fact := range facts {
-			text += "> **" + fact["title"].(string) + "**: " + notificationMarkdown(fact["value"].(string)) + "\n"
+			textBuilder.WriteString("> **" + fact["title"].(string) + "**: " + notificationMarkdown(fact["value"].(string)) + "\n")
 		}
 		ending := "\n\n" + notificationMarkdown(m.Footer)
 		if m.URL != "" {
 			ending += "\n[" + label + "](" + m.URL + ")"
 		}
-		text = notificationBytes(text, 1200)
-		text += "\n" + notificationFormattedBody(m, "markdown", 4000-len(text)-len(ending)-1) + ending
+		textBuilder.WriteString("\n" + notificationFormattedBody(m, "markdown", 0) + ending)
+		text := textBuilder.String()
 		if w.Type == webhook_module.WECHATWORK {
 			payload = map[string]any{"msgtype": "markdown", "markdown": map[string]any{"content": text}}
 		} else {
@@ -500,7 +497,7 @@ func notificationRichRequest(ctx context.Context, w *webhook_model.Webhook, t *w
 		for _, fact := range facts {
 			fields = append(fields, map[string]any{"type": "mrkdwn", "text": "*" + fact["title"].(string) + "*\n" + SlackTextFormatter(fact["value"].(string))})
 		}
-		blocks := []any{map[string]any{"type": "header", "text": map[string]any{"type": "plain_text", "text": notificationLimit(plain, 140)}}, map[string]any{"type": "section", "fields": fields}, map[string]any{"type": "section", "text": map[string]any{"type": "mrkdwn", "text": text}}, map[string]any{"type": "context", "elements": []any{map[string]any{"type": "plain_text", "text": m.Footer}}}}
+		blocks := []any{map[string]any{"type": "header", "text": map[string]any{"type": "plain_text", "text": notificationLimit(plain, 140)}}, map[string]any{"type": "section", "fields": fields}, map[string]any{"type": "section", "expand": true, "text": map[string]any{"type": "mrkdwn", "text": text}}, map[string]any{"type": "context", "elements": []any{map[string]any{"type": "plain_text", "text": m.Footer}}}}
 		if m.URL != "" {
 			blocks = append(blocks, map[string]any{"type": "actions", "elements": []any{map[string]any{"type": "button", "text": map[string]any{"type": "plain_text", "text": label}, "url": m.URL}}})
 		}
@@ -516,6 +513,48 @@ func notificationRichRequest(ctx context.Context, w *webhook_model.Webhook, t *w
 	default:
 		return nil, nil, errors.New("unsupported notification channel")
 	}
+	if settings.PayloadTemplate != "" {
+		data := map[string]any{}
+		if err := json.Unmarshal([]byte(t.PayloadContent), &data); err != nil {
+			return nil, nil, err
+		}
+		aliases := notificationAliases(t.EventType, m.Body, data)
+		if m.Pages > 1 {
+			aliases["commitMessage"], aliases["commitMessages"], aliases["text"] = m.Body, m.Body, m.Body
+		}
+		aliases["page"], aliases["pages"] = strconv.Itoa(max(m.Page, 1)), strconv.Itoa(max(m.Pages, 1))
+		aliases["title"], aliases["body"], aliases["footer"] = m.Title, m.Body, m.Footer
+		aliases["trackId"], aliases["commitUrl"] = notificationTrack(data, t)
+		aliases["color"] = notificationFeishuColor(settings, data, m.Repository)
+		custom, err := renderNotificationJSON(settings.PayloadTemplate, aliases)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := validateNotificationJSONChannel(w.Type, custom); err != nil {
+			return nil, nil, err
+		}
+		// Delivery credentials and destination settings remain owned by the hook.
+		switch w.Type {
+		case webhook_module.FEISHU:
+			native := payload.(map[string]any)
+			delete(custom, "timestamp")
+			delete(custom, "sign")
+			if w.Secret != "" {
+				custom["timestamp"], custom["sign"] = native["timestamp"], native["sign"]
+			}
+		case webhook_module.TELEGRAM:
+			delete(custom, "chat_id")
+			delete(custom, "message_thread_id")
+		case webhook_module.SLACK:
+			delete(custom, "channel")
+			if meta["channel"] != nil {
+				custom["channel"] = meta["channel"]
+			}
+		case webhook_module.DISCORD:
+			custom["allowed_mentions"] = map[string]any{"parse": []string{}}
+		}
+		payload = custom
+	}
 	if value, ok := payload.(map[string]any); ok {
 		for _, key := range []string{"username", "avatar_url", "icon_url", "channel"} {
 			if value[key] == nil || value[key] == "" {
@@ -525,7 +564,7 @@ func notificationRichRequest(ctx context.Context, w *webhook_model.Webhook, t *w
 	}
 	req, body, err := prepareJSONRequest(payload, w, t, w.Type != webhook_module.FEISHU)
 	if err == nil && w.Type == webhook_module.MATRIX {
-		txn, txnErr := getMatrixTxnID(body)
+		txn, txnErr := getMatrixTxnID(append([]byte(fmt.Sprintf("%s/%d/", t.UUID, m.Page)), body...))
 		if txnErr != nil {
 			return nil, nil, txnErr
 		}
