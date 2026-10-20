@@ -1,8 +1,21 @@
 <div id="external-login-navigator" class="tw-py-1 tw-flex tw-flex-col tw-gap-3">
+	{{if .SignInChannels}}
+	<p class="auth-channel-help" id="auth-channel-help">{{ctx.Locale.Tr "auth.ui.channels_help"}}</p>
+	{{range .SignInChannels}}
+		{{if .URL}}
+		<a class="ui button external-login-link auth-channel" data-require-appurl-check="true" data-channel="{{.Kind}}" rel="nofollow" href="{{.URL}}">
+			{{if .Icon}}{{svg .Icon 24}}{{else}}{{.Provider.IconHTML 24}}{{end}}<span>{{if .LabelKey}}{{ctx.Locale.Tr .LabelKey}}{{else}}{{ctx.Locale.Tr "sign_in_with_provider" .SourceName}}{{end}}{{if and .LabelKey .SourceName}}<small>{{.SourceName}}</small>{{end}}</span>{{svg "octicon-chevron-right" 16}}
+		</a>
+		{{else}}
+		<button type="button" class="ui button external-login-link auth-channel auth-channel-unavailable" data-channel="{{.Kind}}" disabled aria-describedby="auth-channel-help">{{svg .Icon 24}}<span>{{ctx.Locale.Tr .LabelKey}}</span><small class="auth-channel-state">{{ctx.Locale.Tr "auth.ui.channel_unavailable"}}</small></button>
+		{{end}}
+	{{end}}
+	{{else}}
 	{{range $provider := .OAuth2Providers}}
 		<a class="ui button external-login-link tw-gap-3" data-require-appurl-check="true" rel="nofollow" href="{{AppSubUrl}}/user/oauth2/{{$provider.DisplayName | PathEscape}}">
 			{{$provider.IconHTML 24}} {{ctx.Locale.Tr "sign_in_with_provider" $provider.DisplayName}}
 		</a>
+	{{end}}
 	{{end}}
 
 	{{if .EnableSSPI}}

@@ -161,6 +161,30 @@ func TestMigrationWorkspacesPreserveIdentityAndFields(t *testing.T) {
 	}
 }
 
+func TestPublicEntranceKeepsLocalNavigationAndWorkflowControls(t *testing.T) {
+	source, err := os.ReadFile("../../templates/home.tmpl")
+	require.NoError(t, err)
+	tmpl, err := template.New("home").Funcs(template.FuncMap{
+		"ctx":            func() any { return struct{ Locale translation.MockLocale }{} },
+		"svg":            func(...any) template.HTML { return "" },
+		"AppSubUrl":      func() string { return "/git" },
+		"AssetUrlPrefix": func() string { return "/git/assets" },
+		"AppVer":         func() string { return "fixture" },
+	}).Parse(string(source))
+	require.NoError(t, err)
+	for _, name := range []string{"base/head", "base/footer"} {
+		_, err = tmpl.New(name).Parse("")
+		require.NoError(t, err)
+	}
+	var output bytes.Buffer
+	require.NoError(t, tmpl.Execute(&output, nil))
+	require.Contains(t, output.String(), `href="/git/user/login"`)
+	require.Contains(t, output.String(), `href="/git/help/site/actions.html"`)
+	require.Equal(t, 3, strings.Count(output.String(), `aria-controls="landing-caption" disabled`))
+	require.Contains(t, output.String(), `aria-live="polite"`)
+	require.NotContains(t, output.String(), "<canvas")
+}
+
 func TestSignInWorkspaceKeepsExistingAuthenticationModes(t *testing.T) {
 	source, err := os.ReadFile("../../templates/user/auth/signin_inner.tmpl")
 	require.NoError(t, err)

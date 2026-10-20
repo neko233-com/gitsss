@@ -53,7 +53,7 @@
 			</div>
 		</form>
 		{{end}}{{/*end if .EnablePasswordSignInForm*/}}
-		{{$showExternalAuthMethods := or .OAuth2Providers .EnableSSPI}}
+		{{$showExternalAuthMethods := or .SignInChannels .OAuth2Providers .EnableSSPI}}
 		{{if and $showExternalAuthMethods .EnablePasswordSignInForm}}
 			<div class="divider divider-text">{{ctx.Locale.Tr "sign_in_or"}}</div>
 		{{end}}

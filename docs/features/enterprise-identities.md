@@ -1,6 +1,6 @@
 # Enterprise identity binding
 
-GitSSS supports password sign-in and configured Google, Feishu, WeChat and Discord website identities. Sign-in buttons appear only after an administrator activates a source with the required client ID and secret. Unconfigured or inactive channels stay hidden. Security settings always explain email/password and linked-channel setup. Existing account identifiers, passwords and the legacy Google provider key `gplus` remain unchanged. Public registration and OAuth automatic registration should remain disabled for an internal enterprise deployment.
+GitSSS supports password sign-in and configured Google, Feishu, WeChat and Discord website identities. The sign-in page lists common providers, including GitHub, using bundled brand icons and localized names. Active, configured sources keep their authorization links. Unconfigured or inactive channels appear as disabled buttons marked "Not enabled", without an authorization URL. They do not enable a source or change configuration. Security settings explain email/password and linked-channel setup. Existing account identifiers, passwords and the legacy Google provider key `gplus` remain unchanged. Public registration and OAuth automatic registration should remain disabled for an internal enterprise deployment.
 
 ## Administrator setup
 

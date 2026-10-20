@@ -14,6 +14,25 @@ width/height, and settings/software views preserve readable content and actions.
 The bundled manual also constrains flex content and lets its header links scroll
 within the header, rather than forcing the whole document beyond a narrow window.
 
+## Signed-out entrance
+
+The public `/` entrance is distinct from the signed-in workspace and login form.
+It uses the available viewport width, a clear workspace entry, and an interactive
+workflow diagram for code, delivery and team resources. Selecting a step changes
+the explanation and documentation link locally without fetching account or
+repository data. Keyboard activation and selection state follow native buttons.
+The selected step survives viewport resizing. The three capability links remain
+usable without JavaScript; the diagram stays static when motion is reduced.
+
+The locally bundled Paper shader is capped at 120,000 physical pixels. Shared
+vertex/fragment uniforms use matching precision; SVG connections and labels
+remain available without WebGL. Pause, offscreen and hidden-page handling stay
+intact. Late module loading cannot allocate a shader after the page is disposed.
+Desktop widths and heights, narrow reflow, both themes, English/Chinese, actual
+shader initialization, fallback and keyboard navigation are checked separately.
+The entrance changes its template, CSS and optional browser enhancement;
+account and repository routes retain their existing behavior.
+
 ## Creation and migration
 
 The create/import link retains its initial owner. Owner identities show the
@@ -44,7 +63,12 @@ clone URLs, copy/archive actions, topics and source browsing retain existing API
 The desktop sign-in surface pairs concise workspace context with a readable
 form and inline errors. Username/password fields, autocomplete, CAPTCHA, CSRF,
 redirects, remembered-device behavior and backend authentication are preserved.
-Only configured providers render. Binding continues to use the same inner form.
+Common Feishu, Google, WeChat, Discord and GitHub channels are always listed.
+Only active, configured sources receive authorization URLs. Other entries are
+disabled native buttons labelled "Not enabled", with no OAuth destination.
+Known channels use bundled brand icons and localized names; distinct configured
+source names and additional providers remain available. Binding continues to use
+the same inner form without presenting alternate sign-in choices mid-binding.
 The keyboard-accessible password button changes input visibility without storing
 credentials. Selected create, migration and sign-in forms become busy after
 browser validation and prevent duplicate submissions. Back/forward restoration

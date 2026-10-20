@@ -51,7 +51,7 @@ feature summaries and footer, at 1280×720 and larger desktop sizes at 100% zoom
 Content is allowed to scroll at higher text zoom or unusually short windows so
 controls never disappear. There is no forced overflow clipping.
 
-Paper Shaders is bundled locally and capped at 180,000 physical pixels (previously
+Paper Shaders is bundled locally and capped at 120,000 physical pixels (previously
 298,000). Moving branch nodes and eight pointer-responsive particles also have a lightweight SVG/CSS fallback when WebGL
 is unavailable. Pause/play is available in either mode. Animation stops outside
 the viewport or in a hidden tab, respects reduced motion (static SVG, no canvas

@@ -3,7 +3,7 @@ import type {ShaderMount} from '../modules/paper-shader.ts';
 // The original branch-field fragment uses Paper Shaders only for the WebGL lifecycle.
 const branchField = `#version 300 es
 precision highp float;
-uniform vec2 u_resolution;
+uniform mediump vec2 u_resolution; // Match the shared Paper vertex uniform precision.
 uniform float u_time;
 uniform vec3 u_background;
 uniform vec3 u_ink;
@@ -48,11 +48,13 @@ export async function initLandingShader(): Promise<void> {
   const target = document.querySelector<HTMLElement>('[data-landing-shader]');
   if (!target) return;
   const visual = target.closest<HTMLElement>('.landing-visual')!;
+  initLandingWorkflow(visual);
   const motion = document.querySelector<HTMLButtonElement>('[data-landing-motion]')!;
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   let playing = !reduced.matches;
   let visible = true;
   let shader: ShaderMount | undefined;
+  let disposed = false;
   let pointerFrame = 0;
   const update = () => {
     const active = playing && !reduced.matches && visible && !document.hidden;
@@ -89,6 +91,7 @@ export async function initLandingShader(): Promise<void> {
   observer.observe(visual);
   window.addEventListener('pagehide', (event) => {
     if (event.persisted) return;
+    disposed = true;
     observer.disconnect(); cancelAnimationFrame(pointerFrame); shader?.dispose();
     document.removeEventListener('visibilitychange', update);
     window.removeEventListener('pageshow', update);
@@ -100,7 +103,9 @@ export async function initLandingShader(): Promise<void> {
   const rgb = (value: string) => value.match(/[\d.]+/g)!.slice(0, 3).map((part) => Number(part) / 255);
   try {
     const {ShaderMount} = await import('../modules/paper-shader.ts');
-    shader = new ShaderMount(target, branchField, {u_background: rgb(getComputedStyle(document.body).backgroundColor), u_ink: rgb(getComputedStyle(target).color), u_pointer: [-1, -1]}, {alpha: false, antialias: false, powerPreference: 'low-power'}, 0, 18000, 1, 180000);
+    if (disposed || reduced.matches) return;
+    const background = getComputedStyle(visual).backgroundColor;
+    shader = new ShaderMount(target, branchField, {u_background: rgb(background && background !== 'rgba(0, 0, 0, 0)' ? background : getComputedStyle(document.body).backgroundColor), u_ink: rgb(getComputedStyle(target).color), u_pointer: [-1, -1]}, {alpha: false, antialias: false, powerPreference: 'low-power'}, 0, 18000, 1, 120000);
     if (!target.querySelector('canvas')) throw new Error('WebGL unavailable');
     target.setAttribute('data-ready', 'true');
     target.setAttribute('data-shader-status', 'ready');
@@ -112,5 +117,21 @@ export async function initLandingShader(): Promise<void> {
   } catch {
     shader?.dispose(); shader = undefined;
     target.replaceChildren(); target.removeAttribute('data-ready');
+  }
+}
+
+export function initLandingWorkflow(visual: HTMLElement): void {
+  const stages = Array.from(visual.querySelectorAll<HTMLButtonElement>('[data-landing-stage]'));
+  const caption = visual.querySelector<HTMLElement>('[data-landing-caption]');
+  const link = visual.querySelector<HTMLAnchorElement>('[data-landing-learn]');
+  if (!caption || !link || stages.length === 0) return;
+  for (const stage of stages) {
+    stage.disabled = false;
+    stage.addEventListener('click', () => {
+      for (const item of stages) item.setAttribute('aria-pressed', String(item === stage));
+      visual.setAttribute('data-mode', stage.getAttribute('data-landing-stage')!);
+      caption.textContent = stage.getAttribute('data-caption')!;
+      link.href = stage.getAttribute('data-docs')!;
+    });
   }
 }

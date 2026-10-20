@@ -1,24 +1,36 @@
 {{template "base/head" .}}
 <main class="page-content home gitsss-landing" aria-label="{{ctx.Locale.Tr "home_title"}}">
  <div class="landing-content">
-  <section class="landing-hero">
+  <section class="landing-hero" aria-labelledby="landing-title">
    <div class="landing-copy">
-    <h1>{{ctx.Locale.Tr "home.workspace_title"}}<br>{{ctx.Locale.Tr "home.workspace_title_end"}}</h1>
+    <p class="landing-eyebrow">{{svg "octicon-workflow" 16}}{{ctx.Locale.Tr "home.workspace_eyebrow"}}</p>
+    <h1 id="landing-title"><span>{{ctx.Locale.Tr "home.workspace_title"}}</span><span>{{ctx.Locale.Tr "home.workspace_title_end"}}</span></h1>
     <p class="landing-description">{{ctx.Locale.Tr "home.workspace_description"}}</p>
     <div class="landing-actions"><a class="landing-primary" href="{{AppSubUrl}}/user/login">{{ctx.Locale.Tr "home.workspace_login"}} {{svg "octicon-arrow-right" 22}}</a><a href="{{AppSubUrl}}/help/">{{ctx.Locale.Tr "home.workspace_docs"}}</a></div>
     <p class="landing-account">{{ctx.Locale.Tr "home.workspace_account"}}</p>
+    <ul class="landing-protocols" aria-label="{{ctx.Locale.Tr "home.workspace_protocols"}}"><li>{{svg "octicon-git-branch" 16}} Git</li><li>SSH</li><li>LFS</li><li>OCI</li></ul>
    </div>
-   <div class="landing-visual">
+   <div class="landing-visual" data-mode="code" aria-label="{{ctx.Locale.Tr "home.workspace_flow"}}">
     <div class="landing-shader" data-landing-shader aria-hidden="true"></div>
-    <svg class="landing-shader-fallback" viewBox="0 0 760 560" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.5"><path d="M0 280C180 280 220 100 440 100H760M0 280C240 280 230 220 440 220H760M0 280C210 280 280 330 440 330H760M0 280C240 280 240 460 620 460H760"/><circle class="landing-flow-node" cx="680" cy="100" r="8"/><circle class="landing-flow-node" cx="680" cy="220" r="8"/><circle class="landing-flow-node" cx="680" cy="330" r="8"/><circle class="landing-flow-node" cx="680" cy="460" r="8"/></g></svg>
+    <div class="landing-visual-heading"><span>{{svg "octicon-workflow" 16}}{{ctx.Locale.Tr "home.workspace_flow"}}</span><span class="landing-visual-label">GitSSS</span></div>
+    <div class="landing-flow">
+     <svg class="landing-shader-fallback" viewBox="0 0 760 560" preserveAspectRatio="none" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1.5"><path class="landing-flow-path" data-path="code" d="M225 280H255C280 280 265 100 320 100"/><path class="landing-flow-path" data-path="delivery" d="M225 280H320"/><path class="landing-flow-path" data-path="resources" d="M225 280H255C280 280 265 460 320 460"/><circle class="landing-flow-node" cx="285" cy="100" r="4"/><circle class="landing-flow-node" cx="285" cy="280" r="4"/><circle class="landing-flow-node" cx="285" cy="460" r="4"/></g></svg>
+     <div class="landing-origin"><img src="{{AssetUrlPrefix}}/img/logo.svg?v={{AppVer}}" width="52" height="52" alt=""><strong>GitSSS</strong><span>{{ctx.Locale.Tr "home.workspace_origin"}}</span></div>
+     <div class="landing-stages" role="group" aria-label="{{ctx.Locale.Tr "home.workspace_flow_select"}}">
+      <button type="button" class="landing-stage" data-landing-stage="code" data-caption="{{ctx.Locale.Tr "home.workspace_code_desc"}}" data-docs="{{AppSubUrl}}/help/site/getting-started.html" aria-pressed="true" aria-controls="landing-caption" disabled>{{svg "octicon-git-branch" 22}}<span><strong>{{ctx.Locale.Tr "home.workspace_code"}}</strong><small>Git · SSH · LFS</small></span>{{svg "octicon-arrow-up-right" 16}}</button>
+      <button type="button" class="landing-stage" data-landing-stage="delivery" data-caption="{{ctx.Locale.Tr "home.workspace_delivery_desc"}}" data-docs="{{AppSubUrl}}/help/site/actions.html" aria-pressed="false" aria-controls="landing-caption" disabled>{{svg "octicon-workflow" 22}}<span><strong>{{ctx.Locale.Tr "home.workspace_delivery"}}</strong><small>Actions · CI/CD · Registry</small></span>{{svg "octicon-arrow-up-right" 16}}</button>
+      <button type="button" class="landing-stage" data-landing-stage="resources" data-caption="{{ctx.Locale.Tr "home.workspace_resources_desc"}}" data-docs="{{AppSubUrl}}/help/site/workspace-centers.html" aria-pressed="false" aria-controls="landing-caption" disabled>{{svg "octicon-people" 22}}<span><strong>{{ctx.Locale.Tr "home.workspace_resources"}}</strong><small>Docs · {{ctx.Locale.Tr "software.title"}}</small></span>{{svg "octicon-arrow-up-right" 16}}</button>
+     </div>
+    </div>
     <svg class="landing-particles" viewBox="0 0 760 560" aria-hidden="true"><g class="landing-pointer-particles"><circle cx="-24" cy="-8" r="2"/><circle cx="18" cy="-22" r="3"/><circle cx="30" cy="12" r="2"/><circle cx="-10" cy="28" r="2"/><circle cx="3" cy="-38" r="2"/><circle cx="-38" cy="16" r="3"/><circle cx="42" cy="-16" r="2"/><circle cx="15" cy="40" r="2"/></g></svg>
+    <div class="landing-visual-footer"><p id="landing-caption" data-landing-caption aria-live="polite">{{ctx.Locale.Tr "home.workspace_code_desc"}}</p><a data-landing-learn href="{{AppSubUrl}}/help/site/getting-started.html" aria-label="{{ctx.Locale.Tr "home.workspace_learn"}}">{{svg "octicon-arrow-right" 20}}</a></div>
     <button type="button" class="landing-motion" data-landing-motion data-play="{{ctx.Locale.Tr "home.workspace_play"}}" data-pause="{{ctx.Locale.Tr "home.workspace_pause"}}" hidden>{{ctx.Locale.Tr "home.workspace_pause"}}</button>
    </div>
   </section>
-  <section class="landing-capabilities" aria-label="{{ctx.Locale.Tr "home.workspace_resources"}}">
-   <div>{{svg "octicon-git-branch" 36}}<h2>{{ctx.Locale.Tr "home.workspace_code"}}</h2><p>{{ctx.Locale.Tr "home.workspace_code_desc"}}</p></div>
-   <div>{{svg "octicon-gear" 36}}<h2>{{ctx.Locale.Tr "home.workspace_delivery"}}</h2><p>{{ctx.Locale.Tr "home.workspace_delivery_desc"}}</p></div>
-   <div>{{svg "octicon-people" 36}}<h2>{{ctx.Locale.Tr "home.workspace_resources"}}</h2><p>{{ctx.Locale.Tr "home.workspace_resources_desc"}}</p></div>
+  <section class="landing-capabilities" aria-label="{{ctx.Locale.Tr "home.workspace_capabilities"}}">
+   <a href="{{AppSubUrl}}/help/site/getting-started.html">{{svg "octicon-repo" 24}}<div><h2>{{ctx.Locale.Tr "home.workspace_code"}}</h2><p>{{ctx.Locale.Tr "home.workspace_code_desc"}}</p></div>{{svg "octicon-arrow-up-right" 18}}</a>
+   <a href="{{AppSubUrl}}/help/site/actions.html">{{svg "octicon-workflow" 24}}<div><h2>{{ctx.Locale.Tr "home.workspace_delivery"}}</h2><p>{{ctx.Locale.Tr "home.workspace_delivery_desc"}}</p></div>{{svg "octicon-arrow-up-right" 18}}</a>
+   <a href="{{AppSubUrl}}/help/site/workspace-centers.html">{{svg "octicon-people" 24}}<div><h2>{{ctx.Locale.Tr "home.workspace_resources"}}</h2><p>{{ctx.Locale.Tr "home.workspace_resources_desc"}}</p></div>{{svg "octicon-arrow-up-right" 18}}</a>
   </section>
  </div>
 </main>

@@ -154,6 +154,15 @@ body:has(.auth-page) #navbar { flex-shrink: 0; }
   overflow-wrap: anywhere;
 }
 
+.auth-channel-help { margin: 0; font-size: 13px; line-height: 1.6; color: var(--color-text-light-1); }
+.auth-card #external-login-navigator .auth-channel { justify-content: flex-start; align-items: center; gap: 12px; padding: 10px 12px; margin: 0; min-width: 0; }
+.auth-channel > svg { flex-shrink: 0; }
+.auth-channel > span { flex: 1; min-width: 0; text-align: left; }
+.auth-channel > span > small { display: block; margin-top: 4px; font-size: 12px; color: var(--color-text-light-1); overflow-wrap: anywhere; }
+.auth-card #external-login-navigator .auth-channel-unavailable { opacity: 1; color: var(--color-text-light-1); background: var(--color-box-header); cursor: not-allowed; box-shadow: none; }
+.auth-channel-unavailable > svg { filter: grayscale(1); opacity: .55; }
+.auth-channel-state { flex-shrink: 0; color: var(--color-text-light-1); font-size: 12px; font-weight: var(--font-weight-normal); }
+
 @media (max-width: 1000px) {
   .page-content.user.auth-page > .auth-workspace {
     grid-template-columns: minmax(0, 1fr);

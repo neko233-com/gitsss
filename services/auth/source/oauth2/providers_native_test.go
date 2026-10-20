@@ -8,10 +8,19 @@ import (
 	"testing"
 
 	"github.com/neko233-com/gitsss/modules/setting"
+	"github.com/neko233-com/gitsss/modules/svg"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestNativeIdentityBrandIcons(t *testing.T) {
+	for provider, icon := range map[string]string{"feishu": "gitea-feishu", "wechat": "gitea-wechat"} {
+		restore := svg.MockIcon(icon)
+		require.Contains(t, string(gothProviders[provider].IconHTML(24)), icon)
+		restore()
+	}
+}
 
 func TestNativeIdentityAuthorizationURLs(t *testing.T) {
 	for _, name := range []string{"gplus", "feishu", "wechat", "discord"} {

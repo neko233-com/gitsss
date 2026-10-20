@@ -243,6 +243,7 @@ func prepareSignInPageData(ctx *context.Context) (ret preparedSignInData) {
 	}
 	ctx.Data["Title"] = ctx.Tr("sign_in")
 	ctx.Data["OAuth2Providers"] = ret.oauth2Providers
+	ctx.Data["SignInChannels"] = buildSignInChannels(ret.oauth2Providers)
 	ctx.Data["Title"] = ctx.Tr("sign_in")
 	ctx.Data["SignInLink"] = setting.AppSubURL + "/user/login"
 	ctx.Data["PageIsSignIn"] = true

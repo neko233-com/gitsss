@@ -1,4 +1,4 @@
-import {initLandingShader} from './landing-shader.ts';
+import {initLandingShader, initLandingWorkflow} from './landing-shader.ts';
 
 const controls = vi.hoisted(() => ({fail: false, speed: vi.fn(), dispose: vi.fn()}));
 vi.mock('../modules/paper-shader.ts', () => ({ShaderMount: class {
@@ -51,4 +51,29 @@ describe('landing animation lifecycle', {concurrent: false}, () => {
     expect((document.querySelector<HTMLElement>('.landing-visual')!).getAttribute('data-motion')).toBe('paused');
     expect(document.querySelector<HTMLButtonElement>('button')!.hidden).toBe(true);
   });
+
+  test('navigation during module loading does not allocate a late shader', async () => {
+    controls.fail = false;
+    document.body.innerHTML = '<div class="landing-visual"><div data-landing-shader></div><button data-landing-motion data-play="Play" data-pause="Pause"></button></div>';
+    vi.stubGlobal('matchMedia', () => ({matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn()}));
+    vi.stubGlobal('IntersectionObserver', class { observe() {} disconnect() {} });
+    const loading = initLandingShader();
+    window.dispatchEvent(new PageTransitionEvent('pagehide'));
+    await loading;
+    expect(document.querySelector('canvas')).toBeNull();
+  });
+});
+
+test('workflow selection changes the caption and documentation without navigation or losing state', () => {
+  const visual = document.createElement('div');
+  visual.innerHTML = '<button disabled data-landing-stage="code" data-caption="Code" data-docs="/help/code" aria-pressed="true"></button><button disabled data-landing-stage="delivery" data-caption="Actions & releases" data-docs="/help/actions" aria-pressed="false"></button><p data-landing-caption>Code</p><a data-landing-learn href="/help/code"></a>';
+  initLandingWorkflow(visual);
+  const buttons = visual.querySelectorAll('button');
+  expect(buttons[0].disabled).toBe(false);
+  buttons[1].click();
+  expect(visual.getAttribute('data-mode')).toBe('delivery');
+  expect(buttons[0].getAttribute('aria-pressed')).toBe('false');
+  expect(buttons[1].getAttribute('aria-pressed')).toBe('true');
+  expect(visual.querySelector('p')!.textContent).toBe('Actions & releases');
+  expect(visual.querySelector('a')!.getAttribute('href')).toBe('/help/actions');
 });
