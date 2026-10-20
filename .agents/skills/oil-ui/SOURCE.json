@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "upstream": {
+    "repository": "https://github.com/oil-oil/dsh-oil-ui",
+    "commit": "b67ae2df6c2c9d65e177aaa1ce703e65457b24d7",
+    "path": "skills/oil-ui",
+    "version": "0.23.8",
+    "license": "MIT"
+  },
+  "adapter_version": 1,
+  "local_files": [
+    "SKILL.md",
+    "references/codex-tools.md",
+    "references/gitsss.md"
+  ],
+  "files": [
+    {
+      "path": ".gitignore",
+      "upstream_path": ".gitignore",
+      "sha256": "81f2db0af12e2c1268f92a7e2aa5a826dedbb5778f288b2d988ea07bfe6c69d5"
+    },
+    {
+      "path": "assets/fonts/instrument-serif/InstrumentSerif-Regular.ttf",
+      "upstream_path": "assets/fonts/instrument-serif/InstrumentSerif-Regular.ttf",
+      "sha256": "498efd461f6ddfcb7a111bf9a565709d2085d48201d501ead960d93e84ffbb88"
+    },
+    {
+      "path": "assets/fonts/instrument-serif/OFL.txt",
+      "upstream_path": "assets/fonts/instrument-serif/OFL.txt",
+      "sha256": "b6b2292aa580937fb63796878d65a027a27f8c3db2d97601d0c34d9031f4ca17",
+      "upstream_sha256": "129ed7618959716959f2941fdd5b49e0ad6e6c1d78726761786a00253d865521",
+      "normalization": "Removed trailing whitespace only; license wording unchanged."
+    },
+    {
+      "path": "assets/logo.png",
+      "upstream_path": "assets/logo.png",
+      "sha256": "35f58a88e195bf4472e2f0fc795122fb9396464cbb3f0d7a2cb639b6c004f972"
+    },
+    {
+      "path": "assets/style-explorer.html",
+      "upstream_path": "assets/style-explorer.html",
+      "sha256": "b15c732957c9937894e8f2fa18141de5825893398593a993c1b3b3a6e798db94"
+    },
+    {
+      "path": "assets/vendor/alpine.min.js",
+      "upstream_path": "assets/vendor/alpine.min.js",
+      "sha256": "1d8911c7b8a55bd0ceb79896251ca00d575915e2cd4348e8007a850e59ba0dc0"
+    },
+    {
+      "path": "LICENSE",
+      "upstream_path": "LICENSE",
+      "sha256": "d44a3ca218007a85d3be41a0b76553d746e42336c7a63c6c6687d2619199c3c4"
+    },
+    {
+      "path": "README.md",
+      "upstream_path": "README.md",
+      "sha256": "537cbb5c68a646d9620d059b32a122b4b2dee725f13600dcbc1e94e722b7d2d6"
+    },
+    {
+      "path": "README.zh-CN.md",
+      "upstream_path": "README.zh-CN.md",
+      "sha256": "739f0ba66444cce6e763642ae162fbbb5f65d8f6784639eaf93872fc9d5f22dc"
+    },
+    {
+      "path": "references/design-direction.md",
+      "upstream_path": "references/design-direction.md",
+      "sha256": "8e5262da3a653cd2246063dda3311105aef10eeb3128ba358ac06c2597e0d234"
+    },
+    {
+      "path": "references/direction-persuasion.md",
+      "upstream_path": "references/direction-persuasion.md",
+      "sha256": "511c30fe1330318a01a401024855b86666a07fcdb92a7c647d9a4a03a3b43690"
+    },
+    {
+      "path": "references/layout-and-viewport.md",
+      "upstream_path": "references/layout-and-viewport.md",
+      "sha256": "827706ead63ed9f069b5878cd4f90ad20ddad1669a72445e3f2b8127a9499d47"
+    },
+    {
+      "path": "references/media.md",
+      "upstream_path": "references/media.md",
+      "sha256": "2545a2e9899d26bbfc24bc0562691a723c04ccd2582c64b6d86af329ef9d22a4"
+    },
+    {
+      "path": "references/motion.md",
+      "upstream_path": "references/motion.md",
+      "sha256": "d4bb6feb692b86812d459534d1f443c500dbc953ee5273db17108067aab91f76"
+    },
+    {
+      "path": "references/play.md",
+      "upstream_path": "references/play.md",
+      "sha256": "e9a100e93ce4f145ddb93afd34dd0ea22bbffdbc2a83d6eabac685ab0964e264"
+    },
+    {
+      "path": "references/reviewer-manual.md",
+      "upstream_path": "references/reviewer-manual.md",
+      "sha256": "57c38acfacb070fbfb130ecbfd5aadd60a138cbfcbccd2f0f36955332ebea9a9"
+    },
+    {
+      "path": "references/scroll-narrative.md",
+      "upstream_path": "references/scroll-narrative.md",
+      "sha256": "4e91a56335c44da03693e1d4496f5bcbef4e95ff12d4b62fd9d0680d8d12e3a7"
+    },
+    {
+      "path": "references/style-explorer.md",
+      "upstream_path": "references/style-explorer.md",
+      "sha256": "3d8093f296b008bf89ec7cc0539573c305310cdf67e45ff5f7cb18833aa1f5e5"
+    },
+    {
+      "path": "references/tools.md",
+      "upstream_path": "references/tools.md",
+      "sha256": "1fe195a5738e2372940e0669cc787061be30fe11dd1b4dfa166049d91a70af55"
+    },
+    {
+      "path": "references/visual-language.md",
+      "upstream_path": "references/visual-language.md",
+      "sha256": "225f8a04b1cda046dfed56c91877acf29e7069523aa89fa1c8143ca2fa4c70dd"
+    },
+    {
+      "path": "references/visual-review.md",
+      "upstream_path": "references/visual-review.md",
+      "sha256": "188d3d08411b1a6b6fb4ba2db80172e4b44bd6e5fdafae92a2cff9013f9a45d7"
+    },
+    {
+      "path": "scripts/build_explorer.py",
+      "upstream_path": "scripts/build_explorer.py",
+      "sha256": "bb05bef6ffafeeeaf08508d1b4993a6d880bc7a8e22b0d04765e1f616b13ae72"
+    },
+    {
+      "path": "scripts/check_update.py",
+      "upstream_path": "scripts/check_update.py",
+      "sha256": "49bb8a2d423b3a2f110f9b777df8de55f8d4c629c8ee79485df4372e2b237f3a"
+    },
+    {
+      "path": "scripts/check_update.sh",
+      "upstream_path": "scripts/check_update.sh",
+      "sha256": "eeebaf44eb29d61784690e09e0d8d306a44ca2a3025c48a42928b7ac7174d7d4"
+    },
+    {
+      "path": "scripts/curate-media.mjs",
+      "upstream_path": "scripts/curate-media.mjs",
+      "sha256": "2bc60a4bd761b7082ac17d0d3e2d4bc1d4630cf763138e9f3bd291d6ceb3bdf4"
+    },
+    {
+      "path": "scripts/recommend_once.py",
+      "upstream_path": "scripts/recommend_once.py",
+      "sha256": "c1b28d9cec6d47ab637e65fa19b3b183ddddf4a4a950b5bdc6f11aa113bb9672"
+    },
+    {
+      "path": "scripts/shoot.mjs",
+      "upstream_path": "scripts/shoot.mjs",
+      "sha256": "d7cd33600d63f65ffeed8cc74d115c50df91aaf08804d6ee72fe9bfcfd943944"
+    },
+    {
+      "path": "tests/test_build_explorer.py",
+      "upstream_path": "tests/test_build_explorer.py",
+      "sha256": "c1ca470cff8449367a548825ac2647eb534b66366b4de2b6d3add00cebf6460a"
+    },
+    {
+      "path": "tests/test_check_update.py",
+      "upstream_path": "tests/test_check_update.py",
+      "sha256": "3dac4095924b3bfeaf5311c89d6d423819d0983689f086c2d23d2bfbbc715c86"
+    },
+    {
+      "path": "tests/test_curate_media.py",
+      "upstream_path": "tests/test_curate_media.py",
+      "sha256": "20244105f024df559569c56caae0977af50d15c4eeee2fc9571e66000fd1981d"
+    },
+    {
+      "path": "tests/test_shoot.py",
+      "upstream_path": "tests/test_shoot.py",
+      "sha256": "55e2ac6ef3fb452e3251b92621f97b844f59f21db816abdd0d3711fea4971f7d"
+    },
+    {
+      "path": "UPSTREAM.md",
+      "upstream_path": "SKILL.md",
+      "sha256": "8bfa1d28ad4f52cf513079b1074a838975f4c565b29263f03f2f86c47a2268fd"
+    }
+  ]
+}

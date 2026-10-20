@@ -67,6 +67,12 @@
         <li>阅读与任务相邻的实现、测试、配置和文档；不要凭旧上下文推断当前行为。</li>
       </ol>
 
+      <h2 id="project-ui-skill">项目级 Oil UI Skill</h2>
+      <p>本仓库安装了 <a href="https://github.com/oil-oil/dsh-oil-ui/tree/b67ae2df6c2c9d65e177aaa1ce703e65457b24d7/skills/oil-ui">dsh-oil-ui 附带的免费 Oil UI Skill</a>（0.23.8），固定来源 commit 为 <code>b67ae2df6c2c9d65e177aaa1ce703e65457b24d7</code>。入口位于 <code>.agents/skills/oil-ui/SKILL.md</code>，Codex 下一轮可发现，也可显式使用 <code>$oil-ui</code>。仅项目级安装，不注册 DeepSeek Harness 插件或修改全局配置。</p>
+      <p>适配保留现有 Go 模板、TypeScript/CSS、Fomantic、Vue、局部 React 与双 Vite 构建入口；按目标页面的原有实现优化层级、布局、中文、配色、动效和关键状态，不迁移语言或框架。桌面工作台沿用已确认方向，使用主题 token、键盘交互和减少动态效果；Git、SSH、LFS、账号、权限与存储合同保持原规则。</p>
+      <p><code>references/gitsss.md</code> 映射项目架构，<code>references/codex-tools.md</code> 将 DSH 工具名适配到当前工具与离线 CLI。原始入口保留在 <code>UPSTREAM.md</code>，来源和 SHA-256 见 <code>SOURCE.json</code>，MIT/OFL 通知一同保留。不会自动检查更新、启动 Pro 推荐流程或把 Skill 资产加入前端包。Skill 安装本身不修改产品画面，也不需要重启服务。</p>
+      <p>设计小样、截图和走查证据放在已忽略的 <code>output/ui-review/&lt;任务名&gt;/</code> 或仓库外私密目录；本地截图显式指定桌面尺寸。截图必须实际查看，认证和保存流程仍需真实浏览器验证。更新、移除与使用方式见 <a href="../features/project-ui-skill.md">项目 UI Skill 说明</a>；更新先在临时目录比较差异，再保留项目适配与刷新校验，禁止直接覆盖本地修改。</p>
+
       <h2>变更边界</h2>
       <table>
         <thead><tr><th>可以直接做</th><th>需要明确授权</th></tr></thead>

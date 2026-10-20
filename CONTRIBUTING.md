@@ -63,6 +63,11 @@ range reads, and recovery before changing defaults.
 
 ## Frontend and product behavior
 
+UI redesign and review use the project-local
+[Oil UI skill](.agents/skills/oil-ui/SKILL.md), adapted to the existing template,
+TypeScript/CSS, Fomantic, Vue and React entrypoints. It does not migrate frameworks.
+See [installation, tools and updates](docs/features/project-ui-skill.md).
+
 Use the existing commercial repository layout and GitHub-style Primer palette.
 Buttons need visible hover, focus, active, loading, and error states. Respect
 `prefers-reduced-motion` and preserve keyboard access. Drag-and-drop controls
