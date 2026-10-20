@@ -134,6 +134,7 @@ export function initRepoNew() {
   const previewBranch = form.querySelector('[data-repo-create-branch]')!;
   const previewResult = form.querySelector('.repo-create-preview-result')!;
   const i18n = form.querySelector('[data-repo-create-i18n]')!;
+  const importLink = pageContent.querySelector<HTMLAnchorElement>('[data-repo-create-import]');
   let previewOwnerId = '';
   function updatePreview() {
     const item = form.querySelector(`#repo_owner_dropdown .menu > .item[data-value="${CSS.escape(ownerValue.value)}"]`)!;
@@ -142,6 +143,11 @@ export function initRepoNew() {
     if (previewOwnerId !== ownerValue.value) {
       previewOwner.replaceChildren(identity.cloneNode(true));
       previewOwnerId = ownerValue.value;
+      if (importLink) {
+        const url = new URL(importLink.href);
+        url.searchParams.set('org', ownerValue.value);
+        importLink.href = url.href;
+      }
     }
     previewPath.textContent = `${owner} / ${sanitizeRepoName(inputRepoName.value) || i18n.getAttribute('data-placeholder')!}`;
     previewDescription.textContent = description.value.trim() || i18n.getAttribute('data-no-description')!;

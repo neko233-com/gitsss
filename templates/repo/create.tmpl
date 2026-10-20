@@ -8,13 +8,13 @@
                 <h1>{{ctx.Locale.Tr "new_repo"}}</h1>
                 <p>{{ctx.Locale.Tr "repo.create.intro"}}</p>
             </div>
-            {{if not .DisableMigrations}}<a class="repo-create-import" href="{{AppSubUrl}}/repo/migrate">{{svg "octicon-repo-push" 16}}{{ctx.Locale.Tr "repo.create.import_existing"}}</a>{{end}}
+            {{if not .DisableMigrations}}<a class="repo-create-import" data-repo-create-import href="{{AppSubUrl}}/repo/migrate?org={{.ContextUser.ID}}">{{svg "octicon-repo-push" 16}}{{ctx.Locale.Tr "repo.create.import_existing"}}</a>{{end}}
         </header>
         {{template "base/alert" .}}
         <form id="repo-create-form"
               class="ui form new-repo-form repo-create-workspace"
               action="{{.Link}}"
-              method="post">
+              method="post" data-submit-feedback>
             <div id="create-repo-error-message"
                  class="ui negative message tw-text-center tw-hidden"></div>
             <div class="repo-create-main">
@@ -47,13 +47,13 @@
                         </div>
                         <div class="required field {{if .Err_RepoName}}error{{end}}">
                             <label for="repo_name">{{ctx.Locale.Tr "repo.repo_name"}}</label>
-                            <input id="repo_name"
+                            <input id="repo_name" spellcheck="false" autocapitalize="none" aria-describedby="repo-name-help"
                                    name="repo_name"
                                    value="{{.repo_name}}"
                                    autofocus
                                    required
                                    maxlength="100">
-                            <span class="help" data-help-for-repo-name>{{ctx.Locale.Tr "repo.repo_name_helper"}}</span>
+                            <span class="help" id="repo-name-help" data-help-for-repo-name>{{ctx.Locale.Tr "repo.repo_name_helper"}}</span>
                             <span class="help tw-hidden" data-help-for-repo-name=".profile">{{ctx.Locale.Tr "repo.repo_name_profile_public_hint"}}</span>
                             <span class="help tw-hidden" data-help-for-repo-name=".profile-private">{{ctx.Locale.Tr "repo.repo_name_profile_private_hint"}}</span>
                         </div>
@@ -287,7 +287,7 @@
                    aria-labelledby="repo-create-preview-title">
                 <h2 id="repo-create-preview-title">{{ctx.Locale.Tr "repo.create.preview"}}</h2>
                 <div class="repo-create-preview-path">
-                    {{svg "octicon-repo" 24}}<span data-repo-create-path></span>
+                    {{svg "octicon-repo" 24}}<span data-repo-create-path>{{.ContextUser.Name}} / {{or .repo_name (ctx.Locale.Tr "repo.create.name_placeholder")}}</span>
                 </div>
                 <p data-repo-create-description class="repo-create-preview-description"></p>
                 <dl>
@@ -311,7 +311,7 @@
                      data-empty="{{ctx.Locale.Tr "repo.create.result_empty"}}"
                      data-initialize="{{ctx.Locale.Tr "repo.create.result_initialize"}}"
                      data-template="{{ctx.Locale.Tr "repo.create.result_template"}}"></div>
-                <button class="ui primary button repo-create-submit">
+                <button type="submit" class="ui primary button repo-create-submit">
                     {{svg "octicon-plus" 16}}{{ctx.Locale.Tr "repo.create_repo"}}
                 </button>
                 <p class="repo-create-preview-note">{{ctx.Locale.Tr "repo.create.preview_note"}}</p>

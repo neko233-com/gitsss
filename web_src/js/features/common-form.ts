@@ -2,6 +2,23 @@ import {applyAreYouSure, initAreYouSure} from '../vendor/jquery.are-you-sure.ts'
 import {handleGlobalEnterQuickSubmit} from './comp/QuickSubmit.ts';
 import {queryElems} from '../utils/dom.ts';
 import {initComboMarkdownEditor} from './comp/ComboMarkdownEditor.ts';
+import {attachSubmitFeedback} from '../utils/form-feedback.ts';
+
+export function initGlobalSubmitFeedback() {
+  for (const form of document.querySelectorAll<HTMLFormElement>('form[data-submit-feedback]')) {
+    attachSubmitFeedback(form);
+  }
+  for (const button of document.querySelectorAll<HTMLButtonElement>('[data-password-toggle]')) {
+    const input = button.closest('form')!.querySelector<HTMLInputElement>(`#${CSS.escape(button.getAttribute('aria-controls')!)}`)!;
+    button.addEventListener('click', () => {
+      const visible = input.type === 'password';
+      input.type = visible ? 'text' : 'password';
+      button.setAttribute('aria-pressed', String(visible));
+      button.setAttribute('aria-label', button.getAttribute(visible ? 'data-hide' : 'data-show')!);
+      button.title = button.getAttribute('aria-label')!;
+    });
+  }
+}
 
 export function initGlobalFormDirtyLeaveConfirm() {
   initAreYouSure(window.jQuery);

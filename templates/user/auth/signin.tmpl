@@ -1,8 +1,18 @@
 {{template "base/head" .}}
-<div role="main" aria-label="{{.Title}}" class="page-content user signin{{if .LinkAccountMode}} icon{{end}}">
-	<div class="ui middle very relaxed page grid">
-		{{/* these styles are quite tricky and should also apply to the signup and link_account pages */}}
-		<div class="column tw-flex tw-flex-col tw-gap-4 tw-max-w-2xl tw-m-auto">
+<div role="main" aria-label="{{.Title}}" class="page-content user signin auth-page{{if .LinkAccountMode}} icon{{end}}">
+	<div class="auth-workspace">
+		<section class="auth-brand" aria-labelledby="auth-welcome">
+			<a class="auth-brand-mark" href="{{AppSubUrl}}/"><img src="{{AssetUrlPrefix}}/img/logo.svg" width="56" height="56" alt="GitSSS"><span>GitSSS</span></a>
+			<h1 id="auth-welcome">{{ctx.Locale.Tr "auth.ui.welcome"}}</h1>
+			<p>{{ctx.Locale.Tr "auth.ui.welcome_help"}}</p>
+			<ul class="auth-capabilities">
+				<li>{{svg "octicon-repo" 20}}<span>{{ctx.Locale.Tr "auth.ui.code"}}</span></li>
+				<li>{{svg "octicon-workflow" 20}}<span>{{ctx.Locale.Tr "auth.ui.delivery"}}</span></li>
+				<li>{{svg "octicon-organization" 20}}<span>{{ctx.Locale.Tr "auth.ui.team"}}</span></li>
+			</ul>
+		</section>
+		{{/* The inner form is also used by the existing account-link flow. */}}
+		<div class="auth-entry">
 			{{template "user/auth/signin_inner" .}}
 		</div>
 	</div>

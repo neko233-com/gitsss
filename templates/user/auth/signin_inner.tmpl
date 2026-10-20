@@ -1,28 +1,34 @@
-<div class="ui container fluid">
-	{{if or (not .LinkAccountMode) (and .LinkAccountMode .LinkAccountModeSignIn)}}
-	{{template "base/alert" .}}
-	{{end}}
-	<h4 class="ui top attached header center">
+{{$usernameID := "user_name"}}{{$passwordID := "password"}}
+{{if .LinkAccountMode}}{{$usernameID = "link_user_name"}}{{$passwordID = "link_password"}}{{end}}
+<div class="auth-card">
+	<h2 class="auth-card-title">
 		{{if .LinkAccountMode}}
 			{{ctx.Locale.Tr "auth.oauth_signin_title"}}
 		{{else}}
 			{{ctx.Locale.Tr "auth.login_userpass"}}
 		{{end}}
-	</h4>
-	<div class="ui attached segment">
+	</h2>
+	<p class="auth-card-intro">{{if .LinkAccountMode}}{{ctx.Locale.Tr "auth.oauth_bind_existing_help"}}{{else}}{{ctx.Locale.Tr "auth.ui.signin_help"}}{{end}}</p>
+	{{if or (not .LinkAccountMode) (and .LinkAccountMode .LinkAccountModeSignIn)}}
+	{{template "base/alert" .}}
+	{{end}}
+	<div class="auth-card-body">
 		{{if .EnablePasswordSignInForm}}
-		<form class="ui form" action="{{.SignInLink}}" method="post">
+		<form class="ui form ignore-dirty" action="{{.SignInLink}}" method="post" data-submit-feedback>
 			<div class="required field {{if and (.Err_UserName) (or (not .LinkAccountMode) (and .LinkAccountMode .LinkAccountModeSignIn))}}error{{end}}">
-				<label for="user_name">{{ctx.Locale.Tr "home.uname_holder"}}</label>
-				<input id="user_name" type="text" name="user_name" autocomplete="username" value="{{.user_name}}" autofocus required>
+				<label for="{{$usernameID}}">{{ctx.Locale.Tr "home.uname_holder"}}</label>
+				<input id="{{$usernameID}}" type="text" name="user_name" autocomplete="username" autocapitalize="none" spellcheck="false" value="{{.user_name}}" autofocus required>
 			</div>
 			{{if or (not .DisablePassword) .LinkAccountMode}}
 			<div class="required field {{if and (.Err_Password) (or (not .LinkAccountMode) (and .LinkAccountMode .LinkAccountModeSignIn))}}error{{end}}">
 				<div class="tw-flex tw-mb-1">
-					<label for="password" class="tw-flex-1">{{ctx.Locale.Tr "password"}}</label>
+					<label for="{{$passwordID}}" class="tw-flex-1">{{ctx.Locale.Tr "password"}}</label>
 					<a href="{{AppSubUrl}}/user/forgot_password">{{ctx.Locale.Tr "auth.forgot_password"}}</a>
 				</div>
-				<input id="password" name="password" type="password" autocomplete="current-password" required>
+				<div class="auth-password-input">
+					<input id="{{$passwordID}}" name="password" type="password" autocomplete="current-password" required>
+					<button type="button" class="auth-password-toggle" data-password-toggle aria-controls="{{$passwordID}}" aria-pressed="false" aria-label="{{ctx.Locale.Tr "auth.ui.show_password"}}" data-show="{{ctx.Locale.Tr "auth.ui.show_password"}}" data-hide="{{ctx.Locale.Tr "auth.ui.hide_password"}}">{{svg "octicon-eye" 18}}</button>
+				</div>
 			</div>
 			{{end}}
 			{{if not .LinkAccountMode}}
@@ -37,7 +43,7 @@
 			{{template "user/auth/captcha" .}}
 
 			<div class="field">
-				<button class="ui primary button tw-w-full">
+				<button type="submit" class="ui primary button tw-w-full auth-submit">
 					{{if .LinkAccountMode}}
 						{{ctx.Locale.Tr "auth.oauth_signin_submit"}}
 					{{else}}

@@ -74,7 +74,7 @@ import {initOAuth2SettingsDisableCheckbox} from './features/oauth2-settings.ts';
 import {initGlobalFetchAction} from './features/common-fetch-action.ts';
 import {initCommmPageComponents, initGlobalComponent, initGlobalDropdown, initGlobalInput} from './features/common-page.ts';
 import {initGlobalButtonClickOnEnter, initGlobalButtons} from './features/common-button.ts';
-import {initGlobalComboMarkdownEditor, initGlobalEnterQuickSubmit, initGlobalFormDirtyLeaveConfirm} from './features/common-form.ts';
+import {initGlobalComboMarkdownEditor, initGlobalEnterQuickSubmit, initGlobalFormDirtyLeaveConfirm, initGlobalSubmitFeedback} from './features/common-form.ts';
 import {callInitFunctions} from './modules/init.ts';
 import {initRepoViewFileTree} from './features/repo-view-file-tree.ts';
 import {initActionsPermissionsForm} from './features/common-actions-permissions.ts';
@@ -95,6 +95,7 @@ const initPerformanceTracer = callInitFunctions([
   initGlobalCopyToClipboardListener,
   initGlobalEnterQuickSubmit,
   initGlobalFormDirtyLeaveConfirm,
+  initGlobalSubmitFeedback,
   initGlobalComboMarkdownEditor,
   initGlobalInput,
   initGlobalShortcut,

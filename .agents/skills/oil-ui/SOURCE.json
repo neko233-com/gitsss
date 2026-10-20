@@ -7,11 +7,12 @@
     "version": "0.23.8",
     "license": "MIT"
   },
-  "adapter_version": 1,
+  "adapter_version": 2,
   "local_files": [
     "SKILL.md",
     "references/codex-tools.md",
-    "references/gitsss.md"
+    "references/gitsss.md",
+    "references/responsive-workspace.md"
   ],
   "files": [
     {

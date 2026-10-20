@@ -19,6 +19,7 @@ export function initRepoMigration() {
   }
   checkAuth();
   setLFSSettingsVisibility();
+  initMigrationPreview();
 
   user?.addEventListener('input', () => {checkItems(false)});
   pass?.addEventListener('input', () => {checkItems(false)});
@@ -34,7 +35,7 @@ export function initRepoMigration() {
   const elCloneAddr = document.querySelector<HTMLInputElement>('#clone_addr');
   const elRepoName = document.querySelector<HTMLInputElement>('#repo_name');
   if (elCloneAddr && elRepoName) {
-    let repoNameChanged = false;
+    let repoNameChanged = elRepoName.value !== '';
     elRepoName.addEventListener('input', () => {repoNameChanged = true});
     elCloneAddr.addEventListener('input', () => {
       if (repoNameChanged) return;
@@ -46,8 +47,39 @@ export function initRepoMigration() {
       }
       repoNameFromUrl = parts[3].split(/[?#]/)[0];
       elRepoName.value = sanitizeRepoName(repoNameFromUrl);
+      elRepoName.dispatchEvent(new Event('change', {bubbles: true}));
     });
   }
+}
+
+function initMigrationPreview() {
+  const form = document.querySelector<HTMLFormElement>('.repo-migrate-workspace');
+  if (!form) return;
+  const owner = form.querySelector<HTMLInputElement>('[name=uid]')!;
+  const name = form.querySelector<HTMLInputElement>('[name=repo_name]')!;
+  const privateInput = form.querySelector<HTMLInputElement>('[name=private]')!;
+  const path = form.querySelector('[data-migration-target]')!;
+  const identity = form.querySelector('[data-migration-owner]')!;
+  const visibility = form.querySelector('[data-migration-visibility]')!;
+  const visibilityHelp = form.querySelector('[data-migration-visibility-help]')!;
+  const mode = form.querySelector('[data-migration-mode]')!;
+  const placeholder = path.textContent.split(' / ').slice(1).join(' / ');
+  let previousOwner = '';
+  const update = () => {
+    const item = owner.closest('.dropdown')!.querySelector(`.menu > .item[data-value="${CSS.escape(owner.value)}"]`)!;
+    if (previousOwner !== owner.value) {
+      identity.replaceChildren(item.querySelector('.repo-owner-identity')!.cloneNode(true));
+      previousOwner = owner.value;
+    }
+    path.textContent = `${item.querySelector('.repo-owner-name')!.textContent} / ${sanitizeRepoName(name.value) || placeholder}`;
+    const attribute = privateInput.checked ? 'data-private' : 'data-public';
+    visibility.textContent = visibility.getAttribute(attribute)!;
+    visibilityHelp.textContent = visibilityHelp.getAttribute(attribute)!;
+    mode.textContent = mode.getAttribute(mirror?.checked ? 'data-mirror' : 'data-import')!;
+  };
+  form.addEventListener('input', update);
+  form.addEventListener('change', update);
+  update();
 }
 
 function initMigrationSourceChooser(root: HTMLElement) {
@@ -134,9 +166,9 @@ function checkAuth() {
 function checkItems(tokenAuth: boolean) {
   let enableItems: boolean;
   if (tokenAuth) {
-    enableItems = token?.value !== '';
+    enableItems = Boolean(token?.value.trim());
   } else {
-    enableItems = user?.value !== '' || pass?.value !== '';
+    enableItems = Boolean(user?.value.trim() || pass?.value);
   }
   if (enableItems && Number(service?.value) > 1) {
     if (mirror?.checked) {
@@ -155,5 +187,5 @@ function setLFSSettingsVisibility() {
   if (!lfs) return;
   const visible = lfs.checked;
   toggleElem(lfsSettings, visible);
-  hideElem(lfsEndpoint);
+  if (!visible) hideElem(lfsEndpoint);
 }

@@ -116,6 +116,80 @@ func TestMigrationSourceBreadcrumbSkipsLegacyOrgParameter(t *testing.T) {
 	}
 }
 
+func TestMigrationWorkspacesPreserveIdentityAndFields(t *testing.T) {
+	personal := &user_model.User{ID: 1, Name: "alice", FullName: "Alice <script>"}
+	org := organization.OrgFromUser(&user_model.User{ID: 7, Name: "engineering", FullName: "研发团队", Type: user_model.UserTypeOrganization})
+	services := append([]structs.GitServiceType{structs.PlainGitService}, structs.SupportedFullGitService...)
+	for _, service := range services {
+		t.Run(service.Name(), func(t *testing.T) {
+			tmpl := template.New("migration").Funcs(template.FuncMap{
+				"ctx": func() any {
+					return struct {
+						Locale      translation.MockLocale
+						AvatarUtils repoCreateAvatarStub
+					}{}
+				},
+				"svg": func(...any) template.HTML { return "" }, "dict": dict,
+				"AppSubUrl": func() string { return "/git" },
+			})
+			for _, name := range []string{"repo/migrate/" + service.Name(), "repo/migrate/workspace_start", "repo/migrate/destination", "repo/migrate/options", "repo/migrate/service_icon", "repo/create_owner_identity"} {
+				source, err := os.ReadFile("../../templates/" + name + ".tmpl")
+				require.NoError(t, err)
+				_, err = tmpl.New(name).Parse(string(source))
+				require.NoError(t, err)
+			}
+			for _, name := range []string{"base/head", "base/footer", "base/alert", "base/disable_form_autofill"} {
+				_, err := tmpl.New(name).Parse("")
+				require.NoError(t, err)
+			}
+			var output bytes.Buffer
+			err := tmpl.ExecuteTemplate(&output, "repo/migrate/"+service.Name(), map[string]any{
+				"service": service, "Link": "/git/repo/migrate", "SignedUser": personal,
+				"ContextUser": org.AsUser(), "Orgs": []*organization.Organization{org},
+				"repo_name": "retained-name", "mirror": true, "LFSActive": true, "Err_LFSEndpoint": true,
+			})
+			require.NoError(t, err)
+			for _, field := range []string{"service", "clone_addr", "uid", "repo_name", "private", "description"} {
+				require.Contains(t, output.String(), `name="`+field+`"`)
+			}
+			require.Contains(t, output.String(), `value="retained-name"`)
+			require.Contains(t, output.String(), `org=7&mirror=true`)
+			require.Contains(t, output.String(), `repo.create.owner_organization`)
+			require.Contains(t, output.String(), `Alice &lt;script&gt;`)
+			require.NotContains(t, output.String(), `<script>`)
+		})
+	}
+}
+
+func TestSignInWorkspaceKeepsExistingAuthenticationModes(t *testing.T) {
+	source, err := os.ReadFile("../../templates/user/auth/signin_inner.tmpl")
+	require.NoError(t, err)
+	tmpl := template.New("signin").Funcs(template.FuncMap{
+		"ctx": func() any { return struct{ Locale translation.MockLocale }{} },
+		"svg": func(...any) template.HTML { return "" }, "AppSubUrl": func() string { return "/git" },
+	})
+	_, err = tmpl.Parse(string(source))
+	require.NoError(t, err)
+	for _, name := range []string{"base/alert", "user/auth/captcha", "user/auth/external_auth_methods"} {
+		_, err = tmpl.New(name).Parse(name)
+		require.NoError(t, err)
+	}
+	for _, binding := range []bool{false, true} {
+		var output bytes.Buffer
+		err = tmpl.Execute(&output, map[string]any{"EnablePasswordSignInForm": true, "LinkAccountMode": binding, "LinkAccountModeSignIn": binding, "SignInLink": "/git/user/link_account_signin", "user_name": "alice"})
+		require.NoError(t, err)
+		for _, field := range []string{`name="user_name"`, `name="password"`, `autocomplete="username"`, `autocomplete="current-password"`, `data-password-toggle`, `data-submit-feedback`} {
+			require.Contains(t, output.String(), field)
+		}
+		require.Equal(t, !binding, strings.Contains(output.String(), `name="remember"`))
+		require.NotContains(t, output.String(), `id="external-login-navigator"`)
+	}
+	var output bytes.Buffer
+	require.NoError(t, tmpl.Execute(&output, map[string]any{"OAuth2Providers": []string{"configured-provider"}}))
+	require.Contains(t, output.String(), "user/auth/external_auth_methods")
+	require.NotContains(t, output.String(), `name="password"`)
+}
+
 func TestLanguageLegendHasOneRowPerLanguage(t *testing.T) {
 	source, err := os.ReadFile("../../templates/repo/home_sidebar_bottom.tmpl")
 	require.NoError(t, err)

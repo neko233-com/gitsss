@@ -1,0 +1,13 @@
+{{template "base/head" .}}
+<div role="main" aria-label="{{.Title}}" class="page-content repository new migrate repo-migrate-page">
+	<div class="repo-migrate-shell">
+		<header class="repo-migrate-heading">
+			<div class="repo-migrate-source-mark" aria-hidden="true">{{template "repo/migrate/service_icon" (dict "Service" .service "Size" 32)}}</div>
+			<div><h1>{{ctx.Locale.Tr "repo.migrate.migrate" .service.Title}}</h1><p>{{ctx.Locale.Tr "repo.migrate.workspace_intro"}}</p></div>
+			<a class="repo-migrate-back" href="{{AppSubUrl}}/repo/migrate?org={{.ContextUser.ID}}&mirror={{.mirror}}">{{svg "octicon-arrow-left" 16}}{{ctx.Locale.Tr "repo.migrate.change_source"}}</a>
+		</header>
+		{{template "base/alert" .}}
+		<form class="ui form repo-migrate-workspace" action="{{.Link}}" method="post" data-submit-feedback>
+			<div class="repo-migrate-main">
+				<section class="repo-migrate-section" aria-labelledby="migration-source-title">
+					<h2 id="migration-source-title">{{svg "octicon-repo-push" 18}}{{ctx.Locale.Tr "repo.migrate.source_settings"}}</h2>

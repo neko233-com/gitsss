@@ -25,7 +25,6 @@
 			{{end}}
 			<div class="ui tab {{if .LinkAccountModeSignIn}}active{{end}}" data-tab="auth-link-signin-tab">
 				<div class="tw-flex tw-flex-col tw-gap-4 tw-max-w-2xl tw-m-auto">
-					<p>{{ctx.Locale.Tr "auth.oauth_bind_existing_help"}}</p>
 				{{template "user/auth/signin_inner" .}}
 				</div>
 			</div>

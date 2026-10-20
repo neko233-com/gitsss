@@ -1,4 +1,7 @@
-<aside class="workspace-sidebar" aria-label="{{ctx.Locale.Tr "workspace.navigation"}}">
+<button type="button" class="workspace-mobile-toggle" data-workspace-nav-open aria-controls="workspace-navigation" aria-expanded="false">{{svg "octicon-three-bars"}} {{ctx.Locale.Tr "workspace.navigation"}}</button>
+<button type="button" class="workspace-nav-backdrop" data-workspace-nav-close tabindex="-1" aria-label="{{ctx.Locale.Tr "workspace.navigation.close"}}"></button>
+<aside id="workspace-navigation" class="workspace-sidebar" aria-label="{{ctx.Locale.Tr "workspace.navigation"}}">
+ <button type="button" class="workspace-mobile-close" data-workspace-nav-close aria-label="{{ctx.Locale.Tr "workspace.navigation.close"}}">{{svg "octicon-x"}}</button>
  <a class="workspace-home" href="{{AppSubUrl}}/?view=organizations">{{svg "octicon-organization" 20}} {{ctx.Locale.Tr "explore.organizations"}}</a>
  {{if .Org}}
  <div class="workspace-identity">{{ctx.AvatarUtils.Avatar .Org 32}}<strong>{{template "org/identity" .Org}}</strong></div>

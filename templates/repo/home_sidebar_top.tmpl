@@ -2,7 +2,7 @@
 	<form class="ignore-dirty tw-flex" action="{{.RepoLink}}/search" method="get">
 		<div class="ui small action input tw-flex tw-flex-1">
 			<div class="ui input tw-flex tw-flex-1 global-shortcut-wrapper">
-				<input name="q" size="10" placeholder="{{ctx.Locale.Tr "search.code_kind"}}">
+				<input name="q" size="10" placeholder="{{ctx.Locale.Tr "search.code_kind"}}" aria-label="{{ctx.Locale.Tr "search.code_kind"}}">
 				<kbd data-global-init="onGlobalShortcut" data-shortcut-keys="s">S</kbd>
 			</div>
 			{{template "shared/search/button"}}

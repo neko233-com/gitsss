@@ -1,4 +1,10 @@
 import {parsePluginManifest, pluginScriptPath, withAppSubUrl} from './frontend-plugins.ts';
+import {readFileSync} from 'node:fs';
+
+test('packaged default manifest mounts no plugins', () => {
+  const manifest = JSON.parse(readFileSync('public/assets/plugins/manifest.json', 'utf8'));
+  expect(parsePluginManifest(manifest)).toEqual([]);
+});
 
 test('parsePluginManifest accepts a same-origin script', () => {
   const plugins = parsePluginManifest({

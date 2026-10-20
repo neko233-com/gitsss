@@ -27,6 +27,26 @@
   margin-top: 0.5em;
 }
 
+.repo-home-sidebar-top,
+.repo-home-sidebar-bottom {
+  min-width: 0;
+}
+
+.repo-home-sidebar-top .repo-home-sidebar-header {
+  margin-top: 0;
+}
+
+.repo-home-sidebar-top .flex-text-block > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 768px) and (max-width: 1100px) {
+  .repo-grid-filelist-sidebar {
+    grid-template-columns: minmax(0, 1fr) 220px;
+  }
+}
+
 @media (max-width: 767.98px) {
   .repo-grid-filelist-sidebar {
     grid-template-columns: 100%;

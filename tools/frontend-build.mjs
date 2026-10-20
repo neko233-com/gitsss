@@ -6,7 +6,7 @@ const root = resolve(import.meta.dirname, '..');
 const assets = join(root, 'public/assets');
 
 function sourceState() {
-  const files = [...globSync(['web_src/**/*.*', 'assets/**/*.*', 'public/assets/img/logo.*', 'public/assets/img/favicon.*'], {cwd: root}), 'package.json', 'pnpm-lock.yaml', 'vite.config.ts', 'vite.react.config.ts', 'tailwind.config.ts', 'tools/frontend-build.mjs'].sort();
+  const files = [...globSync(['web_src/**/*.*', 'assets/**/*.*', 'public/assets/img/logo.*', 'public/assets/img/favicon.*', 'public/assets/plugins/**/*.*'], {cwd: root}), 'package.json', 'pnpm-lock.yaml', 'vite.config.ts', 'vite.react.config.ts', 'tailwind.config.ts', 'tools/frontend-build.mjs'].sort();
   const hash = createHash('sha256');
   for (const file of files) hash.update(file.replaceAll('\\', '/')).update('\0').update(readFileSync(join(root, file))).update('\0');
   return {schema_version: 1, source_sha256: hash.digest('hex'), source_files: files.length};

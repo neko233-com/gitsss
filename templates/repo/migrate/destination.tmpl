@@ -1,0 +1,54 @@
+				</div>
+</details>
+				<section class="repo-migrate-section" aria-labelledby="migration-target-title">
+					<h2 id="migration-target-title">{{svg "octicon-repo" 18}}{{ctx.Locale.Tr "repo.migrate.target_settings"}}</h2>
+					<div class="repo-create-name-fields">
+						<div class="required field {{if .Err_Owner}}error{{end}}">
+							<label id="migration-owner-label">{{ctx.Locale.Tr "repo.create.owner"}}</label>
+							<div class="ui search selection owner dropdown" aria-labelledby="migration-owner-label">
+								<input type="hidden" id="uid" name="uid" value="{{.ContextUser.ID}}" required>
+								<span class="text">{{template "repo/create_owner_identity" .ContextUser}}</span>
+								{{svg "octicon-triangle-down" 14 "dropdown icon"}}
+								<div class="menu">
+									<div class="item" data-value="{{.SignedUser.ID}}">{{template "repo/create_owner_identity" .SignedUser}}</div>
+									{{range .Orgs}}<div class="item" data-value="{{.ID}}">{{template "repo/create_owner_identity" .AsUser}}</div>{{end}}
+								</div>
+							</div>
+							<span class="help">{{ctx.Locale.Tr "repo.create.owner_help"}}</span>
+						</div>
+						<div class="required field {{if .Err_RepoName}}error{{end}}">
+							<label for="repo_name">{{ctx.Locale.Tr "repo.repo_name"}}</label>
+							<input id="repo_name" name="repo_name" value="{{.repo_name}}" required maxlength="100" spellcheck="false" autocapitalize="none">
+							<span class="help">{{ctx.Locale.Tr "repo.repo_name_helper"}}</span>
+						</div>
+					</div>
+					<div class="field">
+						<label>{{ctx.Locale.Tr "repo.visibility"}}</label>
+						<div class="ui checkbox">
+							<input name="private" type="checkbox" {{if .IsForcedPrivate}}checked disabled{{else if .private}}checked{{end}}>
+							<label>{{if .IsForcedPrivate}}{{ctx.Locale.Tr "repo.visibility_helper_forced"}}{{else}}{{ctx.Locale.Tr "repo.visibility_helper"}}{{end}}</label>
+						</div>
+						<span class="help" data-migration-visibility-help data-private="{{ctx.Locale.Tr "repo.create.visibility_private"}}" data-public="{{ctx.Locale.Tr "repo.create.visibility_public"}}">{{if or .private .IsForcedPrivate}}{{ctx.Locale.Tr "repo.create.visibility_private"}}{{else}}{{ctx.Locale.Tr "repo.create.visibility_public"}}{{end}}</span>
+					</div>
+					<div class="field {{if .Err_Description}}error{{end}}">
+						<label for="description">{{ctx.Locale.Tr "repo.repo_desc"}}</label>
+						<textarea id="description" name="description" rows="2" maxlength="2048">{{.description}}</textarea>
+					</div>
+				</section>
+			</div>
+			<aside class="repo-migrate-preview" aria-labelledby="migration-preview-title">
+				<h2 id="migration-preview-title">{{ctx.Locale.Tr "repo.migrate.review"}}</h2>
+				<div class="repo-create-preview-path">{{svg "octicon-repo" 20}}<span data-migration-target>{{.ContextUser.Name}} / {{or .repo_name (ctx.Locale.Tr "repo.create.name_placeholder")}}</span></div>
+				<dl>
+					<div><dt>{{ctx.Locale.Tr "repo.migrate.source_settings"}}</dt><dd>{{.service.Title}}</dd></div>
+					<div><dt>{{ctx.Locale.Tr "repo.create.owner"}}</dt><dd data-migration-owner>{{template "repo/create_owner_identity" .ContextUser}}</dd></div>
+					<div><dt>{{ctx.Locale.Tr "repo.visibility"}}</dt><dd data-migration-visibility data-private="{{ctx.Locale.Tr "repo.create.private_label"}}" data-public="{{ctx.Locale.Tr "repo.create.public_label"}}">{{if or .private .IsForcedPrivate}}{{ctx.Locale.Tr "repo.create.private_label"}}{{else}}{{ctx.Locale.Tr "repo.create.public_label"}}{{end}}</dd></div>
+				</dl>
+				<p class="repo-migrate-mode" data-migration-mode data-import="{{ctx.Locale.Tr "repo.migrate.import_help"}}" data-mirror="{{ctx.Locale.Tr "repo.migrate.mirror_help"}}">{{ctx.Locale.Tr "repo.migrate.import_help"}}</p>
+				<button type="submit" class="ui primary button repo-create-submit">{{svg "octicon-repo-push" 16}}{{ctx.Locale.Tr "repo.migrate_repo"}}</button>
+				<p class="repo-create-preview-note">{{ctx.Locale.Tr "repo.migrate.submit_help"}}</p>
+			</aside>
+		</form>
+	</div>
+</div>
+{{template "base/footer" .}}

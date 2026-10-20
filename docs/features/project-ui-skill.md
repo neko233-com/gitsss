@@ -36,6 +36,14 @@ Broad direction exploration is reserved for a task that needs it; established
 product directions and small changes do not force extra design-choice rounds.
 Installation alone changes no product UI and requires no server restart.
 
+Adapter version 2 adds `references/responsive-workspace.md` for layout work.
+It separates CSS viewport size, device pixel ratio and real browser zoom; covers
+both width and height, breakpoint boundaries and resize without navigation; and
+requires checking input/state retention, focus, menus and reachable actions.
+Shared-page corruption starts with asset/version and CSS cascade diagnosis.
+Overflow metrics or HTTP 200 alone are not visual acceptance. Low-height forms
+may scroll naturally rather than clipping content to fit one screen.
+
 ## Tools and provenance
 
 `references/codex-tools.md` maps DSH-only names to available Codex tools and
