@@ -94,15 +94,31 @@
 
 .language-stats-details {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
 }
 
 .language-stats-details .item {
-  height: 30px;
-  display: flex;
+  min-height: 24px;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: center;
-  gap: 0.25em;
-  padding: 0 0.5em; /* make the UI look better for narrow (mobile) view */
-  text-decoration: none;
+  gap: 8px;
+}
+
+.language-stats-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--font-weight-medium);
+}
+
+.language-stats-percentage {
+  color: var(--color-text-light-1);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }

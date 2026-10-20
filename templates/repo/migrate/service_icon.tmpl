@@ -1,0 +1,9 @@
+{{if eq .Service.Name "github"}}
+	{{svg "octicon-mark-github" .Size}}
+{{else if eq .Service.Name "gitlab"}}
+	{{svg "gitea-gitlab" .Size}}
+{{else if eq .Service.Name "gitbucket"}}
+	{{svg "gitea-gitbucket" .Size}}
+{{else}}
+	{{svg (printf "gitea-%s" .Service.Name) .Size}}
+{{end}}

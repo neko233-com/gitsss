@@ -1,32 +1,40 @@
 {{template "base/head" .}}
-<div role="main" aria-label="{{.Title}}" class="page-content repository new migrate">
-	<div class="ui middle very relaxed page grid">
-		<div class="column">
-			{{template "repo/migrate/helper" .}}
-			<div class="ui cards migrate-entries">
-				{{range .Services}}
-					<a class="ui card migrate-entry flex-text-block" href="{{AppSubUrl}}/repo/migrate?service_type={{.}}&org={{$.Org}}&mirror={{$.Mirror}}">
-						{{if eq .Name "github"}}
-							{{svg "octicon-mark-github" 184 "tw-p-4"}}
-						{{else if eq .Name "gitlab"}}
-							{{svg "gitea-gitlab" 184 "tw-p-4"}}
-						{{else if eq .Name "gitbucket"}}
-							{{svg "gitea-gitbucket" 184 "tw-p-4"}}
-						{{else}}
-							{{svg (printf "gitea-%s" .Name) 184}}
-						{{end}}
-						<div class="content">
-							<div class="header tw-text-center">
-								{{.Title}}
-							</div>
-							<div class="description tw-text-center tw-text-balance">
-								{{ctx.Locale.Tr (printf "repo.migrate.%s.description" .Name)}}
-							</div>
-						</div>
-					</a>
-				{{end}}
+<div role="main" aria-label="{{.Title}}" class="page-content repository migration-source-page" data-repo-migration-chooser>
+	<div class="migration-source-shell">
+		<header class="migration-source-heading">
+			<div>
+				<h1>{{ctx.Locale.Tr "repo.migrate.choose_title"}}</h1>
+				<p>{{ctx.Locale.Tr "repo.migrate.choose_help"}}</p>
 			</div>
+			<a class="migration-source-back" href="{{AppSubUrl}}/repo/create?org={{.Org}}">{{svg "octicon-plus" 16}}{{ctx.Locale.Tr "repo.create_repo"}}</a>
+		</header>
+		{{template "base/alert" .}}
+		<div class="migration-source-tools">
+			<label class="migration-source-search">
+				{{svg "octicon-search" 18}}
+				<input type="search" placeholder="{{ctx.Locale.Tr "repo.migrate.search_sources"}}" aria-label="{{ctx.Locale.Tr "repo.migrate.search_sources"}}" data-migration-source-search>
+			</label>
+			<span class="migration-source-count" role="status"><span data-migration-source-count>{{len .Services}}</span> {{ctx.Locale.Tr "repo.migrate.sources_count"}}</span>
 		</div>
+		<div class="migration-source-grid">
+			{{range .Services}}
+				<a class="migration-source {{if eq .Name "git"}}migration-source-git{{end}}" href="{{AppSubUrl}}/repo/migrate?service_type={{.}}&org={{$.Org}}&mirror={{$.Mirror}}" data-migration-source data-migration-search="{{.Title}} {{ctx.Locale.Tr (printf "repo.migrate.%s.description" .Name)}}">
+					<span class="migration-source-glow" aria-hidden="true"></span>
+					<span class="migration-source-icon" aria-hidden="true">{{template "repo/migrate/service_icon" (dict "Service" . "Size" 44)}}</span>
+					<span class="migration-source-copy">
+						<span class="migration-source-title">{{if eq .Name "git"}}{{ctx.Locale.Tr "repo.migrate.git_address"}}{{else}}{{.Title}}{{end}}</span>
+						<span class="migration-source-description">{{ctx.Locale.Tr (printf "repo.migrate.%s.description" .Name)}}</span>
+						{{if eq .Name "git"}}<span class="migration-source-hint">{{ctx.Locale.Tr "repo.migrate.git_address_help"}}</span>{{end}}
+					</span>
+					<span class="migration-source-arrow" aria-hidden="true">{{svg "octicon-arrow-right" 18}}</span>
+				</a>
+			{{end}}
+		</div>
+		<div class="migration-source-empty" data-migration-source-empty hidden>
+			<p>{{ctx.Locale.Tr "repo.migrate.no_sources"}}</p>
+			<button type="button" class="ui small button" data-migration-source-clear>{{ctx.Locale.Tr "repo.migrate.clear_search"}}</button>
+		</div>
+		<p class="migration-source-note">{{svg "octicon-info" 16}}{{ctx.Locale.Tr "repo.migrate.choose_note"}}</p>
 	</div>
 </div>
 {{template "base/footer" .}}

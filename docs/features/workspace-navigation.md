@@ -118,3 +118,27 @@ automatic checking when a .gitignore or license is selected. These are presentat
 changes; API/form field names, default visibility, storage, Git format and
 permissions remain unchanged. Roll back by restoring the previous binary and
 matching embedded assets; no data migration is needed.
+
+## Migration source selection and language legend
+
+The import landing page offers a full-width Git URL option and compact platform
+links, each with its own description. Local search matches names and descriptions,
+reports the visible count and provides an empty-state reset; Escape clears search.
+Original service_type, org and mirror parameters and every provider link remain
+server rendered. Keyboard navigation, opening links in a new tab, disabled
+JavaScript and the configured source permissions retain their existing behavior.
+
+A brief 200 ms opacity/translation entrance and pointer-following highlight provide
+feedback without loading React, React Bits or any additional animation dependency.
+The visual direction references [React Bits Spotlight Card](https://reactbits.dev/components/spotlight-card); the implementation is independent.
+One requestAnimationFrame batches pointer updates for the active card. There is no
+continuous render loop, canvas, blur or remote asset request. Background tabs clear
+the highlight; reduced motion skips entrance effects and disables pointer movement
+and hover translation, including preference changes while the page is open.
+
+Repository sidebar languages use one semantic list row per language: color, name
+and right-aligned percentage. Names ellipsize while full text remains accessible;
+long names have a title. The combined distribution bar, language order, percentages
+and backend language statistics are unchanged. These presentation changes require
+no Git, LFS, database or storage migration; rollback restores the previous binary
+and its embedded assets.

@@ -12,6 +12,11 @@ const lfsEndpoint = document.querySelector<HTMLElement>('#lfs_endpoint')!;
 const items = document.querySelectorAll<HTMLInputElement>('#migrate_items input[type=checkbox]');
 
 export function initRepoMigration() {
+  const chooser = document.querySelector<HTMLElement>('[data-repo-migration-chooser]');
+  if (chooser) {
+    initMigrationSourceChooser(chooser);
+    return;
+  }
   checkAuth();
   setLFSSettingsVisibility();
 
@@ -42,6 +47,80 @@ export function initRepoMigration() {
       repoNameFromUrl = parts[3].split(/[?#]/)[0];
       elRepoName.value = sanitizeRepoName(repoNameFromUrl);
     });
+  }
+}
+
+function initMigrationSourceChooser(root: HTMLElement) {
+  const input = root.querySelector<HTMLInputElement>('[data-migration-source-search]')!;
+  const cards = Array.from(root.querySelectorAll<HTMLAnchorElement>('[data-migration-source]'));
+  const count = root.querySelector('[data-migration-source-count]')!;
+  const empty = root.querySelector<HTMLElement>('[data-migration-source-empty]')!;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let activeCard: HTMLAnchorElement | null = null;
+  let pendingFrame = 0;
+  let pointerX = 0;
+  let pointerY = 0;
+  const resetPointer = () => {
+    cancelAnimationFrame(pendingFrame);
+    pendingFrame = 0;
+    activeCard?.classList.remove('is-pointer-active');
+    activeCard = null;
+  };
+  const filter = () => {
+    resetPointer();
+    const query = input.value.trim().toLocaleLowerCase();
+    let visible = 0;
+    for (const card of cards) {
+      card.hidden = !card.getAttribute('data-migration-search')!.toLocaleLowerCase().includes(query);
+      if (!card.hidden) visible++;
+    }
+    count.textContent = String(visible);
+    empty.hidden = visible !== 0;
+  };
+  input.addEventListener('input', filter);
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      input.value = '';
+      filter();
+    }
+  });
+  root.querySelector('[data-migration-source-clear]')!.addEventListener('click', () => {
+    input.value = '';
+    filter();
+    input.focus();
+  });
+  root.addEventListener('pointermove', (event) => {
+    if (reducedMotion.matches || event.pointerType !== 'mouse' || document.hidden) return;
+    const card = (event.target as HTMLElement).closest<HTMLAnchorElement>('[data-migration-source]');
+    if (card !== activeCard) {
+      resetPointer();
+      activeCard = card;
+      activeCard?.classList.add('is-pointer-active');
+    }
+    if (!activeCard) return;
+    const bounds = activeCard.getBoundingClientRect();
+    pointerX = event.clientX - bounds.left;
+    pointerY = event.clientY - bounds.top;
+    if (!pendingFrame) pendingFrame = requestAnimationFrame(() => {
+      if (activeCard) {
+        activeCard.style.setProperty('--migration-x', `${pointerX}px`);
+        activeCard.style.setProperty('--migration-y', `${pointerY}px`);
+      }
+      pendingFrame = 0;
+    });
+  }, {passive: true});
+  root.addEventListener('pointerleave', resetPointer);
+  reducedMotion.addEventListener('change', () => {
+    resetPointer();
+    for (const card of cards) for (const animation of card.getAnimations()) animation.cancel();
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) resetPointer(); });
+  if (!reducedMotion.matches && !document.hidden) {
+    for (const [index, card] of cards.entries()) {
+      card.animate([{opacity: 0, transform: 'translateY(10px)'}, {opacity: 1, transform: 'translateY(0)'}], {
+        duration: 200, delay: Math.min(index * 22, 160), easing: 'ease-out', fill: 'backwards',
+      });
+    }
   }
 }
 

@@ -45,6 +45,7 @@ func Migrate(ctx *context.Context) {
 	setMigrationContextData(ctx, serviceType)
 
 	if serviceType == 0 {
+		ctx.Data["IsMigrationSourceChooser"] = true
 		ctx.Data["Org"] = ctx.FormString("org")
 		ctx.Data["Mirror"] = ctx.FormString("mirror")
 

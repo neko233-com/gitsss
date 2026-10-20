@@ -19,7 +19,7 @@
    <div class="workspace-breadcrumb">
     <a href="{{AppSubUrl}}/">GitSSS</a>
     {{if .Repository}}<span>/</span><a href="{{.Repository.Owner.HomeLink}}">{{.Repository.Owner.Name}}</a><span>/</span><strong>{{.Repository.Name}}</strong>
-    {{else if .Org}}<span>/</span><a href="{{.Org.OrganisationLink}}/dashboard">{{template "org/identity" .Org}}</a>{{end}}
+    {{else if and .Org (not .IsMigrationSourceChooser)}}<span>/</span><a href="{{.Org.OrganisationLink}}/dashboard">{{template "org/identity" .Org}}</a>{{end}}
    </div>
   {{else if not .IsSigned}}<a class="item" href="{{AppSubUrl}}/explore/repos">{{ctx.Locale.Tr "explore_title"}}</a>{{end}}
 

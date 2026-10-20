@@ -4452,5 +4452,14 @@
 	"repo.create.private_label": "Private · Authorized members only",
 	"repo.create.public_label": "Public · Site access policy applies",
 	"repo.create.no_description": "Add a short description to help your team understand this repository.",
-	"repo.create.template_branch": "Inherited from template"
+	"repo.create.template_branch": "Inherited from template",
+	"repo.migrate.choose_title": "Import a repository",
+	"repo.migrate.choose_help": "Choose a source, then configure the connection and content to import.",
+	"repo.migrate.search_sources": "Search Git, GitHub, GitLab and other sources",
+	"repo.migrate.sources_count": "available sources",
+	"repo.migrate.git_address": "Import from a Git URL",
+	"repo.migrate.git_address_help": "To import platform data such as issues or pull requests, choose the matching service below.",
+	"repo.migrate.no_sources": "No matching sources. Clear your search or import from a Git URL.",
+	"repo.migrate.clear_search": "Clear search",
+	"repo.migrate.choose_note": "Choose a source before configuring or starting an import. Available data depends on the source service and your access permissions."
 }

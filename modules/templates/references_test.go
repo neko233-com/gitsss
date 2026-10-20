@@ -15,6 +15,7 @@ import (
 
 	"github.com/neko233-com/gitsss/models/organization"
 	user_model "github.com/neko233-com/gitsss/models/user"
+	"github.com/neko233-com/gitsss/modules/structs"
 	"github.com/neko233-com/gitsss/modules/translation"
 
 	"github.com/stretchr/testify/require"
@@ -67,6 +68,77 @@ func TestCreateRepositoryOwnerIdentities(t *testing.T) {
 		require.Contains(t, output.String(), "Alice &lt;script&gt;")
 		require.NotContains(t, output.String(), "<script>")
 	}
+}
+
+func TestMigrationSourcesKeepNavigationContext(t *testing.T) {
+	source, err := os.ReadFile("../../templates/repo/migrate/migrate.tmpl")
+	require.NoError(t, err)
+	icon, err := os.ReadFile("../../templates/repo/migrate/service_icon.tmpl")
+	require.NoError(t, err)
+	tmpl := template.New("migration").Funcs(template.FuncMap{
+		"ctx":       func() any { return struct{ Locale translation.MockLocale }{} },
+		"svg":       func(...any) template.HTML { return "" },
+		"dict":      dict,
+		"AppSubUrl": func() string { return "/git" },
+	})
+	_, err = tmpl.Parse(string(source))
+	require.NoError(t, err)
+	_, err = tmpl.New("repo/migrate/service_icon").Parse(string(icon))
+	require.NoError(t, err)
+	for _, name := range []string{"base/head", "base/footer", "base/alert"} {
+		_, err = tmpl.New(name).Parse("")
+		require.NoError(t, err)
+	}
+	services := append([]structs.GitServiceType{structs.PlainGitService}, structs.SupportedFullGitService...)
+	var output bytes.Buffer
+	require.NoError(t, tmpl.ExecuteTemplate(&output, "migration", map[string]any{"Services": services, "Org": 7, "Mirror": true}))
+	require.Equal(t, len(services), strings.Count(output.String(), "data-migration-source data-migration-search="))
+	require.Equal(t, len(services), strings.Count(output.String(), "&org=7&mirror=true"))
+	require.Contains(t, output.String(), `/git/repo/migrate?service_type=1`)
+	require.Contains(t, output.String(), `migration-source-git`)
+}
+
+func TestMigrationSourceBreadcrumbSkipsLegacyOrgParameter(t *testing.T) {
+	source, err := os.ReadFile("../../templates/base/head_navbar.tmpl")
+	require.NoError(t, err)
+	start := strings.Index(string(source), `<div class="workspace-breadcrumb">`)
+	require.NotEqual(t, -1, start)
+	end := strings.Index(string(source)[start:], "</div>")
+	require.NotEqual(t, -1, end)
+	tmpl, err := template.New("breadcrumb").Funcs(template.FuncMap{"AppSubUrl": func() string { return "" }}).Parse(string(source)[start : start+end+len("</div>")])
+	require.NoError(t, err)
+	_, err = tmpl.New("org/identity").Parse("{{.Name}}")
+	require.NoError(t, err)
+	for _, org := range []any{"7", 7} {
+		var output bytes.Buffer
+		require.NoError(t, tmpl.ExecuteTemplate(&output, "breadcrumb", map[string]any{"Org": org, "IsMigrationSourceChooser": true}))
+		require.Contains(t, output.String(), "GitSSS")
+	}
+}
+
+func TestLanguageLegendHasOneRowPerLanguage(t *testing.T) {
+	source, err := os.ReadFile("../../templates/repo/home_sidebar_bottom.tmpl")
+	require.NoError(t, err)
+	tmpl, err := template.New("languages").Funcs(template.FuncMap{
+		"ctx":       func() any { return struct{ Locale translation.MockLocale }{} },
+		"svg":       func(...any) template.HTML { return "" },
+		"dict":      dict,
+		"Iif":       iif,
+		"DateUtils": func() any { return nil },
+	}).Parse(string(source))
+	require.NoError(t, err)
+	_, err = tmpl.New("repo/release/label").Parse("")
+	require.NoError(t, err)
+	var output bytes.Buffer
+	require.NoError(t, tmpl.Execute(&output, map[string]any{"LanguageStats": []map[string]any{
+		{"Language": "Go", "Percentage": 57, "Color": "#00add8"},
+		{"Language": "TypeScript <tag>", "Percentage": 43, "Color": "#3178c6"},
+	}}))
+	require.Contains(t, output.String(), `<ul class="language-stats-details">`)
+	require.Equal(t, 2, strings.Count(output.String(), `<li class="item">`))
+	require.Contains(t, output.String(), `<span class="language-stats-percentage">57%</span>`)
+	require.Contains(t, output.String(), "TypeScript &lt;tag&gt;")
+	require.NotContains(t, output.String(), "<tag>")
 }
 
 func TestOrganizationIdentityKeepsIdentifierAndNote(t *testing.T) {
