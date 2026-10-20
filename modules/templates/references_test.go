@@ -15,9 +15,59 @@ import (
 
 	"github.com/neko233-com/gitsss/models/organization"
 	user_model "github.com/neko233-com/gitsss/models/user"
+	"github.com/neko233-com/gitsss/modules/translation"
 
 	"github.com/stretchr/testify/require"
 )
+
+type repoCreateAvatarStub struct{}
+
+func (repoCreateAvatarStub) Avatar(any, ...any) template.HTML { return "" }
+
+func TestCreateRepositoryOwnerIdentities(t *testing.T) {
+	source, err := os.ReadFile("../../templates/repo/create.tmpl")
+	require.NoError(t, err)
+	identity, err := os.ReadFile("../../templates/repo/create_owner_identity.tmpl")
+	require.NoError(t, err)
+	tmpl := template.New("repo/create").Funcs(template.FuncMap{
+		"ctx": func() any {
+			return struct {
+				Locale      translation.MockLocale
+				AvatarUtils repoCreateAvatarStub
+			}{}
+		},
+		"svg":       func(...any) template.HTML { return "" },
+		"AppSubUrl": func() string { return "" },
+	})
+	_, err = tmpl.Parse(string(source))
+	require.NoError(t, err)
+	_, err = tmpl.New("repo/create_owner_identity").Parse(string(identity))
+	require.NoError(t, err)
+	for _, name := range []string{"base/head", "base/footer", "base/alert", "repo/create_helper"} {
+		_, err = tmpl.New(name).Parse("")
+		require.NoError(t, err)
+	}
+	personal := &user_model.User{ID: 1, Name: "alice", FullName: "Alice <script>"}
+	org := organization.OrgFromUser(&user_model.User{ID: 2, Name: "engineering", FullName: "研发团队", Type: user_model.UserTypeOrganization})
+	for _, owner := range []*user_model.User{personal, org.AsUser()} {
+		var output bytes.Buffer
+		err = tmpl.ExecuteTemplate(&output, "repo/create", map[string]any{
+			"ContextUser":         owner,
+			"SignedUser":          personal,
+			"Orgs":                []*organization.Organization{org},
+			"CanCreateRepoInDoer": true,
+			"DefaultObjectFormat": map[string]string{"Name": "sha1"},
+		})
+		require.NoError(t, err)
+		require.Contains(t, output.String(), "repo.create.owner_personal")
+		require.Contains(t, output.String(), "repo.create.owner_organization")
+		require.Contains(t, output.String(), `value="`+map[int64]string{1: "1", 2: "2"}[owner.ID]+`"`)
+		require.Contains(t, output.String(), ">engineering</span>")
+		require.Contains(t, output.String(), "研发团队")
+		require.Contains(t, output.String(), "Alice &lt;script&gt;")
+		require.NotContains(t, output.String(), "<script>")
+	}
+}
 
 func TestOrganizationIdentityKeepsIdentifierAndNote(t *testing.T) {
 	source, err := os.ReadFile("../../templates/org/identity.tmpl")

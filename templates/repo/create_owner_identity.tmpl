@@ -1,0 +1,6 @@
+<span class="repo-owner-identity">
+	{{ctx.AvatarUtils.Avatar . 24 "mini"}}
+	<span class="repo-owner-name">{{.Name}}</span>
+	<span class="repo-owner-kind">{{if .IsOrganization}}{{ctx.Locale.Tr "repo.create.owner_organization"}}{{else}}{{ctx.Locale.Tr "repo.create.owner_personal"}}{{end}}</span>
+	{{if and .FullName (ne .FullName .Name)}}<span class="repo-owner-remark" title="{{.FullName}}">{{.FullName}}</span>{{end}}
+</span>

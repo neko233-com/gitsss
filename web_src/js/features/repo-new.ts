@@ -13,8 +13,13 @@ function initRepoNewTemplateSearch(form: HTMLFormElement) {
   const inputRepoTemplate = form.querySelector<HTMLInputElement>('#repo_template')!;
   const elTemplateUnits = form.querySelector('#template_units')!;
   const elNonTemplate = form.querySelector('#non_template')!;
+  let selectedTemplateOnce = inputRepoTemplate.value !== '' && inputRepoTemplate.value !== '0';
   const checkTemplate = function () {
     const hasSelectedTemplate = inputRepoTemplate.value !== '' && inputRepoTemplate.value !== '0';
+    if (hasSelectedTemplate && !selectedTemplateOnce) {
+      form.querySelector<HTMLInputElement>('input[name="git_content"]')!.checked = true;
+      selectedTemplateOnce = true;
+    }
     toggleElem(elTemplateUnits, hasSelectedTemplate);
     toggleElem(elNonTemplate, !hasSelectedTemplate);
   };
@@ -66,14 +71,35 @@ export function initRepoNew() {
   const inputLicense = form.querySelector<HTMLInputElement>('input[name="license"]')!;
   const inputAutoInit = form.querySelector<HTMLInputElement>('input[name="auto_init"]')!;
   const updateUiAutoInit = () => {
-    inputAutoInit.checked = Boolean(inputGitIgnores.value || inputLicense.value);
+    if (inputGitIgnores.value || inputLicense.value) inputAutoInit.checked = true;
   };
   inputGitIgnores.addEventListener('change', updateUiAutoInit);
   inputLicense.addEventListener('change', updateUiAutoInit);
-  updateUiAutoInit();
+
+  const initialFiles = form.querySelector('[data-repo-initial-files]')!;
+  const modeInputs = form.querySelectorAll<HTMLInputElement>('input[name="gitsss_initial_mode"]');
+  const syncInitialMode = () => {
+    for (const input of modeInputs) input.checked = (input.value === 'initialize') === inputAutoInit.checked;
+    toggleElem(initialFiles, inputAutoInit.checked);
+  };
+  for (const input of modeInputs) {
+    input.addEventListener('change', () => {
+      inputAutoInit.checked = input.value === 'initialize';
+      syncInitialMode();
+      updatePreview();
+    });
+  }
+  inputGitIgnores.addEventListener('change', syncInitialMode);
+  inputLicense.addEventListener('change', syncInitialMode);
+  syncInitialMode();
 
   const inputRepoName = form.querySelector<HTMLInputElement>('input[name="repo_name"]')!;
   const inputPrivate = form.querySelector<HTMLInputElement>('input[name="private"]')!;
+  const visibilityHelp = form.querySelector<HTMLElement>('[data-repo-visibility-help]')!;
+  const updateVisibilityHelp = () => {
+    visibilityHelp.textContent = visibilityHelp.getAttribute(inputPrivate.checked ? 'data-private' : 'data-public')!;
+  };
+  inputPrivate.addEventListener('change', updateVisibilityHelp);
   const updateUiRepoName = () => {
     const helps = form.querySelectorAll(`.help[data-help-for-repo-name]`);
     hideElem(helps);
@@ -86,6 +112,7 @@ export function initRepoNew() {
     if (preferPrivate !== undefined && !inputPrivate.closest('.disabled, [disabled]')) {
       inputPrivate.checked = preferPrivate;
     }
+    updateVisibilityHelp();
   };
   inputRepoName.addEventListener('input', updateUiRepoName);
   inputRepoName.addEventListener('change', () => {
@@ -95,4 +122,36 @@ export function initRepoNew() {
   updateUiRepoName();
 
   initRepoNewTemplateSearch(form);
+
+  const ownerValue = form.querySelector<HTMLInputElement>('input[name="uid"]')!;
+  const templateValue = form.querySelector<HTMLInputElement>('#repo_template')!;
+  const description = form.querySelector<HTMLTextAreaElement>('#description')!;
+  const branch = form.querySelector<HTMLInputElement>('#default_branch')!;
+  const previewPath = form.querySelector('[data-repo-create-path]')!;
+  const previewOwner = form.querySelector('[data-repo-create-owner]')!;
+  const previewDescription = form.querySelector('[data-repo-create-description]')!;
+  const previewVisibility = form.querySelector('[data-repo-create-visibility]')!;
+  const previewBranch = form.querySelector('[data-repo-create-branch]')!;
+  const previewResult = form.querySelector('.repo-create-preview-result')!;
+  const i18n = form.querySelector('[data-repo-create-i18n]')!;
+  let previewOwnerId = '';
+  function updatePreview() {
+    const item = form.querySelector(`#repo_owner_dropdown .menu > .item[data-value="${CSS.escape(ownerValue.value)}"]`)!;
+    const identity = item.querySelector('.repo-owner-identity')!;
+    const owner = item.querySelector('.repo-owner-name')!.textContent;
+    if (previewOwnerId !== ownerValue.value) {
+      previewOwner.replaceChildren(identity.cloneNode(true));
+      previewOwnerId = ownerValue.value;
+    }
+    previewPath.textContent = `${owner} / ${sanitizeRepoName(inputRepoName.value) || i18n.getAttribute('data-placeholder')!}`;
+    previewDescription.textContent = description.value.trim() || i18n.getAttribute('data-no-description')!;
+    previewVisibility.textContent = i18n.getAttribute(inputPrivate.checked ? 'data-private' : 'data-public')!;
+    const hasTemplate = templateValue.value !== '' && templateValue.value !== '0';
+    previewBranch.textContent = hasTemplate ? i18n.getAttribute('data-template-branch')! : branch.value || branch.placeholder;
+    const result = hasTemplate ? 'template' : inputAutoInit.checked ? 'initialize' : 'empty';
+    previewResult.textContent = previewResult.getAttribute(`data-${result}`)!;
+  }
+  form.addEventListener('input', updatePreview);
+  form.addEventListener('change', updatePreview);
+  updatePreview();
 }

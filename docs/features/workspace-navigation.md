@@ -87,3 +87,34 @@ keys, explicit empty values, fallback languages and formatting remain compatible
 All languages stay available; this does not unload languages or affect accounts.
 Local all-locale benchmarks measure the retained dictionary and initialization
 allocations separately from process RSS. No runtime memory-limit tuning is applied.
+
+## Repository creation and owner identity
+
+The create-repository form displays the stable account name, an explicit
+**Organization / Personal** badge immediately after it, and a distinct display
+name when configured. The same identity appears in both the owner menu and the
+selected value. Search matches names and display names through the existing
+keyboard-accessible dropdown. Repository ownership still submits the original
+account ID; labels and remarks do not rename accounts, URLs or clone paths and
+do not grant permissions. Existing organization creation checks and limits apply.
+
+Repository creation uses a dedicated desktop workspace with a main editor and a
+sticky creation preview. Owner/name, description, visibility, default branch and
+empty/initialized/template results update locally as fields change, without API
+requests or draft storage. Native radio controls choose an empty repository for
+pushing an existing project, or a first commit with optional initial files. Template
+reuse and advanced controls are progressively disclosed; all settings stay on the
+same page. The private checkbox and server-owned form values remain authoritative.
+Changing modes retains entered values, and template selection takes precedence.
+The first template selection preselects Git content; users can adjust it. A template
+preview states that its default branch is inherited rather than guessing a branch.
+The original auto_init, uid and other submitted fields remain compatible.
+Chinese labels distinguish repository ownership, source templates,
+issue-label presets, README templates and offering a repository as a template.
+Visibility help follows the private checkbox: private access requires explicit
+authorization, while public repositories still follow site-wide sign-in policy.
+Initialization help explains the first commit versus an empty repository and
+automatic checking when a .gitignore or license is selected. These are presentation
+changes; API/form field names, default visibility, storage, Git format and
+permissions remain unchanged. Roll back by restoring the previous binary and
+matching embedded assets; no data migration is needed.

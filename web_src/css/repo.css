@@ -17,6 +17,323 @@
   min-width: 40% !important;
 }
 
+/* The creation workspace has no repository sidebar. */
+.page-content.repository.repo-create-page {
+  padding: 28px 24px 40px;
+}
+
+.repo-create-shell {
+  width: 100%;
+  max-width: 1420px;
+  margin: 0 auto;
+}
+
+.repo-create-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.repo-create-heading h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.repo-create-heading p,
+.repo-create-section-help,
+.repo-create-preview-note {
+  margin: 0;
+  color: var(--color-text-light-1);
+  line-height: 1.6;
+}
+
+.repo-create-import {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.repo-create-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  align-items: start;
+  gap: 24px;
+}
+
+.repo-create-workspace > .message {
+  grid-column: 1 / -1;
+}
+
+.repo-create-main {
+  min-width: 0;
+  border: 1px solid var(--color-secondary);
+  border-radius: 10px;
+  background: var(--color-box-body);
+}
+
+.repo-create-section {
+  padding: 24px;
+}
+
+.repo-create-section + .repo-create-section {
+  border-top: 1px solid var(--color-secondary);
+}
+
+.repo-create-section h2,
+.repo-create-preview h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 20px;
+  font-size: 17px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.repo-create-section h2 .svg {
+  color: var(--color-text-light-1);
+}
+
+.repo-create-name-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: 20px;
+}
+
+.repo-create-workspace .field > .ui.dropdown {
+  width: 100%;
+}
+
+.repo-create-workspace .field > .help {
+  display: block;
+  margin-top: 8px;
+  color: var(--color-text-light-1);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.repo-create-workspace .field > label {
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.repo-create-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0 20px;
+}
+
+.repo-create-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--color-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.repo-create-mode:has(input:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-alpha-10);
+}
+
+.repo-create-mode:focus-within {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.repo-create-mode input {
+  flex-shrink: 0;
+  margin-top: 3px;
+  accent-color: var(--color-primary);
+}
+
+.repo-create-mode strong,
+.repo-create-mode small {
+  display: block;
+}
+
+.repo-create-mode small {
+  margin-top: 6px;
+  color: var(--color-text-light-1);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.repo-create-initial-files {
+  padding: 16px;
+  margin-bottom: 20px;
+  border: 1px solid var(--color-secondary);
+  border-radius: 6px;
+}
+
+.repo-create-disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.repo-create-disclosure > summary::before {
+  content: "+";
+  color: var(--color-text-light-1);
+}
+
+.repo-create-disclosure[open] > summary::before {
+  content: "−";
+}
+
+.repo-create-disclosure > summary span {
+  color: var(--color-text-light-1);
+  font-size: 13px;
+  font-weight: var(--font-weight-normal);
+}
+
+.repo-create-disclosure-body {
+  padding-top: 20px;
+}
+
+.repo-create-preview {
+  position: sticky;
+  top: 80px;
+  padding: 24px;
+  border: 1px solid var(--color-secondary);
+  border-radius: 10px;
+  background: var(--color-box-header);
+}
+
+.repo-create-preview-path {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 18px;
+  font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.repo-create-preview-path .svg {
+  flex-shrink: 0;
+}
+
+.repo-create-preview-description {
+  margin: 12px 0 20px;
+  color: var(--color-text-light-1);
+  overflow-wrap: anywhere;
+}
+
+.repo-create-preview dl {
+  margin: 0;
+}
+
+.repo-create-preview dl > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--color-secondary);
+}
+
+.repo-create-preview dt {
+  color: var(--color-text-light-1);
+  font-size: 13px;
+}
+
+.repo-create-preview dd {
+  margin: 0;
+}
+
+.repo-create-preview-result {
+  padding: 16px 0;
+  color: var(--color-text-light-1);
+  line-height: 1.6;
+}
+
+.repo-create-workspace .repo-create-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0 0 12px;
+}
+
+.repo-create-preview-note {
+  font-size: 12px;
+}
+
+@media (max-width: 1100px) {
+  .repo-create-workspace {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+
+  .repo-create-name-fields {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .repo-create-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .repo-create-preview {
+    position: static;
+  }
+}
+
+.new-repo #repo_owner_dropdown .text {
+  width: 100%;
+}
+
+.new-repo .repo-owner-identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.new-repo .repo-owner-identity img {
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.new-repo .repo-owner-name,
+.new-repo .repo-owner-remark {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.new-repo .repo-owner-name {
+  font-weight: var(--font-weight-semibold);
+}
+
+.new-repo .repo-owner-kind {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border: 1px solid var(--color-secondary);
+  border-radius: 4px;
+  color: var(--color-text);
+  background: var(--color-box-header);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.new-repo .repo-owner-remark {
+  color: var(--color-text-light-1);
+}
+
 .game-asset-preview {
   display: flex;
   min-height: 260px;
