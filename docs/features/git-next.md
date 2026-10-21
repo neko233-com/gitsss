@@ -1,12 +1,22 @@
-# git-next child repository
+# git-next 与 Git-Terminal 子仓库
 
-Public source: https://github.com/neko233-com/git-next . The parent records only a gitlink. `.gitmodules` sets `ignore=all`, branch main and fetchRecurseSubmodules=false. Parent `.gitignore` also ignores the directory. Inspect deliberately with `git diff --ignore-submodules=none` and `git -C git-next status`. Child source, builds and dependencies are independent of GitSSS; production keeps its established Git/OpenSSH executable.
+GitSSS 父仓库仅记录两个同级 Git submodule：`git-next/` 是兼容 Git CLI、协议、仓库格式与 LFS 的原生客户端；`git-terminal/` 是独立 Rust + GPUI Fast 桌面终端。两者均使用 main、ignore=all、fetchRecurseSubmodules=false，源码、依赖和构建独立于 GitSSS 服务端。
 
-Current client is experimental; read the child's compatibility matrix. Its installer installs a separate git-next preview and keeps a git-named preview outside PATH. Full replacement remains blocked until complete compatibility is proven. Installation on one workstation does not authorize replacing Git on another machine. Source publication is separate from a consolidated binary release.
+- git-next: https://github.com/neko233-com/git-next
+- Git-Terminal: https://github.com/neko233-com/git-terminal
 
-Use explicit scoped child commits and normal pushes before updating the parent pointer. No workflows or GitHub Actions. Parent releases must not bundle ignored child caches or imply the child has passed full Git conformance. Roll back only the gitlink for a parent dependency rollback; it does not modify production Git repositories, LFS objects, users or SSH keys.
+2026-10-21：[git-next v0.3.0](https://github.com/neko233-com/git-next/releases/tag/v0.3.0) 已一次性发布，21 个附件的远端大小和 SHA-256 全部匹配。本机原版 Git 已卸载，新 CMD、PowerShell 和旧路径均使用 git-next；13 份 Git/SSH 配置逐字节不变，LF 默认生效，新版原生终端已打开。客户端固定范围 10/10 完成，验收包含 32 个常用 CLI 场景、15 项真实桌面检查、44 项更新器检查和 10 项 bootstrap 检查；[最终回执](https://github.com/neko233-com/git-next/blob/main/docs/benchmarks/native-workstation-release-20261021.json)声明每层边界。GitSSS 服务端同仓库同分支 100 push/秒仍未达标，本次没有发布服务端。
 
+Windows 组合 MSI 的目标是安装 git-next、内置 Git LFS 和 Git-Terminal，接管系统 Git 与旧 Git Bash 入口，不新增 Git GUI 菜单。Git-Terminal 使用真实 ConPTY，支持自有 Bash、PowerShell、CMD、标签页、中文输入、选择、滚屏、剪贴板与窗口调整。旧的 git-next/src/bin/git-terminal.rs 启动器是历史 Rust 预览，不是该桌面应用。
 
-## Repository terminal
+Git-Terminal 优先多标签：Ctrl+T 新建、Ctrl+W 关闭、Ctrl+Tab 切换，兼容 Ctrl+Shift+T/W。默认 16px 等宽字体，深色原生标题栏与统一 ANSI 配色；Bash 提供命令语法高亮、目录与分支提示。标签显示目录和分支，新标签继承当前目录；Shell 与语言选择收进 + 旁的菜单。
 
-The independent child also provides `git-terminal`: Windows native PowerShell with a Start menu entry and optional folder context menu; Unix uses the native shell. It preserves the existing Git command and Git Bash. Bash/POSIX emulation and complete Git client parity remain unaccepted; this terminal entry does not claim either.
+Windows 使用一体化原生标题/标签栏，带原生拖动、最小化、最大化、关闭和 Snap 命中区域。原创终端/分支图标以九种尺寸嵌入 EXE，用于窗口、任务栏、Alt+Tab、Explorer 与安装快捷方式；SVG、PNG、ICO 源文件和生成脚本保存在独立 Git-Terminal 子仓库。
+
+Git-next 的完整原生核心、旧 Rust 预览和正式安装资格分别记录。核心既有回归/性能证据不自动证明新终端和组合 MSI 已通过；最终完成情况以子仓库 docs/DELIVERY_STATUS.json 及真实本机验收记录为准。只在所有本地门槛通过后发布一次综合 tag/包。
+
+内置 LFS 不需要另一安装程序，新仓库模板接入标准 hooks；已有自定义 hooks、属性规则、仓库数据和登录状态保留。Unity/Tuanjie 文本资源采用 LF 与规范化内容比较，二进制 .asset 不强制作为文本；大型 FBX/纹理/音视频和 Unreal 二进制资源采用明确 LFS 策略。安装不重写游戏仓库历史。
+
+父仓库更新只做明确的子仓库指针、.gitmodules 和相关文档改动；不替换 GitSSS 生产服务器的既定 Git/OpenSSH，不移动 Git、LFS 或数据库存储。源码先作范围明确的提交和正常推送，再更新 gitlink。父依赖回滚只回退 gitlink；本机旧 Git 接管的恢复由客户端受保护的备份事务完成。
+
+检查独立工作区使用 git diff --ignore-submodules=none、git -C git-next status、git -C git-terminal status。禁止创建或运行 GitHub Actions；本地编译、格式/静态检查、批量回归、包校验与真实桌面/安装验收共同构成发布证据。

@@ -4,3 +4,9 @@
 	branch = main
 	ignore = all
 	fetchRecurseSubmodules = false
+[submodule "git-terminal"]
+	path = git-terminal
+	url = https://github.com/neko233-com/git-terminal.git
+	branch = main
+	ignore = all
+	fetchRecurseSubmodules = false
