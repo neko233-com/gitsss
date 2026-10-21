@@ -117,6 +117,7 @@ RUN userdel ubuntu && \
 
 COPY --from=build-env /tmp/local /
 COPY --from=build-env /go/src/github.com/neko233-com/gitsss/gitsss /app/gitsss/gitsss
+COPY --from=build-env /go/src/github.com/neko233-com/gitsss/gitsss-hook /app/gitsss/gitsss-hook
 COPY --from=build-env /go/src/github.com/neko233-com/gitsss/gitsss-runner /app/gitsss/internal/runner
 COPY --from=build-env /go/src/github.com/neko233-com/gitsss/actions/builtin /app/gitsss/builtin-actions
 COPY --from=build-env /usr/local/go /usr/local/go

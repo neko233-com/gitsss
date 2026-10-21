@@ -32,6 +32,7 @@ var (
 
 		SQLiteBusyTimeout int
 		SQLiteJournalMode string
+		SQLiteSynchronous string
 
 		LogSQL             bool
 		CharsetCollation   string
@@ -76,6 +77,7 @@ func loadDBSetting(rootCfg ConfigProvider) {
 		Database.SQLiteBusyTimeout = DefaultSQLiteBusyTimeout
 	}
 	Database.SQLiteJournalMode = sec.Key("SQLITE_JOURNAL_MODE").MustString("")
+	Database.SQLiteSynchronous = sec.Key("SQLITE_SYNCHRONOUS").MustString("")
 
 	Database.MaxIdleConns = sec.Key("MAX_IDLE_CONNS").MustInt(2)
 	if Database.Type.IsMySQL() {

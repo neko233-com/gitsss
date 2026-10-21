@@ -46,14 +46,24 @@ build_one() {
 	if [ -n "$extra" ]; then
 		build_tags="$build_tags $extra"
 	fi
+	local helper="gitsss-hook-${version}-${goos}-${goarch}"
+	if [ "$goos" = windows ]; then helper+='.exe'; fi
 	if [ "$dry" -eq 1 ]; then
 		printf 'GOOS=%s GOARCH=%s go build -tags %q -ldflags %q -o %s/%s\n' \
 			"$goos" "$goarch" "$build_tags" "$ldflags" "$out_dir" "$name"
+		if [ -z "$extra" ]; then
+			printf 'GOOS=%s GOARCH=%s go build -ldflags %q -o %s/%s ./cmd/gitsss-hook\n' \
+				"$goos" "$goarch" '-s -w' "$out_dir" "$helper"
+		fi
 		return 0
 	fi
 	echo "build $name"
 	GOOS=$goos GOARCH=$goarch CGO_ENABLED=0 go build -trimpath -buildvcs=false \
 		-tags "$build_tags" -ldflags "$ldflags" -o "$out_dir/$name" .
+	if [ -z "$extra" ]; then
+		GOOS=$goos GOARCH=$goarch CGO_ENABLED=0 go build -trimpath -buildvcs=false \
+			-ldflags '-s -w' -o "$out_dir/$helper" ./cmd/gitsss-hook
+	fi
 }
 
 if [ "$dry" -eq 0 ]; then
@@ -97,7 +107,27 @@ fi
 echo "compress xz -$xz_level with $jobs jobs"
 compress_one() {
 	local file=$1
-	xz -T1 -k "-$xz_level" -f "$file"
+	if command -v xz >/dev/null 2>&1; then
+		xz -T1 -k "-$xz_level" -f "$file"
+	else
+		local python=${PYTHON:-python3}
+		"$python" - "$file" "$xz_level" <<'PY'
+import lzma
+import os
+import shutil
+import sys
+
+path = sys.argv[1]
+temporary = path + ".xz.tmp"
+try:
+    with open(path, "rb") as source, lzma.open(temporary, "wb", preset=int(sys.argv[2])) as target:
+        shutil.copyfileobj(source, target)
+    os.replace(temporary, path + ".xz")
+finally:
+    if os.path.exists(temporary):
+        os.unlink(temporary)
+PY
+	fi
 	sha256sum "$file" | awk -v name="$(basename "$file")" '{print $1"  "name}' > "$file.sha256"
 	sha256sum "$file.xz" | awk -v name="$(basename "$file.xz")" '{print $1"  "name}' > "$file.xz.sha256"
 }

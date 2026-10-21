@@ -18,6 +18,10 @@ func init() {
 }
 
 func makeSQLiteConnStrMattnCGO(opts SQLiteConnStrOptions) (string, string, error) {
+	synchronous, err := sqliteSynchronous(opts.Synchronous)
+	if err != nil {
+		return "", "", err
+	}
 	var params []string
 	params = append(params, "cache=shared")
 	params = append(params, "mode=rwc")
@@ -25,6 +29,9 @@ func makeSQLiteConnStrMattnCGO(opts SQLiteConnStrOptions) (string, string, error
 	params = append(params, "_txlock=immediate")
 	if opts.JournalMode != "" {
 		params = append(params, "_journal_mode="+opts.JournalMode)
+	}
+	if synchronous != "" {
+		params = append(params, "_synchronous="+synchronous)
 	}
 	connStr := fmt.Sprintf("file:%s?%s", opts.FilePath, strings.Join(params, "&"))
 	return sqlDriverSQLite3, connStr, nil

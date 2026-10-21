@@ -29,6 +29,7 @@ type ConnOptions struct {
 	SQLitePath        string
 	SQLiteBusyTimeout int
 	SQLiteJournalMode string
+	SQLiteSynchronous string
 }
 
 type SQLiteConnStrOptions struct {
@@ -37,6 +38,7 @@ type SQLiteConnStrOptions struct {
 	// if timeout is reached, the error is something like "database is locked (SQLITE_BUSY)"
 	BusyTimeout int
 	JournalMode string
+	Synchronous string
 }
 
 func GlobalConnOptions() ConnOptions {
@@ -52,6 +54,7 @@ func GlobalConnOptions() ConnOptions {
 		SQLitePath:        setting.Database.Path,
 		SQLiteBusyTimeout: setting.Database.SQLiteBusyTimeout,
 		SQLiteJournalMode: setting.Database.SQLiteJournalMode,
+		SQLiteSynchronous: setting.Database.SQLiteSynchronous,
 	}
 }
 
@@ -113,10 +116,23 @@ func ConnStr(opts ConnOptions) (string, string, error) {
 		return makeSQLiteConnStr(SQLiteConnStrOptions{
 			FilePath:    opts.SQLitePath,
 			JournalMode: opts.SQLiteJournalMode,
+			Synchronous: opts.SQLiteSynchronous,
 			BusyTimeout: opts.SQLiteBusyTimeout,
 		})
 	}
 	return "", "", fmt.Errorf("unknown database type: %s", opts.Type)
+}
+
+func sqliteSynchronous(value string) (string, error) {
+	value = strings.ToUpper(strings.TrimSpace(value))
+	switch value {
+	case "":
+		return "", nil
+	case "FULL", "NORMAL", "EXTRA", "OFF":
+		return value, nil
+	default:
+		return "", errors.New("invalid SQLITE_SYNCHRONOUS: expected FULL, NORMAL, EXTRA or OFF")
+	}
 }
 
 // parsePgSQLHostPort parses given input in various forms defined in

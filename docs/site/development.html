@@ -204,6 +204,16 @@ GITEA_TEST_E2E_FLAGS='path/to/test.spec.ts' task test:e2e</code></pre>
         setTimeout(() => btn.textContent = 'Copy', 1500);
       }
       </script>
+      <h2 id="same-branch-push">同分支 push 接收链路</h2>
+      <p>目标是同一仓库同一分支每秒至少 100 次独立成功的 Git 事务，拒绝、重试和一次 push 中的多个提交不计入成功次数。v1.16.0 最终 Linux amd64 CGO 包在 WAL/NORMAL 配置下，以 16 个连续在途请求完成 512 次独立成功更新，零重试，119.76 次/秒。包含本机 Git/LFS/PR、权限、hooks、数据库与重启完整性的整批验收耗时 50.907 秒。Windows CLI 与 FULL 同步的结果分别记录。</p>
+      <p>Trace2 显示主要开销在每次 hook 启动完整应用。已提供随服务端构建的轻量 gitsss-hook，通过原内部 API 继续执行权限与分支处理；只有匹配受信模板且未设置自定义 hooksPath 的仓库才采用逐次命令覆盖，自定义 hook 保留原顺序、输入、参数和退出结果。</p>
+      <p>兼容性：不重写 bare 仓库、原 hooks、对象、refs、LFS 或数据库 schema；代理脚本仅位于 layout v1 的 gitsss/extensions/receive-hooks/。回退服务端即可恢复原链路，fsync 与原生 refs 事务不变。已在本机完成主程序与辅助程序的七平台交叉编译，性能结论限定为上述 Linux CGO 配置。</p>
+      <p>同分支依赖仅在内存中登记：完成前置校验后最多等待已知在途前驱 250 ms，提交、失败或取消均唤醒；随后仍由 Git 原子比较旧 OID。其他 refs 不等待，不形成全仓库互斥或新的持久化存储。未知、签名或过大协议头保留原字节交给 Git。</p>
+      <p>并发基准默认维持固定在途请求数，逐次补入新的独立事务；pack 的滑动祖先窗口最多为 worker 数。报告列出调度方式、上传字节、成功更新和竞争拒绝。协议吞吐测量完成后，CLI 与 Git/LFS/PR 两组功能验证并行执行。</p>
+      <p>后置回调回写分支元数据前核对当前 Git ref，并以数据库原 commit_id 作条件更新，避免旧回调覆盖新快照。单分支不在读取 Git 时持有 SQLite 读事务；活动和通知继续按原队列处理。模型初始化回调注册条件已修复，令牌缓存命中后仍逐次检查数据库中的撤销和 scope；认证只更新最近使用时间，同一秒内避免重复写入。</p>
+      <p>主程序同目录安装匹配版本的 gitsss-hook（Windows 为 gitsss-hook.exe）。Docker 镜像与 backend 构建包含辅助程序，原生发布同时生成主程序、辅助程序和校验值。Unix 内置 hook 可直接执行；自定义 hook 使用原分发器并恢复嵌套 Git 的 hooksPath。SQLITE_SYNCHRONOUS 留空保留原驱动默认，可显式设置一致级别；日志模式不自动修改，NORMAL 与 FULL 的性能分别记录。诊断原始数据只保存在本机。</p>
+      <p>详细迁移、容量、回滚和验收范围见仓库 docs/features/push-throughput.md；协议依据为 <a href="https://git-scm.com/docs/githooks">Git hooks</a>，对照架构为 <a href="https://cursor.com/blog/git-at-any-scale">Cursor Git at any scale</a>。</p>
+      <p>原生发布在缺少 xz 时使用 Python 3 的 lzma（可用 PYTHON 指定解释器）；发布前逐个解压回读，与原始产物 SHA-256 比对。</p>
     </main>
   </div>
 </body>

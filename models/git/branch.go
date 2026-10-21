@@ -257,7 +257,20 @@ func DeleteBranches(ctx context.Context, repoID, doerID int64, branchIDs []int64
 
 // UpdateBranch updates the branch information in the database.
 func UpdateBranch(ctx context.Context, repoID, pusherID int64, branchName string, commit *git.Commit) (int64, error) {
-	return db.GetEngine(ctx).Where("repo_id=? AND name=?", repoID, branchName).
+	return updateBranch(ctx, repoID, pusherID, branchName, commit, optional.None[string]())
+}
+
+// UpdateBranchIfUnchanged prevents a delayed hook from overwriting a newer snapshot.
+func UpdateBranchIfUnchanged(ctx context.Context, repoID, pusherID int64, branchName string, commit *git.Commit, previous string) (int64, error) {
+	return updateBranch(ctx, repoID, pusherID, branchName, commit, optional.Some(previous))
+}
+
+func updateBranch(ctx context.Context, repoID, pusherID int64, branchName string, commit *git.Commit, previous optional.Option[string]) (int64, error) {
+	query := db.GetEngine(ctx).Where("repo_id=? AND name=?", repoID, branchName)
+	if previous.Has() {
+		query = query.And("commit_id=?", previous.Value())
+	}
+	return query.
 		Cols("commit_id, commit_message, pusher_id, commit_time, is_deleted, updated_unix").
 		Update(&Branch{
 			CommitID:      commit.ID.String(),

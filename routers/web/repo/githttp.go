@@ -7,7 +7,9 @@ package repo
 import (
 	"bytes"
 	"compress/gzip"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path"
@@ -27,6 +29,8 @@ import (
 	"github.com/neko233-com/gitsss/modules/git/gitcmd"
 	"github.com/neko233-com/gitsss/modules/gitrepo"
 	"github.com/neko233-com/gitsss/modules/log"
+	"github.com/neko233-com/gitsss/modules/receiveflow"
+	"github.com/neko233-com/gitsss/modules/repolayout"
 	repo_module "github.com/neko233-com/gitsss/modules/repository"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/structs"
@@ -409,6 +413,23 @@ func serviceRPC(ctx *context.Context, service string) {
 
 	// set this for allow pre-receive and post-receive execute
 	h.environ = append(h.environ, "SSH_ORIGINAL_COMMAND="+service)
+	var input io.Reader = reqBody
+	if service == ServiceTypeReceivePack {
+		relayEnvironment, relayErr := gitrepo.PrepareReceiveHookRelay(ctx, h.getStorageRepo(), cmd)
+		if errors.Is(relayErr, repolayout.ErrFutureLayout) {
+			ctx.ServerError("ReceiveHookLayout", relayErr)
+			return
+		}
+		if relayErr != nil {
+			log.Warn("Receive hook relay unavailable; using original delegates: %v", relayErr)
+		}
+		h.environ = append(h.environ, relayEnvironment...)
+		if len(relayEnvironment) > 0 {
+			var completed func()
+			input, completed = receiveflow.Register(h.getStorageRepo().RelativePath(), input)
+			defer completed()
+		}
+	}
 
 	if protocol := ctx.Req.Header.Get("Git-Protocol"); protocol != "" && safeGitProtocolHeader.MatchString(protocol) {
 		h.environ = append(h.environ, "GIT_PROTOCOL="+protocol)
@@ -416,7 +437,7 @@ func serviceRPC(ctx *context.Context, service string) {
 
 	if err := gitrepo.RunCmdWithStderr(ctx, h.getStorageRepo(), cmd.AddArguments(".").
 		WithEnv(append(os.Environ(), h.environ...)).
-		WithStdinCopy(reqBody).
+		WithStdinCopy(input).
 		WithStdoutCopy(ctx.Resp),
 	); err != nil {
 		if !gitcmd.IsErrorCanceledOrKilled(err) {

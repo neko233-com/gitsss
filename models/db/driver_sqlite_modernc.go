@@ -26,6 +26,10 @@ func init() {
 }
 
 func makeSQLiteConnStrModerncCCGO(opts SQLiteConnStrOptions) (string, string, error) {
+	synchronous, err := sqliteSynchronous(opts.Synchronous)
+	if err != nil {
+		return "", "", err
+	}
 	var params []string
 	// TODO: there is a changed behavior from mattn driver:
 	// * mattn driver can wait for pretty long time for concurrent accesses (not limited by the busy timeout)
@@ -35,6 +39,9 @@ func makeSQLiteConnStrModerncCCGO(opts SQLiteConnStrOptions) (string, string, er
 	params = append(params, "_txlock=immediate")
 	if opts.JournalMode != "" {
 		params = append(params, fmt.Sprintf("_pragma=journal_mode(%s)", opts.JournalMode))
+	}
+	if synchronous != "" {
+		params = append(params, fmt.Sprintf("_pragma=synchronous(%s)", synchronous))
 	}
 	connStr := fmt.Sprintf("file:%s?%s", opts.FilePath, strings.Join(params, "&"))
 	return sqlDriverSQLite3, connStr, nil

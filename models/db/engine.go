@@ -111,7 +111,7 @@ var (
 // RegisterModel registers model, if initFuncs provided, it will be invoked after data model sync
 func RegisterModel(bean any, initFunc ...func() error) {
 	registeredModels = append(registeredModels, bean)
-	if len(registeredInitFuncs) > 0 && initFunc[0] != nil {
+	if len(initFunc) > 0 && initFunc[0] != nil {
 		registeredInitFuncs = append(registeredInitFuncs, initFunc[0])
 	}
 }

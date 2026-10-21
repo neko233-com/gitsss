@@ -54,10 +54,12 @@ ifeq ($(IS_WINDOWS),yes)
 	GOFLAGS := -v -buildmode=exe
 	EXECUTABLE ?= gitsss.exe
 	EXECUTABLE_E2E ?= gitsss-e2e.exe
+	HOOK_EXECUTABLE ?= gitsss-hook.exe
 else
 	GOFLAGS := -v
 	EXECUTABLE ?= gitsss
 	EXECUTABLE_E2E ?= gitsss-e2e
+	HOOK_EXECUTABLE ?= gitsss-hook
 endif
 
 ifeq ($(shell sed --version 2>/dev/null | grep -q GNU && echo gnu),gnu)
@@ -639,7 +641,7 @@ build: frontend backend ## build everything
 frontend: $(FRONTEND_DEST) ## build frontend files
 
 .PHONY: backend
-backend: generate-backend $(EXECUTABLE) ## build backend files
+backend: generate-backend $(EXECUTABLE) $(HOOK_EXECUTABLE) ## build backend files
 
 # We generate the backend before the frontend in case we in future we want to generate things in the frontend from generated files in backend
 .PHONY: generate
@@ -664,7 +666,10 @@ generate-bindata: ## embed templates, options, public assets, and migration sche
 	@CC= GOOS= GOARCH= CGO_ENABLED=0 $(GO) generate -tags 'bindata $(TAGS)' $(BINDATA_GENERATE_PKGS)
 
 .PHONY: backend-quick
-backend-quick: $(EXECUTABLE) ## build the backend without walking go generate
+backend-quick: $(EXECUTABLE) $(HOOK_EXECUTABLE) ## build the backend without walking go generate
+
+$(HOOK_EXECUTABLE): $(wildcard modules/hookrelay/*.go cmd/gitsss-hook/*.go) go.mod go.sum
+	CGO_ENABLED=0 $(GO) build -trimpath -buildvcs=false -ldflags '-s -w' -o $@ ./cmd/gitsss-hook
 
 .PHONY: security-check
 security-check:

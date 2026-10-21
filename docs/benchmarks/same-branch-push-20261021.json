@@ -1,0 +1,187 @@
+{
+  "status": "pass",
+  "same_repository": true,
+  "same_branch": "refs/heads/main",
+  "target_pushes_per_second": 100,
+  "server_sha256": "8869dec9b1869ad1002d5bd4fa86abd3205d8d5c180fca2bbdf978838c329792",
+  "personal_account_accessed": false,
+  "git_objects_relocated": false,
+  "credentials_logged": false,
+  "storage": "Docker persistent volume; no repository tmpfs",
+  "repository_fsync_policy": "unchanged Git defaults",
+  "authentication": "personal-access-token",
+  "protocol_client_location": "container-loopback",
+  "sqlite_journal_mode": "WAL",
+  "sqlite_synchronous_policy": "NORMAL",
+  "results": [
+    {
+      "case": "custom-hook-order-input-arguments-rejection-and-credential-isolation",
+      "status": "pass"
+    },
+    {
+      "case": "explicit-hooks-path-and-custom-dispatcher-fallback-without-persistent-rewrites",
+      "status": "pass"
+    },
+    {
+      "case": "protected-branch-rejection-preserves-native-reference",
+      "status": "pass"
+    },
+    {
+      "case": "read-only-and-revoked-authentication-rejected",
+      "status": "pass"
+    },
+    {
+      "case": "sequential-smart-http",
+      "successful_pushes": 512,
+      "attempts": 512,
+      "rejected_attempts": 0,
+      "elapsed_seconds": 10.864354,
+      "successful_pushes_per_second": 47.127,
+      "p50_ms": 20.911,
+      "p95_ms": 23.806,
+      "p99_ms": 25.34,
+      "uploaded_bytes": 205032
+    },
+    {
+      "case": "concurrent-smart-http-linear-chain",
+      "workers": 16,
+      "maximum_commits_in_one_transport_pack": 16,
+      "rejection_reasons": {},
+      "load_scheduling": "continuous",
+      "successful_pushes": 512,
+      "attempts": 512,
+      "rejected_attempts": 0,
+      "elapsed_seconds": 4.275226,
+      "successful_pushes_per_second": 119.76,
+      "p50_ms": 129.551,
+      "p95_ms": 142.957,
+      "p99_ms": 172.773,
+      "uploaded_bytes": 2086011
+    },
+    {
+      "case": "concurrent-native-reference-and-actual-database-row-match",
+      "status": "pass"
+    },
+    {
+      "case": "same-old-head-single-winner-and-private-authentication",
+      "status": "pass"
+    },
+    {
+      "case": "ordinary-windows-git-cli",
+      "parallel_functional_suite": true,
+      "client_sha256": "3bc2edf09efc3c2a67758725a8e7dc009f25b62ab6f9daf5512774be69a8c8be",
+      "authoring_and_push_elapsed_seconds": 10.564225,
+      "successful_pushes": 12,
+      "attempts": 12,
+      "rejected_attempts": 0,
+      "elapsed_seconds": 6.168555,
+      "successful_pushes_per_second": 1.945,
+      "p50_ms": 517.169,
+      "p95_ms": 526.799,
+      "p99_ms": 526.799,
+      "uploaded_bytes": 0
+    },
+    {
+      "case": "installed-git-lfs-pr-merge-clone-tags-notes-and-permissions",
+      "status": "pass"
+    },
+    {
+      "case": "restart-object-integrity-branch-database-and-ssh-isolation",
+      "status": "pass"
+    }
+  ],
+  "server_build": {
+    "-tags": "bindata,sqlite,sqlite_unlock_notify,timetzdata,netgo,osusergo",
+    "CGO_ENABLED": "1",
+    "GOARCH": "amd64",
+    "GOOS": "linux"
+  },
+  "sqlite_driver": "mattn-cgo",
+  "sqlite_synchronous_configured_or_driver_default": "NORMAL",
+  "image_id": "sha256:5cf287a799e6b94384bad13d16b14904c531f51ba65792237e122ce42b392f61",
+  "hook_relay_sha256": "06598654464da10addf9e9890e7ec30c4042e906595baeb2e6ad5cfd5a9e6e7c",
+  "server_git_version": "git version 2.39.5",
+  "deep_compatibility": {
+    "status": "pass",
+    "url": "http://127.0.0.1:59317",
+    "repository": "gitsss-verification/git-probe-20261021140500",
+    "checks": [
+      {
+        "check": "owner team label preserves identity and authority",
+        "status": "pass"
+      },
+      {
+        "check": "owner identity rename rejected",
+        "status": "pass"
+      },
+      {
+        "check": "HTTP create commit and push with LFS",
+        "status": "pass"
+      },
+      {
+        "check": "HTTP clone checkout and Git/LFS integrity",
+        "status": "pass"
+      },
+      {
+        "check": "annotated tags and Git notes",
+        "status": "pass"
+      },
+      {
+        "check": "branch push PR merge pull and prune",
+        "status": "pass"
+      },
+      {
+        "check": "shallow partial and mirror clones",
+        "status": "pass"
+      },
+      {
+        "check": "LFS lock list and unlock",
+        "status": "pass"
+      },
+      {
+        "check": "repository ZIP archive",
+        "status": "pass"
+      },
+      {
+        "check": "read group clone allowed push denied and anonymous access denied",
+        "status": "pass"
+      },
+      {
+        "check": "SSH",
+        "status": "not-run",
+        "reason": "supply authenticated server host keys via --ssh-known-hosts"
+      }
+    ]
+  },
+  "target_met": true,
+  "cleanup": [
+    {
+      "resource": "container",
+      "status": "removed"
+    },
+    {
+      "resource": "volume",
+      "status": "removed"
+    }
+  ],
+  "batch_elapsed_seconds": 50.907,
+  "release_version": "1.16.0",
+  "raw_report_sha256": "bf308b22a938c8a5bcb77a677d8012ac085d600bf5b60e5dd17d5a67ab084c99",
+  "acceptance_boundary": "Packaged Linux amd64 CGO server, WAL/NORMAL, loopback smart HTTP, installed Windows git-next 0.3.0 client. macOS and other architectures are cross-compiled; SSH is disabled in the isolated fixture.",
+  "local_regression": {
+    "status": "pass",
+    "packages": 11,
+    "home_userprofile_ssh_isolated": true,
+    "go_lint_issues": 0,
+    "race_packages": [
+      "modules/hookrelay",
+      "modules/receiveflow"
+    ],
+    "sqlite_drivers": [
+      "mattn-cgo",
+      "modernc-pure-go"
+    ],
+    "frontend_manifest_entries": 279,
+    "frontend_source_sha256": "80eafe2d9e2168e129d2ab4126591068abd5653ed08b4b7cab1d850b168dcf2a"
+  }
+}

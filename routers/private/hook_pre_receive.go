@@ -21,6 +21,7 @@ import (
 	"github.com/neko233-com/gitsss/modules/gitrepo"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/private"
+	"github.com/neko233-com/gitsss/modules/receiveflow"
 	"github.com/neko233-com/gitsss/modules/util"
 	"github.com/neko233-com/gitsss/modules/web"
 	"github.com/neko233-com/gitsss/services/agit"
@@ -141,6 +142,11 @@ func HookPreReceive(ctx *gitea_context.PrivateContext) {
 		}
 	}
 
+	refs := make([]string, len(opts.RefFullNames))
+	for index, ref := range opts.RefFullNames {
+		refs[index] = ref.String()
+	}
+	receiveflow.Wait(ctx, ctx.Repo.Repository.RelativePath(), opts.OldCommitIDs, opts.NewCommitIDs, refs)
 	ctx.PlainText(http.StatusOK, "ok")
 }
 

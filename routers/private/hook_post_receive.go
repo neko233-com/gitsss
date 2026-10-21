@@ -20,6 +20,7 @@ import (
 	"github.com/neko233-com/gitsss/modules/gitrepo"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/private"
+	"github.com/neko233-com/gitsss/modules/receiveflow"
 	repo_module "github.com/neko233-com/gitsss/modules/repository"
 	"github.com/neko233-com/gitsss/modules/setting"
 	"github.com/neko233-com/gitsss/modules/timeutil"
@@ -90,7 +91,7 @@ func hookPostReceiveSyncDatabaseBranches(ctx *gitea_context.PrivateContext, opts
 		commitIDs = append(commitIDs, update.NewCommitID)
 	}
 
-	if err = repo_service.SyncBranchesToDB(ctx, repo.ID, opts.UserID, branchNames, commitIDs, gitRepo.GetCommit); err != nil {
+	if err = repo_service.SyncBranchesToDBAtCurrentRef(ctx, repo.ID, opts.UserID, branchNames, commitIDs, gitRepo.GetCommit, gitRepo.GetBranchCommitID); err != nil {
 		ctx.PrivateError(http.StatusInternalServerError, err, "failed to sync branch to DB")
 		return false
 	}
@@ -112,6 +113,11 @@ func HookPostReceive(ctx *gitea_context.PrivateContext) {
 		return
 	}
 	// now, repo can't be nil
+	refs := make([]string, len(opts.RefFullNames))
+	for index, ref := range opts.RefFullNames {
+		refs[index] = ref.String()
+	}
+	receiveflow.Committed(repo.RelativePath(), opts.NewCommitIDs, refs)
 
 	// first, collect updates and sync branches
 	updates := hookPostReceiveCollectPushUpdates(opts, repo)

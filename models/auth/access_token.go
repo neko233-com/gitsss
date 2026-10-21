@@ -170,6 +170,17 @@ func UpdateAccessToken(ctx context.Context, t *AccessToken) error {
 	return err
 }
 
+// TouchAccessToken records use without overwriting concurrently changed credentials or scopes.
+func TouchAccessToken(ctx context.Context, t *AccessToken) error {
+	now := timeutil.TimeStampNow()
+	if t.UpdatedUnix >= now {
+		return nil
+	}
+	_, err := db.GetEngine(ctx).ID(t.ID).Where("updated_unix < ?", now).
+		Cols("updated_unix").NoAutoTime().Update(&AccessToken{UpdatedUnix: now})
+	return err
+}
+
 // DeleteAccessTokenByID deletes access token by given ID.
 func DeleteAccessTokenByID(ctx context.Context, id, userID int64) error {
 	cnt, err := db.GetEngine(ctx).ID(id).Delete(&AccessToken{UID: userID})

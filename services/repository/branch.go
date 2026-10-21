@@ -288,6 +288,17 @@ func checkBranchName(ctx context.Context, repo *repo_model.Repository, name stri
 // If so, it will sync all branches of the repository.
 // Otherwise, it will sync the branches that need to be updated.
 func SyncBranchesToDB(ctx context.Context, repoID, pusherID int64, branchNames, commitIDs []string, getCommit func(commitID string) (*git.Commit, error)) error {
+	return syncBranchesToDB(ctx, repoID, pusherID, branchNames, commitIDs, getCommit, nil)
+}
+
+// SyncBranchesToDBAtCurrentRef ignores superseded post-receive callbacks.
+func SyncBranchesToDBAtCurrentRef(ctx context.Context, repoID, pusherID int64, branchNames, commitIDs []string, getCommit func(string) (*git.Commit, error), getCurrentID func(string) (string, error)) error {
+	return syncBranchesToDB(ctx, repoID, pusherID, branchNames, commitIDs, getCommit, getCurrentID)
+}
+
+var errBranchSnapshotChanged = errors.New("branch snapshot changed during synchronization")
+
+func syncBranchesToDB(ctx context.Context, repoID, pusherID int64, branchNames, commitIDs []string, getCommit func(string) (*git.Commit, error), getCurrentID func(string) (string, error)) error {
 	// Some designs that make the code look strange but are made for performance optimization purposes:
 	// 1. Sync branches in a batch to reduce the number of DB queries.
 	// 2. Lazy load commit information since it may be not necessary.
@@ -303,7 +314,20 @@ func SyncBranchesToDB(ctx context.Context, repoID, pusherID int64, branchNames, 
 		return errors.New("branchNames and commitIDs length not match")
 	}
 
-	return db.WithTx(ctx, func(ctx context.Context) error {
+	for range 8 {
+		err := syncBranchesTransaction(ctx, repoID, pusherID, branchNames, commitIDs, getCommit, getCurrentID)
+		if !errors.Is(err, errBranchSnapshotChanged) {
+			return err
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+	}
+	return errBranchSnapshotChanged
+}
+
+func syncBranchesTransaction(ctx context.Context, repoID, pusherID int64, branchNames, commitIDs []string, getCommit func(string) (*git.Commit, error), getCurrentID func(string) (string, error)) error {
+	synchronize := func(ctx context.Context) error {
 		branches, err := git_model.GetBranches(ctx, repoID, branchNames, true)
 		if err != nil {
 			return fmt.Errorf("git_model.GetBranches: %v", err)
@@ -336,6 +360,15 @@ func SyncBranchesToDB(ctx context.Context, repoID, pusherID int64, branchNames, 
 
 		for i, branchName := range branchNames {
 			commitID := commitIDs[i]
+			if getCurrentID != nil {
+				currentID, err := getCurrentID(branchName)
+				if git.IsErrNotExist(err) || err == nil && currentID != commitID {
+					continue
+				}
+				if err != nil {
+					return fmt.Errorf("read current branch %s: %w", branchName, err)
+				}
+			}
 			branch, exist := branchMap[branchName]
 			if exist && branch.CommitID == commitID && !branch.IsDeleted {
 				continue
@@ -347,8 +380,17 @@ func SyncBranchesToDB(ctx context.Context, repoID, pusherID int64, branchNames, 
 			}
 
 			if exist {
-				if _, err := git_model.UpdateBranch(ctx, repoID, pusherID, branchName, commit); err != nil {
+				var affected int64
+				if getCurrentID == nil {
+					affected, err = git_model.UpdateBranch(ctx, repoID, pusherID, branchName, commit)
+				} else {
+					affected, err = git_model.UpdateBranchIfUnchanged(ctx, repoID, pusherID, branchName, commit, branch.CommitID)
+				}
+				if err != nil {
 					return fmt.Errorf("git_model.UpdateBranch %d:%s failed: %v", repoID, branchName, err)
+				}
+				if getCurrentID != nil && affected == 0 {
+					return errBranchSnapshotChanged
 				}
 				continue
 			}
@@ -368,7 +410,13 @@ func SyncBranchesToDB(ctx context.Context, repoID, pusherID int64, branchNames, 
 			return db.Insert(ctx, newBranches)
 		}
 		return nil
-	})
+	}
+	// One ref already uses a conditional write; holding a SQLite read transaction
+	// across Git I/O would unnecessarily block other authenticated pushes.
+	if getCurrentID != nil && len(branchNames) == 1 {
+		return synchronize(ctx)
+	}
+	return db.WithTx(ctx, synchronize)
 }
 
 // CreateNewBranchFromCommit creates a new repository branch

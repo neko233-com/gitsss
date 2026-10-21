@@ -17,7 +17,6 @@ import (
 	"github.com/neko233-com/gitsss/modules/auth/httpauth"
 	"github.com/neko233-com/gitsss/modules/log"
 	"github.com/neko233-com/gitsss/modules/setting"
-	"github.com/neko233-com/gitsss/modules/timeutil"
 	"github.com/neko233-com/gitsss/modules/util"
 	"github.com/neko233-com/gitsss/services/actions"
 	"github.com/neko233-com/gitsss/services/oauth2_provider"
@@ -138,9 +137,8 @@ func (o *OAuth2) userFromToken(ctx context.Context, tokenSHA string, store DataS
 		return nil, err
 	}
 
-	t.UpdatedUnix = timeutil.TimeStampNow()
-	if err = auth_model.UpdateAccessToken(ctx, t); err != nil {
-		log.Error("UpdateAccessToken: %v", err)
+	if err = auth_model.TouchAccessToken(ctx, t); err != nil {
+		log.Error("TouchAccessToken: %v", err)
 	}
 	store.GetData()["IsApiToken"] = true
 	store.GetData()["ApiTokenScope"] = t.Scope
