@@ -214,6 +214,7 @@ GITEA_TEST_E2E_FLAGS='path/to/test.spec.ts' task test:e2e</code></pre>
       <p>主程序同目录安装匹配版本的 gitsss-hook（Windows 为 gitsss-hook.exe）。Docker 镜像与 backend 构建包含辅助程序，原生发布同时生成主程序、辅助程序和校验值。Unix 内置 hook 可直接执行；自定义 hook 使用原分发器并恢复嵌套 Git 的 hooksPath。SQLITE_SYNCHRONOUS 留空保留原驱动默认，可显式设置一致级别；日志模式不自动修改，NORMAL 与 FULL 的性能分别记录。诊断原始数据只保存在本机。</p>
       <p>详细迁移、容量、回滚和验收范围见仓库 docs/features/push-throughput.md；协议依据为 <a href="https://git-scm.com/docs/githooks">Git hooks</a>，对照架构为 <a href="https://cursor.com/blog/git-at-any-scale">Cursor Git at any scale</a>。</p>
       <p>原生发布在缺少 xz 时使用 Python 3 的 lzma（可用 PYTHON 指定解释器）；发布前逐个解压回读，与原始产物 SHA-256 比对。</p>
+      <p>每个平台的 tar.gz 组合包同时包含主程序、gitsss-hook、许可证和安装说明，自动更新选择唯一组合包。原始文件与 XZ 保留兼容；CGO 变体使用明确附件名选择。build/package-native.py 可独立重打包。</p>
     </main>
   </div>
 </body>

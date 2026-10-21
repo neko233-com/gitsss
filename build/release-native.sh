@@ -135,8 +135,9 @@ status=0
 pids=()
 for file in "$out_dir"/*; do
 	case $file in
-	*.xz | *.sha256) continue ;;
+	*.xz | *.sha256 | *.tar.gz | *.json | */SHA256SUMS) continue ;;
 	esac
+	case $(basename "$file") in gitsss-*) ;; *) continue ;; esac
 	[ -f "$file" ] || continue
 	if [ "${#pids[@]}" -ge "$jobs" ]; then
 		wait "${pids[0]}" || status=1
@@ -151,4 +152,7 @@ done
 for pid in "${pids[@]}"; do
 	wait "$pid" || status=1
 done
+if [ "$status" -eq 0 ]; then
+	"${PYTHON:-python3}" build/package-native.py "$out_dir" "$version" || status=1
+fi
 exit "$status"
