@@ -4,6 +4,8 @@ import {svg} from '../svg.ts';
 import {SoftwareTransfers, formatTransferBytes as bytes} from './software-transfer.ts';
 import {filesFromDrop, filesFromPicker} from './software-folders.ts';
 import type {FolderImport} from './software-folders.ts';
+import {softwareAction, softwareDate, softwareFileIcon, softwareFileType, softwareMoveAllowed, softwareSizeBand} from './software-presentation.ts';
+import {reinitializeAreYouSure} from '../vendor/jquery.are-you-sure.ts';
 
 type Node = {id: string; parent: string; name: string; directory: boolean; size: number; digest?: string; modified: number};
 type Listing = {entries: Node[]; folders: Node[]; breadcrumbs: Node[]; used: number; reserved: number; quota: number; total: number; page: number};
@@ -53,6 +55,7 @@ export function initSoftwareCenter(): void {
   };
   const openName = (node?: Node) => {
     renameID = node ? node.id : ''; nameInput.value = node ? node.name : ''; errorText.textContent = ''; nameInput.removeAttribute('aria-invalid');
+    reinitializeAreYouSure(nameForm);
     dialog.querySelector('[data-software-dialog-title]')!.textContent = root.getAttribute(node ? 'data-rename' : 'data-new-folder')!;
     dialog.showModal(); nameInput.focus(); nameInput.select();
   };
@@ -69,8 +72,9 @@ export function initSoftwareCenter(): void {
     try {await post('batch/delete', idParams(nodes.map((node) => node.id))); for (const node of nodes) selected.delete(node.id); await load()} catch (error) {status.textContent = message(error)}
   };
   const move = async (ids: string[], target: string) => {
+    if (!softwareMoveAllowed(ids, target, snapshot!.folders)) throw new Error(words.move_invalid);
     const params = idParams(ids); params.set('parent', target); await post('batch/move', params);
-    for (const id of ids) selected.delete(id); await load();
+    for (const id of ids) selected.delete(id); await load(); status.textContent = words.move_success;
   };
   const renderDestination = () => {
     const folders = snapshot!.folders; const ancestors: Node[] = [];
@@ -80,7 +84,7 @@ export function initSoftwareCenter(): void {
     path.replaceChildren(button(root.querySelector('[data-software-root]')!.textContent.trim(), () => {destination = ''; moveSearch.value = ''; renderDestination()}));
     for (const folder of ancestors) path.append(button(folder.name, () => {destination = folder.id; moveSearch.value = ''; renderDestination()}));
     const fragment = document.createDocumentFragment(); const filter = moveSearch.value.toLocaleLowerCase();
-    const candidates = folders.filter((folder) => (filter ? folder.name.toLocaleLowerCase().includes(filter) : folder.parent === destination) && !moveIDs.includes(folder.id));
+    const candidates = folders.filter((folder) => (filter ? folder.name.toLocaleLowerCase().includes(filter) : folder.parent === destination) && softwareMoveAllowed(moveIDs, folder.id, folders));
     if (destination) fragment.append(button(`↑ ${words.up}`, () => {destination = folders.find((item) => item.id === destination)!.parent; moveSearch.value = ''; renderDestination()}));
     for (const folder of candidates.slice(0, 200)) {
       const item = button(folder.name, () => {destination = folder.id; moveSearch.value = ''; renderDestination()});
@@ -92,13 +96,25 @@ export function initSoftwareCenter(): void {
   };
   const openMove = (ids: string[]) => {if (!snapshot || !ids.length) return; moveIDs = ids; destination = parent; moveSearch.value = ''; moveError.textContent = ''; renderDestination(); moveDialog.showModal(); moveSearch.focus()};
   const dragType = 'application/x-gitsss-software';
+  let draggedIDs: string[] = [];
   const movable = (element: HTMLElement, node: Node) => {
     element.draggable = true;
-    element.addEventListener('dragstart', (event) => {if (event.target instanceof HTMLInputElement) {event.preventDefault(); return} event.dataTransfer!.setData(dragType, JSON.stringify({base, ids: selected.has(node.id) ? Array.from(selected.keys()) : [node.id]})); event.dataTransfer!.effectAllowed = 'move'});
+    element.addEventListener('dragstart', (event) => {
+      if ((event.target as HTMLElement).closest('input,.software-row-actions')) {event.preventDefault(); return}
+      draggedIDs = selected.has(node.id) ? Array.from(selected.keys()) : [node.id];
+      event.dataTransfer!.setData(dragType, JSON.stringify({base, ids: draggedIDs})); event.dataTransfer!.effectAllowed = 'move'; element.classList.add('software-dragging'); status.textContent = words.drag_move;
+    });
+    element.addEventListener('dragend', () => {draggedIDs = []; element.classList.remove('software-dragging'); root.querySelectorAll('.software-drop-active').forEach((el) => {el.classList.remove('software-drop-active')}); if (status.textContent === words.drag_move) status.textContent = '';});
   };
   const dropTarget = (element: HTMLElement, target: () => string) => {
-    element.addEventListener('dragover', (event) => {if (event.dataTransfer!.types.every((type) => type !== 'Files' && type !== dragType)) return; event.preventDefault(); event.stopPropagation(); element.classList.add('software-drop-active')});
-    element.addEventListener('dragleave', () => element.classList.remove('software-drop-active'));
+    element.addEventListener('dragover', (event) => {
+      const internal = event.dataTransfer!.types.includes(dragType);
+      if (!internal && !event.dataTransfer!.types.includes('Files')) return;
+      event.preventDefault(); event.stopPropagation();
+      const allowed = !internal || !draggedIDs.length || softwareMoveAllowed(draggedIDs, target(), snapshot!.folders);
+      event.dataTransfer!.dropEffect = allowed ? internal ? 'move' : 'copy' : 'none'; element.classList.toggle('software-drop-active', allowed);
+    });
+    element.addEventListener('dragleave', (event) => {if (!(event.relatedTarget instanceof globalThis.Node) || !element.contains(event.relatedTarget)) element.classList.remove('software-drop-active');});
     element.addEventListener('drop', (event) => {event.preventDefault(); event.stopPropagation(); element.classList.remove('software-drop-active'); handleDrop(event.dataTransfer!, target())});
   };
   const renderTree = () => {
@@ -137,22 +153,30 @@ export function initSoftwareCenter(): void {
     const fragment = document.createDocumentFragment();
     for (const node of data.entries) {
       if (selected.has(node.id)) selected.set(node.id, node);
-      const row = document.createElement('tr'); movable(row, node); if (node.directory) dropTarget(row, () => node.id);
+      const row = document.createElement('tr'); row.setAttribute('data-software-node', node.id); movable(row, node); if (node.directory) {row.setAttribute('data-drop-folder', node.id); dropTarget(row, () => node.id)}
       const cell = document.createElement('td'); cell.className = 'software-select-cell';
       const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.value = node.id; checkbox.setAttribute('aria-label', `${words.select}: ${node.name}`);
       checkbox.addEventListener('change', () => {if (checkbox.checked) {if (selected.size >= 500) {checkbox.checked = false; status.textContent = words.transfer_limit; return} selected.set(node.id, node)} else selected.delete(node.id); selectionChanged()}); cell.append(checkbox);
       const name = document.createElement('td'); name.className = 'software-file-name';
-      const kind = document.createElement('span'); kind.className = 'software-file-kind'; kind.setAttribute('role', 'img'); kind.innerHTML = svg(node.directory ? 'octicon-file-directory-fill' : 'octicon-file', 16); kind.setAttribute('aria-label', root.dataset[node.directory ? 'folder' : 'file']!);
+      const content = document.createElement('div'); content.className = 'software-name-content';
+      const handle = document.createElement('span'); handle.className = 'software-drag-handle'; handle.title = words.drag_move; handle.innerHTML = svg('octicon-grabber', 14); handle.setAttribute('aria-hidden', 'true');
+      const kind = softwareFileIcon(node.name, node.directory); kind.title = node.directory ? root.getAttribute('data-folder')! : softwareFileType(node.name).extension.toUpperCase() || root.getAttribute('data-file')!;
       let link: HTMLElement;
       if (node.directory) {link = button(node.name, () => navigate(node.id))} else {
         const anchor = document.createElement('a'); anchor.href = `${base}/download/${node.id}`; anchor.textContent = node.name; anchor.setAttribute('download', node.name);
         anchor.addEventListener('click', (event) => {if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {event.preventDefault(); transfers.download([node.id])}}); link = anchor;
       }
-      link.title = node.name; name.append(kind, link);
-      const size = document.createElement('td'); size.textContent = node.directory ? '—' : bytes(node.size);
-      const date = document.createElement('td'); date.textContent = new Date(node.modified * 1000).toLocaleString();
+      link.title = node.name; content.append(handle, kind, link); name.append(content);
+      const size = document.createElement('td'); const badge = document.createElement('span'); badge.className = 'software-size'; badge.setAttribute('data-band', node.directory ? 'folder' : softwareSizeBand(node.size)); badge.textContent = node.directory ? '—' : bytes(node.size); size.append(badge);
+      const date = document.createElement('td'); const time = document.createElement('time'); time.textContent = softwareDate(node.modified); if (Number.isFinite(new Date(node.modified * 1000).getTime())) time.dateTime = new Date(node.modified * 1000).toISOString(); date.append(time);
       const actions = document.createElement('td'); actions.className = 'software-row-actions';
-      actions.append(button(words.download, () => {transfers.download([node.id])}), button(words.move, () => openMove([node.id])), button(root.getAttribute('data-rename')!, () => openName(node)), button(root.getAttribute('data-remove')!, () => {remove([node])}));
+      const group = document.createElement('div'); group.className = 'software-actions';
+      const download = softwareAction(words.download, 'octicon-download', () => {transfers.download([node.id])});
+      const moveAction = softwareAction(words.move, 'octicon-arrow-switch', () => openMove([node.id]));
+      const rename = softwareAction(root.getAttribute('data-rename')!, 'octicon-diff-renamed', () => openName(node));
+      const deleteAction = softwareAction(root.getAttribute('data-remove')!, 'octicon-trash', () => {remove([node])}); deleteAction.classList.add('software-action-danger');
+      for (const action of [download, moveAction, rename, deleteAction]) {action.title = `${action.textContent}: ${node.name}`; action.setAttribute('aria-label', action.title)}
+      group.append(download, moveAction, rename, deleteAction); actions.append(group);
       row.append(cell, name, size, date, actions); fragment.append(row);
     }
     rows.replaceChildren(fragment); selectionChanged();
@@ -176,6 +200,7 @@ export function initSoftwareCenter(): void {
   dropTarget(root.querySelector('[data-software-root]')!, () => ''); dropTarget(root, () => parent);
   root.querySelector('[data-software-mkdir]')!.addEventListener('click', () => openName());
   root.querySelector('[data-software-dialog-cancel]')!.addEventListener('click', () => dialog.close());
+  dialog.addEventListener('close', () => {nameForm.reset(); reinitializeAreYouSure(nameForm)});
   root.querySelector('[data-software-prev]')!.addEventListener('click', () => {page--; load(true)});
   root.querySelector('[data-software-next]')!.addEventListener('click', () => {page++; load(true)});
   search.addEventListener('input', () => {clearTimeout(timer); pending?.abort(); timer = setTimeout(() => {page = 1; load(true)}, 200)});
@@ -215,7 +240,7 @@ export function initSoftwareCenter(): void {
     // Snapshot drag data before the browser invalidates its protected store at the first await.
     const entries = Array.from(data.items, (item) => item.webkitGetAsEntry()).filter((entry): entry is FileSystemEntry => entry !== null);
     const files = Array.from(data.files);
-    try {if (internal) {const payload = JSON.parse(internal); if (payload.base !== base || !Array.isArray(payload.ids)) return; await move(payload.ids, target)} else await importFiles(await filesFromDrop(entries, files), target);} catch (error) {status.textContent = message(error)}
+    try {if (internal) {const payload = JSON.parse(internal); if (payload.base !== base || !Array.isArray(payload.ids) || payload.ids.some((id: unknown) => typeof id !== 'string')) return; await move(payload.ids, target)} else if (entries.length || files.length) await importFiles(await filesFromDrop(entries, files), target);} catch (error) {status.textContent = message(error)}
   }
   const uploadInput = root.querySelector<HTMLInputElement>('[data-software-upload]')!;
   const folderInput = root.querySelector<HTMLInputElement>('[data-software-folder-upload]')!;

@@ -27,16 +27,20 @@ import octiconDiffAdded from '../../public/assets/img/svg/octicon-diff-added.svg
 import octiconDiffModified from '../../public/assets/img/svg/octicon-diff-modified.svg';
 import octiconDiffRemoved from '../../public/assets/img/svg/octicon-diff-removed.svg';
 import octiconDiffRenamed from '../../public/assets/img/svg/octicon-diff-renamed.svg';
+import octiconDeviceDesktop from '../../public/assets/img/svg/octicon-device-desktop.svg';
+import octiconDatabase from '../../public/assets/img/svg/octicon-database.svg';
 import octiconDotFill from '../../public/assets/img/svg/octicon-dot-fill.svg';
 import octiconDownload from '../../public/assets/img/svg/octicon-download.svg';
 import octiconEye from '../../public/assets/img/svg/octicon-eye.svg';
 import octiconFile from '../../public/assets/img/svg/octicon-file.svg';
+import octiconFileBinary from '../../public/assets/img/svg/octicon-file-binary.svg';
 import octiconFileCode from '../../public/assets/img/svg/octicon-file-code.svg';
 import octiconFileDirectoryFill from '../../public/assets/img/svg/octicon-file-directory-fill.svg';
 import octiconFileDirectoryOpenFill from '../../public/assets/img/svg/octicon-file-directory-open-fill.svg';
 import octiconFileRemoved from '../../public/assets/img/svg/octicon-file-removed.svg';
 import octiconFileSubmodule from '../../public/assets/img/svg/octicon-file-submodule.svg';
 import octiconFileSymlinkFile from '../../public/assets/img/svg/octicon-file-symlink-file.svg';
+import octiconFileZip from '../../public/assets/img/svg/octicon-file-zip.svg';
 import octiconFilter from '../../public/assets/img/svg/octicon-filter.svg';
 import octiconGear from '../../public/assets/img/svg/octicon-gear.svg';
 import octiconGitBranch from '../../public/assets/img/svg/octicon-git-branch.svg';
@@ -64,6 +68,7 @@ import octiconMilestone from '../../public/assets/img/svg/octicon-milestone.svg'
 import octiconMirror from '../../public/assets/img/svg/octicon-mirror.svg';
 import octiconOrganization from '../../public/assets/img/svg/octicon-organization.svg';
 import octiconPlay from '../../public/assets/img/svg/octicon-play.svg';
+import octiconPause from '../../public/assets/img/svg/octicon-pause.svg';
 import octiconPlus from '../../public/assets/img/svg/octicon-plus.svg';
 import octiconProject from '../../public/assets/img/svg/octicon-project.svg';
 import octiconQuote from '../../public/assets/img/svg/octicon-quote.svg';
@@ -83,6 +88,7 @@ import octiconSync from '../../public/assets/img/svg/octicon-sync.svg';
 import octiconTable from '../../public/assets/img/svg/octicon-table.svg';
 import octiconTag from '../../public/assets/img/svg/octicon-tag.svg';
 import octiconTrash from '../../public/assets/img/svg/octicon-trash.svg';
+import octiconUpload from '../../public/assets/img/svg/octicon-upload.svg';
 import octiconTriangleDown from '../../public/assets/img/svg/octicon-triangle-down.svg';
 import octiconX from '../../public/assets/img/svg/octicon-x.svg';
 import octiconXCircleFill from '../../public/assets/img/svg/octicon-x-circle-fill.svg';
@@ -116,10 +122,14 @@ const svgs = {
   'octicon-diff-modified': octiconDiffModified,
   'octicon-diff-removed': octiconDiffRemoved,
   'octicon-diff-renamed': octiconDiffRenamed,
+  'octicon-device-desktop': octiconDeviceDesktop,
+  'octicon-database': octiconDatabase,
   'octicon-dot-fill': octiconDotFill,
   'octicon-download': octiconDownload,
   'octicon-eye': octiconEye,
   'octicon-file': octiconFile,
+  'octicon-file-binary': octiconFileBinary,
+  'octicon-file-zip': octiconFileZip,
   'octicon-file-code': octiconFileCode,
   'octicon-file-directory-fill': octiconFileDirectoryFill,
   'octicon-file-directory-open-fill': octiconFileDirectoryOpenFill,
@@ -153,6 +163,7 @@ const svgs = {
   'octicon-mirror': octiconMirror,
   'octicon-organization': octiconOrganization,
   'octicon-play': octiconPlay,
+  'octicon-pause': octiconPause,
   'octicon-plus': octiconPlus,
   'octicon-project': octiconProject,
   'octicon-quote': octiconQuote,
@@ -172,6 +183,7 @@ const svgs = {
   'octicon-table': octiconTable,
   'octicon-tag': octiconTag,
   'octicon-trash': octiconTrash,
+  'octicon-upload': octiconUpload,
   'octicon-triangle-down': octiconTriangleDown,
   'octicon-x': octiconX,
   'octicon-x-circle-fill': octiconXCircleFill,

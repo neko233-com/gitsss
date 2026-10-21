@@ -3,6 +3,8 @@ import {confirmModal} from './comp/ConfirmModal.ts';
 import type {HashRequest, HashReply} from './software-hash-worker.ts';
 import {TransferCache, type CachedTransfer} from './software-transfer-cache.ts';
 import {SoftwareDownloads} from './software-downloads.ts';
+import {softwareAction, softwareFileIcon} from './software-presentation.ts';
+import type {SvgName} from '../svg.ts';
 
 export type UploadSession = {id: string; name: string; parent: string; size: number; offset: number; chain: string; client_key: string; chunk_size: number; node?: {digest: string}};
 type UploadTask = {key: string; name: string; folder: string; size: number; file?: File; session?: UploadSession; paused: boolean; cancelled: boolean; running: boolean; state: string; row?: HTMLElement; xhr?: XMLHttpRequest; bytes: number; speed?: number; cached?: boolean; cacheError?: boolean; cacheAbort?: AbortController};
@@ -33,9 +35,7 @@ class HashClient {
   close() {this.worker.terminate(); for (const request of this.requests.values()) request.reject(new Error('Hash worker stopped')); this.requests.clear()}
 }
 
-const actionButton = (label: string, action: () => void): HTMLButtonElement => {
-  const button = document.createElement('button'); button.type = 'button'; button.className = 'ui basic compact button'; button.textContent = label; button.addEventListener('click', action); return button;
-};
+const actionButton = (label: string, action: () => void, icon: SvgName = 'octicon-x'): HTMLButtonElement => softwareAction(label, icon, action);
 
 export class SoftwareTransfers {
   private root: HTMLElement;
@@ -60,7 +60,6 @@ export class SoftwareTransfers {
     this.downloads = new SoftwareDownloads(root, base, words, this.cache, formatTransferBytes, () => this.recount());
     window.addEventListener('pagehide', async () => {this.leaving = true; for (const task of this.uploads) {task.paused = true; task.xhr?.abort()} this.downloads.suspend(); try {await this.cache.release()} catch {}});
     this.summary = root.querySelector('[data-transfer-summary]')!;
-    root.querySelector('[data-transfer-clear]')!.addEventListener('click', () => {this.clearCompleted()});
     window.addEventListener('beforeunload', (event) => {if (this.uploads.some((task) => !task.cached && task.file && task.state !== 'complete')) {event.preventDefault()}});
     root.querySelector('[data-transfer-pause]')!.addEventListener('click', () => {
       this.queuePaused = true; this.downloads.pauseAll();
@@ -85,7 +84,9 @@ export class SoftwareTransfers {
     const paused = this.uploads.filter((task) => task.state === 'paused').length;
     this.root.querySelector<HTMLButtonElement>('[data-transfer-pause]')!.disabled = !this.active && !queued && !this.downloads.busy;
     this.root.querySelector<HTMLButtonElement>('[data-transfer-resume]')!.disabled = !this.downloads.paused && (this.uploads.some((task) => task.running && task.paused) || this.uploads.every((task) => !(task.file && (task.paused || task.state === 'failed') && !task.cancelled)));
-    this.summary.textContent = `${this.words.transfers} · ${this.words.uploading}: ${this.active} · ${this.words.queued}: ${queued} · ${this.words.paused}: ${paused} · ${this.words.downloading}: ${this.downloads.busy}`;
+    const counts: [string, number][] = [[this.words.uploading, this.active], [this.words.queued, queued], [this.words.paused, paused + this.downloads.pausedCount], [this.words.downloading, this.downloads.busy], [this.words.ready, this.downloads.ready], [this.words.failed, this.uploads.filter((task) => task.state === 'failed').length + this.downloads.failed]];
+    this.summary.textContent = [this.words.transfers, ...counts.filter(([, count]) => count > 0).map(([label, count]) => `${label}: ${count}`)].join(' · ');
+    this.root.querySelector<HTMLElement>('[data-transfer-panel]')!.hidden = this.uploads.every((task) => !(task.state !== 'complete' && !task.cancelled)) && !this.downloads.pending;
   }
   async enqueue(files: Array<{file: File; folder: string}>) {
     await this.ready;
@@ -130,7 +131,7 @@ export class SoftwareTransfers {
   private row(task: UploadTask): HTMLElement {
     if (task.row) return task.row;
     const row = document.createElement('article'); row.className = 'software-transfer-row'; row.setAttribute('data-upload-task', task.key);
-    const name = document.createElement('strong'); name.textContent = task.name; name.title = task.name;
+    const name = document.createElement('strong'); const text = document.createElement('span'); text.textContent = task.name; name.append(softwareFileIcon(task.name), text); name.title = task.name;
     const progress = document.createElement('progress'); progress.max = task.size || 1; progress.setAttribute('aria-label', task.name);
     const detail = document.createElement('span'); detail.className = 'software-transfer-detail'; detail.setAttribute('aria-live', 'off');
     const controls = document.createElement('div'); controls.className = 'software-transfer-controls';
@@ -138,12 +139,12 @@ export class SoftwareTransfers {
   }
   private show(task: UploadTask, state: string, bytes = task.bytes, speed = 0, message = '') {
     task.state = state; task.bytes = bytes;
+    if (state === 'complete') {if (task.row?.contains(document.activeElement)) this.root.querySelector<HTMLInputElement>('[data-software-search]')?.focus(); task.row?.remove(); return}
     if (!task.row && !task.running && this.uploads.filter((entry) => entry.row?.isConnected).length >= 100) return;
     if (speed) task.speed = speed;
-    if (state === 'complete') speed = task.speed || 0;
     const row = this.row(task); row.setAttribute('data-state', state);
-    row.querySelector('progress')!.value = state === 'complete' && task.size === 0 ? 1 : bytes;
-    row.querySelector('.software-transfer-detail')!.textContent = `${this.words[state] || state} · ${formatTransferBytes(bytes)} / ${formatTransferBytes(task.size)}${speed ? ` · ${formatTransferBytes(speed)}/s` : ''}${message ? ` · ${message}` : ''}${task.cacheError || !this.cacheAvailable ? ` · ${this.words.cache_unavailable}` : ''}`;
+    row.querySelector('progress')!.value = bytes;
+    row.querySelector('.software-transfer-detail')!.textContent = `${this.words[state] || state} · ${Math.min(100, Math.floor(bytes / (task.size || 1) * 100))}% · ${formatTransferBytes(bytes)} / ${formatTransferBytes(task.size)}${speed ? ` · ${formatTransferBytes(speed)}/s` : ''}${message ? ` · ${message}` : ''}${task.cacheError || !this.cacheAvailable ? ` · ${this.words.cache_unavailable}` : ''}`;
     this.controls(task);
   }
   private controls(task: UploadTask) {
@@ -154,13 +155,13 @@ export class SoftwareTransfers {
     if (controls.getAttribute('data-mode') === mode) return;
     controls.setAttribute('data-mode', mode); controls.replaceChildren();
     if (mode === 'done' || mode === 'stopping') return;
-    if (mode === 'running') controls.append(actionButton(this.words.pause, () => {task.paused = true; task.xhr?.abort(); this.show(task, 'paused'); this.persistQuietly(task)}));
+    if (mode === 'running') controls.append(actionButton(this.words.pause, () => {task.paused = true; task.xhr?.abort(); this.show(task, 'paused'); this.persistQuietly(task)}, 'octicon-pause'));
     else if (mode !== 'caching') controls.append(actionButton(task.file ? (task.state === 'failed' ? this.words.retry : this.words.resume) : this.words.choose_original, () => {
       if (task.file) {this.queuePaused = false; task.paused = false; task.state = 'queued'; this.resumeTask(task)} else {
         const input = document.createElement('input'); input.type = 'file';
         input.addEventListener('change', async () => {if (input.files?.[0]) {task.file = input.files[0]; task.cached = false; task.cacheError = false; this.queuePaused = false; task.paused = false; task.state = 'queued'; await this.stage(task); this.pump()}}, {once: true}); input.click();
       }
-    }));
+    }, task.file ? task.state === 'failed' ? 'octicon-history' : 'octicon-play' : 'octicon-file'));
     controls.append(actionButton(this.words.cancel_upload, () => {this.cancel(task)}));
   }
   private async cancel(task: UploadTask) {
@@ -223,9 +224,11 @@ export class SoftwareTransfers {
         if (node.digest !== digest) throw new Error(this.words.resume_mismatch);
       }
       if (!session.node) task.speed = (file.size - session.offset) / Math.max((performance.now() - transferStarted) / 1000, .01);
-      this.show(task, 'complete', file.size); task.file = undefined; await this.persist(task); if (task.cached) await this.cache.remove(task.key, true);
-      const completed = this.uploads.filter((item) => item.state === 'complete' && item.row?.isConnected);
-      for (const item of completed.slice(0, -40)) {if (item.cached) await this.cache.remove(item.key); item.row!.remove(); this.uploads = this.uploads.filter((entry) => entry !== item)}
+      this.show(task, 'complete', file.size); task.file = undefined;
+      // A confirmed server completion must not become a failed upload if local cleanup fails.
+      await this.persistQuietly(task);
+      if (task.cached) {try {await this.cache.remove(task.key); task.cached = false} catch {}}
+      this.uploads = this.uploads.filter((entry) => entry !== task);
     } catch (error) {
       if (error instanceof Error && error.message === this.words.resume_mismatch) task.file = undefined;
       this.show(task, task.paused || task.cancelled ? 'paused' : 'failed', task.bytes, 0, task.paused || task.cancelled ? '' : error instanceof Error ? error.message : this.root.getAttribute('data-error')!);
@@ -251,11 +254,6 @@ export class SoftwareTransfers {
     const status = this.root.querySelector<HTMLElement>('[data-software-status]')!;
     try {if (!this.cacheAvailable) throw new Error(this.words.cache_required); await this.downloads.create(ids); status.textContent = this.words.download_started} catch (error) {status.textContent = error instanceof Error ? error.message : this.words.failed}
   }
-  private async clearCompleted() {
-    for (const task of this.uploads.filter((item) => item.state === 'complete')) {task.row?.remove(); if (task.cached) await this.cache.remove(task.key);}
-    this.uploads = this.uploads.filter((item) => item.state !== 'complete');
-    await this.downloads.clearCompleted();
-  }
   private async restore() {
     const status = this.root.querySelector<HTMLElement>('[data-software-status]')!;
     try {
@@ -272,10 +270,11 @@ export class SoftwareTransfers {
       const records = this.cacheAvailable ? await this.cache.list() : [];
       const sessions: UploadSession[] = await this.json(`${this.base}/uploads`, undefined, 'GET');
       for (const record of records.filter((entry) => entry.kind === 'upload')) {
+        if (record.state === 'complete') {try {await this.cache.remove(record.key)} catch {} continue}
         const session = sessions.find((entry) => entry.id === record.data.session?.id);
-        const file = record.state === 'complete' ? undefined : await this.cache.source(record.key);
+        const file = await this.cache.source(record.key);
         const paused = ['paused', 'failed'].includes(record.state) || !file;
-        const task: UploadTask = {...record.data, key: record.key, file, session: session || record.data.session, paused, cancelled: false, running: false, cached: true, state: record.state === 'complete' ? 'complete' : paused ? 'paused' : 'queued', bytes: session?.offset || record.offset};
+        const task: UploadTask = {...record.data, key: record.key, file, session: session || record.data.session, paused, cancelled: false, running: false, cached: true, state: paused ? 'paused' : 'queued', bytes: session?.offset || record.offset};
         // Expired reservations are safely recreated with the same source fingerprint.
         if (task.state !== 'complete' && !session) task.session = undefined;
         this.uploads.push(task); this.show(task, task.state, task.bytes);

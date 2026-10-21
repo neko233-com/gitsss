@@ -1,5 +1,9 @@
 # Workspace navigation and date/time controls
 
+## Organization service links
+
+Organization links sit directly below Repositories in the organization sidebar, with a colored link icon. Service cards show the name, address, shared/personal scope and a new-tab action. Favicons are requested lazily by the visitor's browser from the target origin's `/favicon.ico`, without URL query strings, credentials or referrers. The GitSSS server does not fetch or proxy link targets. Unavailable icons, mixed-content HTTP targets on HTTPS pages and disabled JavaScript retain bundled fallback icons. Link destinations, visibility and editor permissions remain unchanged; saving refreshes icons while preserving another editor's draft.
+
 ## Global search
 
 Press **Ctrl+K** or **⌘K** from a signed-in desktop page, or click the header search. Native dialog focus management and GitHub's MIT-licensed `@github/combobox-nav` provide Escape, Tab, arrow keys and Enter behavior. Slash retains the existing header focus shortcut. Opening search does not discard an editor draft; another active dialog keeps its focus.

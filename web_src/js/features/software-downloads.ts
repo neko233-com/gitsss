@@ -1,5 +1,7 @@
 import {GET, POST, DELETE} from '../modules/fetch.ts';
 import type {TransferCache, CachedTransfer} from './software-transfer-cache.ts';
+import {softwareAction, softwareFileIcon} from './software-presentation.ts';
+import type {SvgName} from '../svg.ts';
 
 export type DownloadJob = {id: string; name: string; size: number; etag: string; ids: string[]; expires: number; save_offered?: boolean};
 type Task = {key: string; job: DownloadJob; state: string; offset: number; running: boolean; paused: boolean; cancelled: boolean; row: HTMLElement; abort?: AbortController; error?: string; speed: number; offered: boolean};
@@ -20,13 +22,17 @@ export class SoftwareDownloads {
     window.addEventListener('pagehide', () => {for (const url of this.urls) URL.revokeObjectURL(url);});
   }
   get busy() {return this.tasks.filter((task) => task.running || task.state === 'queued').length}
+  get pending() {return this.tasks.filter((task) => task.state !== 'saved' && !task.cancelled).length}
+  get ready() {return this.tasks.filter((task) => task.state === 'ready').length}
+  get failed() {return this.tasks.filter((task) => task.state === 'failed').length}
+  get pausedCount() {return this.tasks.filter((task) => task.state === 'paused').length}
   get paused() {return this.tasks.some((task) => task.state === 'paused' || task.state === 'failed')}
   suspend() {this.leaving = true; for (const task of this.tasks) {task.paused = true; task.abort?.abort()}}
   private record(task: Task): CachedTransfer {return {scope: this.cache.scope, key: task.key, kind: 'download', state: task.state, offset: task.offset, updated: Date.now(), data: {...task.job, save_offered: task.offered}}}
   private async persist(task: Task) {if (!this.leaving) await this.cache.put(this.record(task));}
   private add(key: string, job: DownloadJob, state = 'queued', offset = 0) {
     const row = document.createElement('article'); row.className = 'software-transfer-row'; row.setAttribute('data-download-task', key);
-    const name = document.createElement('strong'); name.textContent = job.name; name.title = job.name;
+    const name = document.createElement('strong'); const text = document.createElement('span'); text.textContent = job.name; name.append(softwareFileIcon(job.name), text); name.title = job.name;
     const progress = document.createElement('progress'); progress.max = job.size || 1; progress.setAttribute('aria-label', job.name);
     const detail = document.createElement('span'); detail.className = 'software-transfer-detail';
     const actions = document.createElement('div'); actions.className = 'software-transfer-controls'; row.append(name, progress, detail, actions);
@@ -35,7 +41,10 @@ export class SoftwareDownloads {
     this.tasks.push(task); this.paint(task); return task;
   }
   async restore(records: CachedTransfer[]) {
-    for (const record of records.filter((entry) => entry.kind === 'download')) this.add(record.key, record.data, ['paused', 'failed', 'ready', 'saved'].includes(record.state) ? record.state : 'queued', record.offset);
+    for (const record of records.filter((entry) => entry.kind === 'download')) {
+      if (record.state === 'saved') {try {await this.cache.remove(record.key)} catch {} continue}
+      this.add(record.key, record.data, ['paused', 'failed', 'ready'].includes(record.state) ? record.state : 'queued', record.offset);
+    }
     this.pump();
   }
   async create(ids: string[]) {
@@ -57,10 +66,9 @@ export class SoftwareDownloads {
     const actions = row.querySelector<HTMLElement>('.software-transfer-controls')!;
     const focus = actions.contains(document.activeElement);
     const mode = `${task.state}:${task.running}:${task.offered}`; if (actions.getAttribute('data-mode') === mode) {this.changed(); return} actions.setAttribute('data-mode', mode); actions.replaceChildren();
-    const button = (label: string, fn: () => void) => {const b = document.createElement('button'); b.type = 'button'; b.className = 'ui basic compact button'; b.textContent = label; b.addEventListener('click', fn); actions.append(b)};
-    if (task.state === 'ready') {button(this.words.save_file, () => {this.save(task)}); if (task.offered) button(this.words.confirm_saved, () => {this.finishSave(task)});} else if (task.state === 'saved') button(this.words.download_again, () => {task.offset = 0; task.offered = false; task.paused = false; task.state = 'queued'; this.resumeTask(task)});
-    else if (task.running && !task.paused || task.state === 'queued') button(this.words.pause, () => this.pause(task));
-    else if (!task.running) button(task.state === 'failed' ? this.words.retry : this.words.resume, () => {task.paused = false; task.error = ''; task.state = 'queued'; this.resumeTask(task)});
+    const button = (label: string, fn: () => void, icon: SvgName = 'octicon-x') => actions.append(softwareAction(label, icon, fn));
+    if (task.state === 'ready') {button(this.words.save_file, () => {this.save(task)}, 'octicon-download'); if (task.offered) button(this.words.confirm_saved, () => {this.finishSave(task)}, 'octicon-check');} else if (task.running && !task.paused || task.state === 'queued') button(this.words.pause, () => this.pause(task), 'octicon-pause');
+    else if (!task.running) button(task.state === 'failed' ? this.words.retry : this.words.resume, () => {task.paused = false; task.error = ''; task.state = 'queued'; this.resumeTask(task)}, task.state === 'failed' ? 'octicon-history' : 'octicon-play');
     if (!task.cancelled) button(task.state === 'saved' ? this.words.remove_record : this.words.cancel_transfer, () => {this.cancel(task)});
     if (focus) actions.querySelector<HTMLButtonElement>('button')?.focus();
     this.changed();
@@ -128,8 +136,11 @@ export class SoftwareDownloads {
   }
   private async finishSave(task: Task) {
     try {
-      await DELETE(`${this.base}/downloads/${task.job.id}`); task.job.expires = 0; task.state = 'saved'; await this.persist(task); await this.cache.remove(task.key, true); this.paint(task);
-      for (const old of this.tasks.filter((entry) => entry.state === 'saved').slice(0, -40)) await this.remove(old);
+      const response = await DELETE(`${this.base}/downloads/${task.job.id}`); if (!response.ok && response.status !== 404) throw new Error(this.words.failed);
+      task.job.expires = 0; task.state = 'saved'; await this.persistQuietly(task);
+      try {await this.cache.remove(task.key)} catch {}
+      if (task.row.contains(document.activeElement)) this.root.querySelector<HTMLInputElement>('[data-software-search]')?.focus();
+      task.row.remove(); this.tasks = this.tasks.filter((entry) => entry !== task); this.changed();
     } catch (error) {this.fail(task, error)}
   }
   private async cancel(task: Task) {task.cancelled = true; task.paused = true; task.abort?.abort(); if (!task.running) await this.remove(task);}

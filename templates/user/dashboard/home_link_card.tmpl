@@ -1,0 +1,4 @@
+<a class="home-link" href="{{.Link.URL}}" target="_blank" rel="noopener noreferrer" title="{{.Link.Title}} · {{.Link.URL}}">
+ <span class="home-link-top"><span class="home-link-icon" aria-hidden="true"><span data-home-link-fallback>{{svg "octicon-globe" 24}}</span></span><span class="home-link-badge">{{.Scope}}</span>{{svg "octicon-link-external" 16 "home-link-arrow"}}</span>
+ <strong>{{.Link.Title}}</strong><small>{{.Link.URL}}</small><span class="home-link-open">{{ctx.Locale.Tr "home.links.open"}} {{svg "octicon-arrow-up-right" 14}}</span>
+</a>

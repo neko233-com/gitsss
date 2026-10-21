@@ -30,6 +30,9 @@ func SoftwareCenter(ctx *context.Context) {
 	for _, key := range []string{"drop", "upload_folder", "move", "move_here", "selected", "select", "select_all", "clear", "download", "download_selected", "delete_selected", "delete_many_confirm", "transfers", "uploading", "downloading", "paused", "complete", "failed", "queued", "preparing", "validating", "pause", "resume", "retry", "choose_original", "cancel_upload", "remove_record", "resume_mismatch", "browser_downloads", "folder_hint", "empty_action", "destination", "up", "transfer_limit", "pause_navigation", "download_started", "clear_completed", "pause_all", "resume_all", "showing_limit", "tree_limit", "invalid", "caching", "cache_unavailable", "cache_required", "cache_full", "other_tab", "ready", "saved", "save_file", "confirm_saved", "download_again", "cancel_transfer", "download_changed", "session_expired"} {
 		labels[key] = ctx.Locale.TrString("software." + key)
 	}
+	for _, key := range []string{"drag_move", "move_invalid", "move_success"} {
+		labels[key] = ctx.Locale.TrString("software." + key)
+	}
 	ctx.Data["SoftwareStrings"] = labels
 	ctx.HTML(http.StatusOK, templates.TplName("org/software_center"))
 }

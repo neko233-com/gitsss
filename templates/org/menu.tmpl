@@ -1,6 +1,7 @@
 <nav class="workspace-nav" aria-label="{{ctx.Locale.Tr "organization"}}">
  <a class="{{if .PageIsNews}}active{{end}}" href="{{.Org.OrganisationLink}}/dashboard{{if .Team}}/{{PathEscape .Team.Name}}{{end}}" data-org-dashboard-link>{{svg "octicon-home"}} {{ctx.Locale.Tr "workspace.overview"}}</a>
  <a class="{{if .PageIsViewRepositories}}active{{end}}" href="{{.Org.HomeLink}}{{if .HasOrgProfileReadme}}/-/repositories{{end}}">{{svg "octicon-repo"}} {{ctx.Locale.Tr "user.repositories"}}<span class="workspace-count">{{.Org.NumRepos}}</span></a>
+ <a class="workspace-nav-links {{if .PageIsHomeLinks}}active{{end}}" href="{{.Org.OrganisationLink}}/dashboard?tab=links">{{svg "octicon-link"}} {{ctx.Locale.Tr "home.links.title"}}</a>
  {{if .IsOrganizationMember}}
  <a class="{{if .PageIsSoftwareCenter}}active{{end}}" href="{{.Org.HomeLink}}/-/software">{{svg "octicon-file-directory"}} {{ctx.Locale.Tr "software.title"}}</a>
  <a class="{{if .PageIsOrgKanban}}active{{end}}" href="{{.Org.HomeLink}}/-/kanban">{{svg "octicon-project-symlink"}} {{ctx.Locale.Tr "org.global_kanban"}}</a>
@@ -8,7 +9,6 @@
  <a class="{{if .PageIsPulls}}active{{end}}" href="{{.Org.OrganisationLink}}/pulls{{if .Team}}/{{PathEscape .Team.Name}}{{end}}" data-org-team-nav="{{.Org.OrganisationLink}}/pulls">{{svg "octicon-git-pull-request"}} {{ctx.Locale.Tr "pull_requests"}}</a>
  <a class="{{if .PageIsMilestonesDashboard}}active{{end}}" href="{{.Org.OrganisationLink}}/milestones{{if .Team}}/{{PathEscape .Team.Name}}{{end}}">{{svg "octicon-milestone"}} {{ctx.Locale.Tr "milestones"}}</a>
  {{end}}
- <a class="{{if .PageIsHomeLinks}}active{{end}}" href="{{.Org.OrganisationLink}}/dashboard?tab=links">{{svg "octicon-link"}} {{ctx.Locale.Tr "home.links.title"}}</a>
  {{if and .IsPackageEnabled .CanReadPackages}}<a class="{{if .IsPackagesPage}}active{{end}}" href="{{.Org.HomeLink}}/-/packages">{{svg "octicon-package"}} {{ctx.Locale.Tr "workspace.packages"}}</a>{{end}}
  {{if .NumMembers}}<a class="{{if .PageIsOrgMembers}}active{{end}}" href="{{.OrgLink}}/members">{{svg "octicon-person"}} {{ctx.Locale.Tr "org.members"}}<span class="workspace-count">{{.NumMembers}}</span></a>{{end}}
  {{if .IsOrganizationMember}}<a class="{{if .PageIsOrgTeams}}active{{end}}" href="{{.OrgLink}}/teams">{{svg "octicon-people"}} {{ctx.Locale.Tr "org.teams"}}<span class="workspace-count">{{.NumTeams}}</span></a>{{end}}

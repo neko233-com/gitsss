@@ -1,4 +1,4 @@
-import {initHomeLinks} from './home-links.ts';
+import {enhanceHomeLinkCards, initHomeLinks} from './home-links.ts';
 import {POST} from '../modules/fetch.ts';
 import {showErrorToast} from '../modules/toast.ts';
 
@@ -44,5 +44,13 @@ describe('homepage links', {concurrent: false}, () => {
     await vi.waitFor(() => expect(showErrorToast).toHaveBeenCalledWith('Reload'));
     expect(document.querySelector<HTMLInputElement>('[name="title"]')!.value).toBe('Keep me');
     expect(document.querySelector<HTMLButtonElement>('[data-home-link-add]')!.disabled).toBe(false);
+  });
+
+  test('service cards fetch only origin favicons in the browser and retain a local fallback', () => {
+    document.body.innerHTML = '<a class="home-link" href="http://ci.internal:8080/build?token=private"><span class="home-link-icon"><span data-home-link-fallback></span></span><strong>BuildWorld</strong></a>';
+    enhanceHomeLinkCards(document.body); enhanceHomeLinkCards(document.body);
+    const icon = document.querySelector('img')!; expect(icon.src).toBe('http://ci.internal:8080/favicon.ico'); expect(icon.referrerPolicy).toBe('no-referrer'); expect(document.querySelectorAll('img')).toHaveLength(1);
+    expect(document.querySelector('.home-link')!.getAttribute('data-kind')).toBe('build'); icon.dispatchEvent(new Event('error'));
+    expect(document.querySelector('img')).toBeNull(); expect(document.querySelector('[data-home-link-fallback] svg')).not.toBeNull();
   });
 });

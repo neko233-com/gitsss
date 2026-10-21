@@ -82,3 +82,16 @@ test('full browser storage retains the committed offset and allows retry', {conc
   button(root, 'retry').click(); await vi.waitFor(() => expect(root.querySelector('article')!.getAttribute('data-state')).toBe('ready'));
   expect(cache.append.mock.calls.map((call) => call[1])).toEqual([0, 0]);
 });
+
+test('saved history disappears on restore while ready-to-save downloads remain available', {concurrent: false}, async () => {
+  const {manager, root, cache} = setup();
+  await manager.restore([{scope: 'user:organization', key: 'saved', kind: 'download', state: 'saved', offset: 3, updated: Date.now(), data: job}, {scope: 'user:organization', key: 'ready', kind: 'download', state: 'ready', offset: 3, updated: Date.now(), data: job}]);
+  expect(cache.remove).toHaveBeenCalledWith('saved'); expect(root.querySelector('[data-download-task="saved"]')).toBeNull(); expect(manager.pending).toBe(1); expect(manager.ready).toBe(1); expect(button(root, 'save_file')).toBeTruthy();
+});
+
+test('confirming a local save automatically retires the download and releases cached bytes', {concurrent: false}, async () => {
+  const {manager, root, cache} = setup();
+  await manager.restore([{scope: 'user:organization', key: 'ready', kind: 'download', state: 'ready', offset: 3, updated: Date.now(), data: {...job, save_offered: true}}]);
+  button(root, 'confirm_saved').click(); await vi.waitFor(() => expect(root.querySelector('article')).toBeNull());
+  expect(cache.remove).toHaveBeenCalledWith('ready'); expect(manager.pending).toBe(0);
+});
