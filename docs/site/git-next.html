@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Git 客户端与终端 - gitsss</title>
+  <title>下载 git-next · 下一代 Git - GitSSS</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -47,22 +47,40 @@
         <a href="architecture.html">架构设计</a>
         <a href="workspace-centers.html">软件中心与研发统计</a>
         <a href="extensions.html">扩展功能</a>
-        <a href="agents.html" class="active">Agent 协作</a>
+        <a href="agents.html">Agent 协作</a>
       </div>
     </aside>
 
-    <main class="content"><h1>git-next 与 Git-Terminal 子仓库</h1>
-<p>GitSSS 父仓库仅记录两个同级 Git submodule：git-next/ 是兼容 Git CLI、协议、仓库格式与 LFS 的原生客户端；git-terminal/ 是独立 Rust + GPUI Fast 桌面终端。两者均使用 main、ignore=all、fetchRecurseSubmodules=false，源码、依赖和构建独立于 GitSSS 服务端。</p>
-<ul><li>git-next: https://github.com/neko233-com/git-next</li><li>Git-Terminal: https://github.com/neko233-com/git-terminal</li></ul>
-<p>2026-10-21：<a href="https://github.com/neko233-com/git-next/releases/tag/v0.3.0">git-next v0.3.0</a> 已一次性发布，21 个附件的远端大小和 SHA-256 全部匹配。本机原版 Git 已卸载，新 CMD、PowerShell 和旧路径均使用 git-next；13 份 Git/SSH 配置逐字节不变，LF 默认生效，新版原生终端已打开。客户端固定范围 10/10 完成，验收包含 32 个常用 CLI 场景、15 项真实桌面检查、44 项更新器检查和 10 项 bootstrap 检查；<a href="https://github.com/neko233-com/git-next/blob/main/docs/benchmarks/native-workstation-release-20261021.json">最终回执</a>声明每层边界。GitSSS 服务端同仓库同分支 100 push/秒仍未达标，本次没有发布服务端。</p>
-<p>Windows 组合 MSI 的目标是安装 git-next、内置 Git LFS 和 Git-Terminal，接管系统 Git 与旧 Git Bash 入口，不新增 Git GUI 菜单。Git-Terminal 使用真实 ConPTY，支持自有 Bash、PowerShell、CMD、标签页、中文输入、选择、滚屏、剪贴板与窗口调整。旧的 git-next/src/bin/git-terminal.rs 启动器是历史 Rust 预览，不是该桌面应用。</p>
-<p>Git-Terminal 优先多标签：Ctrl+T 新建、Ctrl+W 关闭、Ctrl+Tab 切换，兼容 Ctrl+Shift+T/W。默认 16px 等宽字体，深色原生标题栏与统一 ANSI 配色；Bash 提供命令语法高亮、目录与分支提示。标签显示目录和分支，新标签继承当前目录；Shell 与语言选择收进 + 旁的菜单。</p>
-<p>Windows 使用一体化原生标题/标签栏，带原生拖动、最小化、最大化、关闭和 Snap 命中区域。原创终端/分支图标以九种尺寸嵌入 EXE，用于窗口、任务栏、Alt+Tab、Explorer 与安装快捷方式；SVG、PNG、ICO 源文件和生成脚本保存在独立 Git-Terminal 子仓库。</p>
-<p>Git-next 的完整原生核心、旧 Rust 预览和正式安装资格分别记录。核心既有回归/性能证据不自动证明新终端和组合 MSI 已通过；最终完成情况以子仓库 docs/DELIVERY_STATUS.json 及真实本机验收记录为准。只在所有本地门槛通过后发布一次综合 tag/包。</p>
-<p>内置 LFS 不需要另一安装程序，新仓库模板接入标准 hooks；已有自定义 hooks、属性规则、仓库数据和登录状态保留。Unity/Tuanjie 文本资源采用 LF 与规范化内容比较，二进制 .asset 不强制作为文本；大型 FBX/纹理/音视频和 Unreal 二进制资源采用明确 LFS 策略。安装不重写游戏仓库历史。</p>
-<p>父仓库更新只做明确的子仓库指针、.gitmodules 和相关文档改动；不替换 GitSSS 生产服务器的既定 Git/OpenSSH，不移动 Git、LFS 或数据库存储。源码先作范围明确的提交和正常推送，再更新 gitlink。父依赖回滚只回退 gitlink；本机旧 Git 接管的恢复由客户端受保护的备份事务完成。</p>
-<p>检查独立工作区使用 git diff --ignore-submodules=none、git -C git-next status、git -C git-terminal status。禁止创建或运行 GitHub Actions；本地编译、格式/静态检查、批量回归、包校验与真实桌面/安装验收共同构成发布证据。</p>
-</main>
+    <main class="content">
+<h1>git-next：下一代 Git</h1>
+<p>继续使用熟悉的 <code>git</code> 命令，获得独立客户端、内置 LFS 与原生 Git-Terminal。</p>
+<p><a href="https://github.com/neko233-com/git-terminal/releases/tag/v0.2.0"><strong>下载 Windows 完整新版 MSI →</strong></a> · <a href="https://github.com/neko233-com/git-next/releases/latest">Linux / macOS 正式版</a></p>
+<p><a href="https://github.com/neko233-com/git-next/blob/main/README.md">安装与更新手册</a> · <a href="https://github.com/neko233-com/git-terminal/blob/main/README.md">Git-Terminal 手册</a></p>
+<h2>选择安装包</h2>
+<table><thead><tr><th>系统</th><th>附件名称（带版本前缀）</th></tr></thead><tbody>
+<tr><td>Windows x64</td><td><code>windows-x64.msi</code>；无管理员权限选 <code>windows-x64-user.msi</code></td></tr>
+<tr><td>Windows ARM64</td><td><code>windows-arm64.msi</code> 或 <code>windows-arm64-user.msi</code></td></tr>
+<tr><td>macOS Apple Silicon</td><td><code>macos-arm64.tar.gz</code></td></tr>
+<tr><td>Linux x64 / ARM64</td><td>对应架构的 <code>linux-*.tar.gz</code></td></tr>
+</tbody></table>
+<p>使用同一版本的 <code>SHA256SUMS</code> 校验。macOS 当前发布 ARM64 包；交叉打包不等于真实 Mac 运行验收。</p>
+<h2>Windows 安装与接管</h2>
+<p>关闭正在执行写操作的 Git / 终端，运行 MSI。组合包包含 git-next、内置 Git LFS、自有 Bash 和独立 Rust + GPUI Fast 的 Git-Terminal。机器版与用户版使用不同范围，不要混装。</p>
+<p>仓库、Git 配置、SSH 密钥、known_hosts 与凭据存储保留。接管与回滚由保护的迁移事务负责。安装后重开终端检查：</p>
+<pre>where.exe git
+git --version
+git language get
+git update check</pre>
+<p><code>git</code> 应首先解析到 git-next，版本行包含 <code>git-next</code>。已运行的应用可能保留旧 PATH，需要重开。界面语言可用 <code>git language set chinese</code>、<code>english</code> 或 <code>auto</code> 切换。</p>
+<h2>自动更新与跨平台 LF</h2>
+<p>更新器以官方 GitHub 元数据决定版本身份，并行比较官方与镜像下载路线，校验下载字节。镜像不决定版本身份。</p>
+<p>默认使用 LF 与规范化文本比较，避免纯换行符造成假改动。已有 .gitattributes、自定义 hooks、二进制和 LFS 规则保留，安装不改写历史。Unity / Tuanjie 文本资源可声明 <code>text eol=lf</code>；二进制资源不强制作为文本。</p>
+<h2>Git-Terminal</h2>
+<p>Ctrl+T 新建、Ctrl+W 关闭、Ctrl+Tab 切换。原生一体化标题栏含图标、拖动和系统窗口控制。本地支持 Bash、PowerShell、CMD，Bash 提供输入高亮、目录和分支提示。</p>
+<p>SSH 主机管理、SFTP 与远程监控的使用、认证和验证边界见 <a href="https://github.com/neko233-com/git-terminal/blob/main/README.md">独立终端手册及对应发布包</a>。客户端独立安装；GitSSS 服务端的 Git、SSH、数据库和存储目录不受下载客户端影响。</p>
+<h2>源码与验证</h2><p><a href="https://github.com/neko233-com/git-next">git-next 源码</a> · <a href="https://github.com/neko233-com/git-terminal">Git-Terminal 源码</a> · <a href="https://github.com/neko233-com/git-next/tree/main/docs/benchmarks">本地验收记录</a></p>
+<p>两者是 GitSSS 的同级 submodule，独立构建和验收。完整范围的本地回归与包校验通过后发布综合版本，不依赖 GitHub Actions。</p>
+<section class="card"><h2>Git-Terminal 0.2.0</h2><p><a href="https://github.com/neko233-com/git-terminal/releases/tag/v0.2.0">下载 SSH / SFTP / Linux 监控终端</a>。此组件更新保留 git-next 0.3.0 核心；已有安装使用匹配架构和 user/machine 范围的 MSI。Git 产品自动更新保持原有行为，此独立组件更新需手动安装。</p></section><p>使用 Git-Terminal 的 <code>tools/install_bundle.ps1 -Package MSI</code>，自动沿用原 MSI 源文件名，以 <code>REINSTALL=ALL REINSTALLMODE=vamus</code> 更新同版本配套文件，并保留原组件标识和许可文件。</p></main>
   </div>
 </body>
 </html>

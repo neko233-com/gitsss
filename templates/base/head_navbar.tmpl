@@ -24,6 +24,7 @@
   {{else if not .IsSigned}}<a class="item" href="{{AppSubUrl}}/explore/repos">{{ctx.Locale.Tr "explore_title"}}</a>{{end}}
 
 		{{template "custom/extra_links" .}}
+		<a class="item" href="{{AppSubUrl}}/help/site/git-next.html">{{svg "octicon-download"}} git-next</a>
 
 		{{if not .IsSigned}}
 			<a class="item" href="{{AppSubUrl}}/help/">{{ctx.Locale.Tr "help"}}</a>

@@ -1,22 +1,49 @@
-# git-next 与 Git-Terminal 子仓库
+# git-next：下一代 Git 客户端
 
-GitSSS 父仓库仅记录两个同级 Git submodule：`git-next/` 是兼容 Git CLI、协议、仓库格式与 LFS 的原生客户端；`git-terminal/` 是独立 Rust + GPUI Fast 桌面终端。两者均使用 main、ignore=all、fetchRecurseSubmodules=false，源码、依赖和构建独立于 GitSSS 服务端。
+[Git-Terminal 0.2.0](https://github.com/neko233-com/git-terminal/releases/tag/v0.2.0) 提供 SSH 分组管理、SFTP 拖拽上传/右键下载和只读 Linux 监控。组件更新保留 git-next 0.3.0 核心；已有安装使用匹配架构和 user/machine 范围的 MSI，附加 `REINSTALL=ALL REINSTALLMODE=vamus`。Git 产品自动更新保持原有行为，此独立终端组件更新需手动安装。
 
-- git-next: https://github.com/neko233-com/git-next
-- Git-Terminal: https://github.com/neko233-com/git-terminal
+[Windows 完整新版 MSI](https://github.com/neko233-com/git-terminal/releases/tag/v0.2.0) · [Linux / macOS 正式版](https://github.com/neko233-com/git-next/releases/latest) · [安装与更新文档](https://github.com/neko233-com/git-next/blob/main/README.md)
 
-2026-10-21：[git-next v0.3.0](https://github.com/neko233-com/git-next/releases/tag/v0.3.0) 已一次性发布，21 个附件的远端大小和 SHA-256 全部匹配。本机原版 Git 已卸载，新 CMD、PowerShell 和旧路径均使用 git-next；13 份 Git/SSH 配置逐字节不变，LF 默认生效，新版原生终端已打开。客户端固定范围 10/10 完成，验收包含 32 个常用 CLI 场景、15 项真实桌面检查、44 项更新器检查和 10 项 bootstrap 检查；[最终回执](https://github.com/neko233-com/git-next/blob/main/docs/benchmarks/native-workstation-release-20261021.json)声明每层边界。GitSSS 服务端同仓库同分支 100 push/秒仍未达标，本次没有发布服务端。
+git-next 保持 Git 的命令行、仓库格式、协议和 LFS 使用习惯。安装后的默认命令仍是 `git`，`git --version` 会明确显示 git-next 身份。GitSSS 的首页、导航与帮助文档都提供本页入口，下载无需 GitSSS 账号。
 
-Windows 组合 MSI 的目标是安装 git-next、内置 Git LFS 和 Git-Terminal，接管系统 Git 与旧 Git Bash 入口，不新增 Git GUI 菜单。Git-Terminal 使用真实 ConPTY，支持自有 Bash、PowerShell、CMD、标签页、中文输入、选择、滚屏、剪贴板与窗口调整。旧的 git-next/src/bin/git-terminal.rs 启动器是历史 Rust 预览，不是该桌面应用。
+## 选择安装包
 
-Git-Terminal 优先多标签：Ctrl+T 新建、Ctrl+W 关闭、Ctrl+Tab 切换，兼容 Ctrl+Shift+T/W。默认 16px 等宽字体，深色原生标题栏与统一 ANSI 配色；Bash 提供命令语法高亮、目录与分支提示。标签显示目录和分支，新标签继承当前目录；Shell 与语言选择收进 + 旁的菜单。
+| 系统 | 安装包 |
+| --- | --- |
+| Windows x64 | `windows-x64.msi`；无管理员权限时选 `windows-x64-user.msi` |
+| Windows ARM64 | `windows-arm64.msi` 或 `windows-arm64-user.msi` |
+| macOS Apple Silicon | `macos-arm64.tar.gz` |
+| Linux x64 / ARM64 | 对应架构的 `linux-*.tar.gz` |
 
-Windows 使用一体化原生标题/标签栏，带原生拖动、最小化、最大化、关闭和 Snap 命中区域。原创终端/分支图标以九种尺寸嵌入 EXE，用于窗口、任务栏、Alt+Tab、Explorer 与安装快捷方式；SVG、PNG、ICO 源文件和生成脚本保存在独立 Git-Terminal 子仓库。
+文件名带实际版本前缀；请在正式版附件中选择，并用同一版本的 `SHA256SUMS` 校验。macOS 当前仅发布 ARM64 包，不能把交叉打包当成真实 Mac 验收。
 
-Git-next 的完整原生核心、旧 Rust 预览和正式安装资格分别记录。核心既有回归/性能证据不自动证明新终端和组合 MSI 已通过；最终完成情况以子仓库 docs/DELIVERY_STATUS.json 及真实本机验收记录为准。只在所有本地门槛通过后发布一次综合 tag/包。
+## Windows 安装与接管
 
-内置 LFS 不需要另一安装程序，新仓库模板接入标准 hooks；已有自定义 hooks、属性规则、仓库数据和登录状态保留。Unity/Tuanjie 文本资源采用 LF 与规范化内容比较，二进制 .asset 不强制作为文本；大型 FBX/纹理/音视频和 Unreal 二进制资源采用明确 LFS 策略。安装不重写游戏仓库历史。
+关闭正在执行写操作的 Git / 终端，运行 MSI。组合安装包包含 git-next、内置 Git LFS、自有 Bash 和独立 Rust + GPUI Fast 的 Git-Terminal；没有 Git GUI。机器版与用户版使用不同安装范围，不要混装。
 
-父仓库更新只做明确的子仓库指针、.gitmodules 和相关文档改动；不替换 GitSSS 生产服务器的既定 Git/OpenSSH，不移动 Git、LFS 或数据库存储。源码先作范围明确的提交和正常推送，再更新 gitlink。父依赖回滚只回退 gitlink；本机旧 Git 接管的恢复由客户端受保护的备份事务完成。
+安装保留仓库、SSH 密钥、known_hosts、Git 配置和凭据存储。接管和回滚采用客户端保护的迁移事务。安装后重新打开终端并检查：
 
-检查独立工作区使用 git diff --ignore-submodules=none、git -C git-next status、git -C git-terminal status。禁止创建或运行 GitHub Actions；本地编译、格式/静态检查、批量回归、包校验与真实桌面/安装验收共同构成发布证据。
+```powershell
+where.exe git
+git --version
+git language get
+git update check
+```
+
+`git` 应首先解析到 git-next 安装目录，版本行包含 `git-next`。已经运行的进程可能仍持有旧 PATH，应重开该进程。手动选择语言可用 `git language set chinese`、`english` 或 `auto`。更新器从官方 GitHub 获取版本身份，比较官方及镜像下载路线，并校验下载字节；镜像不决定版本身份。
+
+## LF 与已有仓库
+
+默认采用 LF，文本规范化比较避免纯换行符造成的假改动。已有 `.gitattributes`、自定义 hooks 和二进制资源规则保留；安装不会改写仓库历史。Unity / Tuanjie 的文本资源可明确声明 `text eol=lf`；纹理、FBX、音视频和二进制资源采用对应 LFS 规则，不强制所有文件作为文本。
+
+## Git-Terminal
+
+Ctrl+T 新建标签，Ctrl+W 关闭，Ctrl+Tab 切换。原生一体化标题栏带应用图标、拖动与系统窗口控制；本地支持 Bash、PowerShell 和 CMD。Bash 输入高亮、目录与分支提示保留标准 readline 行为。
+
+SSH 管理、SFTP 和远程监控的使用、认证与验证边界以独立 [Git-Terminal 手册](https://github.com/neko233-com/git-terminal/blob/main/README.md) 和对应发布附件为准。GitSSS 服务端与客户端分别安装，不会因为下载客户端而替换服务器的 Git、SSH 或存储目录。
+
+## 开发与验收边界
+
+GitSSS 仅记录同级 `git-next/` 与 `git-terminal/` submodule；源码、依赖和构建独立。检查子仓库时显式运行 `git -C git-next status` 与 `git -C git-terminal status`，父仓库默认忽略其脏状态。只在完整范围本地回归、包装和校验通过后发布综合版本；不创建或运行 GitHub Actions。客户端验收回执见 [公开记录](https://github.com/neko233-com/git-next/tree/main/docs/benchmarks)。
+
+使用 Git-Terminal 的 `tools/install_bundle.ps1 -Package <MSI 路径>`，自动沿用原 MSI 源文件名并更新同版本配套文件，同时保留原组件标识和许可文件。
