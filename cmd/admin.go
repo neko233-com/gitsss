@@ -29,6 +29,7 @@ func newAdminCommand() *cli.Command {
 			newAuthCommand(),
 			newSendMailCommand(),
 			newLFSGCCommand(),
+			newOrgShareCommand(),
 		},
 	}
 }

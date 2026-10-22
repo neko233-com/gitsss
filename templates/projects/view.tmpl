@@ -10,6 +10,16 @@
 			</div>
 			<button class="ui small button" type="submit">{{ctx.Locale.Tr "projects.fields_save"}}</button>
 		</form>
+		{{if not .Project.RepoID}}
+		<form class="ui form tw-mb-4" method="post" action="{{.Project.Link ctx}}/issues">
+			<div class="field">
+				<label>{{ctx.Locale.Tr "projects.attach"}}</label>
+				<input name="issue" placeholder="owner/repo#123" required>
+				<p class="help">{{ctx.Locale.Tr "projects.attach_help"}}</p>
+			</div>
+			<button class="ui small primary button" type="submit">{{ctx.Locale.Tr "projects.attach_submit"}}</button>
+		</form>
+		{{end}}
 		{{end}}
 		<div class="ui container flex-text-block project-header">
 		<h2>{{.Project.Title}}</h2>

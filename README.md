@@ -4,11 +4,11 @@
 
 GitSSS is an organization-first Git collaboration platform for enterprise private networks. It includes Git hosting, issues, pull requests, Actions, packages, releases, wiki, and Git LFS.
 
-[简体中文](README_ZH.md) · [HTML manual](docs/site/en/index.html) · [Enterprise operations](docs/operations/enterprise.md) · [License](LICENSE)
+[简体中文](README.zh-CN.md) · [HTML manual](docs/site/en/index.html) · [Enterprise operations](docs/operations/enterprise.md) · [License](LICENSE)
 
 The activity workspace below shows a demonstration instance captured on 2026-10-18; no production repository data is included.
 
-![GitSSS home page](docs/site/assets/screenshots/home.png)
+![GitSSS home page](docs/screenshots/home.png)
 
 Public entrance, isolated desktop demonstration captured on 2026-10-18:
 
@@ -34,14 +34,19 @@ Public entrance, isolated desktop demonstration captured on 2026-10-18:
 - One complete desktop interface for repository workflows, with readable administration and no classic/new page switch.
 - Visible contribution heatmaps with team filtering, and a readable 15px administration overview of volume capacity, usage and measured Git/LFS bytes.
 - A consistent organization workspace with searchable organization/team menus and in-place team filtering.
-- One shared organization board: quick task cards, search, @member assignment and drag-to-change status; repository boards stay independent.
+- Repository boards stay inside one Git repository. User boards (`/{username}/-/projects`) and organization boards (`/{org}/-/projects`) collect issues from repositories that account owns, with custom columns, fields, and drag-and-drop. Adding `owner/repo#123` keeps the issue on its repository board. `/{org}/-/kanban` is the separate quick-task board.
+- Organization intranet share sits after Worktime. Members drag files or folders, share text, copy links, and delete. Each organization defaults to 100 GB, which a site admin can change. Uploads are refused before they start when the quota or the real free disk space, minus a safety reserve, is too small. New files expire after 30 days unless marked permanent. Web and `gitsss admin org-share` both upload and download in parallel chunks, with resume and HTTP Range. Bytes stay outside Git and LFS. See [intranet share](docs/operations/org-share.md).
 - Automatic system/browser language, readable desktop themes, and 30 built-in avatars with automatic crop/compression for custom uploads.
 - [Repository HTML Docs and eight native notification channels](docs/site/collaboration.html), with isolated rendering, routing policies and provider failure detection.
 - Avatar style tabs, username initials and globally unique primary-email editing.
 - Compact desktop layouts, a separate Organization links tab, and automatic repository team assignment using organization-owned regex rules.
 - Native [Express233 upload](docs/operations/express233-upload.md) from Actions, with streamed uploads and optional publication.
 
-![Repository overview](docs/site/assets/screenshots/repository.png)
+![Repository overview](docs/screenshots/repository.png)
+
+![Kanban](docs/screenshots/kanban.png)
+
+![Organization intranet share](docs/screenshots/org-share.png)
 
 ![Compact organization member table](docs/site/assets/screenshots/members.png)
 
