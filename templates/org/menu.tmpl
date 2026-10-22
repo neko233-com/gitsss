@@ -13,6 +13,7 @@
  {{if .NumMembers}}<a class="{{if .PageIsOrgMembers}}active{{end}}" href="{{.OrgLink}}/members">{{svg "octicon-person"}} {{ctx.Locale.Tr "org.members"}}<span class="workspace-count">{{.NumMembers}}</span></a>{{end}}
  {{if .IsOrganizationMember}}<a class="{{if .PageIsOrgTeams}}active{{end}}" href="{{.OrgLink}}/teams">{{svg "octicon-people"}} {{ctx.Locale.Tr "org.teams"}}<span class="workspace-count">{{.NumTeams}}</span></a>{{end}}
  {{if and EnableTimetracking .IsOrganizationOwner}}<a class="{{if .PageIsOrgTimes}}active{{end}}" href="{{.OrgLink}}/worktime">{{svg "octicon-clock"}} {{ctx.Locale.Tr "org.worktime"}}</a>{{end}}
+ {{if .IsOrganizationMember}}<a class="{{if .PageIsOrgShare}}active{{end}}" href="{{.OrgLink}}/share">{{svg "octicon-file-directory"}} {{ctx.Locale.Tr "org.share"}}</a>{{end}}
  {{if and .IsRepoIndexerEnabled .CanReadCode}}<a href="{{.Org.HomeLink}}/-/code">{{svg "octicon-code"}} {{ctx.Locale.Tr "org.code"}}</a>{{end}}
  {{if .HasOrgProfileReadme}}<a class="{{if .PageIsViewOverview}}active{{end}}" href="{{.Org.HomeLink}}">{{svg "octicon-info"}} {{ctx.Locale.Tr "user.overview"}}</a>{{end}}
  {{if .IsOrganizationOwner}}<a class="{{if .PageIsOrgSettings}}active{{end}}" href="{{.OrgLink}}/settings">{{svg "octicon-gear"}} {{ctx.Locale.Tr "repo.settings"}}</a>{{end}}

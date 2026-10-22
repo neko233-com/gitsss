@@ -1,0 +1,118 @@
+{{template "base/head" .}}
+<div class="page-content organization share">
+	{{template "org/header" .}}
+	<div class="ui container" data-org-share data-api="{{AppSubUrl}}/api/v1/orgs/{{.Org.Name}}/shares" data-parent="{{.ShareParent}}" data-chunk-bytes="{{.ShareChunkBytes}}" data-parallel="{{.ShareParallel}}">
+		<div class="ui segment">
+			<div class="tw-flex tw-items-center tw-gap-3 tw-flex-wrap">
+				<strong>{{ctx.Locale.Tr "org.share.status"}}</strong>
+				<span>{{ctx.Locale.Tr "org.share.capacity" (FileSize .ShareUsage.Used) (FileSize .ShareUsage.Quota)}}</span>
+				<span class="tw-flex-1"></span>
+				<button class="ui button" type="button" data-clipboard-text="{{.OrgLink}}/share" data-clipboard-text-type="url">{{svg "octicon-copy"}} {{ctx.Locale.Tr "org.share.copy_page"}}</button>
+				{{if .CanClearShares}}
+				<form method="post" action="{{.OrgLink}}/share/clear">
+					<button class="ui red basic button" type="submit">{{ctx.Locale.Tr "org.share.clear"}}</button>
+				</form>
+				{{end}}
+			</div>
+		</div>
+		<div class="ui segment">
+			<div class="tw-mb-2">
+				<a href="{{.OrgLink}}/share">{{ctx.Locale.Tr "org.share.root"}}</a>
+				{{range .ShareAncestors}}
+					/ <a href="{{$.OrgLink}}/share?parent={{.ID}}">{{.Name}}</a>
+				{{end}}
+			</div>
+			<div class="ui placeholder segment tw-text-center" data-org-share-drop>
+				<p>{{ctx.Locale.Tr "org.share.drop"}}</p>
+				<div class="tw-flex tw-justify-center tw-gap-2 tw-flex-wrap">
+					<label class="ui button">
+						{{ctx.Locale.Tr "org.share.choose"}}
+						<input class="tw-hidden" type="file" multiple data-org-share-files>
+					</label>
+					<label class="ui button">
+						{{ctx.Locale.Tr "org.share.choose_dir"}}
+						<input class="tw-hidden" type="file" webkitdirectory data-org-share-dir>
+					</label>
+					<div class="ui checkbox tw-self-center">
+						<input type="checkbox" id="org-share-permanent" data-org-share-permanent>
+						<label for="org-share-permanent">{{ctx.Locale.Tr "org.share.permanent"}}</label>
+					</div>
+				</div>
+				<p class="help">{{ctx.Locale.Tr "org.share.expire_help" .ShareExpireDays}}</p>
+				<p data-org-share-progress></p>
+			</div>
+		</div>
+		<div class="ui segment">
+			<form class="ui form" method="post" action="{{.OrgLink}}/share/text">
+				<input type="hidden" name="parent" value="{{.ShareParent}}">
+				<div class="two fields">
+					<div class="field">
+						<label>{{ctx.Locale.Tr "org.share.text_name"}}</label>
+						<input name="name" required maxlength="255">
+					</div>
+					<div class="field">
+						<label>{{ctx.Locale.Tr "org.share.text_body"}}</label>
+						<textarea name="body" rows="3" required></textarea>
+					</div>
+				</div>
+				<div class="field">
+					<div class="ui checkbox">
+						<input type="checkbox" name="permanent" value="1">
+						<label>{{ctx.Locale.Tr "org.share.permanent"}}</label>
+					</div>
+				</div>
+				<button class="ui button" type="submit">{{ctx.Locale.Tr "org.share.text"}}</button>
+			</form>
+		</div>
+		<div class="ui segment">
+			<h4>{{ctx.Locale.Tr "org.share.list"}}</h4>
+			{{if .ShareItems}}
+			<table class="ui very basic table">
+				<thead>
+					<tr>
+						<th>{{ctx.Locale.Tr "org.share.name"}}</th>
+						<th>{{ctx.Locale.Tr "org.share.size"}}</th>
+						<th>{{ctx.Locale.Tr "org.share.expires"}}</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody>
+					{{range .ShareItems}}
+					<tr>
+						<td>
+							{{if eq .Kind "dir"}}
+								<a href="{{$.OrgLink}}/share?parent={{.ID}}">{{.Name}}</a>
+							{{else}}
+								<a href="{{$.OrgLink}}/share/files/{{.ID}}">{{.Name}}</a>
+							{{end}}
+						</td>
+						<td>{{if ne .Kind "dir"}}{{FileSize .Size}}{{end}}</td>
+						<td>{{if .ExpiresUnix}}{{.ExpiresUnix.FormatDate}}{{else}}{{ctx.Locale.Tr "org.share.never"}}{{end}}</td>
+						<td class="tw-text-right">
+							{{if ne .Kind "dir"}}
+							<button class="ui tiny button" type="button" data-clipboard-text="{{$.OrgLink}}/share/files/{{.ID}}" data-clipboard-text-type="url">{{ctx.Locale.Tr "org.share.copy"}}</button>
+							<button class="ui tiny button" type="button" data-org-share-download data-url="{{$.OrgLink}}/share/files/{{.ID}}" data-name="{{.Name}}" data-size="{{.Size}}">{{ctx.Locale.Tr "org.share.download"}}</button>
+							{{end}}
+							<form class="ui form tw-inline" method="post" action="{{$.OrgLink}}/share/keep">
+								<input type="hidden" name="parent" value="{{$.ShareParent}}">
+								<input type="hidden" name="id" value="{{.ID}}">
+								<input type="hidden" name="permanent" value="{{if .ExpiresUnix}}1{{else}}0{{end}}">
+								<button class="ui tiny button" type="submit">{{if .ExpiresUnix}}{{ctx.Locale.Tr "org.share.keep"}}{{else}}{{ctx.Locale.Tr "org.share.unkeep"}}{{end}}</button>
+							</form>
+							<form class="ui form tw-inline" method="post" action="{{$.OrgLink}}/share/delete">
+								<input type="hidden" name="parent" value="{{$.ShareParent}}">
+								<input type="hidden" name="id" value="{{.ID}}">
+								<button class="ui tiny red basic button" type="submit">{{ctx.Locale.Tr "org.share.delete"}}</button>
+							</form>
+						</td>
+					</tr>
+					{{end}}
+				</tbody>
+			</table>
+			{{else}}
+			<div class="ui center aligned grey segment">{{ctx.Locale.Tr "org.share.empty"}}</div>
+			{{end}}
+		</div>
+	</div>
+</div>
+{{template "base/footer" .}}

@@ -786,6 +786,8 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 		m.Post("/updates", web.Bind(forms.AdminUpdateForm{}), admin.UpdatesPost)
 		m.Get("/lfs-gc", admin.LFSGC)
 		m.Post("/lfs-gc", web.Bind(forms.AdminLFSGCForm{}), admin.LFSGCPost)
+		m.Get("/org-share", admin.OrgShare)
+		m.Post("/org-share", admin.OrgSharePost)
 
 		m.Group("/config", func() {
 			m.Get("", admin.Config)
@@ -999,6 +1001,12 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 			m.Get("/milestones/{team}", reqMilestonesDashboardPageEnabled, user.Milestones)
 			m.Post("/members/action/{action}", org.MembersAction)
 			m.Get("/teams", org.Teams)
+			m.Get("/share", org.Share)
+			m.Post("/share/text", org.ShareText)
+			m.Post("/share/delete", org.ShareDelete)
+			m.Post("/share/keep", org.ShareKeep)
+			m.Post("/share/clear", org.ShareClear)
+			m.Get("/share/files/{id}", org.ShareDownload)
 		}, context.OrgAssignment(context.OrgAssignmentOptions{RequireMember: true, RequireTeamMember: true}))
 
 		m.Group("/{org}", func() {
@@ -1183,6 +1191,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 					m.Get("/edit", org.RenderEditProject)
 					m.Post("/edit", web.Bind(forms.CreateProjectForm{}), org.EditProjectPost)
 					m.Post("/fields", project.SaveFields)
+					m.Post("/issues", project.AttachIssue)
 					m.Post("/{action:open|close}", org.ChangeProjectStatus)
 
 					// TODO: improper name. Others are "delete project", "edit project", but this one is "move columns"

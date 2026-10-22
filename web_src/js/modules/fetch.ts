@@ -5,9 +5,9 @@ import type {RequestOpts} from '../types.ts';
 // which will automatically set an appropriate headers. For JSON content, only object
 // and array types are currently supported.
 export function request(url: string, {method = 'GET', data, headers = {}, ...other}: RequestOpts = {}): Promise<Response> {
-  let body: string | FormData | URLSearchParams | undefined;
+  let body: BodyInit | undefined;
   let contentType: string | undefined;
-  if (data instanceof FormData || data instanceof URLSearchParams) {
+  if (typeof data === 'string' || data instanceof FormData || data instanceof URLSearchParams || data instanceof Blob || data instanceof Uint8Array || data instanceof ArrayBuffer) {
     body = data;
   } else if (isObject(data) || Array.isArray(data)) {
     contentType = 'application/json';
