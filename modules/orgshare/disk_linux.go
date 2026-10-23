@@ -1,7 +1,7 @@
 // Copyright 2026 The GitSSS Authors. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-//go:build !windows
+//go:build linux
 
 package orgshare
 
