@@ -1770,6 +1770,18 @@ func Routes() *web.Router {
 				m.Delete("", org.DeleteAvatar)
 			}, reqToken(), reqOrgOwnership())
 			m.Get("/activities/feeds", org.ListOrgActivityFeeds)
+			m.Group("/shares", func() {
+				m.Get("", org.ListShares)
+				m.Post("/text", org.CreateShareText)
+				m.Post("/uploads", org.BeginShareUpload)
+				m.Get("/uploads/{id}", org.GetShareUpload)
+				m.Patch("/uploads/{id}", org.AppendShareUpload)
+				m.Post("/uploads/{id}/complete", org.CompleteShareUpload)
+				m.Get("/files/{id}", org.GetShare)
+				m.Patch("/files/{id}", org.UpdateShare)
+				m.Delete("/files/{id}", org.DeleteShare)
+				m.Delete("", org.ClearShares)
+			}, reqToken(), reqOrgMembership())
 
 			m.Group("/blocks", func() {
 				m.Get("", org.ListBlocks)
@@ -1816,6 +1828,8 @@ func Routes() *web.Router {
 			m.Post("/listen-port", admin.PostListenPort)
 			m.Post("/listen-port/alias", admin.PostListenPortAlias)
 			m.Post("/lfs-gc", admin.PostLFSGC)
+			m.Get("/org-share", admin.GetOrgShare)
+			m.Put("/org-share/quota", admin.PutOrgShareQuota)
 			m.Group("/users", func() {
 				m.Get("", admin.SearchUsers)
 				m.Post("", bind(api.CreateUserOption{}), admin.CreateUser)

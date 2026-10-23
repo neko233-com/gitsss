@@ -1,5 +1,7 @@
 # gitsss
 
+完整中文说明见 [README.zh-CN.md](README.zh-CN.md)。
+
 面向企业内网研发、以组织为中心的自托管 Git 协作平台，包含仓库、Issue、Pull Request、Actions、Packages、Release、Wiki 与 Git LFS。支持 Linux、macOS、Windows 原生二进制，也可使用离线 Docker 镜像。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
