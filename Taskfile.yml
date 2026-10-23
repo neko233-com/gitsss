@@ -111,12 +111,13 @@ tasks:
   release:native:
     desc: Cross-compile release binaries on the host without xgo
     cmds:
-      - make release-native VERSION="{{.VERSION}}" RELEASE_JOBS="{{.RELEASE_JOBS}}" XZ_LEVEL="{{.XZ_LEVEL}}" RELEASE_GOGIT="{{.RELEASE_GOGIT}}"
+      - make release-native {{if .VERSION}}VERSION="{{.VERSION}}"{{end}} RELEASE_JOBS="{{.RELEASE_JOBS}}" XZ_LEVEL="{{.XZ_LEVEL}}" RELEASE_GOGIT="{{.RELEASE_GOGIT}}" DIST="{{.DIST}}"
     vars:
       VERSION: '{{.VERSION | default ""}}'
       RELEASE_JOBS: '{{.RELEASE_JOBS | default "2"}}'
       XZ_LEVEL: '{{.XZ_LEVEL | default "6"}}'
       RELEASE_GOGIT: '{{.RELEASE_GOGIT | default ""}}'
+      DIST: '{{.DIST | default "dist"}}'
 
   test:
     desc: Run frontend and backend tests
@@ -199,6 +200,16 @@ tasks:
     desc: Cross-compile release binaries on the host without xgo
     cmds:
       - task: release:native
+
+  release:verify:
+    desc: Verify the release matrix, archive bytes, and SHA256SUMS readback
+    requires:
+      vars: [VERSION]
+    cmds:
+      - '{{.PYTHON}} build/verify-release.py "{{.DIST}}/release" "{{.VERSION}}" {{.CLI_ARGS}}'
+    vars:
+      PYTHON: '{{.PYTHON | default "python3"}}'
+      DIST: '{{.DIST | default "dist"}}'
 
   release:check:
     desc: Generate release checksums

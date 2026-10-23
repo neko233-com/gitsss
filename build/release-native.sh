@@ -16,6 +16,21 @@ version=${VERSION:-}
 if [ -z "$version" ]; then
 	version=$(git describe --tags --always | sed 's/^v//; s/-/+/')
 fi
+if [ "$dry" -eq 0 ]; then
+	if [ "${RELEASE_ALLOW_DIRTY:-0}" != 1 ]; then
+		dirty=$(git status --porcelain --untracked-files=all -- . ':(exclude).evidence' ':(exclude)dist')
+		if [ -n "$dirty" ]; then
+			echo "refusing to package a dirty tree; commit the release sources or set RELEASE_ALLOW_DIRTY=1" >&2
+			printf '%s\n' "$dirty" | head -20 >&2
+			exit 1
+		fi
+	fi
+	if ! command -v node >/dev/null 2>&1; then
+		echo "node is required to verify the frontend build stamp" >&2
+		exit 1
+	fi
+	node tools/frontend-build.mjs
+fi
 jobs=${RELEASE_JOBS:-2}
 xz_level=${XZ_LEVEL:-6}
 gogit=${RELEASE_GOGIT:-0}
@@ -68,6 +83,8 @@ build_one() {
 
 if [ "$dry" -eq 0 ]; then
 	mkdir -p "$out_dir"
+	find "$out_dir" -maxdepth 1 -type f \( -name "gitsss-${version}-*" -o -name "gitsss-src-${version}.tar.gz*" -o -name SHA256SUMS \) -delete
+	"${PYTHON:-python3}" build/package-source.py "$out_dir" "$version"
 fi
 
 status=0
@@ -154,5 +171,12 @@ for pid in "${pids[@]}"; do
 done
 if [ "$status" -eq 0 ]; then
 	"${PYTHON:-python3}" build/package-native.py "$out_dir" "$version" || status=1
+	if [ "$status" -eq 0 ]; then
+		if [ "$gogit" = "1" ]; then
+			"${PYTHON:-python3}" build/verify-release.py "$out_dir" "$version" --gogit || status=1
+		else
+			"${PYTHON:-python3}" build/verify-release.py "$out_dir" "$version" || status=1
+		fi
+	fi
 fi
 exit "$status"

@@ -89,8 +89,9 @@ task start</code></pre>
           <tr><td><code>task build</code></td><td>构建前后端。Docker 可用时在容器里执行</td></tr>
           <tr><td><code>make backend-quick</code></td><td>只编译后端，跳过全仓库 go generate</td></tr>
           <tr><td><code>task build:host</code></td><td>本机编译前后端，不启动 Docker</td></tr>
-          <tr><td><code>make release-native VERSION=1.2.0</code></td><td>本机并行交叉编译，默认 2 个任务、xz -6；<code>RELEASE_GOGIT=1</code> 额外打 Windows Go-Git 包，<code>XZ_LEVEL=9</code> 使用更小但更慢的压缩</td></tr>
-          <tr><td><code>task release</code></td><td>本机并行交叉编译，不使用 xgo。等价于 <code>make release-native</code></td></tr>
+          <tr><td><code>make release-native VERSION=1.2.0</code></td><td>本机并行交叉编译，默认 2 个任务、xz -6；要求工作树干净且前端资产戳匹配，自动生成源码包、平台 tar.gz、逐文件校验和与 SHA256SUMS 回读。用 <code>DIST=dist/1.2.0</code> 隔离输出，<code>RELEASE_GOGIT=1</code> 额外打 Windows Go-Git 包，<code>XZ_LEVEL=9</code> 使用更小但更慢的压缩</td></tr>
+          <tr><td><code>task release VERSION=1.2.0 DIST=dist/1.2.0</code></td><td>本机并行交叉编译，不使用 xgo。等价于 <code>make release-native</code></td></tr>
+          <tr><td><code>task release:verify VERSION=1.2.0 DIST=dist/1.2.0</code></td><td>重新校验完整制品矩阵、tar.gz 包内字节与 SHA256SUMS 回读</td></tr>
         </tbody>
       </table>
 

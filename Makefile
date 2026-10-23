@@ -113,8 +113,8 @@ LINUX_ARCHS ?= linux/amd64,linux/arm64
 GO_TEST_PACKAGES ?= $(filter-out $(shell $(GO) list github.com/neko233-com/gitsss/models/migrations/...) github.com/neko233-com/gitsss/tests/integration/migration-test github.com/neko233-com/gitsss/tests github.com/neko233-com/gitsss/tests/integration,$(shell $(GO) list ./... | grep -v /vendor/))
 MIGRATE_TEST_PACKAGES ?= $(shell $(GO) list github.com/neko233-com/gitsss/models/migrations/...)
 
-FRONTEND_SOURCES := $(shell find web_src/js web_src/css -type f)
-FRONTEND_CONFIGS := vite.config.ts tailwind.config.ts
+FRONTEND_SOURCES := $(shell find web_src/js web_src/css assets -type f) $(wildcard public/assets/img/logo.* public/assets/img/favicon.*) $(shell find public/assets/plugins -type f 2>/dev/null)
+FRONTEND_CONFIGS := vite.config.ts vite.react.config.ts tailwind.config.ts package.json tools/frontend-build.mjs
 FRONTEND_DEST := public/assets/.vite/manifest.json
 FRONTEND_DEST_ENTRIES := public/assets/js public/assets/css public/assets/fonts public/assets/.vite
 FRONTEND_DEV_LOG_LEVEL ?= warn
@@ -135,7 +135,7 @@ TAGS_EVIDENCE := $(MAKE_EVIDENCE_DIR)/tags
 
 TEST_TAGS ?= $(TAGS_SPLIT) sqlite sqlite_unlock_notify
 
-TAR_EXCLUDES := .git data indexers queues log node_modules .pnpm-store $(EXECUTABLE) $(DIST) $(MAKE_EVIDENCE_DIR) $(AIR_TMP_DIR)
+TAR_EXCLUDES := .git data indexers queues log node_modules .pnpm-store .evidence .venv .playwright-cli .cache test-env .mimocode gitea.db custom/conf/app.ini git-next git-terminal output $(EXECUTABLE) $(DIST) $(MAKE_EVIDENCE_DIR) $(AIR_TMP_DIR)
 
 GO_DIRS := build cmd models modules routers services tests tools
 WEB_DIRS := web_src/js web_src/css

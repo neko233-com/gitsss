@@ -101,12 +101,20 @@ an external server binary. Upgrades replace that binary only. Bare repositories,
 Git objects, refs, and LFS object bytes stay in place; new metadata belongs in
 `gitsss/layout.json` and `gitsss/extensions/`.
 
-Run <code>make release-native VERSION=1.2.0</code> on the release host. It
+Run <code>make release-native VERSION=1.2.0 DIST=dist/1.2.0</code> on the
+release host. It refuses a dirty working tree and a stale frontend build stamp,
 cross-compiles with the local Go toolchain, two packages at a time by default,
-and compresses with <code>xz -6</code> in parallel. Set <code>RELEASE_JOBS</code>,
-<code>XZ_LEVEL=9</code>, or <code>RELEASE_GOGIT=1</code> when a release needs more
-parallelism, smaller archives, or the Windows Go-Git binaries. <code>make release</code>
-remains the Docker xgo path and now uses the same parallel xz setting.
+and compresses with <code>xz -6</code> in parallel. The build writes a
+deterministic source archive, one <code>tar.gz</code> per platform containing
+the server, hook, license, and install notes, per-file checksums, and a
+<code>SHA256SUMS</code> that is recomputed and read back before success. Set
+<code>RELEASE_JOBS</code>, <code>XZ_LEVEL=9</code>, or
+<code>RELEASE_GOGIT=1</code> when a release needs more parallelism, smaller
+archives, or the Windows Go-Git binaries. <code>task release:verify</code>
+rechecks the full matrix, archive member bytes, and checksum readback. Use
+<code>RELEASE_ALLOW_DIRTY=1</code> only for a local rehearsal, never for
+published artifacts. <code>make release</code> remains the Docker xgo path and
+now uses the same parallel xz setting.
 
 The host must provide Go, Make, Node.js, and pnpm. Docker is required only for
 <code>make release</code> and for building the container image. Dependency
