@@ -440,11 +440,11 @@ func repoAssignmentLegacy(ctx *Context, data *repoAssignmentPrepareDataStruct) {
 	}
 
 	if !ctx.Repo.Permission.HasAnyUnitAccessOrPublicAccess() && !canWriteAsMaintainer(ctx) {
-		if ctx.FormString("go-get") == "1" {
+		if ctx.FormString("go-get") == "1" && !ctx.IsSigned {
 			EarlyResponseForGoGetMeta(ctx)
 			return
 		}
-		ctx.NotFound(nil)
+		ctx.RepoAccessDenied(repo)
 		return
 	}
 	ctx.Data["Permission"] = &ctx.Repo.Permission

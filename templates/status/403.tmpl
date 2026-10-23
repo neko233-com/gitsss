@@ -1,0 +1,14 @@
+{{template "base/head" .}}
+<div role="main" aria-labelledby="repo-access-denied-title" class="page-content">
+	<div class="ui container">
+		{{template "base/alert" .}}
+		<div class="status-page-error">
+			<h1 id="repo-access-denied-title" class="status-page-error-title">{{ctx.Locale.Tr "repo.access_denied.title"}}</h1>
+			<p class="tw-my-4">{{ctx.Locale.Tr "repo.access_denied.message"}}</p>
+			<p class="tw-text-center">{{ctx.Locale.Tr "repo.access_denied.repository"}}: <code>{{.RepoFullName}}</code></p>
+			<p class="tw-my-4">{{ctx.Locale.Tr "repo.access_denied.next_step"}}</p>
+			<p class="tw-text-center"><a class="ui button" href="{{AppSubUrl}}/">{{ctx.Locale.Tr "repo.access_denied.home"}}</a></p>
+		</div>
+	</div>
+</div>
+{{template "base/footer" .}}
