@@ -212,12 +212,20 @@ func repoAssignment() func(ctx *context.APIContext) {
 		}
 
 		if !ctx.Repo.Permission.HasAnyUnitAccessOrPublicAccess() {
-			ctx.APIErrorNotFound()
+			if ctx.IsSigned && !ctx.PublicOnly {
+				ctx.APIError(http.StatusForbidden, ctx.Locale.TrString("repo.access_denied.api", repo.FullName()))
+			} else {
+				ctx.APIErrorNotFound()
+			}
 			return
 		}
 
 		if !ctx.TokenCanAccessRepo(repo) {
-			ctx.APIErrorNotFound()
+			if ctx.IsSigned && !ctx.PublicOnly {
+				ctx.APIError(http.StatusForbidden, ctx.Locale.TrString("repo.access_denied.token"))
+			} else {
+				ctx.APIErrorNotFound()
+			}
 			return
 		}
 	}

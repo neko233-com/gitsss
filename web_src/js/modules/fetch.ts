@@ -7,7 +7,11 @@ import type {RequestOpts} from '../types.ts';
 export function request(url: string, {method = 'GET', data, headers = {}, ...other}: RequestOpts = {}): Promise<Response> {
   let body: BodyInit | undefined;
   let contentType: string | undefined;
-  if (typeof data === 'string' || data instanceof FormData || data instanceof URLSearchParams || data instanceof Blob || data instanceof Uint8Array || data instanceof ArrayBuffer) {
+  if (data instanceof Uint8Array) {
+    const bytes = new Uint8Array(data.byteLength);
+    bytes.set(data);
+    body = bytes.buffer;
+  } else if (typeof data === 'string' || data instanceof FormData || data instanceof URLSearchParams || data instanceof Blob || data instanceof ArrayBuffer) {
     body = data;
   } else if (isObject(data) || Array.isArray(data)) {
     contentType = 'application/json';

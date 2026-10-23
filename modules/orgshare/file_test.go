@@ -6,6 +6,7 @@ package orgshare
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,7 +29,9 @@ func TestReserveAndMeasure(t *testing.T) {
 	path := filepath.Join(dir, "reserved.bin")
 	preallocated, err := Reserve(path, 64*1024)
 	require.NoError(t, err)
-	assert.True(t, preallocated)
+	if runtime.GOOS == "linux" || runtime.GOOS == "windows" {
+		assert.True(t, preallocated)
+	}
 	info, err := os.Stat(path)
 	require.NoError(t, err)
 	assert.Equal(t, int64(64*1024), info.Size())

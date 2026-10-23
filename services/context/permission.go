@@ -7,10 +7,12 @@ import (
 	"context"
 	"net/http"
 	"slices"
+	"strings"
 
 	auth_model "github.com/neko233-com/gitsss/models/auth"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
 	"github.com/neko233-com/gitsss/models/unit"
+	"github.com/neko233-com/gitsss/modules/setting"
 )
 
 // isOwnerHidden reports whether repo's owner is not publicly visible (a limited or private owner), so
@@ -79,11 +81,36 @@ func CheckTokenScopes(ctx *Context, repo *repo_model.Repository, scopes ...auth_
 	}
 }
 
+// RepoAccessDenied gives signed-in users actionable feedback while keeping
+// inaccessible repositories hidden from anonymous and public-only callers.
+func (ctx *Context) RepoAccessDenied(repo *repo_model.Repository) {
+	if !ctx.IsSigned || TokenIsPublicOnly(ctx) {
+		ctx.NotFound(nil)
+		return
+	}
+
+	ctx.Data["Title"] = ctx.Locale.TrString("repo.access_denied.title")
+	ctx.Data["PageTitleCommon"] = setting.AppName
+	ctx.Data["RepoFullName"] = repo.FullName()
+
+	if strings.Contains(ctx.Req.Header.Get("Accept"), "text/html") {
+		ctx.HTML(http.StatusForbidden, "status/403")
+		return
+	}
+
+	message := strings.Join([]string{
+		ctx.Locale.TrString("repo.access_denied.message"),
+		ctx.Locale.TrString("repo.access_denied.repository") + ": " + repo.FullName(),
+		ctx.Locale.TrString("repo.access_denied.next_step"),
+	}, "\n")
+	ctx.PlainText(http.StatusForbidden, message)
+}
+
 // RequireRepoAdmin returns a middleware for requiring repository admin permission
 func RequireRepoAdmin() func(ctx *Context) {
 	return func(ctx *Context) {
 		if !ctx.IsSigned || !ctx.Repo.Permission.IsAdmin() {
-			ctx.NotFound(nil)
+			ctx.RepoAccessDenied(ctx.Repo.Repository)
 			return
 		}
 	}
@@ -93,7 +120,7 @@ func RequireRepoAdmin() func(ctx *Context) {
 func CanWriteToBranch() func(ctx *Context) {
 	return func(ctx *Context) {
 		if !ctx.Repo.CanWriteToBranch(ctx, ctx.Doer, ctx.Repo.BranchName) {
-			ctx.NotFound(nil)
+			ctx.RepoAccessDenied(ctx.Repo.Repository)
 			return
 		}
 	}
@@ -105,7 +132,7 @@ func RequireUnitWriter(unitTypes ...unit.Type) func(ctx *Context) {
 		if slices.ContainsFunc(unitTypes, ctx.Repo.Permission.CanWrite) {
 			return
 		}
-		ctx.NotFound(nil)
+		ctx.RepoAccessDenied(ctx.Repo.Repository)
 	}
 }
 
@@ -120,7 +147,7 @@ func RequireUnitReader(unitTypes ...unit.Type) func(ctx *Context) {
 				return
 			}
 		}
-		ctx.NotFound(nil)
+		ctx.RepoAccessDenied(ctx.Repo.Repository)
 	}
 }
 

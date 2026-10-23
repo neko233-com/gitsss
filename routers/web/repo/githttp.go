@@ -198,7 +198,7 @@ func httpBase(ctx *context.Context, optGitService ...string) *serviceHandler {
 			}
 
 			if !p.CanAccess(accessMode, unitType) {
-				ctx.PlainText(http.StatusNotFound, "Repository not found")
+				ctx.PlainText(http.StatusForbidden, ctx.Locale.TrString("repo.access_denied.git", repo.FullName()))
 				return nil
 			}
 

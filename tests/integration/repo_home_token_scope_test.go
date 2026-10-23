@@ -9,7 +9,38 @@ import (
 
 	auth_model "github.com/neko233-com/gitsss/models/auth"
 	"github.com/neko233-com/gitsss/tests"
+
+	"github.com/stretchr/testify/assert"
 )
+
+func TestRepositoryAccessDeniedFeedback(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+
+	const repoPath = "/user2/repo2"
+
+	MakeRequest(t, NewRequest(t, "GET", repoPath), http.StatusNotFound)
+	MakeRequest(t, NewRequest(t, "GET", "/api/v1/repos/user2/repo2"), http.StatusNotFound)
+
+	session := loginUser(t, "user4")
+	resp := session.MakeRequest(t, NewRequest(t, "GET", repoPath), http.StatusForbidden)
+	assert.Contains(t, resp.Body.String(), "user2/repo2")
+
+	token := getUserToken(t, "user4", auth_model.AccessTokenScopeReadRepository)
+
+	apiReq := NewRequest(t, "GET", "/api/v1/repos/user2/repo2")
+	apiReq.SetBasicAuth("user4", token)
+	apiResp := MakeRequest(t, apiReq, http.StatusForbidden)
+	assert.Contains(t, apiResp.Body.String(), "user2/repo2")
+
+	publicOnlyToken := getUserToken(t, "user2", auth_model.AccessTokenScopeReadRepository, auth_model.AccessTokenScopePublicOnly)
+	publicOnlyReq := NewRequest(t, "GET", "/api/v1/repos/user2/repo2").AddTokenAuth(publicOnlyToken)
+	MakeRequest(t, publicOnlyReq, http.StatusNotFound)
+
+	gitReq := NewRequest(t, "GET", repoPath+".git/info/refs?service=git-upload-pack")
+	gitReq.SetBasicAuth("user4", token)
+	gitResp := MakeRequest(t, gitReq, http.StatusForbidden)
+	assert.Contains(t, gitResp.Body.String(), "user2/repo2")
+}
 
 // TestRepoHomeContentTokenScopes ensures the web repository home page enforces the
 // repository read scope (and public-only confinement) of an API token used via basic

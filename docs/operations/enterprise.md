@@ -14,6 +14,21 @@ The signed-in home page lists the viewer's accessible organizations first.
 `/?view=personal` opens the personal dashboard. Organization membership and
 repository access are still checked on the server.
 
+## Repository access feedback
+
+A signed-in user without repository access receives a localized HTTP 403 page
+showing the repository path and a practical next step: ask the owner or an
+organization administrator to grant collaborator or team access. REST API
+requests from signed-in accounts return HTTP 403 with a structured message.
+Anonymous web and API requests remain HTTP 404. Public-only API tokens also
+retain HTTP 404 for inaccessible private resources.
+
+Git Smart HTTP returns HTTP 403 after an authenticated account fails the
+repository permission check. Its anonymous 401 challenge remains unchanged so
+Git clients can ask for credentials. The status-code change does not grant
+access or modify repository permissions. Rolling back the binary restores the
+previous response behavior; no database migration is required.
+
 Teams have an optional `display_name` for editable human-readable names, including
 the Owners team. The existing team ID, `name`, `lower_name`, routes and owner-team
 identity remain unchanged. The label grants no permissions. Empty labels display
