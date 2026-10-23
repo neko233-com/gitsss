@@ -220,6 +220,11 @@ func verifyAuthWithOptions(options *common.VerifyOptions) func(ctx *context.Cont
 
 		if options.SignInRequired {
 			if !ctx.IsSigned {
+				// Hide repository routes even when the site requires sign-in.
+				if ctx.PathParam("reponame") != "" {
+					ctx.NotFound(nil)
+					return
+				}
 				ctx.Redirect(middleware.RedirectLinkUserLogin(ctx.Req))
 				return
 			} else if !ctx.Doer.IsActive && setting.Service.RegisterEmailConfirm {

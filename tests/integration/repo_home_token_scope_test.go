@@ -8,6 +8,9 @@ import (
 	"testing"
 
 	auth_model "github.com/neko233-com/gitsss/models/auth"
+	"github.com/neko233-com/gitsss/modules/setting"
+	"github.com/neko233-com/gitsss/modules/test"
+	"github.com/neko233-com/gitsss/routers"
 	"github.com/neko233-com/gitsss/tests"
 
 	"github.com/stretchr/testify/assert"
@@ -40,6 +43,27 @@ func TestRepositoryAccessDeniedFeedback(t *testing.T) {
 	gitReq.SetBasicAuth("user4", token)
 	gitResp := MakeRequest(t, gitReq, http.StatusForbidden)
 	assert.Contains(t, gitResp.Body.String(), "user2/repo2")
+}
+
+func TestRepositoryAccessDeniedWithRequiredSignIn(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	defer test.MockVariableValue(&setting.Service.RequireSignInViewStrict, true)()
+	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
+
+	for _, repoPath := range []string{"/user2/repo2", "/user2/repo1", "/user2/missing-repository"} {
+		resp := MakeRequest(t, NewRequest(t, "GET", repoPath), http.StatusNotFound)
+		assert.Empty(t, resp.Header().Get("Location"))
+		MakeRequest(t, NewRequest(t, "GET", "/api/v1/repos"+repoPath), http.StatusNotFound)
+	}
+	MakeRequest(t, NewRequest(t, "GET", "/explore/repos"), http.StatusSeeOther)
+	MakeRequest(t, NewRequest(t, "GET", "/api/v1/version"), http.StatusForbidden)
+	MakeRequest(t, NewRequest(t, "GET", "/user2/repo2.git/info/refs?service=git-upload-pack"), http.StatusUnauthorized)
+
+	session := loginUser(t, "user4")
+	resp := session.MakeRequest(t, NewRequest(t, "GET", "/user2/repo2"), http.StatusForbidden)
+	assert.Contains(t, resp.Body.String(), "user2/repo2")
+	token := getUserToken(t, "user4", auth_model.AccessTokenScopeReadRepository)
+	MakeRequest(t, NewRequest(t, "GET", "/api/v1/repos/user2/repo2").AddTokenAuth(token), http.StatusForbidden)
 }
 
 // TestRepoHomeContentTokenScopes ensures the web repository home page enforces the

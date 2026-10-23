@@ -908,6 +908,11 @@ func verifyAuthWithOptions(options *common.VerifyOptions) func(ctx *context.APIC
 
 		if options.SignInRequired {
 			if !ctx.IsSigned {
+				// Hide repository routes even when the site requires sign-in.
+				if ctx.PathParam("reponame") != "" {
+					ctx.APIErrorNotFound()
+					return
+				}
 				// Restrict API calls with error message.
 				ctx.JSON(http.StatusForbidden, map[string]string{
 					"message": "Only signed in user is allowed to call APIs.",

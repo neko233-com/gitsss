@@ -295,7 +295,7 @@ func TestArchivePlanCacheServesIndependentReaders(t *testing.T) {
 	require.NoError(t, first.Close())
 	require.NoError(t, second.Close())
 	assert.Equal(t, head, all[:5])
-	assert.EqualValues(t, job.Size, len(all))
+	assert.Len(t, all, int(job.Size))
 	_, err = EnsureDirectories(ctx, 3, 2, "", []string{"Unrelated"})
 	require.NoError(t, err)
 	_, third, err := OpenDownload(ctx, 3, 2, job.ID)

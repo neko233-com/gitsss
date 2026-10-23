@@ -20,8 +20,11 @@ A signed-in user without repository access receives a localized HTTP 403 page
 showing the repository path and a practical next step: ask the owner or an
 organization administrator to grant collaborator or team access. REST API
 requests from signed-in accounts return HTTP 403 with a structured message.
-Anonymous web and API requests remain HTTP 404. Public-only API tokens also
-retain HTTP 404 for inaccessible private resources.
+Anonymous web and API requests remain HTTP 404, including when
+`REQUIRE_SIGNIN_VIEW` is enabled. On such sites, public, private and missing
+repository routes all return 404 before the sign-in wall, while non-repository
+pages retain their existing login behavior. Public-only API tokens also retain
+HTTP 404 for inaccessible private resources.
 
 Git Smart HTTP returns HTTP 403 after an authenticated account fails the
 repository permission check. Its anonymous 401 challenge remains unchanged so
