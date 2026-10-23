@@ -129,6 +129,7 @@
       <h2>迁移与 LFS</h2>
       <p><code>gitsss import-gitea-http</code> 默认输出 JSON。源和目标可以用站点管理员 Token 文件，或 <code>--source-user</code> 加 <code>--source-password-file</code>（目标同理）。密码放在 <code>0600</code> 文件里，不要放在命令行。不带 <code>--apply</code> 只打印计划。带 <code>--apply</code> 时复制账号、权限、Git、LFS，以及本次新建仓库上的标签、里程碑、Issue、评论、Pull Request、评审线程、Release 说明和附件、Wiki 页面，以及挂在该仓库上的 generic、npm、Maven、PyPI、Helm、Cargo、Debian、Composer、Alpine、NuGet、RubyGems 和容器镜像。Debian 与 Alpine 依赖软件包文件 API 的 <code>composite_key</code>。评审里已解决的行评论会在目标评论创建后标记为已解决。附件和软件包单文件上限 512 MiB，并且下载地址必须和源站同源。Conan 和 Swift 只出现在计划里。</p>
       <p><code>gitsss admin lfs-gc</code> 输出 JSON。不加 <code>--apply</code> 只扫描。默认保留 168 小时，短于 24 小时需要 <code>--force</code>。已登录的站点管理员也可以 <code>POST /api/v1/admin/lfs-gc</code>。</p>
+      <p>组织内网共享不走 Git。服务器上用 <code>gitsss admin org-share</code>，远程 Agent 用 <code>push</code>/<code>pull</code> 或 <code>/api/v1/orgs/{org}/shares</code>。上传分片可以并发，下载用 HTTP Range。容量和磁盘余量不够时，开始上传前就会返回明确错误。默认每个组织 100 GB、文件 30 天过期，<code>--permanent</code> 或 <code>permanent: true</code> 表示不自动删除。管理员用 <code>gitsss admin org-share usage</code> 或 <code>GET /api/v1/admin/org-share</code> 看磁盘和各组织用量，用 <code>quota --bytes</code> 或 <code>PUT /api/v1/admin/org-share/quota</code> 改上限，<code>0</code> 恢复默认。</p>
       <p>纯前端插件放在 <code>custom/public/assets/plugins/manifest.json</code>。后端不执行插件代码。契约见 <a href="extensions.html">扩展功能</a>。</p>
 
       <h2>版本检查</h2>

@@ -10,7 +10,7 @@ export type Mention = {
   avatar: string,
 };
 
-export type RequestData = string | FormData | URLSearchParams | Record<string, any>;
+export type RequestData = string | FormData | URLSearchParams | Record<string, any> | Blob | ArrayBuffer | Uint8Array;
 
 export type RequestOpts = {
   data?: RequestData,

@@ -131,6 +131,7 @@ func loadCommonSettingsFrom(cfg ConfigProvider) error {
 	if err := loadAttachmentFrom(cfg); err != nil {
 		return err
 	}
+	loadOrgShareFrom(cfg)
 	if err := loadLFSFrom(cfg); err != nil {
 		return err
 	}

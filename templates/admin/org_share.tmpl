@@ -1,0 +1,52 @@
+{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin")}}
+<div class="admin-setting-content">
+	<h4 class="ui top attached header">{{ctx.Locale.Tr "admin.org_share"}}</h4>
+	<div class="ui attached segment">
+		<p>{{ctx.Locale.Tr "admin.org_share.intro" (FileSize .DefaultQuota)}}</p>
+		{{if .Report.Error}}
+			<div class="ui negative message">{{.Report.Error}}</div>
+		{{else}}
+			<div class="ui three statistics">
+				<div class="statistic"><div class="value">{{FileSize .Report.Capacity}}</div><div class="label">{{ctx.Locale.Tr "admin.org_share.capacity"}}</div></div>
+				<div class="statistic"><div class="value">{{FileSize .Report.Available}}</div><div class="label">{{ctx.Locale.Tr "admin.org_share.available"}}</div></div>
+				<div class="statistic"><div class="value">{{FileSize .Report.Reserve}}</div><div class="label">{{ctx.Locale.Tr "admin.org_share.reserve"}}</div></div>
+			</div>
+			<p class="help">{{.Report.Path}}</p>
+		{{end}}
+	</div>
+	<h4 class="ui top attached header">{{ctx.Locale.Tr "admin.org_share.orgs"}}</h4>
+	<div class="ui attached segment">
+		<table class="ui very basic table">
+			<thead>
+				<tr>
+					<th>{{ctx.Locale.Tr "admin.org_share.org"}}</th>
+					<th>{{ctx.Locale.Tr "admin.org_share.used"}}</th>
+					<th>{{ctx.Locale.Tr "admin.org_share.quota"}}</th>
+					<th>{{ctx.Locale.Tr "admin.org_share.files"}}</th>
+					<th></th>
+				</tr>
+			</thead>
+			<tbody>
+				{{range .Report.Orgs}}
+				<tr>
+					<td>{{.Name}}</td>
+					<td>{{FileSize .Used}}</td>
+					<td>{{FileSize .Quota}}{{if .Override}} <span class="ui tiny label">{{ctx.Locale.Tr "admin.org_share.override"}}</span>{{end}}</td>
+					<td>{{.Files}}</td>
+					<td>
+						<form class="ui form" method="post" action="{{AppSubUrl}}/-/admin/org-share">
+							<input type="hidden" name="org_id" value="{{.OrgID}}">
+							<div class="ui action input">
+								<input name="max_gb" type="number" min="0" step="1" placeholder="100" aria-label="{{ctx.Locale.Tr "admin.org_share.max_gb"}}">
+								<button class="ui button" type="submit">{{ctx.Locale.Tr "admin.org_share.save"}}</button>
+							</div>
+						</form>
+					</td>
+				</tr>
+				{{end}}
+			</tbody>
+		</table>
+		<p class="help">{{ctx.Locale.Tr "admin.org_share.api_help"}}</p>
+	</div>
+</div>
+{{template "admin/layout_footer" .}}

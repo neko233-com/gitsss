@@ -45,6 +45,7 @@ import {initRepoActivityTopAuthorsChart, initRepoArchiveLinks} from './features/
 import {initRepoMigrationStatusChecker} from './features/repo-migrate.ts';
 import {initRepoDiffView} from './features/repo-diff.ts';
 import {initOrgTeam} from './features/org-team.ts';
+import {initOrgShare} from './features/org-share.ts';
 import {initOrgKanban} from './features/org-kanban.ts';
 import {initUserAuthWebAuthn, initUserAuthWebAuthnRegister} from './features/user-auth-webauthn.ts';
 import {initRepoReleaseNew} from './features/repo-release.ts';
@@ -143,6 +144,7 @@ const initPerformanceTracer = callInitFunctions([
   initNotificationCount,
 
   initOrgTeam,
+  initOrgShare,
 
   initRepoActivityTopAuthorsChart,
   initRepoArchiveLinks,

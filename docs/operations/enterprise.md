@@ -116,10 +116,14 @@ organization. Members collaborate on cards; deletion requires the creator or an
 organization owner. Assignees must belong to the same organization. Server-side
 organization scoping applies to reads, edits, moves and deletes.
 
-Repository boards remain at `/{organization}/{repository}/projects`. Legacy
+Repository boards remain at `/{organization}/{repository}/projects`. User and
+organization issue boards at `/{username}/-/projects` collect issues from
+repositories that account owns. Adding `owner/repo#123` keeps the repository
+board membership. Intranet file share is a separate tab after Worktime; see
+`docs/operations/org-share.md`. Legacy
 owner project routes, records, fields and issue links remain compatible. New
 standalone cards use the additive `org_task` table under GitSSS extension schema
-version 2; upstream schema 343 and Git/LFS paths and bytes are unchanged. Version
+version 2. Upstream schema 343 adds the organization share tables. Git and LFS paths and bytes are unchanged. Version
 1 binaries refuse extension version 2: rollback requires the matching database
 backup as well as the old binary. Include trial task cards in the final takeover
 export and verify organization/user ID mapping before importing them.

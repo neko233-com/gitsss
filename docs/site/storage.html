@@ -124,6 +124,9 @@ LFS_MAX_FILE_SIZE = 10737418240</code></pre></div>
       <p>管理员可在 <code>/-/admin/storage</code> 查看数据盘总容量、全盘已用/可用、实测 Git/LFS 文件字节和待清理对象。管理首页同步显示概览。分类、测量时间和扫描不完整状态均明确显示；扫描受 MAX_ENTRIES 和 CACHE_TTL 限制时，文件字节为下限。磁盘已用包含其他应用，仓库记录的估算大小可能重复计算共享 LFS，不能直接当作物理磁盘用量。任何写保护状态都应先处理底层磁盘或对象存储告警，再恢复写入。</p>
       <h2>LFS 清理</h2>
       <p>游戏仓库会留下指针已经删除的 LFS 对象。<code>gitsss admin lfs-gc</code> 默认只扫描并输出 JSON。<code>--apply</code> 才删除，而且只删除早于 <code>--older-than</code>（默认 168 小时）的元数据。短于 24 小时会被拒绝，除非加上 <code>--force</code>。管理页是 <code>/-/admin/lfs-gc</code>，API 是 <code>POST /api/v1/admin/lfs-gc</code>。对象路径和 oid 布局不变。说明见 <code>docs/operations/lfs-gc.md</code>。</p>
+      <h2>组织内网共享</h2>
+      <p>组织页「工作时间」后面的「内网共享」用来传语言安装包、IDE 安装包等大文件，不进入 Git 或 LFS。默认目录是数据目录下的 <code>org-share</code>，可用 <code>[org_share] PATH</code> 改到别的磁盘。每个组织默认 100 GB，系统管理员在 <code>/-/admin/org-share</code> 按组织修改，页面同时显示该磁盘的总量、可用空间和安全余量。</p>
+      <p>上传开始前会同时检查组织剩余配额和磁盘可用空间。可用空间减去 <code>RESERVE_BYTES</code>（默认 1 GB）仍不够时，请求直接拒绝，不会先写入半个文件。新文件默认 30 天后删除，单个文件可以改为永久保留。上传按分片并发并支持断点续传，下载支持 HTTP Range，网页和 <code>gitsss admin org-share</code> 都可以并行传输。说明见 <code>docs/operations/org-share.md</code>。</p>
       <p>服务端 Git 配置会把 <code>lfs.concurrenttransfers</code> 设成 CPU 数，最多 8。这只影响传输并发，不改变对象存放位置。</p>
     <figure><img src="assets/screenshots/storage.png" alt="Readable administration and measured disk usage, demonstration instance, 2026-10-16" style="max-width:100%;height:auto"><figcaption>Demonstration instance · 2026-10-16</figcaption></figure></main>
   </div>
