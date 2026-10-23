@@ -147,3 +147,7 @@ __pycache__/
 # Local browser acceptance artifacts
 /.playwright-cli/
 /output/ui-review/
+
+# Local verification evidence and nested source checkout
+/.evidence/
+/gitsss/
