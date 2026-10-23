@@ -9,6 +9,7 @@ import (
 	"errors"
 	"math"
 	"os"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
@@ -34,10 +35,21 @@ func reserveSpace(path string, size int64) (bool, error) {
 		return false, err
 	}
 	defer file.Close()
-	if size > 0 {
+	if size == 0 {
+		return true, nil
+	}
+	// FILE_ALLOCATION_INFO reserves clusters without exposing uninitialised bytes.
+	info := struct{ AllocationSize int64 }{AllocationSize: size}
+	err = windows.SetFileInformationByHandle(windows.Handle(file.Fd()), windows.FileAllocationInfo, (*byte)(unsafe.Pointer(&info)), uint32(unsafe.Sizeof(info)))
+	if err == nil {
 		if err := file.Truncate(size); err != nil {
 			return false, err
 		}
+		return true, nil
+	}
+	// Volumes without allocation hints fall back to a sparse file.
+	if err := file.Truncate(size); err != nil {
+		return false, err
 	}
 	return false, nil
 }
