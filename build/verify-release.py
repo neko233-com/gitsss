@@ -82,6 +82,10 @@ def check_bundle(folder, name, binary, hook, executable):
     check_checksum(folder, name)
 
 
+def version_tag(version):
+    return 'gitsss_release_' + ''.join(char if char.isalnum() else '_' for char in version)
+
+
 def check_buildinfo(folder, name, version, server):
     try:
         output = subprocess.run(['go', 'version', '-m', str(folder / name)], check=True,
@@ -90,7 +94,8 @@ def check_buildinfo(folder, name, version, server):
         raise SystemExit(f'cannot read build info for {name}: {error}') from error
     if '\tpath\tgithub.com/neko233-com/gitsss' not in output and '\tmod\tgithub.com/neko233-com/gitsss' not in output:
         raise SystemExit(f'{name} does not belong to the gitsss module')
-    if server and f'-X main.Version={version}' not in output:
+    # Go 1.27 stops recording -ldflags, so releases carry the version as a build tag.
+    if server and version_tag(version) not in output:
         raise SystemExit(f'{name} does not embed version {version}')
 
 

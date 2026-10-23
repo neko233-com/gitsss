@@ -36,6 +36,9 @@ xz_level=${XZ_LEVEL:-6}
 gogit=${RELEASE_GOGIT:-0}
 out_dir=${DIST:-dist}/release
 tags="bindata sqlite sqlite_unlock_notify timetzdata netgo osusergo"
+# Go no longer records -X flags in build info; a version tag keeps artifacts verifiable.
+version_tag="gitsss_release_$(printf '%s' "$version" | sed 's/[^A-Za-z0-9]/_/g')"
+build_tags="$tags $version_tag"
 ldflags="-s -w -X main.Version=${version} -X main.Tags=${tags// /,}"
 
 platforms=(
@@ -57,15 +60,15 @@ fi
 
 build_one() {
 	local goos=$1 goarch=$2 name=$3 extra=${4:-}
-	local build_tags=$tags
+	local compile_tags=$build_tags
 	if [ -n "$extra" ]; then
-		build_tags="$build_tags $extra"
+		compile_tags="$compile_tags $extra"
 	fi
 	local helper="gitsss-hook-${version}-${goos}-${goarch}"
 	if [ "$goos" = windows ]; then helper+='.exe'; fi
 	if [ "$dry" -eq 1 ]; then
 		printf 'GOOS=%s GOARCH=%s go build -tags %q -ldflags %q -o %s/%s\n' \
-			"$goos" "$goarch" "$build_tags" "$ldflags" "$out_dir" "$name"
+			"$goos" "$goarch" "$compile_tags" "$ldflags" "$out_dir" "$name"
 		if [ -z "$extra" ]; then
 			printf 'GOOS=%s GOARCH=%s go build -ldflags %q -o %s/%s ./cmd/gitsss-hook\n' \
 				"$goos" "$goarch" '-s -w' "$out_dir" "$helper"
@@ -74,7 +77,7 @@ build_one() {
 	fi
 	echo "build $name"
 	GOOS=$goos GOARCH=$goarch CGO_ENABLED=0 go build -trimpath -buildvcs=false \
-		-tags "$build_tags" -ldflags "$ldflags" -o "$out_dir/$name" .
+		-tags "$compile_tags" -ldflags "$ldflags" -o "$out_dir/$name" .
 	if [ -z "$extra" ]; then
 		GOOS=$goos GOARCH=$goarch CGO_ENABLED=0 go build -trimpath -buildvcs=false \
 			-ldflags '-s -w' -o "$out_dir/$helper" ./cmd/gitsss-hook
