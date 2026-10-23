@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"hash/crc32"
 	"io"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -35,6 +37,48 @@ func transferFixture(t *testing.T) {
 	snapshotLock.Unlock()
 }
 func digestBytes(data []byte) string { h := sha256.Sum256(data); return hex.EncodeToString(h[:]) }
+
+func TestResumableConcurrentUsersAndTabs(t *testing.T) {
+	transferFixture(t)
+	release := make(chan struct{})
+	type pending struct {
+		user    int64
+		session *UploadStatus
+		reader  *blockedUploadReader
+	}
+	uploads := []pending{}
+	for _, user := range []int64{2, 4} {
+		for tab := range 2 {
+			name := fmt.Sprintf("user-%d-tab-%d.zip", user, tab)
+			session, err := BeginUpload(t.Context(), 3, user, "", name, digestBytes([]byte(name)), 4)
+			require.NoError(t, err)
+			uploads = append(uploads, pending{user, session, &blockedUploadReader{ready: make(chan struct{}), release: release, source: strings.NewReader("data")}})
+		}
+	}
+	var workers sync.WaitGroup
+	for _, upload := range uploads {
+		workers.Go(func() {
+			_, err := AppendUpload(t.Context(), 3, upload.user, upload.session.ID, 0, 4, digestBytes([]byte("data")), upload.reader)
+			assert.NoError(t, err)
+		})
+	}
+	for _, upload := range uploads {
+		<-upload.reader.ready
+	}
+	close(release)
+	workers.Wait()
+	for _, user := range []int64{2, 4} {
+		own, err := Uploads(t.Context(), 3, user)
+		require.NoError(t, err)
+		assert.Len(t, own, 2)
+		for _, session := range own {
+			assert.EqualValues(t, 4, session.Offset)
+			node, err := CompleteUpload(t.Context(), 3, user, session.ID)
+			require.NoError(t, err)
+			assert.Equal(t, digestBytes([]byte("data")), node.Digest)
+		}
+	}
+}
 
 func TestResumableUploadDurableOffsetsAndIntegrity(t *testing.T) {
 	transferFixture(t)
@@ -225,6 +269,44 @@ func TestVirtualZIP64ExtractionRangesAndTickets(t *testing.T) {
 	require.NoError(t, RemoveDownload(ctx, 3, 2, job.ID))
 	_, err = GetDownload(ctx, 3, 2, job.ID)
 	require.ErrorIs(t, err, os.ErrNotExist)
+}
+
+func TestArchivePlanCacheServesIndependentReaders(t *testing.T) {
+	transferFixture(t)
+	ctx := t.Context()
+	dir, err := CreateFolder(ctx, 3, 2, "", "SDK")
+	require.NoError(t, err)
+	for _, name := range []string{"a.bin", "b.bin"} {
+		_, err = Upload(ctx, 3, 2, dir.ID, name, 4, strings.NewReader("data"))
+		require.NoError(t, err)
+	}
+	job, err := CreateDownload(ctx, 3, 2, []string{dir.ID})
+	require.NoError(t, err)
+	assert.False(t, job.Single)
+	_, first, err := OpenDownload(ctx, 3, 2, job.ID)
+	require.NoError(t, err)
+	_, second, err := OpenDownload(ctx, 3, 2, job.ID)
+	require.NoError(t, err)
+	head := make([]byte, 5)
+	_, err = io.ReadFull(first, head)
+	require.NoError(t, err)
+	all, err := io.ReadAll(second)
+	require.NoError(t, err)
+	require.NoError(t, first.Close())
+	require.NoError(t, second.Close())
+	assert.Equal(t, head, all[:5])
+	assert.EqualValues(t, job.Size, len(all))
+	_, err = EnsureDirectories(ctx, 3, 2, "", []string{"Unrelated"})
+	require.NoError(t, err)
+	_, third, err := OpenDownload(ctx, 3, 2, job.ID)
+	require.NoError(t, err)
+	reused, err := io.ReadAll(third)
+	require.NoError(t, err)
+	require.NoError(t, third.Close())
+	assert.Equal(t, all, reused)
+	require.NoError(t, Rename(ctx, 3, dir.ID, "SDK2"))
+	_, _, err = OpenDownload(ctx, 3, 2, job.ID)
+	require.ErrorIs(t, err, ErrConflict)
 }
 
 func TestVirtualZIPRejectUnsafePathsAndLargeMetadata(t *testing.T) {

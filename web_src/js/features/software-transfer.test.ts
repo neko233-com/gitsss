@@ -3,17 +3,17 @@ import {TransferCache} from './software-transfer-cache.ts';
 import {SoftwareTransfers} from './software-transfer.ts';
 
 vi.mock('../modules/fetch.ts', () => ({GET: vi.fn(), POST: vi.fn(), DELETE: vi.fn()}));
-vi.mock('./software-transfer-cache.ts', () => ({TransferCache: vi.fn()}));
+vi.mock('./software-transfer-cache.ts', async (original) => ({...await original<Record<string, unknown>>(), TransferCache: vi.fn()}));
 const words = new Proxy({}, {get: (_, key) => String(key)}) as Record<string, string>;
 
 describe('unfinished transfer panel', {concurrent: false}, () => {
   let root: HTMLElement;
-  let cache: {scope: string; open: ReturnType<typeof vi.fn>; claim: ReturnType<typeof vi.fn>; prune: ReturnType<typeof vi.fn>; list: ReturnType<typeof vi.fn>; source: ReturnType<typeof vi.fn>; put: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn>};
+  let cache: {scope: string; open: ReturnType<typeof vi.fn>; check: ReturnType<typeof vi.fn>; claim: ReturnType<typeof vi.fn>; owns: ReturnType<typeof vi.fn>; bindUpload: ReturnType<typeof vi.fn>; all: ReturnType<typeof vi.fn>; prune: ReturnType<typeof vi.fn>; list: ReturnType<typeof vi.fn>; source: ReturnType<typeof vi.fn>; put: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn>};
   beforeEach(() => {
     vi.useFakeTimers(); vi.clearAllMocks();
     root = document.createElement('div'); root.setAttribute('data-user-id', '1'); root.setAttribute('data-error', 'failed');
     root.innerHTML = '<p data-software-status></p><input data-software-search><details data-transfer-panel hidden><summary data-transfer-summary></summary><button data-transfer-pause></button><button data-transfer-resume></button><section data-transfer-uploads></section><section data-transfer-downloads></section></details>'; document.body.append(root);
-    cache = {scope: '1:org', open: vi.fn(), claim: vi.fn().mockResolvedValue(true), prune: vi.fn(), list: vi.fn().mockResolvedValue([]), source: vi.fn(), put: vi.fn(), remove: vi.fn()};
+    cache = {scope: '1:org', open: vi.fn(), check: vi.fn(), claim: vi.fn().mockResolvedValue(true), owns: vi.fn().mockReturnValue(true), bindUpload: vi.fn(), all: vi.fn().mockResolvedValue([]), prune: vi.fn(), list: vi.fn().mockResolvedValue([]), source: vi.fn(), put: vi.fn(), remove: vi.fn()};
     // eslint-disable-next-line prefer-arrow-callback -- The cache mock is called with new.
     vi.mocked(TransferCache).mockImplementation(function () {return cache as unknown as TransferCache}); vi.mocked(GET).mockImplementation(async () => Response.json([]));
   });
@@ -46,5 +46,27 @@ describe('unfinished transfer panel', {concurrent: false}, () => {
     await vi.waitFor(() => expect(cache.remove).toHaveBeenCalled());
     expect(root.querySelector('article')).toBeNull(); expect(root.querySelector<HTMLElement>('[data-transfer-panel]')!.hidden).toBe(true);
     expect(cache.remove.mock.calls[0]).toHaveLength(1);
+  });
+
+  test('another tab active upload is not offered as an uncached recovery task', async () => {
+    cache.all.mockResolvedValue([{key: 'foreign', kind: 'upload', data: {folder: '', name: 'elsewhere.zip', size: 12}}]);
+    vi.mocked(GET).mockImplementation(async () => Response.json([{id: 'session', parent: '', name: 'elsewhere.zip', size: 12, offset: 0}]));
+    const manager = new SoftwareTransfers(root, '/org/-/software', words, () => {});
+    await manager.enqueue([]);
+    expect(root.querySelector('article')).toBeNull();
+  });
+
+  test('orphan queues are recovered on heartbeat without duplicating paused tasks', async () => {
+    const manager = new SoftwareTransfers(root, '/org/-/software', words, () => {});
+    await manager.enqueue([]);
+    cache.list.mockResolvedValue([{key: 'orphan', kind: 'upload', state: 'paused', offset: 0, data: {folder: '', name: 'orphan.zip', size: 12}}]);
+    await vi.advanceTimersByTimeAsync(3100);
+    expect(root.querySelectorAll('article')).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(3100);
+    expect(root.querySelectorAll('article')).toHaveLength(1);
+    expect(root.querySelector('article')!.getAttribute('data-state')).toBe('paused');
+    cache.owns.mockReturnValue(false); cache.list.mockResolvedValue([]);
+    await vi.advanceTimersByTimeAsync(3100);
+    expect(root.querySelectorAll('article')).toHaveLength(0);
   });
 });

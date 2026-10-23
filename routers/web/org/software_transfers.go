@@ -5,8 +5,10 @@ package org
 
 import (
 	stdcontext "context"
+	"io"
 	"mime"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -175,6 +177,25 @@ func (w *downloadWriter) Write(data []byte) (int, error) {
 	w.bytes += int64(n)
 	w.update(int64(n), "")
 	return n, err
+}
+
+type writerOnly struct{ io.Writer }
+
+// ReadFrom restores sendfile for single-blob downloads while keeping progress for virtual ZIPs.
+func (w *downloadWriter) ReadFrom(source io.Reader) (int64, error) {
+	inner := source
+	if limited, ok := inner.(*io.LimitedReader); ok {
+		inner = limited.R
+	}
+	if _, ok := inner.(*os.File); ok {
+		if readerFrom, ok := w.ResponseWriter.(io.ReaderFrom); ok {
+			n, err := readerFrom.ReadFrom(source)
+			w.bytes += n
+			w.update(n, "")
+			return n, err
+		}
+	}
+	return io.Copy(writerOnly{w}, source)
 }
 
 var softwareDownloadSlots = make(chan struct{}, 8)

@@ -3683,6 +3683,118 @@
         }
       }
     },
+    "/orgs/{org}/software": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "List private organization software, directories first then name A-Z",
+        "operationId": "orgListSoftware",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "org",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "name": "parent",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "name": "q",
+            "in": "query"
+          },
+          {
+            "type": "boolean",
+            "name": "recursive",
+            "in": "query"
+          },
+          {
+            "type": "integer",
+            "name": "page",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/SoftwareListing"
+          },
+          "400": {
+            "$ref": "#/responses/error"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          },
+          "500": {
+            "$ref": "#/responses/error"
+          }
+        }
+      }
+    },
+    "/orgs/{org}/software/organize": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "Preview or atomically apply suffix-based software platform organization",
+        "operationId": "orgOrganizeSoftware",
+        "parameters": [
+          {
+            "type": "string",
+            "x-go-name": "Org",
+            "name": "org",
+            "in": "path",
+            "required": true
+          },
+          {
+            "x-go-name": "Body",
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/SoftwareOrganizeOptions"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/SoftwareOrganization"
+          },
+          "400": {
+            "$ref": "#/responses/error"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          },
+          "409": {
+            "$ref": "#/responses/conflict"
+          },
+          "413": {
+            "$ref": "#/responses/error"
+          },
+          "500": {
+            "$ref": "#/responses/error"
+          }
+        }
+      }
+    },
     "/orgs/{org}/teams": {
       "get": {
         "produces": [
@@ -26396,6 +26508,50 @@
       },
       "x-go-package": "github.com/neko233-com/gitsss/modules/structs"
     },
+    "Entry": {
+      "type": "object",
+      "properties": {
+        "digest": {
+          "type": "string",
+          "x-go-name": "Digest"
+        },
+        "directory": {
+          "type": "boolean",
+          "x-go-name": "Directory"
+        },
+        "id": {
+          "type": "string",
+          "x-go-name": "ID"
+        },
+        "modified": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Modified"
+        },
+        "name": {
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "parent": {
+          "type": "string",
+          "x-go-name": "Parent"
+        },
+        "path": {
+          "type": "string",
+          "x-go-name": "Path"
+        },
+        "platform": {
+          "type": "string",
+          "x-go-name": "Platform"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Size"
+        }
+      },
+      "x-go-package": "github.com/neko233-com/gitsss/services/softwarecenter"
+    },
     "ExternalTracker": {
       "description": "ExternalTracker represents settings for external tracker",
       "type": "object",
@@ -27633,6 +27789,58 @@
       },
       "x-go-package": "github.com/neko233-com/gitsss/modules/structs"
     },
+    "Listing": {
+      "type": "object",
+      "properties": {
+        "breadcrumbs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SoftwareNodeInfo"
+          },
+          "x-go-name": "Breadcrumbs"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Entry"
+          },
+          "x-go-name": "Entries"
+        },
+        "folders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SoftwareNodeInfo"
+          },
+          "x-go-name": "Folders"
+        },
+        "page": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Page"
+        },
+        "quota": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Quota"
+        },
+        "reserved": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Reserved"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Total"
+        },
+        "used": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Used"
+        }
+      },
+      "x-go-package": "github.com/neko233-com/gitsss/services/softwarecenter"
+    },
     "LockIssueOption": {
       "description": "LockIssueOption options to lock an issue",
       "type": "object",
@@ -28374,6 +28582,41 @@
       },
       "x-go-package": "github.com/neko233-com/gitsss/modules/structs"
     },
+    "OrganizeReport": {
+      "type": "object",
+      "properties": {
+        "applied": {
+          "type": "boolean",
+          "x-go-name": "Applied"
+        },
+        "created": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Created"
+        },
+        "moves": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PlannedMove"
+          },
+          "x-go-name": "Moves"
+        },
+        "revision": {
+          "type": "string",
+          "x-go-name": "Revision"
+        },
+        "skipped": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PlannedMove"
+          },
+          "x-go-name": "Skipped"
+        }
+      },
+      "x-go-package": "github.com/neko233-com/gitsss/services/softwarecenter"
+    },
     "PRBranchInfo": {
       "description": "PRBranchInfo information about a branch",
       "type": "object",
@@ -28631,6 +28874,32 @@
         }
       },
       "x-go-package": "github.com/neko233-com/gitsss/modules/structs"
+    },
+    "PlannedMove": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string",
+          "x-go-name": "From"
+        },
+        "id": {
+          "type": "string",
+          "x-go-name": "ID"
+        },
+        "platform": {
+          "type": "string",
+          "x-go-name": "Platform"
+        },
+        "reason": {
+          "type": "string",
+          "x-go-name": "Reason"
+        },
+        "to": {
+          "type": "string",
+          "x-go-name": "To"
+        }
+      },
+      "x-go-package": "github.com/neko233-com/gitsss/services/softwarecenter"
     },
     "Project": {
       "description": "Project represents a project",
@@ -29936,6 +30205,70 @@
         }
       },
       "x-go-package": "github.com/neko233-com/gitsss/modules/structs"
+    },
+    "SoftwareNodeInfo": {
+      "type": "object",
+      "title": "SoftwareNodeInfo is the listing projection; upload keys and owner IDs never leave the server.",
+      "properties": {
+        "digest": {
+          "type": "string",
+          "x-go-name": "Digest"
+        },
+        "directory": {
+          "type": "boolean",
+          "x-go-name": "Directory"
+        },
+        "id": {
+          "type": "string",
+          "x-go-name": "ID"
+        },
+        "modified": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Modified"
+        },
+        "name": {
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "parent": {
+          "type": "string",
+          "x-go-name": "Parent"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Size"
+        }
+      },
+      "x-go-package": "github.com/neko233-com/gitsss/services/softwarecenter"
+    },
+    "SoftwareOrganizeOptions": {
+      "type": "object",
+      "title": "OrganizeOptions selects a subtree and optionally applies a previously previewed revision.",
+      "properties": {
+        "apply": {
+          "type": "boolean",
+          "x-go-name": "Apply"
+        },
+        "parent": {
+          "type": "string",
+          "x-go-name": "Parent"
+        },
+        "platforms": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-go-name": "Platforms"
+        },
+        "revision": {
+          "type": "string",
+          "x-go-name": "Revision"
+        }
+      },
+      "x-go-name": "OrganizeOptions",
+      "x-go-package": "github.com/neko233-com/gitsss/services/softwarecenter"
     },
     "StopWatch": {
       "description": "StopWatch represent a running stopwatch",
@@ -31864,6 +32197,18 @@
       "description": "ServerVersion",
       "schema": {
         "$ref": "#/definitions/ServerVersion"
+      }
+    },
+    "SoftwareListing": {
+      "description": "SoftwareListing",
+      "schema": {
+        "$ref": "#/definitions/Listing"
+      }
+    },
+    "SoftwareOrganization": {
+      "description": "SoftwareOrganization",
+      "schema": {
+        "$ref": "#/definitions/OrganizeReport"
       }
     },
     "StopWatch": {

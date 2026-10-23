@@ -82,6 +82,21 @@ type Node struct {
 	UploadKey string  `json:"upload_key,omitempty"`
 }
 
+// SoftwareNodeInfo is the listing projection; upload keys and owner IDs never leave the server.
+type SoftwareNodeInfo struct {
+	ID        string `json:"id"`
+	Parent    string `json:"parent"`
+	Name      string `json:"name"`
+	Directory bool   `json:"directory"`
+	Size      int64  `json:"size"`
+	Digest    string `json:"digest,omitempty"`
+	Modified  int64  `json:"modified"`
+}
+
+func publicNode(node *Node) *SoftwareNodeInfo {
+	return &SoftwareNodeInfo{ID: node.ID, Parent: node.Parent, Name: node.Name, Directory: node.Directory, Size: node.Size, Digest: node.Digest, Modified: node.Modified}
+}
+
 type Reservation struct {
 	Parent    string `json:"parent"`
 	Name      string `json:"name"`
@@ -96,12 +111,13 @@ type Reservation struct {
 	CRC32     uint32 `json:"crc32,omitempty"`
 }
 type State struct {
-	Version   int                     `json:"version"`
-	Quota     int64                   `json:"quota"`
-	Nodes     map[string]*Node        `json:"nodes"`
-	Uploads   map[string]Reservation  `json:"uploads"`
-	Garbage   map[string]int64        `json:"garbage,omitempty"`
-	Downloads map[string]*DownloadJob `json:"downloads,omitempty"`
+	Version    int                     `json:"version"`
+	Generation int64                   `json:"generation,omitempty"`
+	Quota      int64                   `json:"quota"`
+	Nodes      map[string]*Node        `json:"nodes"`
+	Uploads    map[string]Reservation  `json:"uploads"`
+	Garbage    map[string]int64        `json:"garbage,omitempty"`
+	Downloads  map[string]*DownloadJob `json:"downloads,omitempty"`
 }
 
 func lock(orgID int64) *sync.Mutex {
@@ -271,6 +287,7 @@ func prune(orgID int64, s *State) {
 	for id, job := range s.Downloads {
 		if job.Expires < time.Now().Unix() {
 			delete(s.Downloads, id)
+			deleteArchivePlan(id)
 		}
 	}
 	reclaim(orgID, s)
@@ -325,6 +342,7 @@ func CreateFolder(ctx context.Context, orgID, userID int64, parent, name string)
 	}
 	node := &Node{ID: newID(), Parent: parent, Name: name, Directory: true, Modified: time.Now().Unix(), UserID: userID}
 	s.Nodes[node.ID] = node
+	s.Generation++
 	return node, save(ctx, orgID, s)
 }
 
@@ -361,21 +379,35 @@ func Rename(ctx context.Context, orgID int64, id, name string) error {
 	}
 	node.Name = name
 	node.Modified = time.Now().Unix()
+	s.Generation++
 	return save(ctx, orgID, s)
 }
 
-func descendants(s *State, id string) map[string]bool {
-	result := map[string]bool{id: true}
-	for changed := true; changed; {
-		changed = false
-		for nodeID, node := range s.Nodes {
-			if result[node.Parent] && !result[nodeID] {
-				result[nodeID] = true
-				changed = true
-			}
+func childIndex(s *State) map[string][]string {
+	index := make(map[string][]string, len(s.Nodes))
+	for id, node := range s.Nodes {
+		index[node.Parent] = append(index[node.Parent], id)
+	}
+	return index
+}
+
+func descendantsFrom(index map[string][]string, id string) map[string]bool {
+	result := map[string]bool{}
+	stack := []string{id}
+	for len(stack) > 0 {
+		current := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if result[current] {
+			continue
 		}
+		result[current] = true
+		stack = append(stack, index[current]...)
 	}
 	return result
+}
+
+func descendants(s *State, id string) map[string]bool {
+	return descendantsFrom(childIndex(s), id)
 }
 
 func Delete(ctx context.Context, orgID int64, id string) error {
@@ -496,6 +528,7 @@ func Upload(ctx context.Context, orgID, userID int64, parent, name string, size 
 	delete(s.Uploads, id)
 	delete(s.Garbage, hash)
 	s.Nodes[id] = node
+	s.Generation++
 	if err = save(ctx, orgID, s); err != nil {
 		referenced := false
 		for nodeID, other := range s.Nodes {

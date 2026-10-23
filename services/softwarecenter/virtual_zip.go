@@ -138,6 +138,17 @@ func newVirtualZIP(orgID int64, entries []ArchiveEntry) (*virtualZIP, error) {
 }
 
 func (v *virtualZIP) Size() int64 { return v.size }
+
+// clone shares immutable header segments so concurrent range requests read independently.
+func (v *virtualZIP) clone() *virtualZIP {
+	clone := *v
+	clone.segments = append([]zipSegment(nil), v.segments...)
+	clone.offset = 0
+	clone.file = nil
+	clone.filePath = ""
+	return &clone
+}
+
 func (v *virtualZIP) Close() error {
 	if v.file != nil {
 		err := v.file.Close()

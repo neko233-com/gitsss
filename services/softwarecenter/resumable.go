@@ -211,24 +211,18 @@ func AppendUpload(ctx context.Context, orgID, userID int64, id string, offset, s
 		guard.Unlock()
 		return nil, ErrInvalid
 	}
-	r.Started = time.Now().Unix()
-	s.Uploads[id] = r
-	err = save(ctx, orgID, s)
 	guard.Unlock()
-	if err != nil {
-		return nil, err
-	}
-	release, err := reserveDisk(size)
-	if err != nil {
-		return nil, err
-	}
-	defer release()
 	select {
 	case uploadSlots <- struct{}{}:
 		defer func() { <-uploadSlots }()
 	default:
 		return nil, ErrBusy
 	}
+	release, err := reserveDisk(size)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	f, err := os.OpenFile(filepath.Join(root(orgID), id+".part"), os.O_RDWR, 0o600)
 	if err != nil {
 		return nil, err
@@ -265,11 +259,12 @@ func AppendUpload(ctx context.Context, orgID, userID int64, id string, offset, s
 		_ = f.Truncate(offset)
 		return nil, err
 	}
+	previousChain := r.Chain
 	r.Offset += size
 	r.CRC32 = checksum.sum
 	r.Started = time.Now().Unix()
 	r.HashState, _ = whole.(encoding.BinaryMarshaler).MarshalBinary()
-	chain := sha256.Sum256([]byte(r.Chain + ":" + digest + ":" + strconv.FormatInt(r.Offset, 10)))
+	chain := sha256.Sum256([]byte(previousChain + ":" + digest + ":" + strconv.FormatInt(r.Offset, 10)))
 	r.Chain = hex.EncodeToString(chain[:])
 	guard.Lock()
 	defer guard.Unlock()
@@ -278,7 +273,8 @@ func AppendUpload(ctx context.Context, orgID, userID int64, id string, offset, s
 		_ = f.Truncate(offset)
 		return nil, err
 	}
-	if current, exists := s.Uploads[id]; !exists || current.Offset != offset {
+	current, exists := s.Uploads[id]
+	if !exists || !current.Resumable || current.UserID != userID || current.Offset != offset || current.Chain != previousChain || current.Size != r.Size {
 		_ = f.Truncate(offset)
 		return nil, ErrConflict
 	}
@@ -348,6 +344,7 @@ func CompleteUpload(ctx context.Context, orgID, userID int64, id string) (*Node,
 	delete(s.Uploads, id)
 	delete(s.Garbage, digest)
 	s.Garbage["part:"+id] = time.Now().Unix()
+	s.Generation++
 	if err = save(ctx, orgID, s); err != nil {
 		return nil, err
 	}

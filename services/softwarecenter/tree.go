@@ -28,11 +28,15 @@ func selection(s *State, ids []string) ([]string, error) {
 	top := []string{}
 	for id := range chosen {
 		covered := false
-		for parent := s.Nodes[id].Parent; parent != ""; parent = s.Nodes[parent].Parent {
+		for depth, parent := 0, s.Nodes[id].Parent; parent != ""; depth++ {
+			if depth > 64 || s.Nodes[parent] == nil {
+				return nil, ErrInvalid
+			}
 			if chosen[parent] {
 				covered = true
 				break
 			}
+			parent = s.Nodes[parent].Parent
 		}
 		if !covered {
 			top = append(top, id)
@@ -49,13 +53,15 @@ func DeleteMany(ctx context.Context, orgID int64, ids []string) error {
 	if err != nil {
 		return err
 	}
+	prune(orgID, s)
 	top, err := selection(s, ids)
 	if err != nil {
 		return err
 	}
+	children := childIndex(s)
 	removed := map[string]bool{}
 	for _, id := range top {
-		for child := range descendants(s, id) {
+		for child := range descendantsFrom(children, id) {
 			removed[child] = true
 		}
 	}
@@ -77,6 +83,7 @@ func DeleteMany(ctx context.Context, orgID int64, ids []string) error {
 	for digest := range digests {
 		s.Garbage[digest] = time.Now().Unix()
 	}
+	s.Generation++
 	if err = save(ctx, orgID, s); err != nil {
 		return err
 	}
@@ -87,6 +94,29 @@ func DeleteMany(ctx context.Context, orgID int64, ids []string) error {
 	return nil
 }
 
+func subtreeHeight(index map[string][]string, id string) int {
+	type level struct {
+		id    string
+		depth int
+	}
+	height := 0
+	visited := map[string]bool{}
+	stack := []level{{id, 0}}
+	for len(stack) > 0 {
+		item := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if visited[item.id] {
+			continue
+		}
+		visited[item.id] = true
+		height = max(height, item.depth)
+		for _, child := range index[item.id] {
+			stack = append(stack, level{child, item.depth + 1})
+		}
+	}
+	return height
+}
+
 func Move(ctx context.Context, orgID int64, ids []string, target string) error {
 	guard := lock(orgID)
 	guard.Lock()
@@ -95,6 +125,7 @@ func Move(ctx context.Context, orgID int64, ids []string, target string) error {
 	if err != nil {
 		return err
 	}
+	prune(orgID, s)
 	if !s.folder(target) {
 		return ErrInvalid
 	}
@@ -102,47 +133,63 @@ func Move(ctx context.Context, orgID int64, ids []string, target string) error {
 	if err != nil {
 		return err
 	}
-	names := []string{}
+	children := childIndex(s)
+	parentDepth := 0
+	for parent := target; parent != ""; {
+		node := s.Nodes[parent]
+		if node == nil || parentDepth >= 32 {
+			return ErrInvalid
+		}
+		parentDepth++
+		parent = node.Parent
+	}
+	taken := map[string]int{}
+	for _, node := range s.Nodes {
+		if node.Parent == target {
+			taken[foldName(node.Name)]++
+		}
+	}
+	for _, upload := range s.Uploads {
+		if upload.Parent == target {
+			taken[foldName(upload.Name)]++
+		}
+	}
+	moving := map[string]bool{}
+	for _, id := range top {
+		nodes := descendantsFrom(children, id)
+		for node := range nodes {
+			moving[node] = true
+		}
+		for depth, parent := 0, target; parent != ""; depth++ {
+			if parent == id || depth > 64 {
+				return ErrInvalid
+			}
+			parent = s.Nodes[parent].Parent
+		}
+		if parentDepth+1+subtreeHeight(children, id) > 32 {
+			return ErrInvalid
+		}
+	}
+	for _, upload := range s.Uploads {
+		if moving[upload.Parent] {
+			return ErrBusy
+		}
+	}
+	now := time.Now().Unix()
 	for _, id := range top {
 		node := s.Nodes[id]
-		subtree := descendants(s, id)
-		for _, upload := range s.Uploads {
-			if subtree[upload.Parent] {
-				return ErrBusy
-			}
+		if node.Parent == target {
+			continue
 		}
-		for parent := target; parent != ""; parent = s.Nodes[parent].Parent {
-			if parent == id {
-				return ErrInvalid
-			}
+		key := foldName(node.Name)
+		if taken[key] > 0 {
+			return ErrConflict
 		}
-		for _, name := range names {
-			if strings.EqualFold(name, node.Name) {
-				return ErrConflict
-			}
-		}
-		names = append(names, node.Name)
-		if err = s.checkName(target, node.Name, id); err != nil {
-			return err
-		}
-		parentDepth := 0
-		for p := target; p != ""; p = s.Nodes[p].Parent {
-			parentDepth++
-		}
-		for child := range subtree {
-			depth := parentDepth + 1
-			for p := child; p != id; p = s.Nodes[p].Parent {
-				depth++
-			}
-			if depth > 32 {
-				return ErrInvalid
-			}
-		}
+		taken[key]++
+		node.Parent = target
+		node.Modified = now
 	}
-	for _, id := range top {
-		s.Nodes[id].Parent = target
-		s.Nodes[id].Modified = time.Now().Unix()
-	}
+	s.Generation++
 	return save(ctx, orgID, s)
 }
 
@@ -170,6 +217,7 @@ func EnsureDirectories(ctx context.Context, orgID, userID int64, parent string, 
 	if err != nil {
 		return nil, err
 	}
+	prune(orgID, s)
 	if !s.folder(parent) {
 		return nil, ErrInvalid
 	}
@@ -189,6 +237,7 @@ func EnsureDirectories(ctx context.Context, orgID, userID int64, parent string, 
 		parentDepth++
 	}
 	result := map[string]string{"": parent}
+	created := false
 	for _, path := range paths {
 		parts := strings.Split(path, "/")
 		if len(parts)+parentDepth > 32 {
@@ -213,6 +262,7 @@ func EnsureDirectories(ctx context.Context, orgID, userID int64, parent string, 
 				}
 				node = &Node{ID: newID(), Parent: current, Name: name, Directory: true, Modified: time.Now().Unix(), UserID: userID}
 				s.Nodes[node.ID] = node
+				created = true
 				if index[current] == nil {
 					index[current] = map[string]*Node{}
 				}
@@ -222,6 +272,9 @@ func EnsureDirectories(ctx context.Context, orgID, userID int64, parent string, 
 			result[strings.Join(parts[:i+1], "/")] = current
 		}
 		result[path] = current
+	}
+	if created {
+		s.Generation++
 	}
 	return result, save(ctx, orgID, s)
 }

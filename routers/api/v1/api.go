@@ -95,6 +95,7 @@ import (
 	"github.com/neko233-com/gitsss/services/auth"
 	"github.com/neko233-com/gitsss/services/context"
 	"github.com/neko233-com/gitsss/services/forms"
+	"github.com/neko233-com/gitsss/services/softwarecenter"
 
 	_ "github.com/neko233-com/gitsss/routers/api/v1/swagger" // for swagger generation
 
@@ -1714,6 +1715,10 @@ func Routes() *web.Router {
 		m.Post("/orgs", tokenRequiresScopes(auth_model.AccessTokenScopeCategoryOrganization), reqToken(), bind(api.CreateOrgOption{}), org.Create)
 		m.Get("/orgs", org.GetAll, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryOrganization))
 		m.Group("/orgs/{org}", func() {
+			m.Group("/software", func() {
+				m.Get("", org.ListSoftware)
+				m.Post("/organize", bind(softwarecenter.OrganizeOptions{}), org.OrganizeSoftware)
+			}, reqToken(), org.RequireSoftwareMember)
 			m.Combo("").Get(org.Get).
 				Patch(reqToken(), reqOrgOwnership(), bind(api.EditOrgOption{}), org.Edit).
 				Delete(reqToken(), reqOrgOwnership(), org.Delete)

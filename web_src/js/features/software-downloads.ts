@@ -1,15 +1,16 @@
 import {GET, POST, DELETE} from '../modules/fetch.ts';
-import type {TransferCache, CachedTransfer} from './software-transfer-cache.ts';
+import {TransferOwnershipError, type TransferCache, type CachedTransfer} from './software-transfer-cache.ts';
 import {softwareAction, softwareFileIcon} from './software-presentation.ts';
 import type {SvgName} from '../svg.ts';
 
 export type DownloadJob = {id: string; name: string; size: number; etag: string; ids: string[]; expires: number; save_offered?: boolean};
-type Task = {key: string; job: DownloadJob; state: string; offset: number; running: boolean; paused: boolean; cancelled: boolean; row: HTMLElement; abort?: AbortController; error?: string; speed: number; offered: boolean};
+type Task = {key: string; job: DownloadJob; state: string; offset: number; running: boolean; paused: boolean; cancelled: boolean; detached?: boolean; row: HTMLElement; abort?: AbortController; error?: string; speed: number; offered: boolean};
 const chunkSize = 8 * 1024 * 1024;
 export class SoftwareDownloads {
   private tasks: Task[] = [];
   private active = 0;
   private leaving = false;
+  private queuePaused = false;
   private urls = new Set<string>();
   private root: HTMLElement;
   private base: string;
@@ -29,7 +30,13 @@ export class SoftwareDownloads {
   get paused() {return this.tasks.some((task) => task.state === 'paused' || task.state === 'failed')}
   suspend() {this.leaving = true; for (const task of this.tasks) {task.paused = true; task.abort?.abort()}}
   private record(task: Task): CachedTransfer {return {scope: this.cache.scope, key: task.key, kind: 'download', state: task.state, offset: task.offset, updated: Date.now(), data: {...task.job, save_offered: task.offered}}}
-  private async persist(task: Task) {if (!this.leaving) await this.cache.put(this.record(task));}
+  private async persist(task: Task) {if (!this.leaving && !task.detached) await this.cache.put(this.record(task));}
+  detachUnowned() {
+    for (const task of this.tasks) if (!this.cache.owns(task.key)) {task.detached = true; task.paused = true; task.abort?.abort(); task.row.remove()}
+    this.tasks = this.tasks.filter((task) => !task.detached); this.changed();
+  }
+  private detach(task: Task) {task.detached = true; task.paused = true; task.abort?.abort(); task.row.remove(); this.tasks = this.tasks.filter((entry) => entry !== task); this.changed()}
+  private ownershipLost(task: Task, error: unknown): boolean {if (!(error instanceof TransferOwnershipError)) return false; this.detach(task); return true}
   private add(key: string, job: DownloadJob, state = 'queued', offset = 0) {
     const row = document.createElement('article'); row.className = 'software-transfer-row'; row.setAttribute('data-download-task', key);
     const name = document.createElement('strong'); const text = document.createElement('span'); text.textContent = job.name; name.append(softwareFileIcon(job.name), text); name.title = job.name;
@@ -41,14 +48,14 @@ export class SoftwareDownloads {
     this.tasks.push(task); this.paint(task); return task;
   }
   async restore(records: CachedTransfer[]) {
-    for (const record of records.filter((entry) => entry.kind === 'download')) {
+    for (const record of records.filter((entry) => entry.kind === 'download' && this.tasks.every((task) => task.key !== entry.key))) {
       if (record.state === 'saved') {try {await this.cache.remove(record.key)} catch {} continue}
       this.add(record.key, record.data, ['paused', 'failed', 'ready'].includes(record.state) ? record.state : 'queued', record.offset);
     }
     this.pump();
   }
   async create(ids: string[]) {
-    await this.cache.check();
+    try {await this.cache.check()} catch (error) {throw error instanceof TransferOwnershipError ? new Error(this.words.other_tab) : error}
     const params = new URLSearchParams(); for (const id of ids) params.append('ids', id);
     const response = await POST(`${this.base}/downloads`, {data: params});
     if (!response.ok) throw new Error(this.words.failed);
@@ -56,10 +63,11 @@ export class SoftwareDownloads {
     try {await this.persist(task)} catch (error) {await DELETE(`${this.base}/downloads/${job.id}`); task.row.remove(); this.tasks = this.tasks.filter((item) => item !== task); throw error}
     this.pump();
   }
-  pauseAll() {for (const task of this.tasks.filter((entry) => entry.running || entry.state === 'queued')) this.pause(task);}
-  resumeAll() {for (const task of this.tasks.filter((entry) => entry.paused || entry.state === 'failed')) {task.paused = false; task.state = 'queued'; this.persistQuietly(task); this.paint(task)} this.pump()}
+  pauseAll() {this.queuePaused = true; for (const task of this.tasks.filter((entry) => entry.running || entry.state === 'queued')) this.pause(task);}
+  resumeAll() {this.queuePaused = false; for (const task of this.tasks.filter((entry) => entry.paused || entry.state === 'failed')) {task.paused = false; task.state = 'queued'; this.persistQuietly(task); this.paint(task)} this.pump()}
   private pause(task: Task) {task.paused = true; task.abort?.abort(); task.state = 'paused'; this.persistQuietly(task); this.paint(task)}
   private paint(task: Task, bytes = task.offset) {
+    if (task.detached) return;
     const row = task.row; row.setAttribute('data-state', task.state); row.querySelector('progress')!.value = task.job.size === 0 && task.state === 'ready' ? 1 : bytes;
     row.querySelector('.software-transfer-detail')!.setAttribute('aria-live', task.state === 'failed' ? 'polite' : 'off');
     row.querySelector('.software-transfer-detail')!.textContent = `${this.words[task.state] || task.state} · ${this.format(bytes)} / ${this.format(task.job.size)}${task.speed ? ` · ${this.format(task.speed)}/s` : ''}${task.error ? ` · ${task.error}` : ''}`;
@@ -73,8 +81,9 @@ export class SoftwareDownloads {
     if (focus) actions.querySelector<HTMLButtonElement>('button')?.focus();
     this.changed();
   }
-  private fail(task: Task, error: unknown) {task.state = 'failed'; task.error = error instanceof Error ? error.message : this.words.failed; this.paint(task)}
+  private fail(task: Task, error: unknown) {if (this.ownershipLost(task, error)) return; task.state = 'failed'; task.error = error instanceof Error ? error.message : this.words.failed; this.paint(task)}
   private pump() {
+    if (this.queuePaused) {this.changed(); return}
     while (!this.leaving && this.active < 2) {
       const task = this.tasks.find((entry) => entry.state === 'queued' && !entry.running && !entry.cancelled && !entry.paused); if (!task) break;
       task.running = true; this.active++; this.runQueued(task);
@@ -96,9 +105,9 @@ export class SoftwareDownloads {
   private async run(task: Task) {
     const started = performance.now(); const initialOffset = task.offset;
     try {
-      await this.cache.check(); this.ensure(task); await this.renew(task); task.state = 'downloading'; await this.persist(task); this.paint(task);
+      await this.cache.check(task.key); this.ensure(task); await this.renew(task); task.state = 'downloading'; await this.persist(task); this.paint(task);
       while (task.offset < task.job.size) {
-        this.ensure(task); await this.cache.check(); const start = task.offset; const end = Math.min(start + chunkSize, task.job.size) - 1;
+        this.ensure(task); await this.cache.check(task.key); const start = task.offset; const end = Math.min(start + chunkSize, task.job.size) - 1;
         let succeeded = false;
         for (let attempt = 0; attempt < 4 && !succeeded; attempt++) {
           this.ensure(task); task.abort = new AbortController();
@@ -115,6 +124,7 @@ export class SoftwareDownloads {
             this.ensure(task); await this.cache.append(this.record(task), start, new Blob(parts)); task.offset = end + 1; this.paint(task); succeeded = true;
           } catch (error) {
             this.ensure(task);
+            if (error instanceof TransferOwnershipError) throw error;
             if (error instanceof DOMException && error.name === 'QuotaExceededError') throw new Error(this.words.cache_full);
             if (attempt === 3 || error instanceof Error && [this.words.download_changed, this.words.session_expired].includes(error.message)) throw error;
             await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
@@ -122,17 +132,17 @@ export class SoftwareDownloads {
         }
       }
       this.ensure(task); task.speed = (task.offset - initialOffset) / Math.max((performance.now() - started) / 1000, .01); task.state = 'ready'; await this.persist(task); this.paint(task);
-    } catch (error) {if (!task.cancelled) {if (task.paused) task.state = 'paused'; else this.fail(task, error); await this.persistQuietly(task); this.paint(task)}} finally {if (task.cancelled) await this.remove(task);}
+    } catch (error) {if (!task.cancelled && !this.ownershipLost(task, error)) {if (task.paused) task.state = 'paused'; else this.fail(task, error); await this.persistQuietly(task); this.paint(task)}} finally {if (task.cancelled) await this.remove(task);}
   }
   private async save(task: Task) {
     try {
-      await this.cache.check();
+      await this.cache.check(task.key);
       const blob = await this.cache.blob(task.key, task.job.size); const url = URL.createObjectURL(blob); this.urls.add(url);
       const link = document.createElement('a'); link.href = url; link.download = task.job.name; document.body.append(link); link.click(); link.remove();
       // Keep the bytes until the user confirms the browser's final local save.
       task.offered = true; await this.persist(task); this.paint(task);
       setTimeout(() => {URL.revokeObjectURL(url); this.urls.delete(url)}, 60000);
-    } catch (error) {task.error = error instanceof Error ? error.message : this.words.failed; this.paint(task)}
+    } catch (error) {if (!this.ownershipLost(task, error)) {task.error = error instanceof Error ? error.message : this.words.failed; this.paint(task)}}
   }
   private async finishSave(task: Task) {
     try {
@@ -145,7 +155,7 @@ export class SoftwareDownloads {
   }
   private async cancel(task: Task) {task.cancelled = true; task.paused = true; task.abort?.abort(); if (!task.running) await this.remove(task);}
   private async remove(task: Task) {
-    try {await this.cache.check(); const response = await DELETE(`${this.base}/downloads/${task.job.id}`); if (!response.ok && response.status !== 404) throw new Error(this.words.failed); await this.cache.remove(task.key); task.row.remove(); this.tasks = this.tasks.filter((entry) => entry !== task); this.changed()} catch (error) {task.cancelled = false; this.fail(task, error)}
+    try {await this.cache.check(task.key); const response = await DELETE(`${this.base}/downloads/${task.job.id}`); if (!response.ok && response.status !== 404) throw new Error(this.words.failed); await this.cache.remove(task.key); task.row.remove(); this.tasks = this.tasks.filter((entry) => entry !== task); this.changed()} catch (error) {task.cancelled = false; this.fail(task, error)}
   }
   async clearCompleted() {for (const task of this.tasks.filter((entry) => entry.state === 'saved')) await this.remove(task);}
 }

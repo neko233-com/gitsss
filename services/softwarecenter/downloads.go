@@ -20,18 +20,19 @@ import (
 )
 
 type DownloadJob struct {
-	ID      string   `json:"id"`
-	UserID  int64    `json:"user_id"`
-	IDs     []string `json:"ids"`
-	Name    string   `json:"name"`
-	ETag    string   `json:"etag"`
-	Size    int64    `json:"size"`
-	Created int64    `json:"created"`
-	Expires int64    `json:"expires"`
-	Single  bool     `json:"single"`
-	State   string   `json:"state,omitempty"`
-	Bytes   int64    `json:"bytes,omitempty"`
-	Speed   float64  `json:"speed,omitempty"`
+	ID         string   `json:"id"`
+	UserID     int64    `json:"user_id"`
+	IDs        []string `json:"ids"`
+	Name       string   `json:"name"`
+	ETag       string   `json:"etag"`
+	Size       int64    `json:"size"`
+	Created    int64    `json:"created"`
+	Expires    int64    `json:"expires"`
+	Single     bool     `json:"single"`
+	Generation int64    `json:"generation,omitempty"`
+	State      string   `json:"state,omitempty"`
+	Bytes      int64    `json:"bytes,omitempty"`
+	Speed      float64  `json:"speed,omitempty"`
 }
 
 type ArchiveEntry struct {
@@ -98,6 +99,59 @@ func archiveTag(entries []ArchiveEntry) string {
 	raw, _ := json.Marshal(entries)
 	h := sha256.Sum256(raw)
 	return `"zip-v1-` + hex.EncodeToString(h[:]) + `"`
+}
+
+// Range requests reuse the ZIP index while the organization tree is unchanged.
+type archivePlan struct {
+	generation int64
+	tag        string
+	template   *virtualZIP
+}
+
+const maxArchivePlans = 16
+
+var archivePlans = struct {
+	sync.Mutex
+	items map[string]*archivePlan
+	order []string
+}{items: map[string]*archivePlan{}}
+
+func loadArchivePlan(id string) *archivePlan {
+	archivePlans.Lock()
+	defer archivePlans.Unlock()
+	return archivePlans.items[id]
+}
+
+func cacheArchivePlan(id string, plan *archivePlan) {
+	archivePlans.Lock()
+	defer archivePlans.Unlock()
+	if _, ok := archivePlans.items[id]; ok {
+		for i, key := range archivePlans.order {
+			if key == id {
+				archivePlans.order = append(archivePlans.order[:i], archivePlans.order[i+1:]...)
+				break
+			}
+		}
+	}
+	archivePlans.items[id] = plan
+	archivePlans.order = append(archivePlans.order, id)
+	for len(archivePlans.order) > maxArchivePlans {
+		oldest := archivePlans.order[0]
+		archivePlans.order = archivePlans.order[1:]
+		delete(archivePlans.items, oldest)
+	}
+}
+
+func deleteArchivePlan(id string) {
+	archivePlans.Lock()
+	defer archivePlans.Unlock()
+	delete(archivePlans.items, id)
+	for i, key := range archivePlans.order {
+		if key == id {
+			archivePlans.order = append(archivePlans.order[:i], archivePlans.order[i+1:]...)
+			break
+		}
+	}
 }
 
 func CreateDownload(ctx context.Context, orgID, userID int64, ids []string) (*DownloadJob, error) {
@@ -179,7 +233,7 @@ func CreateDownload(ctx context.Context, orgID, userID int64, ids []string) (*Do
 	if len(current.Downloads) >= 128 || count >= 32 {
 		return nil, ErrBusy
 	}
-	job := &DownloadJob{ID: newID(), UserID: userID, IDs: ids, Name: "software-center.zip", ETag: archiveTag(entries), Created: time.Now().Unix(), Expires: time.Now().Add(24 * time.Hour).Unix()}
+	job := &DownloadJob{ID: newID(), UserID: userID, IDs: ids, Name: "software-center.zip", ETag: archiveTag(entries), Created: time.Now().Unix(), Expires: time.Now().Add(24 * time.Hour).Unix(), Generation: current.Generation}
 	if len(entries) == 1 && !entries[0].Directory {
 		job.Single = true
 		job.Name = current.Nodes[entries[0].ID].Name
@@ -191,7 +245,7 @@ func CreateDownload(ctx context.Context, orgID, userID int64, ids []string) (*Do
 			return nil, err
 		}
 		job.Size = archive.Size()
-		_ = archive.Close()
+		cacheArchivePlan(job.ID, &archivePlan{generation: current.Generation, tag: job.ETag, template: archive})
 		if len(ids) == 1 && current.Nodes[ids[0]].Directory {
 			job.Name = current.Nodes[ids[0]].Name + ".zip"
 		}
@@ -228,30 +282,48 @@ func Downloads(ctx context.Context, orgID, userID int64) ([]*DownloadJob, error)
 }
 
 func OpenDownload(ctx context.Context, orgID, userID int64, id string) (*DownloadJob, io.ReadSeekCloser, error) {
-	job, err := GetDownload(ctx, orgID, userID, id)
-	if err != nil {
-		return nil, nil, err
-	}
 	s, err := Snapshot(ctx, orgID)
 	if err != nil {
 		return nil, nil, err
 	}
-	entries, err := archiveEntries(s, job.IDs)
-	if err != nil {
-		return nil, nil, ErrConflict
+	job := s.Downloads[id]
+	if job == nil || job.UserID != userID || job.Expires < time.Now().Unix() {
+		return nil, nil, os.ErrNotExist
 	}
 	if job.Single {
+		entries, err := archiveEntries(s, job.IDs)
+		if err != nil {
+			return nil, nil, ErrConflict
+		}
 		if len(entries) != 1 || `"sha256-`+entries[0].Digest+`"` != job.ETag || entries[0].Path != job.Name {
 			return nil, nil, ErrConflict
 		}
 		f, err := os.Open(filepath.Join(root(orgID), "blobs", entries[0].Digest))
 		return job, f, err
 	}
-	if archiveTag(entries) != job.ETag {
+	plan := loadArchivePlan(job.ID)
+	if plan != nil && plan.generation == s.Generation {
+		return job, plan.template.clone(), nil
+	}
+	entries, err := archiveEntries(s, job.IDs)
+	if err != nil {
+		deleteArchivePlan(job.ID)
 		return nil, nil, ErrConflict
 	}
-	file, err := newVirtualZIP(orgID, entries)
-	return job, file, err
+	if archiveTag(entries) != job.ETag {
+		deleteArchivePlan(job.ID)
+		return nil, nil, ErrConflict
+	}
+	if plan != nil {
+		cacheArchivePlan(job.ID, &archivePlan{generation: s.Generation, tag: job.ETag, template: plan.template})
+		return job, plan.template.clone(), nil
+	}
+	archive, err := newVirtualZIP(orgID, entries)
+	if err != nil {
+		return nil, nil, err
+	}
+	cacheArchivePlan(job.ID, &archivePlan{generation: s.Generation, tag: job.ETag, template: archive})
+	return job, archive.clone(), nil
 }
 
 func RemoveDownload(ctx context.Context, orgID, userID int64, id string) error {
@@ -267,6 +339,7 @@ func RemoveDownload(ctx context.Context, orgID, userID int64, id string) error {
 		return os.ErrNotExist
 	}
 	delete(s.Downloads, id)
+	deleteArchivePlan(id)
 	transferRecords.Delete(id)
 	return save(ctx, orgID, s)
 }

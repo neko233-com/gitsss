@@ -1,13 +1,13 @@
 import {GET, POST, DELETE} from '../modules/fetch.ts';
 import {confirmModal} from './comp/ConfirmModal.ts';
 import type {HashRequest, HashReply} from './software-hash-worker.ts';
-import {TransferCache, type CachedTransfer} from './software-transfer-cache.ts';
+import {TransferCache, TransferOwnershipError, type CachedTransfer} from './software-transfer-cache.ts';
 import {SoftwareDownloads} from './software-downloads.ts';
 import {softwareAction, softwareFileIcon} from './software-presentation.ts';
 import type {SvgName} from '../svg.ts';
 
 export type UploadSession = {id: string; name: string; parent: string; size: number; offset: number; chain: string; client_key: string; chunk_size: number; node?: {digest: string}};
-type UploadTask = {key: string; name: string; folder: string; size: number; file?: File; session?: UploadSession; paused: boolean; cancelled: boolean; running: boolean; state: string; row?: HTMLElement; xhr?: XMLHttpRequest; bytes: number; speed?: number; cached?: boolean; cacheError?: boolean; cacheAbort?: AbortController};
+type UploadTask = {key: string; name: string; folder: string; size: number; file?: File; session?: UploadSession; paused: boolean; cancelled: boolean; running: boolean; detached?: boolean; state: string; row?: HTMLElement; xhr?: XMLHttpRequest; bytes: number; speed?: number; cached?: boolean; cacheError?: boolean; cacheAbort?: AbortController};
 export const formatTransferBytes = (size: number): string => {
   const power = size >= 2 ** 30 ? 30 : size >= 2 ** 20 ? 20 : size >= 2 ** 10 ? 10 : 0;
   return `${(size / 2 ** power).toLocaleString(undefined, {maximumFractionDigits: 1})} ${({0: 'B', 10: 'KiB', 20: 'MiB', 30: 'GiB'})[power]}`;
@@ -110,10 +110,11 @@ export class SoftwareTransfers {
         if (task.cancelled) {await this.cache.remove(task.key); return}
         task.cached = true; task.state = task.paused ? 'paused' : 'queued'; await this.persist(task); if (task.paused && task.row) this.show(task, 'paused');
       }
-    } catch {if (!task.cancelled) {task.cacheError = true; task.state = task.paused ? 'paused' : 'queued'}} finally {task.cacheAbort = undefined}
+    } catch (error) {if (error instanceof TransferOwnershipError) this.detach(task); else if (!task.cancelled) {task.cacheError = true; task.state = task.paused ? 'paused' : 'queued'}} finally {task.cacheAbort = undefined}
   }
   private record(task: UploadTask, state = task.state): CachedTransfer {return {scope: this.cache.scope, key: task.key, kind: 'upload', state, offset: task.bytes, updated: Date.now(), data: {name: task.name, folder: task.folder, size: task.size, session: task.session}}}
-  private async persist(task: UploadTask) {if (task.cached && !this.leaving) await this.cache.put(this.record(task));}
+  private async persist(task: UploadTask) {if (task.cached && !this.leaving && !task.detached) await this.cache.put(this.record(task));}
+  private detach(task: UploadTask) {task.detached = true; task.paused = true; task.xhr?.abort(); task.cacheAbort?.abort(); task.row?.remove(); this.uploads = this.uploads.filter((item) => item !== task)}
   private async persistQuietly(task: UploadTask) {try {await this.persist(task)} catch {}}
   private async resumeTask(task: UploadTask) {await this.persistQuietly(task); this.pump()}
   private pump() {
@@ -138,6 +139,7 @@ export class SoftwareTransfers {
     row.append(name, progress, detail, controls); this.uploading.append(row); task.row = row; return row;
   }
   private show(task: UploadTask, state: string, bytes = task.bytes, speed = 0, message = '') {
+    if (task.detached) return;
     task.state = state; task.bytes = bytes;
     if (state === 'complete') {if (task.row?.contains(document.activeElement)) this.root.querySelector<HTMLInputElement>('[data-software-search]')?.focus(); task.row?.remove(); return}
     if (!task.row && !task.running && this.uploads.filter((entry) => entry.row?.isConnected).length >= 100) return;
@@ -173,7 +175,7 @@ export class SoftwareTransfers {
     }
     this.recount();
   }
-  private ensureRunning(task: UploadTask) {if (task.paused || task.cancelled) throw new DOMException('Paused', 'AbortError');}
+  private ensureRunning(task: UploadTask) {if (task.paused || task.cancelled || task.detached) throw new DOMException('Paused', 'AbortError');}
   private async run(task: UploadTask) {
     const hash = new HashClient(); const file = task.file!;
     try {
@@ -185,6 +187,7 @@ export class SoftwareTransfers {
         if (task.session.client_key !== key || task.session.size !== file.size) throw new Error(this.words.resume_mismatch);
         task.session = await this.json(`${this.base}/uploads/${task.session.id}`, undefined, 'GET');
       } else task.session = await this.json(`${this.base}/uploads`, new URLSearchParams({parent: task.folder, name: task.name, size: String(file.size), client_key: key}));
+      if (task.cached && !task.session!.node) await this.cache.bindUpload(task.key, task.session!.id);
       await this.persist(task);
       const session = task.session!; this.ensureRunning(task);
       const size = session.chunk_size || 8 * 1024 * 1024;
@@ -192,7 +195,7 @@ export class SoftwareTransfers {
       const prefix = session.node ? file.size : session.offset;
       const validatingStarted = performance.now();
       while (offset < prefix) {
-        this.ensureRunning(task); if (task.cached) await this.cache.check(); const end = Math.min(offset + size, prefix);
+        this.ensureRunning(task); if (task.cached) await this.cache.check(task.key); const end = Math.min(offset + size, prefix);
         const chunk = await hash.hash(file.slice(offset, end), true);
         chain = (await hash.request({op: 'chain', chain, digest: chunk.value, offset: end})).value;
         offset = end; this.show(task, 'validating', offset, offset / Math.max((performance.now() - validatingStarted) / 1000, .1));
@@ -203,12 +206,13 @@ export class SoftwareTransfers {
         if ((await hash.request({op: 'finish'})).value !== session.node.digest) throw new Error(this.words.resume_mismatch);
       } else {
         while (offset < file.size) {
-          this.ensureRunning(task); if (task.cached) await this.cache.check(); const end = Math.min(offset + size, file.size);
+          this.ensureRunning(task); if (task.cached) await this.cache.check(task.key); const end = Math.min(offset + size, file.size);
           const chunk = await hash.hash(file.slice(offset, end), true);
           const expected = (await hash.request({op: 'chain', chain, digest: chunk.value, offset: end})).value;
           let acknowledged = false;
           for (let attempt = 0; attempt < 4 && !acknowledged; attempt++) {
             this.ensureRunning(task);
+            if (task.cached) await this.cache.check(task.key);
             try {const next = await this.send(task, chunk.data!, offset, chunk.value); if (next.offset !== end || next.chain !== expected) throw new Error(this.words.resume_mismatch); task.session = next; acknowledged = true} catch (error) {
               this.ensureRunning(task);
               const current: UploadSession = await this.json(`${this.base}/uploads/${session.id}`, undefined, 'GET');
@@ -220,6 +224,7 @@ export class SoftwareTransfers {
         }
         this.ensureRunning(task);
         const digest = (await hash.request({op: 'finish'})).value;
+        if (task.cached) await this.cache.check(task.key);
         const node = await this.json(`${this.base}/uploads/${session.id}/complete`);
         if (node.digest !== digest) throw new Error(this.words.resume_mismatch);
       }
@@ -230,6 +235,10 @@ export class SoftwareTransfers {
       if (task.cached) {try {await this.cache.remove(task.key); task.cached = false} catch {}}
       this.uploads = this.uploads.filter((entry) => entry !== task);
     } catch (error) {
+      if (error instanceof TransferOwnershipError) {
+        if (this.cache.owns(task.key)) {try {await this.cache.remove(task.key)} catch {}}
+        this.detach(task); return;
+      }
       if (error instanceof Error && error.message === this.words.resume_mismatch) task.file = undefined;
       this.show(task, task.paused || task.cancelled ? 'paused' : 'failed', task.bytes, 0, task.paused || task.cancelled ? '' : error instanceof Error ? error.message : this.root.getAttribute('data-error')!);
     } finally {
@@ -254,36 +263,51 @@ export class SoftwareTransfers {
     const status = this.root.querySelector<HTMLElement>('[data-software-status]')!;
     try {if (!this.cacheAvailable) throw new Error(this.words.cache_required); await this.downloads.create(ids); status.textContent = this.words.download_started} catch (error) {status.textContent = error instanceof Error ? error.message : this.words.failed}
   }
+  private async restoreRecords(records: CachedTransfer[], sessions?: UploadSession[]) {
+    const duplicate = (record: CachedTransfer) => this.uploads.some((task) => task.key === record.key ||
+      (record.data.session && task.session?.id === record.data.session.id) ||
+      (task.folder === record.data.folder && task.name === record.data.name && task.size === record.data.size));
+    for (const record of records.filter((entry) => entry.kind === 'upload' && !duplicate(entry))) {
+      if (record.state === 'complete') {try {await this.cache.remove(record.key)} catch {} continue}
+      const session = sessions?.find((entry) => entry.id === record.data.session?.id);
+      const file = await this.cache.source(record.key);
+      const paused = ['paused', 'failed'].includes(record.state) || !file;
+      const task: UploadTask = {...record.data, key: record.key, file, session: session || record.data.session, paused, cancelled: false, running: false, cached: true, state: paused ? 'paused' : 'queued', bytes: session ? session.offset : record.offset};
+      // Expired reservations are safely recreated with the same source fingerprint.
+      if (sessions && !session) task.session = undefined;
+      this.uploads.push(task); this.show(task, task.state, task.bytes);
+    }
+    await this.downloads.restore(records);
+  }
   private async restore() {
     const status = this.root.querySelector<HTMLElement>('[data-software-status]')!;
     try {
       try {
         await this.cache.open();
-        while (!await this.cache.claim()) {status.textContent = this.words.other_tab; await new Promise((resolve) => setTimeout(resolve, 2000)); if (this.leaving) return;}
-        if (status.textContent === this.words.other_tab) status.textContent = '';
+        await this.cache.claim();
         this.cacheAvailable = true; await this.cache.prune();
-        const heartbeat = setInterval(async () => {
-          if (this.leaving) {clearInterval(heartbeat); return}
-          try {if (!await this.cache.claim()) {this.queuePaused = true; for (const task of this.uploads) {task.paused = true; task.xhr?.abort()} this.downloads.pauseAll(); status.textContent = this.words.other_tab}} catch {}
-        }, 3000);
       } catch {status.textContent = this.words.cache_unavailable}
       const records = this.cacheAvailable ? await this.cache.list() : [];
       const sessions: UploadSession[] = await this.json(`${this.base}/uploads`, undefined, 'GET');
-      for (const record of records.filter((entry) => entry.kind === 'upload')) {
-        if (record.state === 'complete') {try {await this.cache.remove(record.key)} catch {} continue}
-        const session = sessions.find((entry) => entry.id === record.data.session?.id);
-        const file = await this.cache.source(record.key);
-        const paused = ['paused', 'failed'].includes(record.state) || !file;
-        const task: UploadTask = {...record.data, key: record.key, file, session: session || record.data.session, paused, cancelled: false, running: false, cached: true, state: paused ? 'paused' : 'queued', bytes: session?.offset || record.offset};
-        // Expired reservations are safely recreated with the same source fingerprint.
-        if (task.state !== 'complete' && !session) task.session = undefined;
-        this.uploads.push(task); this.show(task, task.state, task.bytes);
-      }
-      for (const session of sessions.filter((entry) => this.uploads.every((task) => task.session?.id !== entry.id))) {
+      if (this.cacheAvailable) await this.restoreRecords(records, sessions);
+      const all = this.cacheAvailable ? await this.cache.all() : [];
+      for (const session of sessions.filter((entry) => this.uploads.every((task) => task.session?.id !== entry.id) && all.every((record) => record.kind !== 'upload' || !(record.data.session?.id === entry.id || record.data.folder === entry.parent && record.data.name === entry.name && record.data.size === entry.size)))) {
         const task: UploadTask = {key: session.id, name: session.name, folder: session.parent, size: session.size, session, paused: true, cancelled: false, running: false, state: 'paused', bytes: session.offset};
         this.uploads.push(task); this.show(task, 'paused', session.offset);
       }
-      if (this.cacheAvailable) await this.downloads.restore(records);
+      if (this.cacheAvailable) {
+        let syncing = false;
+        const heartbeat = setInterval(async () => {
+          if (this.leaving) {clearInterval(heartbeat); return}
+          if (syncing) return; syncing = true;
+          try {
+            await this.cache.claim();
+            for (const task of this.uploads) if (task.cached && !this.cache.owns(task.key)) this.detach(task);
+            this.downloads.detachUnowned();
+            await this.restoreRecords(await this.cache.list()); this.pump();
+          } catch {} finally {syncing = false}
+        }, 3000);
+      }
       this.recount(); this.pump();
     } catch (error) {status.textContent = String(error)}
   }

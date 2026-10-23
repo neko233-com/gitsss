@@ -8,9 +8,7 @@ import (
 	"mime"
 	"net/http"
 	"os"
-	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/neko233-com/gitsss/modules/templates"
@@ -30,7 +28,7 @@ func SoftwareCenter(ctx *context.Context) {
 	for _, key := range []string{"drop", "upload_folder", "move", "move_here", "selected", "select", "select_all", "clear", "download", "download_selected", "delete_selected", "delete_many_confirm", "transfers", "uploading", "downloading", "paused", "complete", "failed", "queued", "preparing", "validating", "pause", "resume", "retry", "choose_original", "cancel_upload", "remove_record", "resume_mismatch", "browser_downloads", "folder_hint", "empty_action", "destination", "up", "transfer_limit", "pause_navigation", "download_started", "clear_completed", "pause_all", "resume_all", "showing_limit", "tree_limit", "invalid", "caching", "cache_unavailable", "cache_required", "cache_full", "other_tab", "ready", "saved", "save_file", "confirm_saved", "download_again", "cancel_transfer", "download_changed", "session_expired"} {
 		labels[key] = ctx.Locale.TrString("software." + key)
 	}
-	for _, key := range []string{"drag_move", "move_invalid", "move_success"} {
+	for _, key := range []string{"drag_move", "move_invalid", "move_success", "platform_all", "platform_unknown"} {
 		labels[key] = ctx.Locale.TrString("software." + key)
 	}
 	ctx.Data["SoftwareStrings"] = labels
@@ -57,51 +55,17 @@ func softwareError(ctx *context.Context, err error) {
 }
 
 func SoftwareList(ctx *context.Context) {
-	s, err := softwarecenter.Snapshot(ctx, ctx.Org.Organization.ID)
+	listing, err := softwarecenter.List(ctx, ctx.Org.Organization.ID, ctx.FormString("parent"), ctx.FormTrim("q"), ctx.FormInt("page"), false)
 	if err != nil {
+		if errors.Is(err, softwarecenter.ErrInvalid) {
+			ctx.NotFound(nil)
+			return
+		}
 		softwareError(ctx, err)
 		return
 	}
-	parent, query := ctx.FormString("parent"), strings.ToLower(ctx.FormTrim("q"))
-	if parent != "" && (s.Nodes[parent] == nil || !s.Nodes[parent].Directory) {
-		ctx.NotFound(nil)
-		return
-	}
-	entries, folders := []*softwarecenter.Node{}, []*softwarecenter.Node{}
-	for _, node := range s.Nodes {
-		if node.Directory {
-			folders = append(folders, node)
-		}
-		if query != "" {
-			if strings.Contains(strings.ToLower(node.Name), query) {
-				entries = append(entries, node)
-			}
-		} else if node.Parent == parent {
-			entries = append(entries, node)
-		}
-	}
-	less := func(a, b *softwarecenter.Node) bool {
-		if a.Directory != b.Directory {
-			return a.Directory
-		}
-		return strings.ToLower(a.Name) < strings.ToLower(b.Name)
-	}
-	sort.Slice(entries, func(i, j int) bool { return less(entries[i], entries[j]) })
-	sort.Slice(folders, func(i, j int) bool { return less(folders[i], folders[j]) })
-	breadcrumbs := []*softwarecenter.Node{}
-	for id := parent; id != ""; id = s.Nodes[id].Parent {
-		breadcrumbs = append(breadcrumbs, s.Nodes[id])
-		if len(breadcrumbs) > 32 {
-			softwareError(ctx, softwarecenter.ErrInvalid)
-			return
-		}
-	}
-	total := len(entries)
-	page := min(max(ctx.FormInt("page"), 1), max((total+199)/200, 1))
-	start := min((page-1)*200, total)
-	end := min(start+200, total)
 	ctx.Resp.Header().Set("Cache-Control", "private, no-store")
-	ctx.JSON(http.StatusOK, map[string]any{"entries": entries[start:end], "folders": folders, "breadcrumbs": breadcrumbs, "used": s.Used(), "reserved": s.Reserved(), "quota": s.Quota, "total": total, "page": page})
+	ctx.JSON(http.StatusOK, listing)
 }
 
 func SoftwareMutation(ctx *context.Context) {

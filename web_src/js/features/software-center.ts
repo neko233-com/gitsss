@@ -7,7 +7,7 @@ import type {FolderImport} from './software-folders.ts';
 import {softwareAction, softwareDate, softwareFileIcon, softwareFileType, softwareMoveAllowed, softwareSizeBand} from './software-presentation.ts';
 import {reinitializeAreYouSure} from '../vendor/jquery.are-you-sure.ts';
 
-type Node = {id: string; parent: string; name: string; directory: boolean; size: number; digest?: string; modified: number};
+type Node = {id: string; parent: string; name: string; directory: boolean; size: number; digest?: string; modified: number; platform?: string};
 type Listing = {entries: Node[]; folders: Node[]; breadcrumbs: Node[]; used: number; reserved: number; quota: number; total: number; page: number};
 export function folderChildren(folders: Node[]): Map<string, Node[]> {
   const children = new Map<string, Node[]>();
@@ -167,6 +167,12 @@ export function initSoftwareCenter(): void {
         anchor.addEventListener('click', (event) => {if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {event.preventDefault(); transfers.download([node.id])}}); link = anchor;
       }
       link.title = node.name; content.append(handle, kind, link); name.append(content);
+      const platform = document.createElement('td');
+      if (node.directory) {platform.textContent = '—'} else {
+        const label = document.createElement('span'); label.className = 'ui small basic label';
+        label.textContent = node.platform === 'all' ? words.platform_all : !node.platform || node.platform === 'unknown' ? words.platform_unknown : node.platform;
+        platform.append(label);
+      }
       const size = document.createElement('td'); const badge = document.createElement('span'); badge.className = 'software-size'; badge.setAttribute('data-band', node.directory ? 'folder' : softwareSizeBand(node.size)); badge.textContent = node.directory ? '—' : bytes(node.size); size.append(badge);
       const date = document.createElement('td'); const time = document.createElement('time'); time.textContent = softwareDate(node.modified); if (Number.isFinite(new Date(node.modified * 1000).getTime())) time.dateTime = new Date(node.modified * 1000).toISOString(); date.append(time);
       const actions = document.createElement('td'); actions.className = 'software-row-actions';
@@ -177,7 +183,7 @@ export function initSoftwareCenter(): void {
       const deleteAction = softwareAction(root.getAttribute('data-remove')!, 'octicon-trash', () => {remove([node])}); deleteAction.classList.add('software-action-danger');
       for (const action of [download, moveAction, rename, deleteAction]) {action.title = `${action.textContent}: ${node.name}`; action.setAttribute('aria-label', action.title)}
       group.append(download, moveAction, rename, deleteAction); actions.append(group);
-      row.append(cell, name, size, date, actions); fragment.append(row);
+      row.append(cell, name, platform, size, date, actions); fragment.append(row);
     }
     rows.replaceChildren(fragment); selectionChanged();
     root.querySelector<HTMLElement>('[data-software-empty]')!.hidden = data.entries.length > 0;
