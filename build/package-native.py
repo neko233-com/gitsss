@@ -38,7 +38,7 @@ def main():
                 archive.addfile(info, io.BytesIO(instructions))
         with output.open('rb') as stream:
             digest = hashlib.file_digest(stream, 'sha256').hexdigest()
-        Path(str(output)+'.sha256').write_text(digest+'  '+output.name+'\n', encoding='utf-8')
+        Path(str(output)+'.sha256').write_text(digest+'  '+output.name+'\n', encoding='utf-8', newline='\n')
         return output.name
 
     with ThreadPoolExecutor(max_workers=4) as pool:

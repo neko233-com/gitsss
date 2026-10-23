@@ -41,7 +41,7 @@ def check_checksum(folder, name):
     checksum = path.with_name(name + '.sha256')
     expected = sha256(path)
     if not checksum.is_file():
-        checksum.write_text(f'{expected}  {name}\n', encoding='utf-8')
+        checksum.write_text(f'{expected}  {name}\n', encoding='utf-8', newline='\n')
     fields = checksum.read_text(encoding='utf-8').split()
     if len(fields) != 2 or fields[0] != expected or fields[1].lstrip('*') != name:
         raise SystemExit(f'checksum mismatch or malformed: {checksum.name}')
@@ -158,7 +158,7 @@ def main():
             names.extend((name, name + '.xz'))
     sums = folder / 'SHA256SUMS'
     lines = [f'{sha256(folder / name)}  {name}' for name in sorted(names)]
-    sums.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    sums.write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
     for line in sums.read_text(encoding='utf-8').splitlines():
         digest, name = line.split()
         if sha256(folder / name) != digest:
