@@ -28,7 +28,7 @@ func SoftwareCenter(ctx *context.Context) {
 	for _, key := range []string{"drop", "upload_folder", "move", "move_here", "selected", "select", "select_all", "clear", "download", "download_selected", "delete_selected", "delete_many_confirm", "transfers", "uploading", "downloading", "paused", "complete", "failed", "queued", "preparing", "validating", "pause", "resume", "retry", "choose_original", "cancel_upload", "remove_record", "resume_mismatch", "browser_downloads", "folder_hint", "empty_action", "destination", "up", "transfer_limit", "pause_navigation", "download_started", "clear_completed", "pause_all", "resume_all", "showing_limit", "tree_limit", "invalid", "caching", "cache_unavailable", "cache_required", "cache_full", "other_tab", "ready", "saved", "save_file", "confirm_saved", "download_again", "cancel_transfer", "download_changed", "session_expired"} {
 		labels[key] = ctx.Locale.TrString("software." + key)
 	}
-	for _, key := range []string{"drag_move", "move_invalid", "move_success", "platform_all", "platform_unknown"} {
+	for _, key := range []string{"drag_move", "move_invalid", "move_success", "platform_all", "platform_unknown", "organize_previewing", "organize_applying", "organize_skipped", "organize_success", "organize_conflict"} {
 		labels[key] = ctx.Locale.TrString("software." + key)
 	}
 	ctx.Data["SoftwareStrings"] = labels
@@ -55,7 +55,7 @@ func softwareError(ctx *context.Context, err error) {
 }
 
 func SoftwareList(ctx *context.Context) {
-	listing, err := softwarecenter.List(ctx, ctx.Org.Organization.ID, ctx.FormString("parent"), ctx.FormTrim("q"), ctx.FormInt("page"), false)
+	listing, err := softwarecenter.ListFiltered(ctx, ctx.Org.Organization.ID, ctx.FormString("parent"), ctx.FormTrim("q"), ctx.FormInt("page"), false, ctx.FormTrim("platform"))
 	if err != nil {
 		if errors.Is(err, softwarecenter.ErrInvalid) {
 			ctx.NotFound(nil)
@@ -66,6 +66,20 @@ func SoftwareList(ctx *context.Context) {
 	}
 	ctx.Resp.Header().Set("Cache-Control", "private, no-store")
 	ctx.JSON(http.StatusOK, listing)
+}
+
+func SoftwareOrganize(ctx *context.Context) {
+	report, err := softwarecenter.Organize(ctx, ctx.Org.Organization.ID, ctx.Doer.ID, softwarecenter.OrganizeOptions{
+		Parent:   ctx.FormString("parent"),
+		Apply:    ctx.FormBool("apply"),
+		Revision: ctx.FormString("revision"),
+	})
+	if err != nil {
+		softwareError(ctx, err)
+		return
+	}
+	ctx.Resp.Header().Set("Cache-Control", "private, no-store")
+	ctx.JSON(http.StatusOK, report)
 }
 
 func SoftwareMutation(ctx *context.Context) {

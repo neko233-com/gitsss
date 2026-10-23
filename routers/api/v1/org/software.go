@@ -72,6 +72,10 @@ func ListSoftware(ctx *context.APIContext) {
 	// - name: q
 	//   in: query
 	//   type: string
+	// - name: platform
+	//   in: query
+	//   type: string
+	//   description: Filter files by Windows, macOS, iOS, Android, all, or unknown. Directories remain visible for navigation.
 	// - name: recursive
 	//   in: query
 	//   type: boolean
@@ -89,7 +93,7 @@ func ListSoftware(ctx *context.APIContext) {
 	//     "$ref": "#/responses/notFound"
 	//   "500":
 	//     "$ref": "#/responses/error"
-	listing, err := softwarecenter.List(ctx, ctx.Org.Organization.ID, ctx.FormString("parent"), ctx.FormTrim("q"), ctx.FormInt("page"), ctx.FormBool("recursive"))
+	listing, err := softwarecenter.ListFiltered(ctx, ctx.Org.Organization.ID, ctx.FormString("parent"), ctx.FormTrim("q"), ctx.FormInt("page"), ctx.FormBool("recursive"), ctx.FormTrim("platform"))
 	if err != nil {
 		softwareError(ctx, err)
 		return

@@ -22,6 +22,10 @@ Completed downloads remain **Ready to save**. **Save to computer** creates a loc
 
 The list and directory tree use directories first, then case-insensitive name A-Z; equal names use the stable node ID. The System column is computed from each file's final suffix on every listing, so renaming also refreshes its label. `.exe/.msi/.msix/.msixbundle/.appx/.appxbundle` are Windows; `.dmg/.pkg/.app` are macOS; `.ipa` is iOS; `.apk/.aab/.apks/.xapk` are Android. `.zip/.7z/.rar/.tar/.gz/.tgz/.bz2/.tbz2/.xz/.txz/.zst` are **All platforms** (`all` in JSON), including archives whose names contain a platform. Other suffixes are **Unknown** (`unknown`); directories show a dash. These are suffix categories, not inspection of archive contents.
 
+The system filter intersects the existing global name search and pagination. It filters files on the server while keeping folders visible for navigation; the selected system, search, folder and page are reflected in the URL and browser history. The same optional `platform` query is available to API clients (`Windows`, `macOS`, `iOS`, `Android`, `all` or `unknown`).
+
+**Organize by platform** opens a read-only preview for the current folder and its descendants. It shows planned path changes in pages of 50, new directory counts and examples of unknown files that will stay in place. Apply submits the preview's revision; if files, folders or pending uploads changed, the server returns 409 and the page builds a fresh preview. Only platform directories that receive content are created, so an empty subtree remains unchanged. No file bytes are copied, overwritten or deleted. The action uses the existing suffix categories and preserves purpose folders.
+
 Bundled icons distinguish folders, installers, archives, images, code and other files. Row actions have visible borders, icons and labels; the Move dialog remains available for keyboard and touch use. Drag a row, or a selected group, onto the directory tree, a breadcrumb or a folder row. Eligible targets highlight and the server remains authoritative for membership, cycles, conflicts and active uploads. Self/descendant targets are rejected before submitting; successful moves refresh the existing listing. Browser-native external file drops continue to upload.
 
 Name dialogs reset their unsaved-form baseline when opened and closed. Saving, cancelling or Escape-closing a dialog does not leave a hidden dirty form that incorrectly blocks a later refresh; a failed save retains its input and error.
@@ -40,7 +44,7 @@ The same Fomantic primitives remain in place. Menu triggers use button semantics
 
 ### Agent platform organization (REST)
 
-Agents use `GET /api/v1/orgs/{org}/software?recursive=true&page=1` to list the organization, or pass `parent` for a subtree. Each page contains at most 200 entries, `total`, `page`, full organization-relative `path`, and the computed `platform` alongside existing node fields. Continue pages until all entries are read. Omit `recursive` to list a directory; `q` retains the web page's global name search when recursive is omitted. Responses are private and not cacheable.
+Agents use `GET /api/v1/orgs/{org}/software?recursive=true&page=1` to list the organization, or pass `parent` for a subtree. Each page contains at most 200 entries, `total`, `page`, full organization-relative `path`, and the computed `platform` alongside existing node fields. Continue pages until all entries are read. Omit `recursive` to list a directory; `q` retains the web page's global name search when recursive is omitted. Optional `platform` filters files to `Windows`, `macOS`, `iOS`, `Android`, `all` or `unknown`; directories stay visible for navigation. Responses are private and not cacheable.
 
 `POST /api/v1/orgs/{org}/software/organize` accepts JSON:
 
@@ -48,9 +52,11 @@ Agents use `GET /api/v1/orgs/{org}/software?recursive=true&page=1` to list the o
 {"parent":"","apply":false}
 ```
 
+The web page exposes the same preview/apply workflow at `POST /{org}/-/software/organize`. It uses the signed-in organization-member session and URL-encoded `parent`, `apply` and `revision` fields, with the normal same-origin protection. Anonymous and non-member visibility follows the private software-center route rules.
+
 The default is a read-only preview with `revision`, `moves` (`id/from/to/platform`), `created` directory paths, and `skipped` files with `unknown_suffix`. To execute, send the same options with `"apply":true` and the returned `revision`. Missing or stale revisions return 409; preview again after any file, folder or pending-upload change. Repeating after successful execution produces no additional moves or directories.
 
-The layout is `Android/`, `iOS/`, `macOS/`, `Windows/`, and `全平台/`, preserving every existing purpose directory below its platform. Existing top-level purpose folders are reused under their most common platform where possible; ties prefer `all`, Windows, macOS, iOS, then Android. Empty purpose folders go under `全平台`. A purpose folder containing unknown files or active uploads stays in place; recognized completed files can still be sorted independently. Existing destination folders are reused case-insensitively; no folder is deleted or silently merged by deletion. Conflicting files, upload reservations, the 20,000-entry limit or the 32-level limit reject the entire operation without a partial metadata save.
+The layout uses `Android/`, `iOS/`, `macOS/`, `Windows/`, and `全平台/` only where needed, preserving every existing purpose directory below its platform. Existing top-level purpose folders are reused under their most common platform where possible; ties prefer `all`, Windows, macOS, iOS, then Android. Empty purpose folders go under `全平台`. A purpose folder containing unknown files or active uploads stays in place; recognized completed files can still be sorted independently. Existing destination folders are reused case-insensitively; no folder is deleted or silently merged by deletion. Conflicting files, upload reservations, the 20,000-entry limit or the 32-level limit reject the entire operation without a partial metadata save.
 
 For exceptions, supply `"platforms":{"FILE_ID":"Windows"}` in both preview and apply (at most 500 file overrides; values `Windows`, `macOS`, `iOS`, `Android`, `all`). Overrides select a destination for that request; the System label continues to reflect the suffix. IDs must belong to the chosen organization and subtree. Unknown files stay in place unless explicitly overridden.
 

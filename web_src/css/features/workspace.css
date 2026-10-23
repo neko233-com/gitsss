@@ -118,6 +118,8 @@ body:has(.workspace-sidebar) .page-footer { margin-left: var(--workspace-sidebar
 .software-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .software-toolbar .workspace-filter { flex: 1; margin: 0; max-width: 480px; height: 34px; }
 .software-toolbar [data-software-usage] { margin-left: auto; color: var(--color-text-light-1); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.software-platform-filter { display: inline-flex; align-items: center; gap: 8px; color: var(--color-text-light-1); white-space: nowrap; }
+.software-platform-filter select { min-height: 34px; padding: 5px 28px 5px 9px; border: 1px solid var(--color-secondary-dark-1); border-radius: 6px; background: var(--color-body); color: var(--color-text); font: inherit; }
 .software-upload-label { display: flex !important; align-items: center; gap: 6px; cursor: pointer; margin: 0 !important; }
 .software-upload-label input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .software-upload-label:focus-within { outline: 2px solid var(--color-primary); outline-offset: 2px; }
@@ -174,7 +176,7 @@ body:has(.workspace-sidebar) .page-footer { margin-left: var(--workspace-sidebar
 .software-upload-task > span:first-child { flex: 1; overflow-wrap: anywhere; }
 .software-name-dialog { padding: 24px; width: 440px; border: 1px solid var(--color-secondary); border-radius: 8px; background: var(--color-body); color: var(--color-text); }
 .software-name-dialog::backdrop { background: rgb(0 0 0 / 45%); }
-.software-dialog-buttons { display: flex; justify-content: end; gap: 8px; margin-top: 20px; }
+.software-dialog-buttons { display: flex; flex-wrap: wrap; justify-content: end; gap: 8px; margin-top: 20px; }
 .registry-help { border: 1px solid var(--color-secondary); padding: 16px; border-radius: 6px; margin-bottom: 20px; }
 .registry-help summary { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: var(--font-weight-semibold); }
 
@@ -261,7 +263,19 @@ body:has(.workspace-sidebar) .page-footer { margin-left: var(--workspace-sidebar
 .software-transfers[hidden] { display: none; }
 .software-move-dialog { padding: 24px; width: 560px; border: 1px solid var(--color-secondary); border-radius: 8px; background: var(--color-body); color: var(--color-text); }
 .software-move-dialog::backdrop { background: rgb(0 0 0 / 45%); }
-.software-move-dialog h2, .software-name-dialog h2 { font-size: 18px; margin-top: 0; }
+.software-organize-dialog { padding: 24px; width: min(760px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; border: 1px solid var(--color-secondary); border-radius: 8px; background: var(--color-body); color: var(--color-text); }
+.software-organize-dialog::backdrop { background: rgb(0 0 0 / 45%); }
+.software-move-dialog h2, .software-name-dialog h2, .software-organize-dialog h2 { font-size: 18px; margin-top: 0; }
+.software-organize-dialog > p:not([role="alert"]) { color: var(--color-text-light-1); line-height: 1.6; }
+.software-organize-summary { display: flex; flex-wrap: wrap; gap: 8px 20px; list-style: none; margin: 16px 0; padding: 0; }
+.software-organize-summary li { display: flex; gap: 8px; align-items: baseline; }
+.software-organize-summary li span { color: var(--color-text-light-1); }
+.software-organize-changes { max-height: 35dvh; overflow: auto; border: 1px solid var(--color-secondary); border-radius: 6px; }
+.software-organize-changes td { overflow-wrap: anywhere; }
+.software-organize-pages { display: flex; justify-content: end; align-items: center; gap: 12px; margin-top: 10px; }
+.software-organize-dialog [data-software-organize-skipped] { margin-top: 12px; }
+.software-organize-dialog [data-software-organize-skipped] > p { color: var(--color-text-light-1); }
+.software-organize-dialog [data-software-organize-skipped-items] { max-height: 20dvh; overflow: auto; overflow-wrap: anywhere; }
 .software-move-folders { display: flex; flex-direction: column; height: 300px; overflow: auto; margin-top: 12px; }
 .software-move-folders button { display: flex; gap: 8px; align-items: center; text-align: left; padding: 8px; border: 0; background: transparent; color: var(--color-text); cursor: pointer; font: inherit; }
 .software-move-folders button:hover { background: var(--color-hover); }

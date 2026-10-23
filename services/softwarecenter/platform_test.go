@@ -27,6 +27,49 @@ func TestSoftwarePlatformSuffix(t *testing.T) {
 	}
 }
 
+func TestSoftwareListFiltersPlatformAndQuery(t *testing.T) {
+	organizeFixture(t)
+	listing, err := ListFiltered(t.Context(), 3, "vpn", "", 1, false, "windows")
+	require.NoError(t, err)
+	require.Len(t, listing.Entries, 1)
+	assert.Equal(t, "a.MSI", listing.Entries[0].Name)
+	assert.Equal(t, "Windows", listing.Entries[0].Platform)
+
+	listing, err = ListFiltered(t.Context(), 3, "vpn", "B", 1, false, "Windows")
+	require.NoError(t, err)
+	assert.Empty(t, listing.Entries)
+
+	listing, err = ListFiltered(t.Context(), 3, "", "", 1, false, "all")
+	require.NoError(t, err)
+	var directories, files int
+	for _, entry := range listing.Entries {
+		if entry.Directory {
+			directories++
+		} else {
+			files++
+			assert.Equal(t, "all", entry.Platform)
+		}
+	}
+	assert.Equal(t, 2, directories, "directories stay visible for navigation")
+	assert.Equal(t, 1, files)
+
+	_, err = ListFiltered(t.Context(), 3, "", "", 1, false, "desktop")
+	assert.ErrorIs(t, err, ErrInvalid)
+}
+
+func TestSoftwareOrganizeEmptySubtreeDoesNotCreatePlatformFolders(t *testing.T) {
+	s := organizeFixture(t)
+	s.Nodes = map[string]*Node{}
+	require.NoError(t, save(t.Context(), 3, s))
+
+	preview, err := Organize(t.Context(), 3, 2, OrganizeOptions{})
+	require.NoError(t, err)
+	assert.Empty(t, preview.Moves)
+	assert.Empty(t, preview.Created)
+	assert.Empty(t, preview.Skipped)
+	assert.False(t, preview.Applied)
+}
+
 func organizeFixture(t *testing.T) *State {
 	t.Helper()
 	require.NoError(t, unittest.PrepareTestDatabase())
