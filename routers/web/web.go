@@ -1153,6 +1153,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 		m.Group("/software", func() {
 			m.Get("", org.SoftwareCenter)
 			m.Get("/list", org.SoftwareList)
+			m.Post("/organize", org.SoftwareOrganize)
 			m.Get("/download/{id}", org.SoftwareDownload)
 			m.Post("/upload", org.SoftwareUpload)
 			m.Post("/batch/{operation:move|delete|directories}", org.SoftwareBatch)

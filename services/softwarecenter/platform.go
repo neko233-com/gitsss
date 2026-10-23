@@ -100,11 +100,40 @@ func infoLess(a, b *SoftwareNodeInfo) bool {
 }
 
 func List(ctx context.Context, orgID int64, parent, query string, page int, recursive bool) (*Listing, error) {
+	return ListFiltered(ctx, orgID, parent, query, page, recursive, "")
+}
+
+func normalizePlatformFilter(platform string) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(platform)) {
+	case "":
+		return "", true
+	case "windows":
+		return "Windows", true
+	case "macos":
+		return "macOS", true
+	case "ios":
+		return "iOS", true
+	case "android":
+		return "Android", true
+	case "all":
+		return "all", true
+	case "unknown":
+		return "unknown", true
+	default:
+		return "", false
+	}
+}
+
+func ListFiltered(ctx context.Context, orgID int64, parent, query string, page int, recursive bool, platform string) (*Listing, error) {
 	s, err := Snapshot(ctx, orgID)
 	if err != nil {
 		return nil, err
 	}
 	if !s.folder(parent) {
+		return nil, ErrInvalid
+	}
+	platform, ok := normalizePlatformFilter(platform)
+	if !ok {
 		return nil, ErrInvalid
 	}
 	result := &Listing{Entries: []*Entry{}, Folders: []*SoftwareNodeInfo{}, Breadcrumbs: []*SoftwareNodeInfo{}, Used: s.Used(), Reserved: s.Reserved(), Quota: s.Quota}
@@ -124,7 +153,7 @@ func List(ctx context.Context, orgID int64, parent, query string, page int, recu
 		} else if query != "" {
 			matches = true // Preserve the web page's global search contract.
 		}
-		if matches && (query == "" || strings.Contains(strings.ToLower(node.Name), query)) {
+		if matches && (query == "" || strings.Contains(strings.ToLower(node.Name), query)) && (node.Directory || platform == "" || strings.EqualFold(Platform(node.Name), platform)) {
 			matched = append(matched, node)
 		}
 	}
@@ -278,12 +307,6 @@ func Organize(ctx context.Context, orgID, userID int64, opts OrganizeOptions) (*
 		report.Created = append(report.Created, relative)
 		return node.ID, nil
 	}
-	for _, platform := range []string{"Android", "iOS", "macOS", "Windows", "all"} {
-		name := platformFolder(platform)
-		if _, err := ensure(opts.Parent, name, name); err != nil {
-			return nil, err
-		}
-	}
 	// Reuse purpose folders so splitting platforms does not leave empty categories at the root.
 	categories := []*Node{}
 	for _, node := range s.Nodes {
@@ -332,7 +355,10 @@ func Organize(ctx context.Context, orgID, userID int64, opts OrganizeOptions) (*
 				platform = candidate
 			}
 		}
-		target := index[opts.Parent+":"+foldName(platformFolder(platform))].ID
+		target, err := ensure(opts.Parent, platformFolder(platform), platformFolder(platform))
+		if err != nil {
+			return nil, err
+		}
 		if index[target+":"+foldName(category.Name)] != nil {
 			continue // Keep both folders when a destination already exists; never merge by deletion.
 		}

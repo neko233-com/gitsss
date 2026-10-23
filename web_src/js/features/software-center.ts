@@ -9,6 +9,18 @@ import {reinitializeAreYouSure} from '../vendor/jquery.are-you-sure.ts';
 
 type Node = {id: string; parent: string; name: string; directory: boolean; size: number; digest?: string; modified: number; platform?: string};
 type Listing = {entries: Node[]; folders: Node[]; breadcrumbs: Node[]; used: number; reserved: number; quota: number; total: number; page: number};
+type PlannedMove = {id: string; from: string; to: string; platform: string; reason?: string};
+type OrganizationReport = {applied: boolean; revision: string; moves: PlannedMove[]; skipped: PlannedMove[]; created: string[]};
+const organizationPageSize = 50;
+export function softwareListParams(parent: string, query: string, page: number, platform: string): URLSearchParams {
+  return new URLSearchParams({parent, q: query, page: String(page), platform});
+}
+export function softwareOrganizationPage(moves: PlannedMove[], page: number, pageSize = organizationPageSize): PlannedMove[] {
+  return moves.slice(Math.max(0, page) * pageSize, (Math.max(0, page) + 1) * pageSize);
+}
+export function softwareOrganizationPageCount(moveCount: number, pageSize = organizationPageSize): number {
+  return Math.max(1, Math.ceil(moveCount / pageSize));
+}
 export function folderChildren(folders: Node[]): Map<string, Node[]> {
   const children = new Map<string, Node[]>();
   for (const folder of folders) {
@@ -24,6 +36,9 @@ export function initSoftwareCenter(): void {
   const words: Record<string, string> = JSON.parse(root.getAttribute('data-labels')!);
   const query = new URLSearchParams(window.location.search);
   let parent = query.get('parent') || ''; let page = Number(query.get('page')) || 1;
+  const platformFilter = root.querySelector<HTMLSelectElement>('[data-software-platform]')!;
+  platformFilter.value = query.get('platform') || '';
+  let platform = platformFilter.value;
   let pending: AbortController | undefined; let snapshot: Listing | undefined;
   const selected = new Map<string, Node>(); const expanded = new Set<string>(['']);
   const status = root.querySelector<HTMLElement>('[data-software-status]')!;
@@ -39,10 +54,95 @@ export function initSoftwareCenter(): void {
   const moveDialog = root.querySelector<HTMLDialogElement>('[data-software-move-dialog]')!;
   const moveSearch = root.querySelector<HTMLInputElement>('[data-software-move-search]')!;
   const moveError = root.querySelector<HTMLElement>('[data-software-move-error]')!;
+  const organizeDialog = root.querySelector<HTMLDialogElement>('[data-software-organize-dialog]')!;
+  const organizeStatus = root.querySelector<HTMLElement>('[data-software-organize-status]')!;
+  const organizeError = root.querySelector<HTMLElement>('[data-software-organize-error]')!;
+  const organizeResults = root.querySelector<HTMLElement>('[data-software-organize-results]')!;
+  const organizeRows = root.querySelector<HTMLElement>('[data-software-organize-rows]')!;
+  const organizePreviewButton = root.querySelector<HTMLButtonElement>('[data-software-organize-preview]')!;
+  const organizeApplyButton = root.querySelector<HTMLButtonElement>('[data-software-organize-apply]')!;
+  const organizeCancelButton = root.querySelector<HTMLButtonElement>('[data-software-organize-cancel]')!;
+  let organizeReport: OrganizationReport | undefined; let organizePage = 0; let organizeBusy = false; let organizeApplying = false;
   let moveIDs: string[] = []; let destination = ''; let renameID = '';
   let timer: ReturnType<typeof setTimeout> | undefined;
   const transfers = new SoftwareTransfers(root, base, words, () => {load()});
   const message = (error: unknown) => error instanceof Error ? error.message === 'folder_limit' ? words.transfer_limit : error.message === 'folder_invalid' ? words.invalid : error.message : root.getAttribute('data-error')!;
+  const updateOrganizationButtons = () => {
+    organizeDialog.setAttribute('aria-busy', String(organizeBusy));
+    organizePreviewButton.disabled = organizeBusy;
+    organizeCancelButton.disabled = organizeApplying;
+    organizeApplyButton.disabled = organizeBusy || !organizeReport || organizeReport.applied || (!organizeReport.moves.length && !organizeReport.created.length);
+  };
+  const renderOrganization = () => {
+    const report = organizeReport;
+    organizeResults.hidden = !report;
+    if (!report) {organizeRows.replaceChildren(); updateOrganizationButtons(); return}
+    root.querySelector('[data-software-organize-change-count]')!.textContent = String(report.moves.length);
+    root.querySelector('[data-software-organize-created-count]')!.textContent = String(report.created.length);
+    root.querySelector('[data-software-organize-skipped-count]')!.textContent = String(report.skipped.length);
+    root.querySelector<HTMLElement>('[data-software-organize-empty]')!.hidden = report.moves.length > 0 || report.created.length > 0;
+    root.querySelector<HTMLElement>('[data-software-organize-changes]')!.hidden = report.moves.length === 0;
+    const pageCount = softwareOrganizationPageCount(report.moves.length, organizationPageSize);
+    organizePage = Math.min(organizePage, pageCount - 1);
+    const fragment = document.createDocumentFragment();
+    for (const move of softwareOrganizationPage(report.moves, organizePage)) {
+      const row = document.createElement('tr'); const from = document.createElement('td'); const to = document.createElement('td');
+      from.textContent = move.from; to.textContent = move.to; row.append(from, to); fragment.append(row);
+    }
+    organizeRows.replaceChildren(fragment);
+    const pageNav = root.querySelector<HTMLElement>('[data-software-organize-pages]')!;
+    pageNav.hidden = report.moves.length <= organizationPageSize;
+    root.querySelector<HTMLButtonElement>('[data-software-organize-prev]')!.disabled = organizePage === 0;
+    root.querySelector<HTMLButtonElement>('[data-software-organize-next]')!.disabled = organizePage + 1 >= pageCount;
+    root.querySelector('[data-software-organize-page]')!.textContent = `${organizePage + 1} / ${pageCount} · ${report.moves.length}`;
+    const skipped = root.querySelector<HTMLDetailsElement>('[data-software-organize-skipped]')!;
+    skipped.hidden = report.skipped.length === 0;
+    skipped.querySelector('summary')!.textContent = `${words.organize_skipped}: ${report.skipped.length}`;
+    const skippedItems = skipped.querySelector('[data-software-organize-skipped-items]')!;
+    skippedItems.replaceChildren(...report.skipped.slice(0, 50).map((item) => {const li = document.createElement('li'); li.textContent = item.from; return li}));
+    updateOrganizationButtons();
+  };
+  async function requestOrganization(apply: boolean, revision = ''): Promise<OrganizationReport> {
+    const params = new URLSearchParams({parent, apply: String(apply), revision});
+    const response = await POST(`${base}/organize`, {data: params});
+    let result: {message?: string} = {};
+    try {
+      result = await response.json();
+    } catch {
+      // Keep the generic translated message when the server returns a non-JSON error page.
+    }
+    if (!response.ok) {
+      throw Object.assign(new Error(result.message || root.getAttribute('data-error')!), {status: response.status});
+    }
+    return result;
+  }
+  async function previewOrganization(notice = '') {
+    if (organizeBusy) return;
+    organizeBusy = true; organizeReport = undefined; organizePage = 0; organizeError.textContent = ''; organizeStatus.textContent = notice || words.organize_previewing; renderOrganization();
+    try {
+      organizeReport = await requestOrganization(false);
+      organizeStatus.textContent = '';
+    } catch (error) {
+      organizeError.textContent = message(error);
+    } finally {
+      organizeBusy = false; renderOrganization();
+    }
+  }
+  async function applyOrganization() {
+    if (!organizeReport || organizeBusy || organizeReport.applied || (!organizeReport.moves.length && !organizeReport.created.length)) return;
+    organizeBusy = true; organizeApplying = true; organizeError.textContent = ''; organizeStatus.textContent = words.organize_applying; updateOrganizationButtons();
+    let refreshAfterConflict = false;
+    try {
+      const result = await requestOrganization(true, organizeReport.revision);
+      if (!result.applied) throw new Error(root.getAttribute('data-error')!);
+      organizeDialog.close(); status.textContent = words.organize_success; await load();
+    } catch (error) {
+      if (error instanceof Error && 'status' in error && error.status === 409) {
+        organizeReport = undefined; organizeError.textContent = ''; organizeStatus.textContent = words.organize_conflict; refreshAfterConflict = true; renderOrganization();
+      } else {organizeStatus.textContent = ''; organizeError.textContent = message(error)}
+    } finally {organizeBusy = false; organizeApplying = false; updateOrganizationButtons()}
+    if (refreshAfterConflict) await previewOrganization(words.organize_conflict);
+  }
   async function post<T>(operation: string, params: URLSearchParams): Promise<T> {
     const response = await POST(`${base}/${operation}`, {data: params}); const result = await response.json();
     if (!response.ok) throw new Error(result.message || root.getAttribute('data-error')!);
@@ -193,7 +293,7 @@ export function initSoftwareCenter(): void {
   };
   async function load(history = false) {
     pending?.abort(); const controller = new AbortController(); pending = controller; rows.setAttribute('aria-busy', 'true');
-    const params = new URLSearchParams({parent, q: search.value, page: String(page)});
+    const params = softwareListParams(parent, search.value, page, platform);
     try {
       const response = await GET(`${base}/list?${params}`, {signal: controller.signal}); const result = await response.json();
       if (!response.ok) throw new Error(result.message || root.getAttribute('data-error')!);
@@ -204,6 +304,7 @@ export function initSoftwareCenter(): void {
   }
   root.querySelector('[data-software-root]')!.addEventListener('click', () => navigate(''));
   dropTarget(root.querySelector('[data-software-root]')!, () => ''); dropTarget(root, () => parent);
+  platformFilter.addEventListener('change', () => {platform = platformFilter.value; page = 1; load(true)});
   root.querySelector('[data-software-mkdir]')!.addEventListener('click', () => openName());
   root.querySelector('[data-software-dialog-cancel]')!.addEventListener('click', () => dialog.close());
   dialog.addEventListener('close', () => {nameForm.reset(); reinitializeAreYouSure(nameForm)});
@@ -224,6 +325,12 @@ export function initSoftwareCenter(): void {
   root.querySelector('[data-software-move-cancel]')!.addEventListener('click', () => moveDialog.close());
   const moveConfirm = root.querySelector<HTMLButtonElement>('[data-software-move-confirm]')!;
   moveConfirm.addEventListener('click', async () => {moveConfirm.disabled = true; moveError.textContent = ''; try {await move(moveIDs, destination); moveDialog.close()} catch (error) {moveError.textContent = message(error)} finally {moveConfirm.disabled = false}});
+  root.querySelector('[data-software-organize]')!.addEventListener('click', () => {organizeDialog.showModal(); previewOrganization()});
+  organizeCancelButton.addEventListener('click', () => organizeDialog.close());
+  organizePreviewButton.addEventListener('click', () => {previewOrganization()});
+  root.querySelector('[data-software-organize-prev]')!.addEventListener('click', () => {organizePage--; renderOrganization()});
+  root.querySelector('[data-software-organize-next]')!.addEventListener('click', () => {organizePage++; renderOrganization()});
+  organizeApplyButton.addEventListener('click', () => {applyOrganization()});
   const quotaForm = root.querySelector<HTMLFormElement>('[data-software-quota]');
   quotaForm?.addEventListener('input', () => quotaForm.classList.add('dirty'));
   quotaForm?.addEventListener('submit', async (event) => {
@@ -255,6 +362,6 @@ export function initSoftwareCenter(): void {
     try {await importFiles(filesFromPicker(files), target)} catch (error) {status.textContent = message(error)}
   });
   root.querySelector('[data-software-empty-upload]')!.addEventListener('click', () => uploadInput.click());
-  window.addEventListener('popstate', () => {const params = new URLSearchParams(window.location.search); parent = params.get('parent') || ''; page = Number(params.get('page')) || 1; search.value = params.get('q') || ''; load()});
+  window.addEventListener('popstate', () => {const params = new URLSearchParams(window.location.search); parent = params.get('parent') || ''; page = Number(params.get('page')) || 1; search.value = params.get('q') || ''; platformFilter.value = params.get('platform') || ''; platform = platformFilter.value; load()});
   load();
 }

@@ -6,10 +6,12 @@
   data-rename="{{ctx.Locale.Tr "software.rename"}}" data-remove="{{ctx.Locale.Tr "software.delete"}}" data-folder="{{ctx.Locale.Tr "software.folder"}}" data-file="{{ctx.Locale.Tr "software.file"}}" data-new-folder="{{ctx.Locale.Tr "software.new_folder"}}">
   <div class="software-toolbar">
    <label class="workspace-filter">{{svg "octicon-search"}}<input type="search" data-software-search placeholder="{{ctx.Locale.Tr "software.search"}}" aria-label="{{ctx.Locale.Tr "software.search"}}"></label>
+   <label class="software-platform-filter"><span>{{ctx.Locale.Tr "software.platform_filter"}}</span><select data-software-platform aria-label="{{ctx.Locale.Tr "software.platform_filter"}}"><option value="">{{ctx.Locale.Tr "software.platform_filter_all"}}</option><option value="Windows">Windows</option><option value="macOS">macOS</option><option value="iOS">iOS</option><option value="Android">Android</option><option value="all">{{ctx.Locale.Tr "software.platform_all"}}</option><option value="unknown">{{ctx.Locale.Tr "software.platform_unknown"}}</option></select></label>
    <span data-software-usage></span>
    <button class="ui basic button" data-software-mkdir>{{svg "octicon-file-directory"}} {{ctx.Locale.Tr "software.new_folder"}}</button>
    <label class="ui primary button software-upload-label">{{svg "octicon-upload"}} {{ctx.Locale.Tr "software.upload"}}<input type="file" name="files" aria-label="{{ctx.Locale.Tr "software.upload"}}" data-software-upload multiple></label>
    <label class="ui basic button software-upload-label">{{svg "octicon-file-directory"}} {{ctx.Locale.Tr "software.upload_folder"}}<input type="file" name="folder" aria-label="{{ctx.Locale.Tr "software.upload_folder"}}" data-software-folder-upload webkitdirectory multiple></label>
+   <button class="ui basic button" type="button" data-software-organize>{{svg "octicon-list-unordered"}} {{ctx.Locale.Tr "software.organize"}}</button>
   </div>
   <p class="software-drop-hint" data-software-drop>{{svg "octicon-upload"}} {{ctx.Locale.Tr "software.drop"}} <span>{{ctx.Locale.Tr "software.folder_hint"}}</span></p>
   <p data-software-status role="status" aria-live="polite"></p>
@@ -34,6 +36,22 @@
   </dialog>
   <dialog class="software-move-dialog" data-software-move-dialog aria-labelledby="software-move-title">
    <h2 id="software-move-title">{{ctx.Locale.Tr "software.move"}}</h2><label class="workspace-filter">{{svg "octicon-search"}}<input type="search" name="destination" autocomplete="off" data-software-move-search aria-label="{{ctx.Locale.Tr "software.destination"}}" placeholder="{{ctx.Locale.Tr "software.destination"}}…"></label><nav class="software-breadcrumbs" data-software-move-path aria-label="{{ctx.Locale.Tr "software.destination"}}"></nav><div class="software-move-folders" data-software-move-folders></div><p role="alert" data-software-move-error></p><div class="software-dialog-buttons"><button class="ui basic button" type="button" data-software-move-cancel>{{ctx.Locale.Tr "cancel"}}</button><button class="ui primary button" type="button" data-software-move-confirm>{{ctx.Locale.Tr "software.move_here"}}</button></div>
+  </dialog>
+  <dialog class="software-organize-dialog" data-software-organize-dialog aria-labelledby="software-organize-title">
+   <h2 id="software-organize-title">{{ctx.Locale.Tr "software.organize_title"}}</h2>
+   <p>{{ctx.Locale.Tr "software.organize_help"}}</p>
+   <p data-software-organize-status role="status" aria-live="polite"></p>
+   <section data-software-organize-results hidden>
+    <ul class="software-organize-summary"><li><span>{{ctx.Locale.Tr "software.organize_changes"}}</span><strong data-software-organize-change-count></strong></li><li><span>{{ctx.Locale.Tr "software.organize_created"}}</span><strong data-software-organize-created-count></strong></li><li><span>{{ctx.Locale.Tr "software.organize_skipped"}}</span><strong data-software-organize-skipped-count></strong></li></ul>
+    <p data-software-organize-empty hidden>{{ctx.Locale.Tr "software.organize_empty"}}</p>
+    <div class="software-organize-changes" data-software-organize-changes>
+     <table class="ui very basic compact table"><thead><tr><th>{{ctx.Locale.Tr "software.organize_from"}}</th><th>{{ctx.Locale.Tr "software.organize_to"}}</th></tr></thead><tbody data-software-organize-rows></tbody></table>
+    </div>
+    <nav class="software-organize-pages" data-software-organize-pages hidden><button class="ui basic button" type="button" data-software-organize-prev>{{ctx.Locale.Tr "repo.issues.previous"}}</button><span data-software-organize-page></span><button class="ui basic button" type="button" data-software-organize-next>{{ctx.Locale.Tr "repo.issues.next"}}</button></nav>
+    <details data-software-organize-skipped hidden><summary></summary><p>{{ctx.Locale.Tr "software.organize_skipped_hint"}}</p><ul data-software-organize-skipped-items></ul></details>
+   </section>
+   <p data-software-organize-error role="alert"></p>
+   <div class="software-dialog-buttons"><button class="ui basic button" type="button" data-software-organize-cancel>{{ctx.Locale.Tr "cancel"}}</button><button class="ui basic button" type="button" data-software-organize-preview>{{ctx.Locale.Tr "software.organize_preview"}}</button><button class="ui primary button" type="button" data-software-organize-apply disabled>{{ctx.Locale.Tr "software.organize_apply"}}</button></div>
   </dialog>
  </section>
 </main>
