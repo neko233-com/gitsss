@@ -17,7 +17,7 @@ describe('clone protocol selection', () => {
 
   afterEach(() => {
     document.body.innerHTML = '';
-    localStorage.clear();
+    localUserSettings.setString('repo-clone-protocol', '');
   });
 
   test.each(['ssh', 'tea'])('prefers HTTP over the saved %s preference', (savedProtocol) => {

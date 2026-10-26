@@ -16,6 +16,10 @@ test.each([null, {}, {applied: false, revision: 'revision-1', moves: null, skipp
   await expect(readSoftwareOrganizationResponse(Response.json(data), 'failed')).rejects.toThrow('failed');
 });
 
+test('organization rejects an HTML success response before rendering or applying it', async () => {
+  await expect(readSoftwareOrganizationResponse(new Response('<html>sign in</html>'), 'failed')).rejects.toThrow('failed');
+});
+
 test('folder tree indexes children once and preserves parent relationships', () => {
   const base = {name: 'Folder', directory: true, size: 0, modified: 0};
   const result = folderChildren([{...base, id: 'a', parent: ''}, {...base, id: 'b', parent: 'a'}, {...base, id: 'c', parent: 'a'}]);
