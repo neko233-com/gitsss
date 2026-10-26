@@ -75,7 +75,7 @@ type JobLoggerFactory interface {
 
 type jobLoggerFactoryContextKey string
 
-var jobLoggerFactoryContextKeyVal = (jobLoggerFactoryContextKey)("jobloggerkey")
+var jobLoggerFactoryContextKeyVal = jobLoggerFactoryContextKey("jobloggerkey")
 
 func WithJobLoggerFactory(ctx context.Context, factory JobLoggerFactory) context.Context {
 	return context.WithValue(ctx, jobLoggerFactoryContextKeyVal, factory)

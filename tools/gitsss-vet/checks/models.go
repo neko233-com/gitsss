@@ -27,11 +27,9 @@ var ModelsSession = &analysis.Analyzer{
 	Run:  checkModelsSession,
 }
 
-var (
-	modelsImpBlockList = []string{
-		"github.com/neko233-com/gitsss/modules/git",
-	}
-)
+var modelsImpBlockList = []string{
+	"github.com/neko233-com/gitsss/modules/git",
+}
 
 func checkModels(pass *analysis.Pass) (interface{}, error) {
 	if !strings.EqualFold(pass.Pkg.Path(), "github.com/neko233-com/gitsss/models") {

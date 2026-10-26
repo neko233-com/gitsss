@@ -38,7 +38,8 @@ func TestNewWorkflow(t *testing.T) {
 		func(ctx context.Context) error {
 			runcount++
 			return nil
-		})
+		},
+	)
 	assert.NoError(successWorkflow(ctx)) //nolint:testifylint // pre-existing issue from nektos/act
 	assert.Equal(2, runcount)
 }

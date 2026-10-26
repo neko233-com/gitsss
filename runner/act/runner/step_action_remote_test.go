@@ -140,9 +140,9 @@ func TestStepActionRemote(t *testing.T) {
 					return nil
 				}
 			}
-			defer (func() {
+			defer func() {
 				stepActionRemoteNewCloneExecutor = origStepAtionRemoteNewCloneExecutor
-			})()
+			}()
 
 			sar := &stepActionRemote{
 				RunContext: &RunContext{
@@ -240,9 +240,9 @@ func TestStepActionRemotePre(t *testing.T) {
 					return nil
 				}
 			}
-			defer (func() {
+			defer func() {
 				stepActionRemoteNewCloneExecutor = origStepAtionRemoteNewCloneExecutor
-			})()
+			}()
 
 			sar := &stepActionRemote{
 				Step: tt.stepModel,
@@ -310,9 +310,9 @@ func TestStepActionRemotePreThroughAction(t *testing.T) {
 					return nil
 				}
 			}
-			defer (func() {
+			defer func() {
 				stepActionRemoteNewCloneExecutor = origStepAtionRemoteNewCloneExecutor
-			})()
+			}()
 
 			sar := &stepActionRemote{
 				Step: tt.stepModel,
@@ -381,9 +381,9 @@ func TestStepActionRemotePreThroughActionToken(t *testing.T) {
 					return nil
 				}
 			}
-			defer (func() {
+			defer func() {
 				stepActionRemoteNewCloneExecutor = origStepAtionRemoteNewCloneExecutor
-			})()
+			}()
 
 			// Use unique cache directory to ensure action gets cloned, not served from cache
 			uniqueCacheDir := fmt.Sprintf("/tmp/test-cache-token-%d", time.Now().UnixNano())

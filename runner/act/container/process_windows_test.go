@@ -45,7 +45,8 @@ func TestProcessKillerKillsTree(t *testing.T) {
 	// has been assigned to the job, so it must be captured by the job too.
 	script := fmt.Sprintf(
 		`$c = Start-Process powershell -PassThru -ArgumentList '-NoProfile','-Command','Start-Sleep -Seconds 600'; `+
-			`Set-Content -LiteralPath %q -Value $c.Id; Start-Sleep -Seconds 600`, pidFile)
+			`Set-Content -LiteralPath %q -Value $c.Id; Start-Sleep -Seconds 600`, pidFile,
+	)
 	cmd := exec.Command("powershell.exe", "-NoProfile", "-Command", script)
 	require.NoError(t, cmd.Start())
 	t.Cleanup(func() { _ = cmd.Process.Kill() })

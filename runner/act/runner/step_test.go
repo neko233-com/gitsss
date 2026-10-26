@@ -159,14 +159,14 @@ func TestSetupEnv(t *testing.T) {
 	assert.NoError(t, err) //nolint:testifylint // pre-existing issue from nektos/act
 
 	// These are commit or system specific
-	delete((env), "GITHUB_REF")
-	delete((env), "GITHUB_REF_NAME")
-	delete((env), "GITHUB_REF_TYPE")
-	delete((env), "GITHUB_SHA")
-	delete((env), "GITHUB_WORKSPACE")
-	delete((env), "GITHUB_REPOSITORY")
-	delete((env), "GITHUB_REPOSITORY_OWNER")
-	delete((env), "GITHUB_ACTOR")
+	delete(env, "GITHUB_REF")
+	delete(env, "GITHUB_REF_NAME")
+	delete(env, "GITHUB_REF_TYPE")
+	delete(env, "GITHUB_SHA")
+	delete(env, "GITHUB_WORKSPACE")
+	delete(env, "GITHUB_REPOSITORY")
+	delete(env, "GITHUB_REPOSITORY_OWNER")
+	delete(env, "GITHUB_ACTOR")
 
 	assert.Equal(t, map[string]string{
 		"ACT":                      "true",
