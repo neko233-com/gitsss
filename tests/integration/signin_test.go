@@ -100,6 +100,51 @@ func TestSigninWithRememberMe(t *testing.T) {
 	session.MakeRequest(t, req, http.StatusOK)
 }
 
+func TestRepositorySigninWithRememberMe(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	defer test.MockVariableValue(&setting.Service.RequireSignInViewStrict, true)()
+	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
+
+	baseURL, err := url.Parse(setting.AppURL)
+	require.NoError(t, err)
+	const repoPath = "/user2/repo2"
+
+	for _, username := range []string{"user2", "user4"} {
+		t.Run(username, func(t *testing.T) {
+			session := emptyTestSession(t)
+			session.MakeRequest(t, NewRequestWithValues(t, "POST", "/user/login", map[string]string{
+				"user_name": username,
+				"password":  userPassword,
+				"remember":  "on",
+			}), http.StatusSeeOther)
+			rememberCookie := session.GetRawCookie(setting.CookieRememberName)
+			require.NotNil(t, rememberCookie)
+
+			session = emptyTestSession(t)
+			session.jar.SetCookies(baseURL, []*http.Cookie{rememberCookie})
+			resp := session.MakeRequest(t, NewRequest(t, "GET", repoPath), http.StatusSeeOther)
+			assert.Equal(t, "/user/login?redirect_to=%2Fuser2%2Frepo2", resp.Header().Get("Location"))
+			resp = session.MakeRequest(t, NewRequest(t, "GET", resp.Header().Get("Location")), http.StatusSeeOther)
+			assert.Equal(t, repoPath, resp.Header().Get("Location"))
+			if username == "user2" {
+				session.MakeRequest(t, NewRequest(t, "GET", repoPath), http.StatusOK)
+			} else {
+				session.MakeRequest(t, NewRequest(t, "GET", repoPath), http.StatusForbidden)
+			}
+		})
+	}
+
+	resp := MakeRequest(t, NewRequest(t, "GET", repoPath), http.StatusNotFound)
+	assert.Empty(t, resp.Header().Get("Location"))
+
+	session := emptyTestSession(t)
+	session.jar.SetCookies(baseURL, []*http.Cookie{{Name: setting.CookieRememberName, Value: "expired-token"}})
+	resp = session.MakeRequest(t, NewRequest(t, "GET", repoPath), http.StatusSeeOther)
+	session.MakeRequest(t, NewRequest(t, "GET", resp.Header().Get("Location")), http.StatusOK)
+	assert.Empty(t, session.GetSiteCookie(setting.CookieRememberName))
+	session.MakeRequest(t, NewRequest(t, "GET", repoPath), http.StatusNotFound)
+}
+
 func TestEnablePasswordSignInFormAndEnablePasskeyAuth(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 

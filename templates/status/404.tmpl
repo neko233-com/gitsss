@@ -7,6 +7,10 @@
 			<div class="status-page-error-title">404 Not Found</div>
 			<div class="tw-text-center">
 				<div class="tw-my-4">{{if .NotFoundPrompt}}{{.NotFoundPrompt}}{{else}}{{ctx.Locale.Tr "error404"}}{{end}}</div>
+				{{if .NotFoundSignInURL}}
+					<p class="tw-my-4">{{ctx.Locale.Tr "error404_signin"}}</p>
+					<a class="ui primary button" href="{{.NotFoundSignInURL}}">{{ctx.Locale.Tr "sign_in"}}</a>
+				{{end}}
 				{{if .NotFoundGoBackURL}}
 					<a class="tw-block tw-my-4" href="{{.NotFoundGoBackURL}}">{{ctx.Locale.Tr "go_back"}}</a>
 				{{end}}

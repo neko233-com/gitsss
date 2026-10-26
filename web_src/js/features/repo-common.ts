@@ -6,7 +6,6 @@ import {sleep} from '../utils.ts';
 import RepoActivityTopAuthors from '../components/RepoActivityTopAuthors.vue';
 import {createApp} from 'vue';
 import {createTippy} from '../modules/tippy.ts';
-import {localUserSettings} from '../modules/user-settings.ts';
 
 async function onDownloadArchive(e: Event) {
   e.preventDefault();
@@ -57,12 +56,8 @@ function initCloneSchemeUrlSelection(parent: Element) {
   const tabHttps = parent.querySelector('.repo-clone-https');
   const tabSsh = parent.querySelector('.repo-clone-ssh');
   const tabTea = parent.querySelector('.repo-clone-tea');
+  let scheme = 'https'; // Prefer HTTP(S) on each page, including browsers with a saved SSH preference.
   const updateClonePanelUi = function() {
-    let scheme = localUserSettings.getString('repo-clone-protocol');
-    if (!['https', 'ssh', 'tea'].includes(scheme)) {
-      scheme = 'https';
-    }
-
     // Fallbacks if the scheme preference is not available in the tabs, for example: empty repo page, there are only HTTPS and SSH
     if (scheme === 'tea' && !tabTea) {
       scheme = 'https';
@@ -116,15 +111,15 @@ function initCloneSchemeUrlSelection(parent: Element) {
   updateClonePanelUi();
   // tabSsh or tabHttps might not both exist, eg: guest view, or one is disabled by the server
   tabHttps?.addEventListener('click', () => {
-    localUserSettings.setString('repo-clone-protocol', 'https');
+    scheme = 'https';
     updateClonePanelUi();
   });
   tabSsh?.addEventListener('click', () => {
-    localUserSettings.setString('repo-clone-protocol', 'ssh');
+    scheme = 'ssh';
     updateClonePanelUi();
   });
   tabTea?.addEventListener('click', () => {
-    localUserSettings.setString('repo-clone-protocol', 'tea');
+    scheme = 'tea';
     updateClonePanelUi();
   });
   elCloneUrlInput.addEventListener('focus', () => {

@@ -53,6 +53,15 @@ func TestRepositoryAccessDeniedWithRequiredSignIn(t *testing.T) {
 	for _, repoPath := range []string{"/user2/repo2", "/user2/repo1", "/user2/missing-repository"} {
 		resp := MakeRequest(t, NewRequest(t, "GET", repoPath), http.StatusNotFound)
 		assert.Empty(t, resp.Header().Get("Location"))
+		htmlReq := NewRequest(t, "GET", repoPath)
+		htmlReq.Header.Set("Accept", "text/html")
+		htmlResp := MakeRequest(t, htmlReq, http.StatusNotFound)
+		assert.Contains(t, htmlResp.Body.String(), "Your browser is not signed in.")
+		doc := NewHTMLParser(t, htmlResp.Body)
+		signInURL, exists := doc.doc.Find(".status-page-error a.ui.primary.button").Attr("href")
+		assert.True(t, exists)
+		assert.Contains(t, signInURL, "/user/login?redirect_to=")
+		assert.Empty(t, htmlResp.Header().Get("Location"))
 		MakeRequest(t, NewRequest(t, "GET", "/api/v1/repos"+repoPath), http.StatusNotFound)
 	}
 	MakeRequest(t, NewRequest(t, "GET", "/explore/repos"), http.StatusSeeOther)
@@ -70,7 +79,24 @@ func TestRepositoryAccessDeniedWithRequiredSignIn(t *testing.T) {
 // repository read scope (and public-only confinement) of an API token used via basic
 // auth, so a wrongly-scoped token cannot read private repository content.
 func TestRepoHomeContentTokenScopes(t *testing.T) {
-	defer tests.PrepareTestEnv(t)()
+	for _, tc := range []struct {
+		name          string
+		requireSignIn bool
+	}{
+		{name: "optional-signin"},
+		{name: "required-signin", requireSignIn: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			defer tests.PrepareTestEnv(t)()
+			defer test.MockVariableValue(&setting.Service.RequireSignInViewStrict, tc.requireSignIn)()
+			defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
+			testRepoHomeContentTokenScopes(t)
+		})
+	}
+}
+
+func testRepoHomeContentTokenScopes(t *testing.T) {
+	t.Helper()
 
 	// user2/repo2 is a private repository owned by user2
 	const url = "/user2/repo2"

@@ -1,5 +1,13 @@
 # Changelog
 
+## [GitSSS 1.17.3](https://github.com/neko233-com/gitsss/releases/tag/v1.17.3) - 2026-10-26
+
+* Restore remembered browser sessions before the anonymous repository 404 guard.
+* Explain signed-out browser access on HTML 404 pages and return to the requested page after sign-in; missing repositories retain the same response.
+* Prefer HTTP(S) clone URLs on each page load, including browsers with a saved SSH preference; retain explicit SSH/Tea selection and the SSH fallback when HTTP Git is disabled.
+* Fix software-center organization response typing and reject incomplete successful responses while retaining HTTP conflict handling.
+* Preserve repository permissions, API and Git protocol contracts, database version, storage paths and SSH authorization. No data migration is required; rollback uses the previous binary and matching assets.
+
 This changelog goes through the changes that have been made in each release
 without substantial changes to our git log; to see the highlights of what has
 been added to each release, please refer to the [blog](https://blog.gitea.com).

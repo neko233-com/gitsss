@@ -112,6 +112,7 @@
 	"files": "Files",
 	"error_title": "Error",
 	"error404": "The page you are trying to reach either <strong>does not exist</strong> or <strong>you are not authorized</strong> to view it.",
+	"error404_signin": "Your browser is not signed in. If you have been granted access, sign in with that account to try again. Git client credentials do not sign in your browser.",
 	"repo.access_denied.title": "You don't have permission for this request",
 	"repo.access_denied.message": "Your account is signed in, but it cannot access this repository page or perform this action.",
 	"repo.access_denied.repository": "Repository",

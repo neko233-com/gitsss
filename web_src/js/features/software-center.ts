@@ -12,6 +12,25 @@ type Listing = {entries: Node[]; folders: Node[]; breadcrumbs: Node[]; used: num
 type PlannedMove = {id: string; from: string; to: string; platform: string; reason?: string};
 type OrganizationReport = {applied: boolean; revision: string; moves: PlannedMove[]; skipped: PlannedMove[]; created: string[]};
 const organizationPageSize = 50;
+export async function readSoftwareOrganizationResponse(response: Response, fallbackMessage: string): Promise<OrganizationReport> {
+  let result: unknown;
+  try {
+    result = await response.json();
+  } catch {
+    // Keep the generic translated message when the server returns a non-JSON error page.
+  }
+  const data = result && typeof result === 'object' ? result as Record<string, unknown> : {};
+  if (!response.ok) {
+    const message = typeof data.message === 'string' && data.message ? data.message : fallbackMessage;
+    throw Object.assign(new Error(message), {status: response.status});
+  }
+  if (typeof data.applied !== 'boolean' || typeof data.revision !== 'string' ||
+      !Array.isArray(data.moves) || !Array.isArray(data.skipped) || !Array.isArray(data.created)) {
+    throw new Error(fallbackMessage);
+  }
+  return {applied: data.applied, revision: data.revision, moves: data.moves, skipped: data.skipped, created: data.created};
+}
+
 export function softwareListParams(parent: string, query: string, page: number, platform: string): URLSearchParams {
   return new URLSearchParams({parent, q: query, page: String(page), platform});
 }
@@ -105,16 +124,7 @@ export function initSoftwareCenter(): void {
   async function requestOrganization(apply: boolean, revision = ''): Promise<OrganizationReport> {
     const params = new URLSearchParams({parent, apply: String(apply), revision});
     const response = await POST(`${base}/organize`, {data: params});
-    let result: {message?: string} = {};
-    try {
-      result = await response.json();
-    } catch {
-      // Keep the generic translated message when the server returns a non-JSON error page.
-    }
-    if (!response.ok) {
-      throw Object.assign(new Error(result.message || root.getAttribute('data-error')!), {status: response.status});
-    }
-    return result;
+    return readSoftwareOrganizationResponse(response, root.getAttribute('data-error')!);
   }
   async function previewOrganization(notice = '') {
     if (organizeBusy) return;

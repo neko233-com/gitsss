@@ -32,6 +32,25 @@ Git clients can ask for credentials. The status-code change does not grant
 access or modify repository permissions. Rolling back the binary restores the
 previous response behavior; no database migration is required.
 
+Remembered browser sessions are restored through the sign-in page before the
+anonymous repository guard runs. A browser without a session still receives 404;
+the HTML page explains that the browser is signed out and offers sign-in with a
+return link. The same hint appears for missing repositories, without confirming
+whether a private repository exists. Credentials saved in Git or UGit do not
+sign in the browser. If an authorized collaborator sees 404, open
+`/user/login` on the same host and port and sign in with the authorized account.
+
+Repository clone panels and empty-repository command examples prefer HTTP(S) on
+each page load, including browsers with an older saved SSH preference. Selecting
+SSH or Tea CLI changes the current page; HTTP(S) is selected again on the next
+page. Sites that disable HTTP Git retain the SSH fallback. Existing remotes and
+server protocol settings are unchanged. Rollback restores the previous browser
+selection behavior without a data migration.
+
+Software-center organization previews reject incomplete or non-JSON successful
+responses with the existing translated error message. HTTP error responses keep
+their status so a stale revision still refreshes the preview before applying.
+
 Teams have an optional `display_name` for editable human-readable names, including
 the Owners team. The existing team ID, `name`, `lower_name`, routes and owner-team
 identity remain unchanged. The label grants no permissions. Empty labels display

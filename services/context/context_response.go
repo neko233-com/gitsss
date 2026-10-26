@@ -165,6 +165,9 @@ func (ctx *Context) notFoundInternal(logMsg string, logErr error) {
 
 	ctx.Data["IsRepo"] = ctx.Repo.Repository != nil
 	ctx.Data["Title"] = "Page Not Found"
+	if !ctx.IsSigned {
+		ctx.Data["NotFoundSignInURL"] = middleware.RedirectLinkUserLogin(ctx.Req)
+	}
 	ctx.Data["ErrorMsg"] = "" // FIXME: the template never renders this message, need to fix in the future (and show safe messages to end users)
 	ctx.HTML(http.StatusNotFound, "status/404")
 }

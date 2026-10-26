@@ -218,6 +218,12 @@ func verifyAuthWithOptions(options *common.VerifyOptions) func(ctx *context.Cont
 			}
 		}
 
+		// Redirect to log in page if auto-signin info is provided and has not signed in.
+		if !options.SignOutRequired && !ctx.IsSigned && ctx.GetSiteCookie(setting.CookieRememberName) != "" {
+			ctx.Redirect(middleware.RedirectLinkUserLogin(ctx.Req))
+			return
+		}
+
 		if options.SignInRequired {
 			if !ctx.IsSigned {
 				// Hide repository routes even when the site requires sign-in.
@@ -232,12 +238,6 @@ func verifyAuthWithOptions(options *common.VerifyOptions) func(ctx *context.Cont
 				ctx.HTML(http.StatusOK, "user/auth/activate")
 				return
 			}
-		}
-
-		// Redirect to log in page if auto-signin info is provided and has not signed in.
-		if !options.SignOutRequired && !ctx.IsSigned && ctx.GetSiteCookie(setting.CookieRememberName) != "" {
-			ctx.Redirect(middleware.RedirectLinkUserLogin(ctx.Req))
-			return
 		}
 
 		if options.AdminRequired {

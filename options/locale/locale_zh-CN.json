@@ -112,6 +112,7 @@
 	"files": "文件",
 	"error_title": "错误",
 	"error404": "您正尝试访问的页面 <strong>不存在</strong> 或 <strong>您尚未被授权</strong> 查看该页面。",
+	"error404_signin": "当前浏览器尚未登录。如果已获得授权，请使用获授权的账号登录后重试。Git 客户端保存的账号不会自动登录浏览器。",
 	"repo.access_denied.title": "你没有此操作所需的权限",
 	"repo.access_denied.message": "当前登录账号没有访问此仓库页面或执行此操作的权限。",
 	"repo.access_denied.repository": "仓库",
