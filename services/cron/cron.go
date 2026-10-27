@@ -36,6 +36,7 @@ func Init(original context.Context) {
 	initBasicTasks()
 	initExtendedTasks()
 	initActionsTasks()
+	registerDailyReport()
 
 	lock.Lock()
 	for _, task := range tasks {

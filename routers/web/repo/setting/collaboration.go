@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/neko233-com/gitsss/models/db"
 	"github.com/neko233-com/gitsss/models/organization"
 	"github.com/neko233-com/gitsss/models/perm"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
@@ -38,6 +39,29 @@ func Collaboration(ctx *context.Context) {
 		return
 	}
 	ctx.Data["Teams"] = teams
+	if ctx.Repo.Repository.Owner.IsOrganization() && (ctx.Repo.Owner.RepoAdminChangeTeamAccess || ctx.Repo.Permission.IsOwner()) {
+		opts := &organization.SearchTeamOptions{OrgID: ctx.Repo.Repository.OwnerID, ListOptions: db.ListOptionsAll}
+		if err := organization.ApplyTeamListFilter(ctx, ctx.Repo.Repository.OwnerID, ctx.Doer, ctx.IsSigned, opts); err != nil {
+			ctx.ServerError("ApplyTeamListFilter", err)
+			return
+		}
+		allTeams, _, err := organization.SearchTeam(ctx, opts)
+		if err != nil {
+			ctx.ServerError("SearchTeam", err)
+			return
+		}
+		attached := make(map[int64]bool, len(teams))
+		for _, team := range teams {
+			attached[team.ID] = true
+		}
+		available := make(organization.TeamList, 0, len(allTeams))
+		for _, team := range allTeams {
+			if !attached[team.ID] {
+				available = append(available, team)
+			}
+		}
+		ctx.Data["AvailableTeams"] = available
+	}
 	ctx.Data["Repo"] = ctx.Repo.Repository
 	ctx.Data["OrgID"] = ctx.Repo.Repository.OwnerID
 	ctx.Data["OrgName"] = ctx.Repo.Repository.OwnerName

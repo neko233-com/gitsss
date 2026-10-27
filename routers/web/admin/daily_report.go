@@ -1,0 +1,149 @@
+// Copyright 2026 GitSSS contributors. All rights reserved.
+// SPDX-License-Identifier: MIT
+
+package admin
+
+import (
+	"errors"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/neko233-com/gitsss/models/db"
+	user_model "github.com/neko233-com/gitsss/models/user"
+	"github.com/neko233-com/gitsss/modules/dailyreport"
+	"github.com/neko233-com/gitsss/modules/log"
+	"github.com/neko233-com/gitsss/modules/setting"
+	"github.com/neko233-com/gitsss/modules/templates"
+	"github.com/neko233-com/gitsss/services/context"
+	dailyreport_service "github.com/neko233-com/gitsss/services/dailyreport"
+)
+
+type dailyReportAccount struct {
+	ID                   int64
+	Name, FullName, Kind string
+}
+
+func reportAccounts(ctx *context.Context, cfg dailyreport.Config) ([]dailyReportAccount, error) {
+	var users []user_model.User
+	if err := db.GetEngine(ctx).Where("type IN (?, ?)", user_model.UserTypeIndividual, user_model.UserTypeBot).Asc("lower_name").Find(&users); err != nil {
+		return nil, err
+	}
+	rows := make([]dailyReportAccount, 0, len(users))
+	for _, user := range users {
+		rows = append(rows, dailyReportAccount{user.ID, user.Name, user.FullName, cfg.Accounts[user.Name]})
+	}
+	return rows, nil
+}
+
+func renderDailyReport(ctx *context.Context, cfg dailyreport.Config, status int) {
+	rows, err := reportAccounts(ctx, cfg)
+	if err != nil {
+		ctx.ServerError("DailyReportAccounts", err)
+		return
+	}
+	years := make([]string, 0, len(cfg.Schedule.CalendarYears))
+	for _, year := range cfg.Schedule.CalendarYears {
+		years = append(years, strconv.Itoa(year))
+	}
+	ctx.Data["Title"] = ctx.Tr("admin.daily_report")
+	ctx.Data["PageIsAdminDailyReport"] = true
+	ctx.Data["ReportSchedule"] = cfg.Schedule
+	ctx.Data["ReportBaseURL"] = cfg.BaseURL
+	ctx.Data["ReportModel"] = cfg.Model
+	ctx.Data["ReportOmitStore"] = cfg.OmitStore
+	ctx.Data["ReportHasKey"] = cfg.APIKey != ""
+	ctx.Data["ReportHasWebhook"] = cfg.Webhook != ""
+	ctx.Data["ReportYears"] = strings.Join(years, ", ")
+	ctx.Data["ReportHolidays"] = strings.Join(cfg.Schedule.Holidays, "\n")
+	ctx.Data["ReportWorkdays"] = strings.Join(cfg.Schedule.Workdays, "\n")
+	ctx.Data["ReportAccounts"] = rows
+	ctx.HTML(status, templates.TplName("admin/daily_report"))
+}
+
+// DailyReport displays private settings without echoing credentials.
+func DailyReport(ctx *context.Context) {
+	cfg, err := dailyreport_service.LoadConfig()
+	if err != nil {
+		ctx.ServerError("DailyReportConfig", err)
+		return
+	}
+	renderDailyReport(ctx, cfg, http.StatusOK)
+}
+
+func reportLines(value string) []string {
+	return strings.FieldsFunc(value, func(r rune) bool { return r == '\n' || r == '\r' || r == ',' || r == ' ' || r == '\t' })
+}
+
+// DailyReportPost validates and saves settings; blank secret fields retain their values.
+func DailyReportPost(ctx *context.Context) {
+	cfg, err := dailyreport_service.LoadConfig()
+	if err != nil {
+		ctx.ServerError("DailyReportConfig", err)
+		return
+	}
+	rows, err := reportAccounts(ctx, cfg)
+	if err != nil {
+		ctx.ServerError("DailyReportAccounts", err)
+		return
+	}
+	cfg.BaseURL = strings.TrimSpace(ctx.FormString("base_url"))
+	cfg.Model = strings.TrimSpace(ctx.FormString("model"))
+	if value := strings.TrimSpace(ctx.FormString("api_key")); value != "" {
+		cfg.APIKey = value
+	}
+	if value := strings.TrimSpace(ctx.FormString("webhook")); value != "" {
+		cfg.Webhook = value
+	}
+	if ctx.FormBool("clear_api_key") {
+		cfg.APIKey = ""
+	}
+	if ctx.FormBool("clear_webhook") {
+		cfg.Webhook = ""
+	}
+	cfg.OmitStore = ctx.FormBool("omit_store")
+	cfg.Schedule.Enabled = ctx.FormBool("enabled")
+	cfg.Schedule.Time = strings.TrimSpace(ctx.FormString("time"))
+	cfg.Schedule.SkipHolidays = ctx.FormBool("skip_holidays")
+	cfg.Schedule.Holidays = reportLines(ctx.FormString("holidays"))
+	cfg.Schedule.Workdays = reportLines(ctx.FormString("workdays"))
+	cfg.Schedule.CalendarYears = nil
+	for _, value := range reportLines(ctx.FormString("years")) {
+		year, parseErr := strconv.Atoi(value)
+		if parseErr != nil {
+			err = errors.New("invalid calendar year")
+			break
+		}
+		cfg.Schedule.CalendarYears = append(cfg.Schedule.CalendarYears, year)
+	}
+	cfg.Accounts = make(map[string]string)
+	for _, row := range rows {
+		kind := ctx.FormString("account_" + strconv.FormatInt(row.ID, 10))
+		if kind != "" {
+			cfg.Accounts[row.Name] = kind
+		}
+	}
+	if err == nil {
+		err = dailyreport_service.SaveConfig(cfg)
+	}
+	if err != nil {
+		ctx.Flash.Error(ctx.Tr("admin.daily_report.invalid"), true)
+		renderDailyReport(ctx, cfg, http.StatusBadRequest)
+		return
+	}
+	ctx.Flash.Success(ctx.Tr("admin.daily_report.saved"))
+	ctx.Redirect(setting.AppSubURL + "/-/admin/daily-report")
+}
+
+// DailyReportRun starts a manual run with the saved settings.
+func DailyReportRun(ctx *context.Context) {
+	result, err := dailyreport_service.Execute(ctx, time.Now(), false)
+	if err != nil {
+		log.Error("Daily report manual run failed: %v", err)
+		ctx.Flash.Error(string(ctx.Tr("admin.daily_report.failed", result.Sent, result.Skipped, result.Failed)) + " " + err.Error())
+	} else {
+		ctx.Flash.Success(ctx.Tr("admin.daily_report.done", result.Sent, result.Skipped))
+	}
+	ctx.Redirect(setting.AppSubURL + "/-/admin/daily-report")
+}

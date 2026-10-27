@@ -22,6 +22,13 @@
   overflow-wrap: anywhere;
 }
 
+#search-user-box[data-open-on-focus="true"] > .results {
+  width: min(24rem, calc(100vw - 2rem));
+  max-height: min(24rem, 50vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .ui.search > .results > :first-child {
   border-top-left-radius: 0.28571429rem;
   border-top-right-radius: 0.28571429rem;
@@ -46,6 +53,11 @@
 
 .ui.search > .results .result:last-child {
   border-bottom: none;
+}
+
+.ui.search > .results .search-message {
+  padding: 0.85em 1em;
+  color: var(--color-text-light-1);
 }
 
 .ui.search > .results .result .image {

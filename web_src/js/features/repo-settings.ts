@@ -3,10 +3,7 @@ import {onInputDebounce, queryElems, toggleElem} from '../utils/dom.ts';
 import {POST} from '../modules/fetch.ts';
 import {initRepoSettingsBranchesDrag} from './repo-settings-branches.ts';
 import {fomanticQuery} from '../modules/fomantic/base.ts';
-import {attachSearchBox} from '../modules/search.ts';
 import {globMatch} from '../utils/glob.ts';
-
-const {appSubUrl} = window.config;
 
 function initRepoSettingsCollaboration() {
   // Change collaborator access mode
@@ -46,17 +43,21 @@ function initRepoSettingsCollaboration() {
   }
 }
 
-type TeamSearchResponse = {data: Array<{name: string; permission: string}>};
-
-function initRepoSettingsSearchTeamBox() {
-  const box = document.querySelector<HTMLElement>('#search-team-box');
-  if (!box) return;
-
-  const url = `${appSubUrl}/org/${box.getAttribute('data-org-name')}/teams/-/search?q={query}`;
-  attachSearchBox(box, url, (response: TeamSearchResponse) => response.data.map((item) => ({
-    title: item.name,
-    description: `${item.permission} access`, // TODO: translate this string
-  })));
+export function initRepoSettingsSearchTeamBox() {
+  const filter = document.querySelector<HTMLInputElement>('#available-team-filter');
+  if (!filter) return;
+  const rows = document.querySelectorAll<HTMLElement>('#available-team-list [data-team-name]');
+  const empty = document.querySelector<HTMLElement>('#available-team-no-results')!;
+  filter.addEventListener('input', () => {
+    const query = filter.value.trim().toLocaleLowerCase();
+    let visible = 0;
+    for (const row of rows) {
+      const matches = row.getAttribute('data-team-name')!.toLocaleLowerCase().includes(query);
+      row.classList.toggle('tw-hidden', !matches);
+      if (matches) visible++;
+    }
+    empty.classList.toggle('tw-hidden', visible !== 0);
+  });
 }
 
 function initRepoSettingsGitHook() {

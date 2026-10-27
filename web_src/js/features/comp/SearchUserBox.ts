@@ -12,6 +12,7 @@ export function initCompSearchUserBox() {
   const allowEmailInput = box.getAttribute('data-allow-email') === 'true';
   const allowEmailDescription = box.getAttribute('data-allow-email-description') ?? undefined;
   const includeOrgs = box.getAttribute('data-include-orgs') === 'true';
+  const openOnFocus = box.getAttribute('data-open-on-focus') === 'true';
   const url = `${appSubUrl}/user/search_candidates?q={query}&orgs=${includeOrgs}`;
 
   attachSearchBox(box, url, (response: UserSearchResponse, query) => {
@@ -26,5 +27,5 @@ export function initCompSearchUserBox() {
       items.push({title: query, description: allowEmailDescription});
     }
     return items;
-  });
+  }, {openOnFocus, minCharacters: openOnFocus ? 0 : 2, emptyText: box.getAttribute('data-empty-text') ?? undefined, errorText: box.getAttribute('data-error-text') ?? undefined});
 }

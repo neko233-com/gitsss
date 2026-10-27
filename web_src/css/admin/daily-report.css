@@ -1,0 +1,30 @@
+.daily-report-content {
+  max-width: 1100px;
+}
+
+.daily-report-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.daily-report-content .ui.form .field {
+  min-width: 0;
+}
+
+.daily-report-content .ui.form .daily-report-grid input:not([type="checkbox"]),
+.daily-report-content .ui.form .daily-report-grid textarea {
+  width: 100%;
+}
+
+.daily-report-content .ui.form input[type="time"],
+.daily-report-content .ui.form #report-years {
+  max-width: 24rem;
+}
+
+@media (max-width: 767.98px) {
+  .daily-report-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}

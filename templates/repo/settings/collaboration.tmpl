@@ -40,28 +40,29 @@
 		{{end}}
 		<div class="ui bottom attached segment">
 			<form class="ui form flex-text-block" id="repo-collab-form" action="{{.Link}}" method="post">
-				<div id="search-user-box" class="ui search input">
-					<input class="prompt" name="collaborator" placeholder="{{ctx.Locale.Tr "search.user_kind"}}" autocomplete="off" autofocus required>
+				<div id="search-user-box" class="ui search input" data-open-on-focus="true" data-empty-text="{{ctx.Locale.Tr "search.no_results"}}" data-error-text="{{ctx.Locale.Tr "workspace.search_error"}}">
+					<input class="prompt" name="collaborator" aria-label="{{ctx.Locale.Tr "search.user_kind"}}" placeholder="{{ctx.Locale.Tr "search.user_kind"}}" autocomplete="off" required>
 				</div>
 				<button class="ui primary button">{{ctx.Locale.Tr "repo.settings.add_collaborator"}}</button>
 			</form>
 		</div>
 
 		{{if $.Repository.Owner.IsOrganization}}
-			<h4 class="ui top attached header">
-				{{ctx.Locale.Tr "repo.settings.teams"}}
-			</h4>
 			{{$allowedToChangeTeams := (or (.Org.RepoAdminChangeTeamAccess) (.Permission.IsOwner))}}
-			{{if .Teams}}
-			<div class="ui attached segment">
-				<div class="flex-divided-list items-with-main">
+			<section class="repo-team-management" aria-labelledby="repo-team-title">
+				<header class="repo-team-header">
+					<div class="repo-team-header-icon">{{svg "octicon-people" 20}}</div>
+					<div><h3 id="repo-team-title">{{ctx.Locale.Tr "repo.settings.teams"}}</h3><p>{{ctx.Locale.Tr "repo.settings.teams_description"}}</p></div>
+				</header>
+				<div class="repo-team-section">
+					<div class="repo-team-section-heading"><h4>{{ctx.Locale.Tr "repo.settings.attached_teams"}}</h4><span class="repo-team-count">{{len .Teams}}</span></div>
+					{{if .Teams}}
+					<div class="repo-team-grid">
 					{{range $t, $team := .Teams}}
-						<div class="item">
-							<div class="item-main">
-								<a class="item-title tw-text-primary" href="{{AppSubUrl}}/org/{{$.OrgName|PathEscape}}/teams/{{.LowerName|PathEscape}}">
-									{{.Name}}
-								</a>
-								<div class="item-body flex-text-block">
+						<div class="repo-team-card repo-team-card-attached">
+							<div class="repo-team-card-main">
+								<div class="repo-team-identity"><span class="repo-team-icon">{{svg "octicon-people" 16}}</span><a class="repo-team-name" href="{{AppSubUrl}}/org/{{$.OrgName|PathEscape}}/teams/{{.LowerName|PathEscape}}">{{.Name}}</a></div>
+								<div class="repo-team-permission">
 									{{/*FIXME: TEAM-UNIT-PERMISSION this display is not right, search the fixme keyword to see more details */}}
 									{{svg "octicon-shield-lock"}}
 									{{if eq .AccessMode 0}}
@@ -80,44 +81,52 @@
 								</div>
 								{{if or (eq .AccessMode 0) (eq .AccessMode 1) (eq .AccessMode 2)}}
 									{{$first := true}}
-												<div class="item-body" data-tooltip-content="{{ctx.Locale.Tr "repo.settings.change_team_permission_tip"}}">
-										Units:
+									<div class="repo-team-units" data-tooltip-content="{{ctx.Locale.Tr "repo.settings.change_team_permission_tip"}}">
+										{{ctx.Locale.Tr "repo.settings.team_units"}}:
 										{{range $u, $unit := $.Units}}
 											{{- if and ($.Repo.UnitEnabled ctx $unit.Type) ($team.UnitEnabled ctx $unit.Type) -}}
 												{{- Iif $first "" ", "}}{{ctx.Locale.Tr $unit.NameKey -}}
 												{{- $first = false -}}
 											{{- end -}}
 										{{end}}
-										{{if $first}}None{{end}}
+										{{if $first}}{{ctx.Locale.Tr "repo.settings.team_no_units"}}{{end}}
 									</div>
 								{{end}}
 							</div>
 							{{if $allowedToChangeTeams}}
-								<div class="item-trailing" {{if .IncludesAllRepositories}} data-tooltip-content="{{ctx.Locale.Tr "repo.settings.delete_team_tip"}}"{{end}}>
-									<button class="ui red tiny button link-action {{if .IncludesAllRepositories}}disabled{{end}}" data-modal-confirm="#repo-collaborator-delete-modal" data-url="{{$.Link}}/team/delete?id={{.ID}}">
+								<div class="repo-team-action" {{if .IncludesAllRepositories}} data-tooltip-content="{{ctx.Locale.Tr "repo.settings.delete_team_tip"}}"{{end}}>
+									<button class="ui basic red tiny button link-action {{if .IncludesAllRepositories}}disabled{{end}}" aria-label="{{ctx.Locale.Tr "repo.settings.delete_collaborator"}} {{.Name}}" {{if .IncludesAllRepositories}}disabled{{end}} data-modal-confirm="#repo-collaborator-delete-modal" data-url="{{$.Link}}/team/delete?id={{.ID}}">
 											{{ctx.Locale.Tr "repo.settings.delete_collaborator"}}
 									</button>
 								</div>
 							{{end}}
 						</div>
 					{{end}}
-				</div>
-			</div>
-			{{end}}
-			<div class="ui bottom attached segment">
-				{{if $allowedToChangeTeams}}
-					<form class="ui form flex-text-block" id="repo-collab-team-form" action="{{.Link}}/team" method="post">
-						<div id="search-team-box" class="ui search input" data-org-name="{{.OrgName}}">
-							<input class="prompt" name="team" placeholder="{{ctx.Locale.Tr "search.team_kind"}}" autocomplete="off" required>
-						</div>
-						<button class="ui primary button">{{ctx.Locale.Tr "repo.settings.add_team"}}</button>
-					</form>
-				{{else}}
-					<div class="item">
-						{{ctx.Locale.Tr "repo.settings.change_team_access_not_allowed"}}
 					</div>
+					{{else}}<p class="repo-team-empty">{{ctx.Locale.Tr "repo.settings.no_attached_teams"}}</p>{{end}}
+				</div>
+				<div class="repo-team-section repo-team-section-available">
+				{{if $allowedToChangeTeams}}
+					<div class="repo-team-section-heading"><h4>{{ctx.Locale.Tr "repo.settings.available_teams"}}</h4><span class="repo-team-count">{{len .AvailableTeams}}</span></div>
+					{{if .AvailableTeams}}
+					<label class="repo-team-search">{{svg "octicon-search" 16}}<input type="search" id="available-team-filter" aria-label="{{ctx.Locale.Tr "search.team_kind"}}" aria-controls="available-team-list" placeholder="{{ctx.Locale.Tr "search.team_kind"}}"></label>
+					<div class="repo-team-grid" id="available-team-list">
+						{{range .AvailableTeams}}
+						<div class="repo-team-card repo-team-card-available" data-team-name="{{.Name}}">
+							<div class="repo-team-identity"><span class="repo-team-icon">{{svg "octicon-people" 16}}</span><span class="repo-team-name">{{.Name}}</span></div>
+							<form class="repo-team-action" action="{{$.Link}}/team" method="post">{{$.CsrfTokenHtml}}<input type="hidden" name="team" value="{{.Name}}"><button class="ui basic tiny button repo-team-add" aria-label="{{ctx.Locale.Tr "repo.settings.add_team"}} {{.Name}}">{{svg "octicon-plus" 14}} {{ctx.Locale.Tr "repo.settings.add_team"}}</button></form>
+						</div>
+						{{end}}
+					</div>
+					<p id="available-team-no-results" class="repo-team-empty tw-hidden" role="status">{{ctx.Locale.Tr "repo.settings.no_matching_teams"}}</p>
+					{{else}}
+					<p class="repo-team-empty">{{ctx.Locale.Tr "repo.settings.no_available_teams"}}</p>
+					{{end}}
+				{{else}}
+					<p class="repo-team-empty">{{ctx.Locale.Tr "repo.settings.change_team_access_not_allowed"}}</p>
 				{{end}}
-			</div>
+				</div>
+			</section>
 		{{end}}
 	</div>
 

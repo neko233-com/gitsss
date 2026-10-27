@@ -178,3 +178,9 @@ Notification settings validation errors appear on the same HTTP 422 page, with c
 The default colored mark bypasses legacy monochrome image filters in both themes; versioned icon URLs refresh cached logos during upgrades.
 
 The mark uses original chamfered geometry and slanted stencil lettering, with no animation or remote font dependency. SVG and PNG fallbacks share the same artwork.
+
+## Repository teams
+
+Repository collaboration settings group attached and available teams into compact cards with counts, access details, and searchable names. Existing authorization, team visibility, access levels, and removal confirmation remain in effect. Owners and teams assigned to all repositories cannot be removed here.
+
+The collaborator picker opens visible active user suggestions on focus and searches usernames or display names as the operator types. Empty results and request failures are shown inline; arrow keys and Enter select an account. Selecting a suggestion fills the username and does not grant access until the add form is submitted.

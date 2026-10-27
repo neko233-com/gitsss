@@ -1,0 +1,37 @@
+{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin")}}
+<div class="admin-setting-content daily-report-content">
+	<h4 class="ui top attached header">{{ctx.Locale.Tr "admin.daily_report"}}</h4>
+	<div class="ui attached segment">
+		<p>{{ctx.Locale.Tr "admin.daily_report.intro"}}</p>
+		<form class="ui form" method="post" action="{{AppSubUrl}}/-/admin/daily-report">
+			<h4 class="ui dividing header">{{ctx.Locale.Tr "admin.daily_report.provider"}}</h4>
+			<div class="daily-report-grid">
+				<div class="field"><label for="report-base-url">{{ctx.Locale.Tr "admin.daily_report.base_url"}}</label><input id="report-base-url" name="base_url" type="url" value="{{.ReportBaseURL}}" autocomplete="off"></div>
+				<div class="field"><label for="report-model">{{ctx.Locale.Tr "admin.daily_report.model"}}</label><input id="report-model" name="model" value="{{.ReportModel}}"></div>
+			</div>
+			<div class="daily-report-grid">
+				<div class="field"><label for="report-api-key">{{ctx.Locale.Tr "admin.daily_report.api_key"}}</label><input id="report-api-key" name="api_key" type="password" autocomplete="new-password" placeholder="{{if .ReportHasKey}}{{ctx.Locale.Tr "admin.daily_report.secret_saved"}}{{end}}"><label><input type="checkbox" name="clear_api_key"> {{ctx.Locale.Tr "admin.daily_report.clear_secret"}}</label></div>
+				<div class="field"><label for="report-webhook">{{ctx.Locale.Tr "admin.daily_report.webhook"}}</label><input id="report-webhook" name="webhook" type="password" autocomplete="new-password" placeholder="{{if .ReportHasWebhook}}{{ctx.Locale.Tr "admin.daily_report.secret_saved"}}{{end}}"><label><input type="checkbox" name="clear_webhook"> {{ctx.Locale.Tr "admin.daily_report.clear_secret"}}</label></div>
+			</div>
+			<div class="field"><label><input type="checkbox" name="omit_store" {{if .ReportOmitStore}}checked{{end}}> {{ctx.Locale.Tr "admin.daily_report.omit_store"}}</label></div>
+			<h4 class="ui dividing header">{{ctx.Locale.Tr "admin.daily_report.schedule"}}</h4>
+			<div class="field"><label><input type="checkbox" name="enabled" {{if .ReportSchedule.Enabled}}checked{{end}}> {{ctx.Locale.Tr "admin.daily_report.enabled"}}</label></div>
+			<div class="field"><label for="report-time">{{ctx.Locale.Tr "admin.daily_report.time"}}</label><input id="report-time" name="time" type="time" required value="{{.ReportSchedule.Time}}"></div>
+			<div class="field"><label><input type="checkbox" name="skip_holidays" {{if .ReportSchedule.SkipHolidays}}checked{{end}}> {{ctx.Locale.Tr "admin.daily_report.skip_holidays"}}</label></div>
+			<p class="help">{{ctx.Locale.Tr "admin.daily_report.calendar_help"}}</p>
+			<div class="field"><label for="report-years">{{ctx.Locale.Tr "admin.daily_report.years"}}</label><input id="report-years" name="years" value="{{.ReportYears}}" placeholder="2026, 2027"></div>
+			<div class="daily-report-grid">
+				<div class="field"><label for="report-holidays">{{ctx.Locale.Tr "admin.daily_report.holidays"}}</label><textarea id="report-holidays" name="holidays" rows="4" placeholder="2026-10-01">{{.ReportHolidays}}</textarea></div>
+				<div class="field"><label for="report-workdays">{{ctx.Locale.Tr "admin.daily_report.workdays"}}</label><textarea id="report-workdays" name="workdays" rows="4" placeholder="2026-10-10">{{.ReportWorkdays}}</textarea></div>
+			</div>
+			<h4 class="ui dividing header">{{ctx.Locale.Tr "admin.daily_report.accounts"}}</h4>
+			<p class="help">{{ctx.Locale.Tr "admin.daily_report.accounts_help"}}</p>
+			<div class="tw-overflow-x-auto"><table class="ui very basic table"><thead><tr><th>{{ctx.Locale.Tr "admin.daily_report.account"}}</th><th>{{ctx.Locale.Tr "admin.daily_report.kind"}}</th></tr></thead><tbody>
+			{{range .ReportAccounts}}<tr><td>{{.Name}}{{if .FullName}} ({{.FullName}}){{end}}</td><td><select name="account_{{.ID}}" aria-label="{{.Name}}"><option value="" {{if eq .Kind ""}}selected{{end}}>{{ctx.Locale.Tr "admin.daily_report.unclassified"}}</option><option value="person" {{if eq .Kind "person"}}selected{{end}}>{{ctx.Locale.Tr "admin.daily_report.person"}}</option><option value="service" {{if eq .Kind "service"}}selected{{end}}>{{ctx.Locale.Tr "admin.daily_report.service"}}</option></select></td></tr>{{end}}
+			</tbody></table></div>
+			<button type="submit" class="ui primary button">{{ctx.Locale.Tr "admin.daily_report.save"}}</button>
+		</form>
+	</div>
+	<div class="ui bottom attached segment"><form method="post" action="{{AppSubUrl}}/-/admin/daily-report/run"><button type="submit" class="ui button">{{ctx.Locale.Tr "admin.daily_report.run"}}</button> <span class="help">{{ctx.Locale.Tr "admin.daily_report.run_help"}}</span></form></div>
+</div>
+{{template "admin/layout_footer" .}}

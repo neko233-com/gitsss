@@ -793,6 +793,9 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 		m.Post("/lfs-gc", web.Bind(forms.AdminLFSGCForm{}), admin.LFSGCPost)
 		m.Get("/org-share", admin.OrgShare)
 		m.Post("/org-share", admin.OrgSharePost)
+		m.Get("/daily-report", admin.DailyReport)
+		m.Post("/daily-report", admin.DailyReportPost)
+		m.Post("/daily-report/run", admin.DailyReportRun)
 
 		m.Group("/config", func() {
 			m.Get("", admin.Config)

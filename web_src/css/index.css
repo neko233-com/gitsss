@@ -41,6 +41,8 @@
 @import "./shared/legacy-flex-list.css";
 @import "./shared/settings.css";
 @import "./repo/html-docs.css";
+@import "./repo/team-management.css";
+@import "./admin/daily-report.css";
 
 @import "./features/dropzone.css";
 @import "./features/gitgraph.css";
