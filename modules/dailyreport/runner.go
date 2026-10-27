@@ -33,6 +33,7 @@ func Run(ctx context.Context, date string, grouped map[string][]AttributedCommit
 		return result, errors.New("incomplete daily report runner")
 	}
 	accounts := make([]string, 0, len(grouped))
+	var failures []error
 	for account, commits := range grouped {
 		if account != "" && len(commits) > 0 {
 			accounts = append(accounts, account)
@@ -56,11 +57,14 @@ func Run(ctx context.Context, date string, grouped map[string][]AttributedCommit
 			return result, errors.New("cannot prepare daily report input")
 		}
 		summary, err := summarize(ctx, string(input))
-		if err == nil {
-			err = send(ctx, account, summary)
+		if err != nil {
+			err = fmt.Errorf("summarize: %w", err)
+		} else if err = send(ctx, account, summary); err != nil {
+			err = fmt.Errorf("send card: %w", err)
 		}
 		if err != nil {
 			result.Failed++
+			failures = append(failures, err)
 			continue
 		}
 		if err := store.MarkDelivered(date, account); err != nil {
@@ -69,7 +73,7 @@ func Run(ctx context.Context, date string, grouped map[string][]AttributedCommit
 		result.Sent++
 	}
 	if result.Failed != 0 {
-		return result, fmt.Errorf("%d daily report cards failed", result.Failed)
+		return result, errors.Join(fmt.Errorf("%d daily report cards failed", result.Failed), errors.Join(failures...))
 	}
 	return result, nil
 }

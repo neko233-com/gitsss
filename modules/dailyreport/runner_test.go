@@ -77,7 +77,7 @@ func TestRunRetriesOnlyUnsentCards(t *testing.T) {
 		return nil
 	}
 	first, err := Run(context.Background(), "2026-01-01", grouped, store, summarize, send)
-	if err == nil || first.Sent != 1 || first.Failed != 1 {
+	if err == nil || !strings.Contains(err.Error(), "send card: temporary") || first.Sent != 1 || first.Failed != 1 {
 		t.Fatalf("first run: %+v %v", first, err)
 	}
 	fail = false
