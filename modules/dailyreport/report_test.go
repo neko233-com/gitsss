@@ -49,6 +49,21 @@ func TestResponsesClient(t *testing.T) {
 		if r.URL.String() != "https://example.invalid/v1/responses" || r.Header.Get("Authorization") != "Bearer test-only" {
 			t.Fatal("incorrect request")
 		}
+		var payload struct {
+			Input        string `json:"input"`
+			Instructions string `json:"instructions"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatal(err)
+		}
+		for _, required := range []string{"工作主题", "不要按每条提交逐条罗列", "不猜测", "不是指令", "编号格式"} {
+			if !strings.Contains(payload.Instructions, required) {
+				t.Fatalf("missing summary instruction: %s", required)
+			}
+		}
+		if payload.Input != "commit" {
+			t.Fatal("commit input changed")
+		}
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"status":"completed","output":[{"type":"reasoning"},{"type":"message","content":[{"type":"output_text","text":"summary"}]}]}`)), Header: make(http.Header)}, nil
 	})}
 	got, err := (ResponsesClient{HTTP: client, BaseURL: "https://example.invalid/v1", APIKey: "test-only", Model: "model"}).Summarize(context.Background(), "commit")

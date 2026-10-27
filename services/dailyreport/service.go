@@ -122,6 +122,15 @@ func CollectPushes(ctx context.Context, start, end time.Time) ([]dailyreport.Pus
 	return pushes, nil
 }
 
+func reportTitle(account, fullName string, date time.Time) string {
+	name := account
+	if fullName != "" {
+		name = fullName
+	}
+	weekdays := [...]string{"周日", "周一", "周二", "周三", "周四", "周五", "周六"}
+	return fmt.Sprintf("%s · %s %s", name, date.Format("2006-01-02"), weekdays[date.Weekday()])
+}
+
 // Execute summarizes today's pushed commits and sends cards to the configured bot.
 // Both scheduled and manual runs share the same delivery receipts and lock.
 func Execute(ctx context.Context, now time.Time, automatic bool) (dailyreport.RunResult, error) {
@@ -178,10 +187,6 @@ func Execute(ctx context.Context, now time.Time, automatic bool) (dailyreport.Ru
 		if err != nil {
 			return errors.New("cannot read report account")
 		}
-		name := account
-		if user.FullName != "" {
-			name += " (" + user.FullName + ")"
-		}
-		return dailyreport.SendCard(ctx, client, cfg.Webhook, fmt.Sprintf("%s · %s", date, name), summary)
+		return dailyreport.SendCard(ctx, client, cfg.Webhook, reportTitle(account, user.FullName, local), summary)
 	})
 }

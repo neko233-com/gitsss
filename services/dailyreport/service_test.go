@@ -6,6 +6,7 @@ package dailyreport
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestComparisonIDsRejectsRefsAndMalformedURLs(t *testing.T) {
@@ -18,5 +19,15 @@ func TestComparisonIDsRejectsRefsAndMalformedURLs(t *testing.T) {
 		if _, _, ok := comparisonIDs(value); ok {
 			t.Fatalf("invalid comparison accepted: %s", value)
 		}
+	}
+}
+
+func TestReportTitleUsesBeijingDateAndDisplayName(t *testing.T) {
+	date := time.Date(2026, 10, 26, 21, 0, 0, 0, time.FixedZone("CST", 8*60*60))
+	if got := reportTitle("user", "昵称", date); got != "昵称 · 2026-10-26 周一" {
+		t.Fatalf("display title: %s", got)
+	}
+	if got := reportTitle("user", "", date.AddDate(0, 0, 6)); got != "user · 2026-11-01 周日" {
+		t.Fatalf("fallback title: %s", got)
 	}
 }
