@@ -131,6 +131,22 @@ func reportTitle(account, fullName string, date time.Time) string {
 	return fmt.Sprintf("%s · %s %s", name, date.Format("2006-01-02"), weekdays[date.Weekday()])
 }
 
+func filterRoleAccounts(grouped map[string][]dailyreport.AttributedCommit, cfg dailyreport.Config, resolve func(string) ([]string, error)) error {
+	if !cfg.RoleFilterEnabled {
+		return nil
+	}
+	for account := range grouped {
+		labels, err := resolve(account)
+		if err != nil {
+			return errors.New("cannot read report role labels")
+		}
+		if !dailyreport.MatchesRoleLabels(true, cfg.RoleLabels, labels) {
+			delete(grouped, account)
+		}
+	}
+	return nil
+}
+
 // Execute summarizes today's pushed commits and sends cards to the configured bot.
 // Both scheduled and manual runs share the same delivery receipts and lock.
 func Execute(ctx context.Context, now time.Time, automatic bool) (dailyreport.RunResult, error) {
@@ -176,6 +192,15 @@ func Execute(ctx context.Context, now time.Time, automatic bool) (dailyreport.Ru
 		return user.Name, nil
 	})
 	if err != nil {
+		return result, err
+	}
+	if err := filterRoleAccounts(grouped, cfg, func(account string) ([]string, error) {
+		user, err := user_model.GetUserByName(ctx, account)
+		if err != nil {
+			return nil, err
+		}
+		return user_model.GetUserSettingJSON(ctx, user.ID, user_model.SettingsKeyRoleLabels, []string{})
+	}); err != nil {
 		return result, err
 	}
 	client := &http.Client{Timeout: 60 * time.Second}

@@ -23,6 +23,12 @@
 					<p class="help tw-text-blue">{{ctx.Locale.Tr "settings.password_full_name_disabled"}}</p>
 					{{end}}
 				</div>
+				<div class="field {{if .Err_RoleLabels}}error{{end}}">
+					<label for="role_labels">{{ctx.Locale.Tr "settings.role_labels"}}</label>
+					<input id="role_labels" name="role_labels" value="{{.RoleLabelsInput}}" placeholder="{{ctx.Locale.Tr "settings.role_labels_placeholder"}}" aria-describedby="role-labels-help" maxlength="1000">
+					<p class="help" id="role-labels-help">{{ctx.Locale.Tr "settings.role_labels_help"}}</p>
+					{{if .Err_RoleLabels}}<p class="text red" role="alert">{{ctx.Locale.Tr "settings.role_labels_error"}}</p>{{end}}
+				</div>
 				<div class="field {{if .Err_Email}}error{{end}}">
 					<label>{{ctx.Locale.Tr "email"}}</label>
 					<p id="signed-user-email">{{.SignedUser.Email}}</p>

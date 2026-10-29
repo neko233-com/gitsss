@@ -47,8 +47,11 @@
 					<span class="not-mobile flex-text-block">{{svg "octicon-triangle-down"}}</span>
 				</span>
 				<div class="menu user-menu">
-					<div class="header">
+					<div class="header user-menu-header">
 						{{ctx.Locale.Tr "signed_in_as"}} <strong>{{.SignedUser.Name}}</strong>
+						{{if .PageGlobalData}}{{with call .PageGlobalData.GetUserRoleLabels}}
+						<div class="user-menu-roles" aria-label="{{ctx.Locale.Tr "settings.role_labels"}}">{{range .}}<span class="user-menu-role">{{.}}</span>{{end}}</div>
+						{{end}}{{end}}
 					</div>
 
 					<div class="divider"></div>
@@ -93,8 +96,11 @@
 					<span class="not-mobile flex-text-block">{{svg "octicon-triangle-down"}}</span>
 				</span>
 				<div class="menu user-menu">
-					<div class="header">
+					<div class="header user-menu-header">
 						{{ctx.Locale.Tr "signed_in_as"}} <strong>{{.SignedUser.Name}}</strong>
+						{{if .PageGlobalData}}{{with call .PageGlobalData.GetUserRoleLabels}}
+						<div class="user-menu-roles" aria-label="{{ctx.Locale.Tr "settings.role_labels"}}">{{range .}}<span class="user-menu-role">{{.}}</span>{{end}}</div>
+						{{end}}{{end}}
 					</div>
 
 					<div class="divider"></div>

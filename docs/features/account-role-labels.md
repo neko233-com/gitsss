@@ -1,0 +1,5 @@
+# Account role labels
+
+Users can edit their own public profile role labels under Settings → Profile. Site administrators can update another user’s labels from the account edit page using a separate save action. Enter multiple labels separated by commas; custom names are allowed. Labels are trimmed and duplicates are removed case-insensitively. There can be at most 20 labels of 32 characters each. Labels are displayed on the user profile and follow its existing visibility rules. The signed-in user also sees all their labels in the account dropdown, where long lists wrap and the menu scrolls if needed. They are descriptive only and do not change permissions, Git identities, or account names.
+
+The labels are stored as JSON in the existing `user_setting` table under `profile.role_labels`; no schema migration is required. Older versions leave this setting untouched but do not display it, so rollback requires no data migration. Older profile submissions that omit this field retain existing labels.

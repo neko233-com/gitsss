@@ -4,6 +4,11 @@
 		<div class="ui stackable grid">
 			<div class="ui four wide column">
 				{{template "shared/user/profile_big_avatar" .}}
+				{{if .RoleLabels}}
+				<div class="tw-mt-3" aria-label="{{ctx.Locale.Tr "settings.role_labels"}}">
+					{{range .RoleLabels}}<span class="ui label">{{.}}</span>{{end}}
+				</div>
+				{{end}}
 			</div>
 			<div class="ui twelve wide column tw-mb-4">
 				{{template "user/overview/header" .}}

@@ -60,6 +60,13 @@ func userProfile(ctx *context.Context) {
 		return
 	}
 
+	labels, err := user_model.GetUserSettingJSON(ctx, ctx.ContextUser.ID, user_model.SettingsKeyRoleLabels, []string{})
+	if err != nil {
+		ctx.ServerError("GetRoleLabels", err)
+		return
+	}
+	ctx.Data["RoleLabels"] = labels
+
 	ctx.Data["Title"] = ctx.ContextUser.DisplayName()
 	ctx.Data["PageIsUserProfile"] = true
 

@@ -21,3 +21,18 @@ func TestGroupCommits(t *testing.T) {
 		t.Fatal("truncated push accepted")
 	}
 }
+
+func TestMatchesRoleLabels(t *testing.T) {
+	if !MatchesRoleLabels(false, nil, nil) {
+		t.Fatal("all roles must include unlabeled users")
+	}
+	if !MatchesRoleLabels(true, []string{"客户端", "Ops"}, []string{"策划", "ops"}) {
+		t.Fatal("any selected role should match")
+	}
+	if MatchesRoleLabels(true, []string{"客户端"}, []string{"后端"}) {
+		t.Fatal("unselected role matched")
+	}
+	if MatchesRoleLabels(true, []string{"客户端"}, nil) {
+		t.Fatal("unlabeled user matched")
+	}
+}

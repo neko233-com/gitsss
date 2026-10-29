@@ -48,6 +48,40 @@
   padding-right: 5px;
 }
 
+#navbar .navbar-right .user-menu {
+  left: auto;
+  right: 0;
+  width: min(19rem, calc(100vw - 1rem));
+  min-width: 0;
+  max-height: calc(100dvh - 3.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+#navbar .user-menu > .user-menu-header {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.user-menu-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.65rem;
+}
+
+.user-menu-role {
+  max-width: 100%;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--border-radius);
+  background: var(--color-secondary);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-normal);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 767.98px) {
   #navbar {
     align-items: stretch;
@@ -91,6 +125,9 @@
   #navbar.navbar-menu-open .navbar-right > .item {
     display: flex;
     width: 100%;
+  }
+  #navbar.navbar-menu-open .navbar-right .user-menu {
+    max-height: max(6rem, calc(100dvh - 20rem));
   }
   #navbar.navbar-menu-open .navbar-left #navbar-logo {
     justify-content: flex-start;

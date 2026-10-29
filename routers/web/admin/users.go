@@ -374,12 +374,41 @@ func editUserCommon(ctx *context.Context) {
 // EditUser show editing user page
 func EditUser(ctx *context.Context) {
 	editUserCommon(ctx)
-	prepareUserInfo(ctx)
+	u := prepareUserInfo(ctx)
 	if ctx.Written() {
 		return
 	}
+	labels, err := user_model.GetUserSettingJSON(ctx, u.ID, user_model.SettingsKeyRoleLabels, []string{})
+	if err != nil {
+		ctx.ServerError("GetRoleLabels", err)
+		return
+	}
+	ctx.Data["RoleLabelsInput"] = strings.Join(labels, ", ")
 
 	ctx.HTML(http.StatusOK, tplUserEdit)
+}
+
+// UpdateUserRoleLabels updates only the selected account's profile labels.
+func UpdateUserRoleLabels(ctx *context.Context) {
+	editUserCommon(ctx)
+	u := prepareUserInfo(ctx)
+	if ctx.Written() {
+		return
+	}
+	input := ctx.FormString("role_labels")
+	labels, err := user_model.ParseRoleLabels(input)
+	if err != nil {
+		ctx.Data["RoleLabelsInput"] = input
+		ctx.Data["Err_RoleLabels"] = true
+		ctx.HTML(http.StatusBadRequest, tplUserEdit)
+		return
+	}
+	if err := user_model.SetUserSettingJSON(ctx, u.ID, user_model.SettingsKeyRoleLabels, labels); err != nil {
+		ctx.ServerError("SetRoleLabels", err)
+		return
+	}
+	ctx.Flash.Success(ctx.Tr("settings.saved_successfully"))
+	ctx.Redirect(setting.AppSubURL + "/-/admin/users/" + url.PathEscape(ctx.PathParam("userid")) + "/edit")
 }
 
 // EditUserPost response for editing user
@@ -390,6 +419,12 @@ func EditUserPost(ctx *context.Context) {
 		return
 	}
 
+	labels, err := user_model.GetUserSettingJSON(ctx, u.ID, user_model.SettingsKeyRoleLabels, []string{})
+	if err != nil {
+		ctx.ServerError("GetRoleLabels", err)
+		return
+	}
+	ctx.Data["RoleLabelsInput"] = strings.Join(labels, ", ")
 	form := web.GetForm(ctx).(*forms.AdminEditUserForm)
 	if ctx.HasError() {
 		ctx.HTML(http.StatusOK, tplUserEdit)

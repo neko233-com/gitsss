@@ -212,6 +212,7 @@ func (f *IntrospectTokenForm) Validate(req *http.Request, errs binding.Errors) b
 
 // UpdateProfileForm form for updating profile
 type UpdateProfileForm struct {
+	RoleLabels          string
 	Name                string `binding:"Username;MaxSize(40)"`
 	FullName            string `binding:"MaxSize(100)"`
 	KeepEmailPrivate    bool

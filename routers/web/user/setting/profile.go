@@ -51,6 +51,12 @@ func Profile(ctx *context.Context) {
 	ctx.Data["AllowedUserVisibilityModes"] = setting.Service.AllowedUserVisibilityModesSlice.ToVisibleTypeSlice()
 	ctx.Data["DisableGravatar"] = setting.Config().Picture.DisableGravatar.Value(ctx)
 	ctx.Data["BuiltinAvatarStyles"] = avatar.BuiltinStyles()
+	labels, err := user_model.GetUserSettingJSON(ctx, ctx.Doer.ID, user_model.SettingsKeyRoleLabels, []string{})
+	if err != nil {
+		ctx.ServerError("GetRoleLabels", err)
+		return
+	}
+	ctx.Data["RoleLabelsInput"] = strings.Join(labels, ", ")
 
 	ctx.HTML(http.StatusOK, tplSettingsProfile)
 }
@@ -63,12 +69,20 @@ func ProfilePost(ctx *context.Context) {
 	ctx.Data["DisableGravatar"] = setting.Config().Picture.DisableGravatar.Value(ctx)
 	ctx.Data["BuiltinAvatarStyles"] = avatar.BuiltinStyles()
 
+	form := web.GetForm(ctx).(*forms.UpdateProfileForm)
+	ctx.Data["RoleLabelsInput"] = form.RoleLabels
 	if ctx.HasError() {
 		ctx.HTML(http.StatusOK, tplSettingsProfile)
 		return
 	}
 
-	form := web.GetForm(ctx).(*forms.UpdateProfileForm)
+	labels, err := user_model.ParseRoleLabels(form.RoleLabels)
+	if err != nil {
+		ctx.Data["Err_RoleLabels"] = true
+		ctx.Data["ErrorMsg"] = ctx.Tr("settings.role_labels_error")
+		ctx.HTML(http.StatusBadRequest, tplSettingsProfile)
+		return
+	}
 
 	if form.Name != "" {
 		if user_model.IsFeatureDisabledWithLoginType(ctx.Doer, setting.UserFeatureChangeUsername) {
@@ -118,6 +132,13 @@ func ProfilePost(ctx *context.Context) {
 	if err := user_service.UpdateUser(ctx, ctx.Doer, opts); err != nil {
 		ctx.ServerError("UpdateUser", err)
 		return
+	}
+
+	if _, submitted := ctx.Req.PostForm["role_labels"]; submitted {
+		if err := user_model.SetUserSettingJSON(ctx, ctx.Doer.ID, user_model.SettingsKeyRoleLabels, labels); err != nil {
+			ctx.ServerError("SetRoleLabels", err)
+			return
+		}
 	}
 
 	log.Trace("User settings updated: %s", ctx.Doer.Name)

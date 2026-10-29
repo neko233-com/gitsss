@@ -11,7 +11,10 @@ import (
 	activities_model "github.com/neko233-com/gitsss/models/activities"
 	"github.com/neko233-com/gitsss/models/db"
 	issues_model "github.com/neko233-com/gitsss/models/issues"
+	user_model "github.com/neko233-com/gitsss/models/user"
+	"github.com/neko233-com/gitsss/modules/json"
 	"github.com/neko233-com/gitsss/modules/log"
+	"github.com/neko233-com/gitsss/modules/util"
 	"github.com/neko233-com/gitsss/services/context"
 )
 
@@ -65,12 +68,35 @@ func notificationUnreadCount(ctx *context.Context) int64 {
 	return count
 }
 
+func userRoleLabels(ctx *context.Context) []string {
+	if ctx.Doer == nil {
+		return nil
+	}
+	value, err := user_model.GetSetting(ctx, ctx.Doer.ID, user_model.SettingsKeyRoleLabels)
+	if errors.Is(err, util.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		if !errors.Is(err, goctx.Canceled) {
+			log.Error("Unable to load profile role labels: %v", err)
+		}
+		return nil
+	}
+	var labels []string
+	if err := json.Unmarshal([]byte(value), &labels); err != nil {
+		log.Error("Unable to decode profile role labels: %v", err)
+		return nil
+	}
+	return labels
+}
+
 type pageGlobalDataType struct {
 	IsSigned    bool
 	IsSiteAdmin bool
 
 	GetNotificationUnreadCount func() int64
 	GetActiveStopwatch         func() *StopwatchTmplInfo
+	GetUserRoleLabels          func() []string
 }
 
 func PageGlobalData(ctx *context.Context) {
@@ -79,5 +105,6 @@ func PageGlobalData(ctx *context.Context) {
 	data.IsSiteAdmin = ctx.Doer != nil && ctx.Doer.IsAdmin
 	data.GetNotificationUnreadCount = sync.OnceValue(func() int64 { return notificationUnreadCount(ctx) })
 	data.GetActiveStopwatch = sync.OnceValue(func() *StopwatchTmplInfo { return getActiveStopwatch(ctx) })
+	data.GetUserRoleLabels = sync.OnceValue(func() []string { return userRoleLabels(ctx) })
 	ctx.Data["PageGlobalData"] = data
 }

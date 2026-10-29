@@ -6,6 +6,7 @@ package admin
 import (
 	"errors"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +20,39 @@ import (
 	"github.com/neko233-com/gitsss/services/context"
 	dailyreport_service "github.com/neko233-com/gitsss/services/dailyreport"
 )
+
+type dailyReportRole struct {
+	Name     string
+	Selected bool
+}
+
+func reportRoles(ctx *context.Context, rows []dailyReportAccount, cfg dailyreport.Config) ([]dailyReportRole, error) {
+	labels := make(map[string]string)
+	selected := make(map[string]bool)
+	for _, label := range cfg.RoleLabels {
+		key := strings.ToLower(label)
+		labels[key] = label
+		selected[key] = true
+	}
+	for _, row := range rows {
+		values, err := user_model.GetUserSettingJSON(ctx, row.ID, user_model.SettingsKeyRoleLabels, []string{})
+		if err != nil {
+			return nil, err
+		}
+		for _, label := range values {
+			key := strings.ToLower(label)
+			if _, exists := labels[key]; !exists {
+				labels[key] = label
+			}
+		}
+	}
+	roles := make([]dailyReportRole, 0, len(labels))
+	for key, label := range labels {
+		roles = append(roles, dailyReportRole{Name: label, Selected: selected[key]})
+	}
+	sort.Slice(roles, func(i, j int) bool { return roles[i].Name < roles[j].Name })
+	return roles, nil
+}
 
 type dailyReportAccount struct {
 	ID                   int64
@@ -43,6 +77,13 @@ func renderDailyReport(ctx *context.Context, cfg dailyreport.Config, status int)
 		ctx.ServerError("DailyReportAccounts", err)
 		return
 	}
+	roles, err := reportRoles(ctx, rows, cfg)
+	if err != nil {
+		ctx.ServerError("DailyReportRoles", err)
+		return
+	}
+	ctx.Data["ReportRoles"] = roles
+	ctx.Data["ReportRoleFilterEnabled"] = cfg.RoleFilterEnabled
 	years := make([]string, 0, len(cfg.Schedule.CalendarYears))
 	for _, year := range cfg.Schedule.CalendarYears {
 		years = append(years, strconv.Itoa(year))
@@ -101,6 +142,18 @@ func DailyReportPost(ctx *context.Context) {
 	}
 	if ctx.FormBool("clear_webhook") {
 		cfg.Webhook = ""
+	}
+	if mode := ctx.FormString("role_filter_mode"); mode != "" {
+		switch mode {
+		case "all":
+			cfg.RoleFilterEnabled = false
+			cfg.RoleLabels = nil
+		case "selected":
+			cfg.RoleFilterEnabled = true
+			cfg.RoleLabels = ctx.FormStrings("role_filter")
+		default:
+			err = errors.New("invalid role filter mode")
+		}
 	}
 	cfg.OmitStore = ctx.FormBool("omit_store")
 	cfg.Schedule.Enabled = ctx.FormBool("enabled")

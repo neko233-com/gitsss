@@ -48,3 +48,27 @@ func TestCalendarValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestRoleFilterConfiguration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	cfg := Config{Schedule: Schedule{Time: "21:00"}, RoleFilterEnabled: true, RoleLabels: []string{"客户端", "策划"}}
+	if err := SaveConfig(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadConfig(path)
+	if err != nil || !got.RoleFilterEnabled || len(got.RoleLabels) != 2 {
+		t.Fatalf("role filter did not round trip: %v", err)
+	}
+	cfg.RoleLabels = nil
+	if err := SaveConfig(path, cfg); err == nil {
+		t.Fatal("empty selected role filter accepted")
+	}
+	cfg.RoleLabels = []string{"Dev", "dev"}
+	if err := SaveConfig(path, cfg); err == nil {
+		t.Fatal("duplicate roles accepted")
+	}
+	got, err = LoadConfig(path)
+	if err != nil || len(got.RoleLabels) != 2 || got.RoleLabels[0] != "客户端" {
+		t.Fatal("invalid update changed saved role filter")
+	}
+}

@@ -10,19 +10,23 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/neko233-com/gitsss/modules/json"
 )
 
 // Config is private server state; it must not be returned to ordinary users.
 type Config struct {
-	Schedule  Schedule          `json:"schedule"`
-	BaseURL   string            `json:"base_url"`
-	Model     string            `json:"model"`
-	APIKey    string            `json:"api_key"`
-	Webhook   string            `json:"webhook"`
-	OmitStore bool              `json:"omit_store"`
-	Accounts  map[string]string `json:"accounts"`
+	Schedule          Schedule          `json:"schedule"`
+	BaseURL           string            `json:"base_url"`
+	Model             string            `json:"model"`
+	APIKey            string            `json:"api_key"`
+	Webhook           string            `json:"webhook"`
+	OmitStore         bool              `json:"omit_store"`
+	Accounts          map[string]string `json:"accounts"`
+	RoleFilterEnabled bool              `json:"role_filter_enabled,omitempty"`
+	RoleLabels        []string          `json:"role_labels,omitempty"`
 }
 
 // Validate rejects ambiguous classifications and invalid calendar entries.
@@ -51,6 +55,20 @@ func (c Config) Validate() error {
 		if strings.TrimSpace(name) != name || name == "" || (kind != "person" && kind != "service") {
 			return errors.New("invalid account classification")
 		}
+	}
+	if c.RoleFilterEnabled && len(c.RoleLabels) == 0 {
+		return errors.New("daily report role filter requires at least one label")
+	}
+	if len(c.RoleLabels) > 1000 {
+		return errors.New("too many daily report role labels")
+	}
+	seenLabels := make(map[string]bool)
+	for _, label := range c.RoleLabels {
+		key := strings.ToLower(label)
+		if label == "" || strings.TrimSpace(label) != label || utf8.RuneCountInString(label) > 32 || strings.IndexFunc(label, unicode.IsControl) >= 0 || seenLabels[key] {
+			return errors.New("invalid daily report role label")
+		}
+		seenLabels[key] = true
 	}
 	if c.Schedule.Enabled && (c.BaseURL == "" || c.Model == "" || c.APIKey == "" || c.Webhook == "") {
 		return errors.New("enabled daily report requires provider and webhook configuration")

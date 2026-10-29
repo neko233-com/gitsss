@@ -6,6 +6,7 @@ package dailyreport
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // Commit contains the information needed to attribute and summarize a commit.
@@ -61,4 +62,19 @@ func GroupCommits(pushes []Push, accounts map[string]string, resolve func(string
 		}
 	}
 	return result, nil
+}
+
+// MatchesRoleLabels matches any selected label; disabled filtering includes unlabeled users.
+func MatchesRoleLabels(enabled bool, selected, userLabels []string) bool {
+	if !enabled {
+		return true
+	}
+	for _, selectedLabel := range selected {
+		for _, label := range userLabels {
+			if strings.EqualFold(selectedLabel, label) {
+				return true
+			}
+		}
+	}
+	return false
 }
