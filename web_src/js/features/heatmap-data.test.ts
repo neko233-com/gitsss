@@ -1,14 +1,13 @@
-import {defaultHeatmapBounds, defaultHeatmapColors, heatmapData, legacyHeatmapColors, migrateHeatmapColors, validHeatmapBounds} from './heatmap-data.ts';
+import {defaultHeatmapBounds, githubDarkHeatmapColors, githubLightHeatmapColors, heatmapData, isLegacyDefaultHeatmap, validHeatmapBounds} from './heatmap-data.ts';
 
-test('default colors become progressively brighter and preserve custom preferences', () => {
-  const luminance = (hex: string) => {
-    const [r, g, b] = hex.slice(1).match(/../g)!.map((c) => parseInt(c, 16) / 255).map((c) => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  };
-  expect(defaultHeatmapColors.map(luminance)).toEqual(defaultHeatmapColors.map(luminance).toSorted((a, b) => a - b));
-  expect(migrateHeatmapColors(legacyHeatmapColors)).toEqual(defaultHeatmapColors);
-  const custom = ['#123456', ...legacyHeatmapColors.slice(1)];
-  expect(migrateHeatmapColors(custom)).toEqual(custom);
+test('GitHub palettes use four distinct levels and only untouched legacy defaults migrate', () => {
+  expect(githubLightHeatmapColors).toEqual(['#9be9a8', '#40c463', '#30a14e', '#216e39']);
+  expect(githubDarkHeatmapColors).toEqual(['#0e4429', '#006d32', '#26a641', '#39d353']);
+  const oldBounds = [1, 5, 10, 20, 50];
+  const oldColors = ['#183b60', '#245b88', '#317eb4', '#55a9df', '#a5dfff'];
+  expect(isLegacyDefaultHeatmap(oldBounds, oldColors)).toBe(true);
+  expect(isLegacyDefaultHeatmap(oldBounds, ['#123456', ...oldColors.slice(1)])).toBe(false);
+  expect(isLegacyDefaultHeatmap([1, 4, 10, 20, 50], oldColors)).toBe(false);
 });
 
 test('heatmap has exactly 365 local calendar days and excludes padding/future events', () => {
@@ -23,7 +22,7 @@ test('heatmap has exactly 365 local calendar days and excludes padding/future ev
   expect(result.summary).toEqual({total: 85, recent7: 15, recent30: 35, active: 4, peak: 50});
   expect(result.changes).toEqual({total: -94, recent7: 5, recent30: -45, active: 0, peak: -49});
   expect(result.weeks.flat().find((day) => day.key === '2026-10-18')!.level).toBe(2);
-  expect(result.weeks.flat().find((day) => day.key === '2026-09-18')!.level).toBe(5);
+  expect(result.weeks.flat().find((day) => day.key === '2026-09-18')!.level).toBe(4);
 });
 
 test('range boundaries are explicit, inclusive and reject unsafe preferences', () => {

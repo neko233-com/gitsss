@@ -30,13 +30,13 @@ Activity time uses the browser's local timezone, a fixed 24-hour `yyyy-MM-dd HH:
 
 ## Activity heatmap
 
-Default colors increase in brightness with activity counts. Previously saved colors equal to the old default palette are updated automatically; individually customized colors and thresholds remain unchanged.
+The default palette follows GitHub: four green activity levels, with separate light and dark theme colors. In dark mode more activity is brighter; in light mode it is darker. Previously saved untouched default colors and thresholds migrate automatically; individual color or threshold customizations remain unchanged.
 
 The calendar fills the center column without enlarging its labels. Summary values show the last 365 local calendar days (including today), last 7/30 days, active days and peak daily count. Padding before the window and future days do not count; the older API's extra leading-week data no longer inflates the displayed yearly total. These are existing permission-filtered activity events, including pushes and collaboration actions, grouped by action time. They are not commit counts, changed lines, working hours or productivity scores.
 
 Each summary value displays its change from the equivalent local-date window ending yesterday. The difference can be negative when older activity leaves a rolling window; active days and daily peak compare the same 365-day windows.
 
-The legend names every inclusive daily range: `0`, `1–4`, `5–9`, `10–19`, `20–49`, `50+`. Display settings let users edit the five positive-level colors and increasing integer lower bounds (1 to 1,000,000, first bound fixed at 1), apply or reset them. Preferences stay in local browser storage and are shared between the user's charts on that origin; they do not alter server data or other browsers. Storage-disabled browsers retain preferences for the current view. Labels, numbers and date/count tooltips keep the chart understandable without distinguishing colors. Tab enters the calendar once; arrows move by day/week, Home/End reach the window edges, and Enter/Space applies the existing date filter. Team filtering replaces and unmounts the old chart. The grid uses one bounded pass over the data and 365 day buttons, with no per-cell requests or tooltip instances.
+The legend names every inclusive daily range: `0`, `1–4`, `5–9`, `10–19`, `20+`. Display settings let users edit the positive-level colors and increasing integer lower bounds (1 to 1,000,000, first bound fixed at 1), apply or reset them. Preferences stay in local browser storage and are shared between the user's charts on that origin; they do not alter server data or other browsers. Storage-disabled browsers retain preferences for the current view. Labels, numbers and date/count tooltips keep the chart understandable without distinguishing colors. Tab enters the calendar once; arrows move by day/week, Home/End reach the window edges, and Enter/Space applies the existing date filter. Team filtering replaces and unmounts the old chart. The grid uses one bounded pass over the data and 365 day buttons, with no per-cell requests or tooltip instances.
 
 ## Custom repository tags
 

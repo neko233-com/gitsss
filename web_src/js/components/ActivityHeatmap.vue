@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import {computed, nextTick, ref} from 'vue';
-import {defaultHeatmapBounds, defaultHeatmapColors, heatmapData, localDateKey, migrateHeatmapColors, validHeatmapBounds} from '../features/heatmap-data.ts';
+import {defaultHeatmapBounds, githubDarkHeatmapColors, githubLightHeatmapColors, heatmapData, isLegacyDefaultHeatmap, localDateKey, validHeatmapBounds} from '../features/heatmap-data.ts';
+import {isDarkTheme} from '../utils.ts';
 import type {HeatmapValue} from '../features/heatmap-data.ts';
 import {localUserSettings} from '../modules/user-settings.ts';
 
@@ -15,16 +16,20 @@ const props = defineProps<{
   };
 }>();
 const preferenceKey = 'gitsss:heatmap-display:v1';
+const githubColors = () => isDarkTheme() ? githubDarkHeatmapColors : githubLightHeatmapColors;
 const bounds = ref([...defaultHeatmapBounds]);
-const colors = ref([...defaultHeatmapColors]);
+const colors = ref([...githubColors()]);
+const useGithubColors = ref(true);
 try {
   const saved = JSON.parse(localUserSettings.getString(preferenceKey, 'null'));
-  if (saved && validHeatmapBounds(saved.bounds) && Array.isArray(saved.colors) && saved.colors.length === 5 && saved.colors.every((c: unknown) => typeof c === 'string' && /^#[a-f0-9]{6}$/i.test(c))) {
-    bounds.value = saved.bounds; colors.value = migrateHeatmapColors(saved.colors);
+  if (saved && validHeatmapBounds(saved.bounds) && Array.isArray(saved.colors) && saved.colors.length === saved.bounds.length && saved.colors.every((c: unknown) => typeof c === 'string' && /^#[a-f0-9]{6}$/i.test(c))) {
+    if (!isLegacyDefaultHeatmap(saved.bounds, saved.colors)) {
+      bounds.value = saved.bounds; colors.value = saved.colors; useGithubColors.value = saved.palette === 'github' && saved.colors.length === 4;
+    }
   }
 } catch {}
 const draftBounds = ref([...bounds.value]);
-const draftColors = ref([...colors.value]);
+const draftColors = ref([...githubColors()]);
 const error = ref('');
 const preferences = ref<HTMLDetailsElement>();
 const calendar = ref<HTMLElement>();
@@ -37,16 +42,23 @@ const signedNumber = (value: number) => `${value >= 0 ? '+' : ''}${number(value)
 const summary = computed(() => (['total', 'recent7', 'recent30', 'active', 'peak'] as const).map((key) => ({
   key, value: grid.value.summary[key], change: grid.value.changes[key],
 })));
-const range = (i: number) => i === 4 ? `${bounds.value[i]}+` : bounds.value[i] === bounds.value[i + 1] - 1 ? String(bounds.value[i]) : `${bounds.value[i]}–${bounds.value[i + 1] - 1}`;
+const range = (i: number) => i === bounds.value.length - 1 ? `${bounds.value[i]}+` : bounds.value[i] === bounds.value[i + 1] - 1 ? String(bounds.value[i]) : `${bounds.value[i]}–${bounds.value[i + 1] - 1}`;
 const dayLabel = (day: {key: string; count: number}) => `${day.key} · ${number(day.count)} ${props.locale.tooltipUnit}`;
 
+const displayColor = (index: number) => useGithubColors.value ? `var(--heatmap-level-${index + 1})` : colors.value[index];
+function preparePreferences() {
+  if (!preferences.value!.open) return;
+  draftBounds.value = [...bounds.value];
+  draftColors.value = [...(useGithubColors.value ? githubColors() : colors.value)];
+}
 function save(reset = false) {
   const next = reset ? [...defaultHeatmapBounds] : draftBounds.value.map(Number);
-  const nextColors = reset ? [...defaultHeatmapColors] : draftColors.value;
+  const nextColors = reset ? [...githubColors()] : draftColors.value;
   if (!validHeatmapBounds(next)) {error.value = props.locale.labels.invalid; return;}
   bounds.value = [...next]; colors.value = [...nextColors];
+  useGithubColors.value = nextColors.length === 4 && nextColors.every((color, i) => color.toLowerCase() === githubColors()[i]);
   draftBounds.value = [...next]; draftColors.value = [...nextColors]; error.value = '';
-  localUserSettings.setString(preferenceKey, JSON.stringify({bounds: next, colors: nextColors}));
+  localUserSettings.setString(preferenceKey, JSON.stringify({bounds: next, colors: nextColors, palette: useGithubColors.value ? 'github' : 'custom'}));
   preferences.value!.open = false;
 }
 function handleDayClick(date: string) {
@@ -84,7 +96,7 @@ async function moveFocus(event: KeyboardEvent, key: string) {
                   v-if="day.visible" type="button" class="heatmap-day" :class="{'is-selected': day.key === selectedDate}"
                   :data-date="day.key" :data-count="day.count" :data-level="day.level"
                   :tabindex="day.key === focusDate ? 0 : -1" :title="dayLabel(day)" :aria-label="dayLabel(day)" :aria-pressed="day.key === selectedDate"
-                  :style="{backgroundColor: day.level ? colors[day.level - 1] : 'var(--color-secondary-alpha-60)'}"
+                  :style="{backgroundColor: day.level ? displayColor(day.level - 1) : 'var(--heatmap-empty)'}"
                   @focus="focusDate = day.key" @keydown="moveFocus($event, day.key)" @click="handleDayClick(day.key)"
                 />
                 <span v-else/>
@@ -97,10 +109,10 @@ async function moveFocus(event: KeyboardEvent, key: string) {
     <div class="heatmap-footer">
       <p>{{ locale.labels.method }}</p>
       <div class="heatmap-legend" :aria-label="locale.labels.ranges">
-        <span><i class="heatmap-swatch"/>0</span><span v-for="(color, i) in colors" :key="i"><i class="heatmap-swatch" :style="{backgroundColor: color}"/>{{ range(i) }}</span>
+        <span><i class="heatmap-swatch"/>0</span><span v-for="(_, i) in bounds" :key="i"><i class="heatmap-swatch" :style="{backgroundColor: displayColor(i)}"/>{{ range(i) }}</span>
       </div>
     </div>
-    <details ref="preferences" class="heatmap-preferences">
+    <details ref="preferences" class="heatmap-preferences" @toggle="preparePreferences">
       <summary>{{ locale.labels.settings }}</summary>
       <form @submit.prevent="save()">
         <div class="heatmap-range-fields"><label v-for="(_, i) in draftBounds" :key="i"><span>{{ locale.labels.minimum }} {{ i + 1 }}</span><span class="heatmap-range-inputs"><input v-model.number="draftBounds[i]" type="number" :readonly="i === 0" min="1" max="1000000" step="1" required :aria-label="`${locale.labels.minimum} ${i + 1}`"><input v-model="draftColors[i]" type="color" :aria-label="`${locale.labels.color} ${i + 1}`"></span></label></div>

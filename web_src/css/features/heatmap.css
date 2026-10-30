@@ -1,3 +1,5 @@
+:root { --heatmap-empty: #ebedf0; --heatmap-level-1: #9be9a8; --heatmap-level-2: #40c463; --heatmap-level-3: #30a14e; --heatmap-level-4: #216e39; }
+html[data-gitea-theme-dark="true"] { --heatmap-empty: #161b22; --heatmap-level-1: #0e4429; --heatmap-level-2: #006d32; --heatmap-level-3: #26a641; --heatmap-level-4: #39d353; }
 #user-heatmap { width: 100%; position: relative; font-size: 13px; }
 .activity-heatmap-container { min-width: 0; padding-bottom: 8px; }
 #user-heatmap.is-loading { min-height: 200px; }
@@ -24,7 +26,7 @@
 .heatmap-footer p { margin: 0; }
 .heatmap-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-variant-numeric: tabular-nums; }
 .heatmap-legend > span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
-.heatmap-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--color-secondary-alpha-60); }
+.heatmap-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--heatmap-empty); }
 .heatmap-preferences { margin-top: 8px; }
 .heatmap-preferences summary { cursor: pointer; width: fit-content; color: var(--color-primary); padding: 4px 0; }
 .heatmap-preferences form { padding: 12px; border: 1px solid var(--color-secondary); border-radius: var(--border-radius); margin-top: 8px; background: var(--color-box-body); }

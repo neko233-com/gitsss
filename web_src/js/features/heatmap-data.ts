@@ -1,14 +1,20 @@
 export type HeatmapValue = {date: Date; count: number};
-export const defaultHeatmapBounds = [1, 5, 10, 20, 50];
-export const legacyHeatmapColors = ['#dbeafe', '#93c5fd', '#3b82f6', '#1d4ed8', '#1e3a8a'];
-export const defaultHeatmapColors = ['#183b60', '#245b88', '#317eb4', '#55a9df', '#a5dfff'];
+export const defaultHeatmapBounds = [1, 5, 10, 20];
+export const githubLightHeatmapColors = ['#9be9a8', '#40c463', '#30a14e', '#216e39'];
+export const githubDarkHeatmapColors = ['#0e4429', '#006d32', '#26a641', '#39d353'];
+const legacyBounds = [1, 5, 10, 20, 50];
+const legacyPalettes = [
+  ['#dbeafe', '#93c5fd', '#3b82f6', '#1d4ed8', '#1e3a8a'],
+  ['#183b60', '#245b88', '#317eb4', '#55a9df', '#a5dfff'],
+];
 
-export function migrateHeatmapColors(colors: string[]): string[] {
-  return colors.every((color, index) => color.toLowerCase() === legacyHeatmapColors[index]) ? Array.from(defaultHeatmapColors) : colors;
+export function isLegacyDefaultHeatmap(bounds: number[], colors: string[]): boolean {
+  return bounds.length === legacyBounds.length && bounds.every((bound, index) => bound === legacyBounds[index]) &&
+    legacyPalettes.some((palette) => colors.length === palette.length && colors.every((color, index) => color.toLowerCase() === palette[index]));
 }
 
 export function validHeatmapBounds(values: unknown): values is number[] {
-  return Array.isArray(values) && values.length === 5 && values[0] === 1 &&
+  return Array.isArray(values) && (values.length === 4 || values.length === 5) && values[0] === 1 &&
     values.every((value, i) => Number.isSafeInteger(value) && value <= 1_000_000 && (i === 0 || value > values[i - 1]));
 }
 
