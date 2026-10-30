@@ -1,5 +1,5 @@
-:root { --heatmap-empty: #ebedf0; --heatmap-level-1: #9be9a8; --heatmap-level-2: #40c463; --heatmap-level-3: #30a14e; --heatmap-level-4: #216e39; }
-html[data-gitea-theme-dark="true"] { --heatmap-empty: #161b22; --heatmap-level-1: #0e4429; --heatmap-level-2: #006d32; --heatmap-level-3: #26a641; --heatmap-level-4: #39d353; }
+:root { --heatmap-empty: #eff2f5; --heatmap-level-1: #aceebb; --heatmap-level-2: #4ac26b; --heatmap-level-3: #2da44e; --heatmap-level-4: #116329; }
+html[data-gitea-theme-dark="true"] { --heatmap-empty: #151b23; --heatmap-level-1: #033a16; --heatmap-level-2: #196c2e; --heatmap-level-3: #2ea043; --heatmap-level-4: #56d364; }
 #user-heatmap { width: 100%; position: relative; font-size: 13px; }
 .activity-heatmap-container { min-width: 0; padding-bottom: 8px; }
 #user-heatmap.is-loading { min-height: 200px; }

@@ -1,8 +1,8 @@
 import {defaultHeatmapBounds, githubDarkHeatmapColors, githubLightHeatmapColors, heatmapData, isLegacyDefaultHeatmap, validHeatmapBounds} from './heatmap-data.ts';
 
 test('GitHub palettes use four distinct levels and only untouched legacy defaults migrate', () => {
-  expect(githubLightHeatmapColors).toEqual(['#9be9a8', '#40c463', '#30a14e', '#216e39']);
-  expect(githubDarkHeatmapColors).toEqual(['#0e4429', '#006d32', '#26a641', '#39d353']);
+  expect(githubLightHeatmapColors).toEqual(['#aceebb', '#4ac26b', '#2da44e', '#116329']);
+  expect(githubDarkHeatmapColors).toEqual(['#033a16', '#196c2e', '#2ea043', '#56d364']);
   const oldBounds = [1, 5, 10, 20, 50];
   const oldColors = ['#183b60', '#245b88', '#317eb4', '#55a9df', '#a5dfff'];
   expect(isLegacyDefaultHeatmap(oldBounds, oldColors)).toBe(true);

@@ -1,7 +1,7 @@
 export type HeatmapValue = {date: Date; count: number};
 export const defaultHeatmapBounds = [1, 5, 10, 20];
-export const githubLightHeatmapColors = ['#9be9a8', '#40c463', '#30a14e', '#216e39'];
-export const githubDarkHeatmapColors = ['#0e4429', '#006d32', '#26a641', '#39d353'];
+export const githubLightHeatmapColors = ['#aceebb', '#4ac26b', '#2da44e', '#116329'];
+export const githubDarkHeatmapColors = ['#033a16', '#196c2e', '#2ea043', '#56d364'];
 const legacyBounds = [1, 5, 10, 20, 50];
 const legacyPalettes = [
   ['#dbeafe', '#93c5fd', '#3b82f6', '#1d4ed8', '#1e3a8a'],
