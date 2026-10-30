@@ -33,10 +33,10 @@ const grid = computed(() => heatmapData(props.values, now, bounds.value));
 const selectedDate = new URLSearchParams(location.search).get('date');
 const focusDate = ref(grid.value.weeks.flat().some((day) => day.visible && day.key === selectedDate) ? selectedDate! : localDateKey(now));
 const number = (value: number) => value.toLocaleString();
-const summary = computed(() => [
-  ['total', grid.value.summary.total], ['recent7', grid.value.summary.recent7], ['recent30', grid.value.summary.recent30],
-  ['active', grid.value.summary.active], ['peak', grid.value.summary.peak],
-] as Array<[string, number]>);
+const signedNumber = (value: number) => `${value >= 0 ? '+' : ''}${number(value)}`;
+const summary = computed(() => (['total', 'recent7', 'recent30', 'active', 'peak'] as const).map((key) => ({
+  key, value: grid.value.summary[key], change: grid.value.changes[key],
+})));
 const range = (i: number) => i === 4 ? `${bounds.value[i]}+` : bounds.value[i] === bounds.value[i + 1] - 1 ? String(bounds.value[i]) : `${bounds.value[i]}–${bounds.value[i + 1] - 1}`;
 const dayLabel = (day: {key: string; count: number}) => `${day.key} · ${number(day.count)} ${props.locale.tooltipUnit}`;
 
@@ -70,7 +70,7 @@ async function moveFocus(event: KeyboardEvent, key: string) {
 <template>
   <section class="heatmap-card" :aria-label="locale.labels.title">
     <dl class="heatmap-summary">
-      <div v-for="[key, value] in summary" :key="key"><dt>{{ locale.labels[key] }}</dt><dd>{{ number(value) }}<small v-if="key === 'active'"> / 365</small></dd></div>
+      <div v-for="{key, value, change} in summary" :key="key"><dt>{{ locale.labels[key] }}</dt><dd>{{ number(value) }}<small v-if="key === 'active'"> / 365</small> <span class="heatmap-summary-change" :title="locale.labels.change" :aria-label="`${locale.labels.change}: ${signedNumber(change)}`">({{ signedNumber(change) }})</span></dd></div>
     </dl>
     <div class="heatmap-calendar-scroll">
       <div ref="calendar" class="heatmap-calendar" :style="{'--heatmap-weeks': grid.weeks.length}">

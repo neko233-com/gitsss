@@ -7,6 +7,7 @@
 .heatmap-summary dt { color: var(--color-text-light-1); font-weight: var(--font-weight-normal); }
 .heatmap-summary dd { margin: 0; font-size: 21px; font-weight: var(--font-weight-semibold); font-variant-numeric: tabular-nums; }
 .heatmap-summary small { color: var(--color-text-light-1); font-size: 12px; font-weight: var(--font-weight-normal); }
+.heatmap-summary-change { color: var(--color-text-light-1); font-size: 13px; font-weight: var(--font-weight-normal); white-space: nowrap; }
 .heatmap-calendar-scroll { overflow-x: auto; padding: 3px; }
 .heatmap-calendar { --heatmap-weeks: 53; min-width: 650px; }
 .heatmap-months { display: grid; grid-template-columns: repeat(var(--heatmap-weeks), minmax(0, 1fr)); gap: 3px; margin: 0 0 6px 40px; }
