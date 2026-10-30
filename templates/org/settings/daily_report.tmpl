@@ -1,9 +1,20 @@
-{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin")}}
+{{template "org/settings/layout_head" (dict "pageClass" "organization settings daily-report")}}
 <div class="admin-setting-content daily-report-content">
 	<h4 class="ui top attached header">{{ctx.Locale.Tr "admin.daily_report"}}</h4>
 	<div class="ui attached segment">
-		<p>{{ctx.Locale.Tr "admin.daily_report.intro"}}</p>
-		<form class="ui form" method="post" action="{{AppSubUrl}}/-/admin/daily-report">
+        <h4 class="ui dividing header">{{ctx.Locale.Tr "org.daily_report.analyze"}}</h4>
+        <p>{{ctx.Locale.Tr "org.daily_report.analyze_help"}}</p>
+        <form class="ui form" method="post" action="{{.OrgLink}}/settings/daily-report/analyze">{{.CsrfTokenHtml}}
+            <div class="field"><label>{{ctx.Locale.Tr "org.daily_report.select_roles"}}</label><div class="tw-flex tw-flex-wrap tw-gap-3">{{range .ReportRoles}}<label><input type="checkbox" name="manual_role" value="{{.Name}}" {{if index $.ReportManualRoles .Name}}checked{{end}}> {{.Name}}</label>{{else}}<span class="help">{{ctx.Locale.Tr "admin.daily_report.roles_empty"}}</span>{{end}}</div></div>
+            <div class="field"><label>{{ctx.Locale.Tr "org.daily_report.select_members"}}</label><div class="tw-flex tw-flex-wrap tw-gap-3">{{range .ReportAccounts}}<label><input type="checkbox" name="manual_account" value="{{.ID}}" {{if index $.ReportManualAccounts .ID}}checked{{end}}> {{.Name}}{{if .FullName}} ({{.FullName}}){{end}}</label>{{end}}</div></div>
+            <button type="submit" class="ui primary button">{{ctx.Locale.Tr "org.daily_report.analyze"}}</button>
+        </form>
+        {{if .ReportAnalyzed}}<div aria-live="polite"><h4>{{ctx.Locale.Tr "org.daily_report.results"}}</h4>{{range .ReportAnalyses}}<section class="ui segment"><strong>{{.Account}}{{if .FullName}} ({{.FullName}}){{end}}</strong><p style="white-space: pre-wrap">{{.Summary}}</p></section>{{else}}<p>{{ctx.Locale.Tr "org.daily_report.empty"}}</p>{{end}}</div>{{end}}
+    </div>
+	<div class="ui attached segment">
+		<h4 class="ui dividing header">{{ctx.Locale.Tr "org.daily_report.settings"}}</h4>
+		<p>{{ctx.Locale.Tr "org.daily_report.intro"}}</p>
+		<form class="ui form" method="post" action="{{.OrgLink}}/settings/daily-report">{{.CsrfTokenHtml}}
 			<h4 class="ui dividing header">{{ctx.Locale.Tr "admin.daily_report.provider"}}</h4>
 			<div class="daily-report-grid">
 				<div class="field"><label for="report-base-url">{{ctx.Locale.Tr "admin.daily_report.base_url"}}</label><input id="report-base-url" name="base_url" type="url" value="{{.ReportBaseURL}}" autocomplete="off"></div>
@@ -25,7 +36,7 @@
 				<div class="field"><label for="report-workdays">{{ctx.Locale.Tr "admin.daily_report.workdays"}}</label><textarea id="report-workdays" name="workdays" rows="4" placeholder="2026-10-10">{{.ReportWorkdays}}</textarea></div>
 			</div>
 			<h4 class="ui dividing header">{{ctx.Locale.Tr "admin.daily_report.roles"}}</h4>
-			<p class="help">{{ctx.Locale.Tr "admin.daily_report.roles_help"}}</p>
+			<p class="help">{{ctx.Locale.Tr "org.daily_report.scheduled_roles_help"}}</p>
 			<div class="field"><label><input type="radio" name="role_filter_mode" value="all" {{if not .ReportRoleFilterEnabled}}checked{{end}}> {{ctx.Locale.Tr "admin.daily_report.roles_all"}}</label></div>
 			<div class="field"><label><input type="radio" name="role_filter_mode" value="selected" {{if .ReportRoleFilterEnabled}}checked{{end}}> {{ctx.Locale.Tr "admin.daily_report.roles_selected"}}</label></div>
 			<div class="tw-flex tw-flex-wrap tw-gap-3">{{range .ReportRoles}}<label><input type="checkbox" name="role_filter" value="{{.Name}}" {{if .Selected}}checked{{end}}> {{.Name}}</label>{{else}}<span class="help">{{ctx.Locale.Tr "admin.daily_report.roles_empty"}}</span>{{end}}</div>
@@ -37,6 +48,6 @@
 			<button type="submit" class="ui primary button">{{ctx.Locale.Tr "admin.daily_report.save"}}</button>
 		</form>
 	</div>
-	<div class="ui bottom attached segment"><form method="post" action="{{AppSubUrl}}/-/admin/daily-report/run"><button type="submit" class="ui button">{{ctx.Locale.Tr "admin.daily_report.run"}}</button> <span class="help">{{ctx.Locale.Tr "admin.daily_report.run_help"}}</span></form></div>
+
 </div>
-{{template "admin/layout_footer" .}}
+{{template "org/settings/layout_footer" .}}

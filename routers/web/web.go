@@ -793,9 +793,9 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 		m.Post("/lfs-gc", web.Bind(forms.AdminLFSGCForm{}), admin.LFSGCPost)
 		m.Get("/org-share", admin.OrgShare)
 		m.Post("/org-share", admin.OrgSharePost)
-		m.Get("/daily-report", admin.DailyReport)
-		m.Post("/daily-report", admin.DailyReportPost)
-		m.Post("/daily-report/run", admin.DailyReportRun)
+		m.Get("/daily-report", admin.DailyReportRetired)
+		m.Post("/daily-report", admin.DailyReportRetired)
+		m.Post("/daily-report/run", admin.DailyReportRetired)
 
 		m.Group("/config", func() {
 			m.Get("", admin.Config)
@@ -1043,6 +1043,8 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 
 			m.Group("/settings", func() {
 				m.Combo("/team-rules").Get(org.RepoTeamRules).Post(org.RepoTeamRulesPost)
+				m.Combo("/daily-report").Get(org.DailyReport).Post(org.DailyReportPost)
+				m.Post("/daily-report/analyze", org.DailyReportAnalyze)
 				m.Combo("").Get(org.Settings).
 					Post(web.Bind(forms.UpdateOrgSettingForm{}), org.SettingsPost)
 				m.Post("/avatar", web.Bind(forms.AvatarForm{}), org.SettingsAvatar)

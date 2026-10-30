@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,17 +17,13 @@ import (
 	activities_model "github.com/neko233-com/gitsss/models/activities"
 	"github.com/neko233-com/gitsss/models/db"
 	repo_model "github.com/neko233-com/gitsss/models/repo"
-	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/dailyreport"
 	"github.com/neko233-com/gitsss/modules/git"
 	"github.com/neko233-com/gitsss/modules/gitrepo"
-	"github.com/neko233-com/gitsss/modules/globallock"
 	"github.com/neko233-com/gitsss/modules/json"
 	"github.com/neko233-com/gitsss/modules/repository"
 	"github.com/neko233-com/gitsss/modules/setting"
 )
-
-const lockKey = "daily_report_execution"
 
 var objectIDPattern = regexp.MustCompile(`^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$`)
 
@@ -90,8 +85,16 @@ func SaveConfig(cfg dailyreport.Config) error { return dailyreport.SaveConfig(Co
 // CollectPushes reads the actor's canonical action, avoiding watcher copies.
 // Oversized or incomplete action payloads fail closed instead of omitting commits.
 func CollectPushes(ctx context.Context, start, end time.Time) ([]dailyreport.Push, error) {
+	return collectPushes(ctx, 0, start, end)
+}
+
+func collectPushes(ctx context.Context, orgID int64, start, end time.Time) ([]dailyreport.Push, error) {
 	var actions []activities_model.Action
-	err := db.GetEngine(ctx).Where("op_type = ? AND user_id = act_user_id AND created_unix >= ? AND created_unix < ?", activities_model.ActionCommitRepo, start.Unix(), end.Unix()).Limit(10001).Find(&actions)
+	query := db.GetEngine(ctx).Where("op_type = ? AND user_id = act_user_id AND created_unix >= ? AND created_unix < ?", activities_model.ActionCommitRepo, start.Unix(), end.Unix())
+	if orgID > 0 {
+		query = query.And("repo_id IN (SELECT id FROM repository WHERE owner_id = ?)", orgID)
+	}
+	err := query.Limit(10001).Find(&actions)
 	if err != nil {
 		return nil, errors.New("cannot read push activity")
 	}
@@ -147,71 +150,7 @@ func filterRoleAccounts(grouped map[string][]dailyreport.AttributedCommit, cfg d
 	return nil
 }
 
-// Execute summarizes today's pushed commits and sends cards to the configured bot.
-// Both scheduled and manual runs share the same delivery receipts and lock.
-func Execute(ctx context.Context, now time.Time, automatic bool) (dailyreport.RunResult, error) {
-	var result dailyreport.RunResult
-	locked, release, err := globallock.TryLock(ctx, lockKey)
-	if err != nil {
-		return result, errors.New("cannot lock daily report")
-	}
-	if !locked {
-		return result, errors.New("a daily report is already running")
-	}
-	defer release()
-	cfg, err := LoadConfig()
-	if err != nil {
-		return result, err
-	}
-	if automatic {
-		due, err := cfg.Schedule.Due(now)
-		if err != nil || !due {
-			return result, err
-		}
-	} else if cfg.BaseURL == "" || cfg.Model == "" || cfg.APIKey == "" || cfg.Webhook == "" {
-		return result, errors.New("daily report provider and webhook are not configured")
-	}
-	loc, err := time.LoadLocation("Asia/Shanghai")
-	if err != nil {
-		return result, errors.New("cannot load report timezone")
-	}
-	local := now.In(loc)
-	start := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
-	pushes, err := CollectPushes(ctx, start, now.Add(time.Second))
-	if err != nil {
-		return result, err
-	}
-	grouped, err := dailyreport.GroupCommits(pushes, cfg.Accounts, func(email string) (string, error) {
-		user, err := user_model.GetUserByEmail(ctx, email)
-		if user_model.IsErrUserNotExist(err) {
-			return "", nil
-		}
-		if err != nil {
-			return "", err
-		}
-		return user.Name, nil
-	})
-	if err != nil {
-		return result, err
-	}
-	if err := filterRoleAccounts(grouped, cfg, func(account string) ([]string, error) {
-		user, err := user_model.GetUserByName(ctx, account)
-		if err != nil {
-			return nil, err
-		}
-		return user_model.GetUserSettingJSON(ctx, user.ID, user_model.SettingsKeyRoleLabels, []string{})
-	}); err != nil {
-		return result, err
-	}
-	client := &http.Client{Timeout: 60 * time.Second}
-	provider := dailyreport.ResponsesClient{HTTP: client, BaseURL: cfg.BaseURL, APIKey: cfg.APIKey, Model: cfg.Model, OmitStore: cfg.OmitStore}
-	store := dailyreport.FileDeliveryStore{Path: filepath.Join(setting.AppDataPath, "daily-report", "deliveries.json")}
-	date := local.Format("2006-01-02")
-	return dailyreport.Run(ctx, date, grouped, store, provider.Summarize, func(ctx context.Context, account, summary string) error {
-		user, err := user_model.GetUserByName(ctx, account)
-		if err != nil {
-			return errors.New("cannot read report account")
-		}
-		return dailyreport.SendCard(ctx, client, cfg.Webhook, reportTitle(account, user.FullName, local), summary)
-	})
+// Execute refuses the retired global execution path.
+func Execute(_ context.Context, _ time.Time, _ bool) (dailyreport.RunResult, error) {
+	return dailyreport.RunResult{}, errors.New("global daily reports have moved to organization settings")
 }

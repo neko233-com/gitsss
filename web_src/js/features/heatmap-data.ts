@@ -1,6 +1,11 @@
 export type HeatmapValue = {date: Date; count: number};
 export const defaultHeatmapBounds = [1, 5, 10, 20, 50];
-export const defaultHeatmapColors = ['#dbeafe', '#93c5fd', '#3b82f6', '#1d4ed8', '#1e3a8a'];
+export const legacyHeatmapColors = ['#dbeafe', '#93c5fd', '#3b82f6', '#1d4ed8', '#1e3a8a'];
+export const defaultHeatmapColors = ['#183b60', '#245b88', '#317eb4', '#55a9df', '#a5dfff'];
+
+export function migrateHeatmapColors(colors: string[]): string[] {
+  return colors.every((color, index) => color.toLowerCase() === legacyHeatmapColors[index]) ? Array.from(defaultHeatmapColors) : colors;
+}
 
 export function validHeatmapBounds(values: unknown): values is number[] {
   return Array.isArray(values) && values.length === 5 && values[0] === 1 &&

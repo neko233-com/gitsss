@@ -13,7 +13,7 @@ import (
 
 func registerDailyReport() {
 	RegisterTaskFatal("daily_report", &BaseConfig{Enabled: true, Schedule: "* * * * *"}, func(ctx context.Context, _ *user_model.User, _ Config) error {
-		_, err := dailyreport_service.Execute(ctx, time.Now(), true)
+		err := dailyreport_service.ExecuteOrganizations(ctx, time.Now())
 		return err
 	})
 }

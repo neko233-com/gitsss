@@ -1,4 +1,15 @@
-import {defaultHeatmapBounds, heatmapData, validHeatmapBounds} from './heatmap-data.ts';
+import {defaultHeatmapBounds, defaultHeatmapColors, heatmapData, legacyHeatmapColors, migrateHeatmapColors, validHeatmapBounds} from './heatmap-data.ts';
+
+test('default colors become progressively brighter and preserve custom preferences', () => {
+  const luminance = (hex: string) => {
+    const [r, g, b] = hex.slice(1).match(/../g)!.map((c) => parseInt(c, 16) / 255).map((c) => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  expect(defaultHeatmapColors.map(luminance)).toEqual(defaultHeatmapColors.map(luminance).toSorted((a, b) => a - b));
+  expect(migrateHeatmapColors(legacyHeatmapColors)).toEqual(defaultHeatmapColors);
+  const custom = ['#123456', ...legacyHeatmapColors.slice(1)];
+  expect(migrateHeatmapColors(custom)).toEqual(custom);
+});
 
 test('heatmap has exactly 365 local calendar days and excludes padding/future events', () => {
   const now = new Date(2026, 9, 18, 12);

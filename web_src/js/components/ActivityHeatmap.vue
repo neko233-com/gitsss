@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import {computed, nextTick, ref} from 'vue';
-import {defaultHeatmapBounds, defaultHeatmapColors, heatmapData, localDateKey, validHeatmapBounds} from '../features/heatmap-data.ts';
+import {defaultHeatmapBounds, defaultHeatmapColors, heatmapData, localDateKey, migrateHeatmapColors, validHeatmapBounds} from '../features/heatmap-data.ts';
 import type {HeatmapValue} from '../features/heatmap-data.ts';
 import {localUserSettings} from '../modules/user-settings.ts';
 
@@ -20,7 +20,7 @@ const colors = ref([...defaultHeatmapColors]);
 try {
   const saved = JSON.parse(localUserSettings.getString(preferenceKey, 'null'));
   if (saved && validHeatmapBounds(saved.bounds) && Array.isArray(saved.colors) && saved.colors.length === 5 && saved.colors.every((c: unknown) => typeof c === 'string' && /^#[a-f0-9]{6}$/i.test(c))) {
-    bounds.value = saved.bounds; colors.value = saved.colors;
+    bounds.value = saved.bounds; colors.value = migrateHeatmapColors(saved.colors);
   }
 } catch {}
 const draftBounds = ref([...bounds.value]);
