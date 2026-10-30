@@ -4204,6 +4204,7 @@
 	"heatmap.summary.recent30": "Last 30 days",
 	"heatmap.summary.active": "Active days",
 	"heatmap.summary.peak": "Peak per day",
+	"heatmap.summary.automatic": "By default, levels adapt to active days in the last 365 days. Editing thresholds switches to manual ranges; reset to restore automatic levels.",
 	"heatmap.summary.change": "Change from the equivalent period ending yesterday",
 	"heatmap.summary.method": "Activity events by local date, not commit totals or lines of code. Select a day to filter the feed.",
 	"heatmap.summary.ranges": "Events per day",

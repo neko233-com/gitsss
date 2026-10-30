@@ -21,7 +21,8 @@ test('heatmap has exactly 365 local calendar days and excludes padding/future ev
   expect(result.weeks.flat().filter((day) => day.visible)).toHaveLength(365);
   expect(result.summary).toEqual({total: 85, recent7: 15, recent30: 35, active: 4, peak: 50});
   expect(result.changes).toEqual({total: -94, recent7: 5, recent30: -45, active: 0, peak: -49});
-  expect(result.weeks.flat().find((day) => day.key === '2026-10-18')!.level).toBe(2);
+  expect(result.bounds).toEqual([1, 6, 11, 21]);
+  expect(result.weeks.flat().find((day) => day.key === '2026-10-18')!.level).toBe(1);
   expect(result.weeks.flat().find((day) => day.key === '2026-09-18')!.level).toBe(4);
 });
 
@@ -33,4 +34,14 @@ test('range boundaries are explicit, inclusive and reject unsafe preferences', (
   expect(heatmapData([], now).summary).toEqual({total: 0, recent7: 0, recent30: 0, active: 0, peak: 0});
   expect(heatmapData([], now).changes).toEqual({total: 0, recent7: 0, recent30: 0, active: 0, peak: 0});
   expect(heatmapData([{date: now, count: 50}], now).changes).toEqual({total: 50, recent7: 50, recent30: 50, active: 1, peak: 50});
+});
+
+test('automatic ranges use only active days in the current window and keep valid boundaries', () => {
+  const now = new Date(2026, 9, 18, 12);
+  const values = [2, 5, 10, 15, 20, 40, 80, 100].map((count, age) => ({date: new Date(2026, 9, 18 - age), count}));
+  values.push({date: new Date(2025, 9, 18), count: 9000}, {date: new Date(2026, 9, 19), count: 9000});
+  expect(heatmapData(values, now).bounds).toEqual([1, 6, 16, 41]);
+  expect(heatmapData([], now).bounds).toEqual(defaultHeatmapBounds);
+  expect(validHeatmapBounds(heatmapData([{date: now, count: 1_000_000}], now).bounds)).toBe(true);
+  expect(heatmapData(values, now, [1, 3, 7, 20, 100]).bounds).toEqual([1, 3, 7, 20, 100]);
 });

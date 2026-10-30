@@ -4173,6 +4173,7 @@
 	"heatmap.summary.recent30": "近 30 天",
 	"heatmap.summary.active": "活跃天数",
 	"heatmap.summary.peak": "单日最高",
+	"heatmap.summary.automatic": "默认按近 365 天活跃日期的活动量自动分级；修改区间后使用手动设置，恢复默认可重新自动分级。",
 	"heatmap.summary.change": "相比截至昨天的同一统计周期",
 	"heatmap.summary.method": "按本地日期统计活动事件，非提交数或代码行数。点击日期筛选动态。",
 	"heatmap.summary.ranges": "每日活动次数",

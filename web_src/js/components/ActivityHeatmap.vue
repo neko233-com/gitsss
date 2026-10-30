@@ -17,24 +17,27 @@ const props = defineProps<{
 }>();
 const preferenceKey = 'gitsss:heatmap-display:v1';
 const githubColors = () => isDarkTheme() ? githubDarkHeatmapColors : githubLightHeatmapColors;
-const bounds = ref([...defaultHeatmapBounds]);
+const manualBounds = ref([...defaultHeatmapBounds]);
+const automatic = ref(true);
 const colors = ref([...githubColors()]);
 const useGithubColors = ref(true);
 try {
   const saved = JSON.parse(localUserSettings.getString(preferenceKey, 'null'));
   if (saved && validHeatmapBounds(saved.bounds) && Array.isArray(saved.colors) && saved.colors.length === saved.bounds.length && saved.colors.every((c: unknown) => typeof c === 'string' && /^#[a-f0-9]{6}$/i.test(c))) {
     if (!isLegacyDefaultHeatmap(saved.bounds, saved.colors)) {
-      bounds.value = saved.bounds; colors.value = saved.colors; useGithubColors.value = saved.palette === 'github' && saved.colors.length === 4;
+      manualBounds.value = saved.bounds; colors.value = saved.colors; useGithubColors.value = saved.palette === 'github' && saved.colors.length === 4;
+      automatic.value = saved.automatic === true || (saved.automatic === undefined && useGithubColors.value && saved.bounds.every((value: number, i: number) => value === defaultHeatmapBounds[i]));
     }
   }
 } catch {}
-const draftBounds = ref([...bounds.value]);
-const draftColors = ref([...githubColors()]);
 const error = ref('');
 const preferences = ref<HTMLDetailsElement>();
 const calendar = ref<HTMLElement>();
 const now = new Date();
-const grid = computed(() => heatmapData(props.values, now, bounds.value));
+const grid = computed(() => heatmapData(props.values, now, automatic.value ? undefined : manualBounds.value));
+const bounds = computed(() => grid.value.bounds);
+const draftBounds = ref([...bounds.value]);
+const draftColors = ref([...githubColors()]);
 const selectedDate = new URLSearchParams(location.search).get('date');
 const focusDate = ref(grid.value.weeks.flat().some((day) => day.visible && day.key === selectedDate) ? selectedDate! : localDateKey(now));
 const number = (value: number) => value.toLocaleString();
@@ -55,10 +58,11 @@ function save(reset = false) {
   const next = reset ? [...defaultHeatmapBounds] : draftBounds.value.map(Number);
   const nextColors = reset ? [...githubColors()] : draftColors.value;
   if (!validHeatmapBounds(next)) {error.value = props.locale.labels.invalid; return;}
-  bounds.value = [...next]; colors.value = [...nextColors];
+  const keepAutomatic = reset || (automatic.value && next.length === bounds.value.length && next.every((value, i) => value === bounds.value[i]));
+  manualBounds.value = [...next]; colors.value = [...nextColors]; automatic.value = keepAutomatic;
   useGithubColors.value = nextColors.length === 4 && nextColors.every((color, i) => color.toLowerCase() === githubColors()[i]);
   draftBounds.value = [...next]; draftColors.value = [...nextColors]; error.value = '';
-  localUserSettings.setString(preferenceKey, JSON.stringify({bounds: next, colors: nextColors, palette: useGithubColors.value ? 'github' : 'custom'}));
+  localUserSettings.setString(preferenceKey, JSON.stringify({bounds: next, colors: nextColors, palette: useGithubColors.value ? 'github' : 'custom', automatic: automatic.value}));
   preferences.value!.open = false;
 }
 function handleDayClick(date: string) {
@@ -115,6 +119,7 @@ async function moveFocus(event: KeyboardEvent, key: string) {
     <details ref="preferences" class="heatmap-preferences" @toggle="preparePreferences">
       <summary>{{ locale.labels.settings }}</summary>
       <form @submit.prevent="save()">
+        <p>{{ locale.labels.automatic }}</p>
         <div class="heatmap-range-fields"><label v-for="(_, i) in draftBounds" :key="i"><span>{{ locale.labels.minimum }} {{ i + 1 }}</span><span class="heatmap-range-inputs"><input v-model.number="draftBounds[i]" type="number" :readonly="i === 0" min="1" max="1000000" step="1" required :aria-label="`${locale.labels.minimum} ${i + 1}`"><input v-model="draftColors[i]" type="color" :aria-label="`${locale.labels.color} ${i + 1}`"></span></label></div>
         <p v-if="error" class="text red" role="alert">{{ error }}</p><div class="heatmap-preference-actions"><button type="submit" class="ui primary compact button">{{ locale.labels.apply }}</button><button type="button" class="ui basic compact button" @click="save(true)">{{ locale.labels.reset }}</button><span>{{ locale.labels.local }}</span></div>
       </form>
