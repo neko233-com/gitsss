@@ -359,6 +359,46 @@
   margin-top: 16px;
 }
 
+.package-registries {
+  container-type: inline-size;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-secondary);
+}
+
+.package-registry-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.package-registry {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--color-secondary);
+  border-radius: var(--border-radius);
+  background: var(--color-box-body);
+}
+
+.package-registry h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 16px; }
+.package-registry-address { display: flex; align-items: center; gap: 8px; }
+.package-registry-address code { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.package-registry-address button { flex: none; }
+.package-registry summary { width: fit-content; padding: 12px 0; color: var(--color-primary); cursor: pointer; }
+.package-registry summary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+.package-registry pre { max-width: 100%; padding: 12px; overflow: auto; border-radius: var(--border-radius); background: var(--color-code-bg); }
+.package-registry-upstream { overflow-wrap: anywhere; }
+.package-registry-note, .package-registry-upstream { color: var(--color-text-light-1); margin-top: 16px; }
+
+@container (width < 680px) {
+  .package-registry-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@container (width >= 1440px) {
+  .package-registry-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
 .home-links {
   padding: 16px;
   border: 1px solid var(--color-secondary);
@@ -377,6 +417,12 @@
 
 .home-links-heading h2 { margin: 0; font-size: 18px; }
 .home-links-heading p { margin: 6px 0 0; color: var(--color-text-light-1); }
+.ui.form.home-links-search { max-width: 520px; margin-top: 18px; }
+.home-links-search > label { display: block; margin-bottom: 6px; }
+.home-links-search-controls { display: flex; align-items: center; gap: 8px; }
+.home-links-search-controls input { min-width: 0; flex: 1; }
+.home-links-count { color: var(--color-text-light-1); margin: 16px 0 0; }
+.home-links-pagination { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .home-links-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));

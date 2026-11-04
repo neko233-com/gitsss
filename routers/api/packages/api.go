@@ -24,6 +24,7 @@ import (
 	"github.com/neko233-com/gitsss/routers/api/packages/generic"
 	"github.com/neko233-com/gitsss/routers/api/packages/goproxy"
 	"github.com/neko233-com/gitsss/routers/api/packages/helm"
+	"github.com/neko233-com/gitsss/routers/api/packages/helper"
 	"github.com/neko233-com/gitsss/routers/api/packages/maven"
 	"github.com/neko233-com/gitsss/routers/api/packages/npm"
 	"github.com/neko233-com/gitsss/routers/api/packages/nuget"
@@ -192,6 +193,7 @@ func CommonRoutes() *web.Router {
 			})
 		}, reqPackageAccess(perm.AccessModeRead))
 		r.Group("/composer", func() {
+			r.Methods("HEAD,GET", "/mirror/{token}/{filename}", helper.MirrorArtifact("composer"))
 			r.Get("/packages.json", composer.ServiceIndex)
 			r.Get("/search.json", composer.SearchPackages)
 			r.Get("/list.json", composer.EnumeratePackages)
@@ -332,7 +334,7 @@ func CommonRoutes() *web.Router {
 		}, reqPackageAccess(perm.AccessModeRead))
 		r.Group("/go", func() {
 			r.Put("/upload", reqPackageAccess(perm.AccessModeWrite), goproxy.UploadPackage)
-			r.Get("/sumdb/sum.golang.org/supported", http.NotFound)
+			r.Get("/sumdb/sum.golang.org/*", helper.MirrorGoSumDB)
 
 			// https://go.dev/ref/mod#goproxy-protocol
 			r.PathGroup("/*", func(g *web.RouterPathGroup) {
@@ -403,6 +405,7 @@ func CommonRoutes() *web.Router {
 			}, reqPackageAccess(perm.AccessModeRead))
 		})
 		r.Group("/npm", func() {
+			r.Methods("HEAD,GET", "/-/mirror/{token}/{filename}", helper.MirrorArtifact("npm"))
 			r.Group("/@{scope}/{id}", func() {
 				r.Get("", npm.PackageMetadata)
 				r.Put("", reqPackageAccess(perm.AccessModeWrite), npm.UploadPackage)
@@ -463,6 +466,7 @@ func CommonRoutes() *web.Router {
 		}, reqPackageAccess(perm.AccessModeRead))
 
 		r.Group("/pypi", func() {
+			r.Methods("HEAD,GET", "/mirror/{token}/{filename}", helper.MirrorArtifact("pypi"))
 			r.Post("/", reqPackageAccess(perm.AccessModeWrite), pypi.UploadPackageFile)
 			r.Get("/files/{id}/{version}/{filename}", pypi.DownloadPackageFile)
 			r.Get("/simple/{id}", pypi.PackageMetadata)

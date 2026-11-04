@@ -32,6 +32,7 @@
 
 每个组织默认 100 GB，系统管理员在「管理后台 → 内网共享」按组织修改，并看到共享目录所在磁盘的总量、可用空间和安全余量。上传前同时检查组织剩余配额和磁盘可用空间（默认留 1 GB），不够就直接拒绝。新文件默认 30 天后删除，单个文件可以改为永久保留。上传支持分片并发和断点续传，下载支持 HTTP Range 多线程。网页和 `gitsss admin org-share` 都可以这样做。文件在 `APP_DATA_PATH/org-share` 或 `[org_share] PATH`，与 Git、LFS 分开。说明见 [组织内网共享](docs/operations/org-share.md)。
 
+组织超链接每组支持 10,000 项，依赖仓库提供 Maven、Go、PyPI、npm、Cargo、NuGet 和 Composer 按需镜像。配置、权限及回滚见[依赖仓库说明](docs/features/workspace-centers.md#internal-package-registries-and-central-mirrors)。
 
 新版入口（2026-10-18 隔离演示）：
 

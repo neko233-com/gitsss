@@ -57,6 +57,9 @@ func EnumeratePackageVersions(ctx *context.Context) {
 	p, err := packages_model.GetPackageByName(ctx, ctx.Package.Owner.ID, packages_model.TypeCargo, ctx.PathParam("package"))
 	if err != nil {
 		if errors.Is(err, util.ErrNotExist) {
+			if helper.TryServeCargoMirror(ctx, ctx.PathParam("package"), "") {
+				return
+			}
 			apiError(ctx, http.StatusNotFound, err)
 		} else {
 			apiError(ctx, http.StatusInternalServerError, err)
@@ -179,6 +182,9 @@ func DownloadPackageFile(ctx *context.Context) {
 	)
 	if err != nil {
 		if errors.Is(err, packages_model.ErrPackageNotExist) || errors.Is(err, packages_model.ErrPackageFileNotExist) {
+			if helper.TryServeCargoMirror(ctx, ctx.PathParam("package"), ctx.PathParam("version")) {
+				return
+			}
 			apiError(ctx, http.StatusNotFound, err)
 			return
 		}

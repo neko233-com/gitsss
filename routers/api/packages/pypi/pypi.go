@@ -40,6 +40,9 @@ var versionMatcher = regexp.MustCompile(`\Av?` +
 	`\z`)
 
 func apiError(ctx *context.Context, status int, obj any) {
+	if status == http.StatusNotFound && strings.Contains(ctx.Req.URL.Path, "/pypi/simple/") && helper.TryServeMirror(ctx, "pypi", normalizer.Replace(strings.ToLower(ctx.PathParam("id")))) {
+		return
+	}
 	message := helper.ProcessErrorForUser(ctx, status, obj)
 	ctx.PlainText(status, message)
 }

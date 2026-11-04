@@ -50,6 +50,9 @@ var (
 )
 
 func loadPackagesFrom(rootCfg ConfigProvider) (err error) {
+	if err = loadPackageMirrorFrom(rootCfg); err != nil {
+		return err
+	}
 	sec, _ := rootCfg.GetSection("packages")
 	if sec == nil {
 		Packages.Storage, err = getStorage(rootCfg, "packages", "", nil)

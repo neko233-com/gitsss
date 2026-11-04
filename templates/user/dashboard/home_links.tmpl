@@ -1,11 +1,24 @@
 <section class="home-links" data-home-links data-error="{{ctx.Locale.Tr "home.links.error"}}" data-invalid="{{ctx.Locale.Tr "home.links.invalid"}}" data-conflict="{{ctx.Locale.Tr "home.links.conflict"}}">
 	<div class="home-links-heading"><div><h2>{{ctx.Locale.Tr "home.links.services"}}</h2><p>{{ctx.Locale.Tr "home.links.help"}}</p></div></div>
-	<div class="home-links-grid">
-		{{range .SharedHomeLinks.Links}}{{template "user/dashboard/home_link_card" (dict "Link" . "Scope" (ctx.Locale.Tr "home.links.shared"))}}{{end}}
-		{{range .PersonalHomeLinks.Links}}{{template "user/dashboard/home_link_card" (dict "Link" . "Scope" (ctx.Locale.Tr "home.links.personal"))}}{{end}}
+	<form class="ui form home-links-search" method="get" action="{{.HomeLinksPath}}">
+		<input type="hidden" name="tab" value="links">
+		<label for="home-links-query">{{ctx.Locale.Tr "home.links.search_label"}}</label>
+		<div class="home-links-search-controls"><input id="home-links-query" type="search" name="links_query" value="{{.HomeLinksPage.Query}}" maxlength="120" placeholder="{{ctx.Locale.Tr "home.links.search_placeholder"}}"><button class="ui basic button" type="submit">{{ctx.Locale.Tr "home.links.search_button"}}</button></div>
+	</form>
+	<div data-home-links-results>
+		<p class="home-links-count">{{ctx.Locale.Tr "home.links.page_count" .HomeLinksPage.Total .HomeLinksPage.Number .HomeLinksPage.Pages}}</p>
+		<div class="home-links-grid">
+			{{range .HomeLinksPage.Entries}}
+				{{if eq .Scope "shared"}}{{template "user/dashboard/home_link_card" (dict "Link" .Link "Scope" (ctx.Locale.Tr "home.links.shared"))}}{{else}}{{template "user/dashboard/home_link_card" (dict "Link" .Link "Scope" (ctx.Locale.Tr "home.links.personal"))}}{{end}}
+			{{end}}
+		</div>
+		<nav class="home-links-pagination" aria-label="{{ctx.Locale.Tr "home.links.pagination"}}">
+			{{if .HomeLinksPreviousURL}}<a class="ui basic button" href="{{.HomeLinksPreviousURL}}">{{ctx.Locale.Tr "home.links.previous"}}</a>{{end}}
+			{{if .HomeLinksNextURL}}<a class="ui basic button" href="{{.HomeLinksNextURL}}">{{ctx.Locale.Tr "home.links.next"}}</a>{{end}}
+		</nav>
 	</div>
 	<div class="home-links-editors">
-		{{template "user/dashboard/home_links_editor" (dict "State" .PersonalHomeLinks "Scope" "personal" "Label" (ctx.Locale.Tr "home.links.personal"))}}
-		{{if .SignedUser.IsAdmin}}{{template "user/dashboard/home_links_editor" (dict "State" .SharedHomeLinks "Scope" "shared" "Label" (ctx.Locale.Tr "home.links.shared"))}}{{end}}
+		{{template "user/dashboard/home_links_editor" (dict "State" .PersonalHomeLinks "Visible" .HomeLinksPage.Personal "Revision" .PersonalHomeLinksRevision "Scope" "personal" "Label" (ctx.Locale.Tr "home.links.personal") "Path" .HomeLinksPath "Page" .HomeLinksPage.Number "Query" .HomeLinksPage.Query "CsrfTokenHtml" .CsrfTokenHtml)}}
+		{{if .SignedUser.IsAdmin}}{{template "user/dashboard/home_links_editor" (dict "State" .SharedHomeLinks "Visible" .HomeLinksPage.Shared "Revision" .SharedHomeLinksRevision "Scope" "shared" "Label" (ctx.Locale.Tr "home.links.shared") "Path" .HomeLinksPath "Page" .HomeLinksPage.Number "Query" .HomeLinksPage.Query "CsrfTokenHtml" .CsrfTokenHtml)}}{{end}}
 	</div>
 </section>

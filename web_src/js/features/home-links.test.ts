@@ -9,7 +9,7 @@ function fixture() {
   return `<section data-home-links data-error="Failed" data-conflict="Reload" data-invalid="Invalid">
     <div class="home-links-grid"><a>Old</a></div>
     <form data-home-links-form action="/home-links"><input name="scope" value="personal"><input name="revision" value="old">
-    <div data-home-link-rows></div><template data-home-link-template><div class="home-link-row"><input name="title"><input name="url"><button type="button" data-home-link-remove>Remove</button></div></template>
+    <div data-home-link-rows></div><template data-home-link-template><div class="home-link-row"><input type="hidden" name="item_index" value="-1"><input name="title"><input name="url"><button type="button" data-home-link-remove>Remove</button></div></template>
     <button type="button" data-home-link-add>Add</button><button>Save</button></form></section>`;
 }
 
@@ -44,6 +44,19 @@ describe('homepage links', {concurrent: false}, () => {
     await vi.waitFor(() => expect(showErrorToast).toHaveBeenCalledWith('Reload'));
     expect(document.querySelector<HTMLInputElement>('[name="title"]')!.value).toBe('Keep me');
     expect(document.querySelector<HTMLButtonElement>('[data-home-link-add]')!.disabled).toBe(false);
+  });
+
+  test('respects the scope capacity while allowing a removed visible item to be replaced', () => {
+    document.body.innerHTML = fixture().replace('data-home-links-form action=', 'data-home-links-form data-scope-total="10000" action=')
+      .replace('<div data-home-link-rows></div>', '<input type="hidden" name="page_index" value="0"><div data-home-link-rows><div class="home-link-row"><input name="title"><button type="button" data-home-link-remove>Remove</button></div></div>');
+    initHomeLinks();
+    const add = document.querySelector<HTMLButtonElement>('[data-home-link-add]')!;
+    add.click();
+    expect(document.querySelectorAll('.home-link-row')).toHaveLength(1);
+    document.querySelector<HTMLButtonElement>('[data-home-link-remove]')!.click();
+    add.click();
+    expect(document.querySelectorAll('.home-link-row')).toHaveLength(1);
+    expect(document.activeElement).toBe(document.querySelector('[name="title"]'));
   });
 
   test('service cards fetch only origin favicons in the browser and retain a local fallback', () => {

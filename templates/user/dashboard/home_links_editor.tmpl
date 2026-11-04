@@ -1,8 +1,13 @@
 <details class="home-links-editor"><summary>{{ctx.Locale.Tr "home.links.edit" .Label}}</summary>
-	<form class="ui form" method="post" action="{{AppSubUrl}}/home-links" data-home-links-form>
-		<input type="hidden" name="scope" value="{{.Scope}}"><input type="hidden" name="revision" value="{{.State.Revision}}">
-		<div data-home-link-rows>{{range .State.Links}}{{template "user/dashboard/home_links_row" .}}{{end}}</div>
-		<template data-home-link-template>{{template "user/dashboard/home_links_row" (dict "Title" "" "URL" "")}}</template>
+	<form class="ui form" method="post" action="{{AppSubUrl}}/home-links" data-home-links-form data-scope-total="{{len .State.Links}}">
+		{{.CsrfTokenHtml}}
+		<input type="hidden" name="scope" value="{{.Scope}}"><input type="hidden" name="revision" value="{{.Revision}}"><input type="hidden" name="operation" value="page">
+		<input type="hidden" name="return_path" value="{{.Path}}"><input type="hidden" name="links_page" value="{{.Page}}"><input type="hidden" name="links_query" value="{{.Query}}">
+		{{range .Visible}}<input type="hidden" name="page_index" value="{{.Index}}">{{end}}
+		<p>{{ctx.Locale.Tr "home.links.edit_page_hint"}}</p>
+		<div data-home-link-rows>{{range .Visible}}{{template "user/dashboard/home_links_row" .}}{{end}}</div>
+		<noscript><div class="home-link-row"><input type="hidden" name="item_index" value="-1"><label>{{ctx.Locale.Tr "home.links.name"}}<input name="title" maxlength="120" autocomplete="off"></label><label>{{ctx.Locale.Tr "home.links.url"}}<input name="url" type="url" maxlength="2048" placeholder="https://" autocomplete="off"></label></div></noscript>
+		<template data-home-link-template>{{template "user/dashboard/home_links_row" (dict "Title" "" "URL" "" "Index" -1)}}</template>
 		<div class="home-links-buttons"><button type="button" class="ui basic button" data-home-link-add>{{svg "octicon-plus"}} {{ctx.Locale.Tr "home.links.add"}}</button><button class="ui primary button">{{ctx.Locale.Tr "save"}}</button><span class="text light-2">{{ctx.Locale.Tr "home.links.limit"}}</span></div>
 	</form>
 </details>

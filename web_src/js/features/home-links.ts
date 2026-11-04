@@ -30,10 +30,12 @@ export function initHomeLinks(): void {
     if (add) {
       const form = add.form!;
       const rows = form.querySelector('[data-home-link-rows]')!;
-      if (rows.children.length >= 32) return;
+      const original = form.querySelectorAll('[name="page_index"]').length;
+      const total = Number(form.getAttribute('data-scope-total') || 0);
+      if (rows.children.length >= 64 || total - original + rows.children.length >= 10000) return;
       const fragment = form.querySelector<HTMLTemplateElement>('[data-home-link-template]')!.content.cloneNode(true);
       rows.append(fragment);
-      rows.lastElementChild!.querySelector<HTMLInputElement>('input')!.focus();
+      rows.lastElementChild!.querySelector<HTMLInputElement>('input:not([type="hidden"])')!.focus();
     }
     const remove = target.closest<HTMLButtonElement>('[data-home-link-remove]');
     if (remove) remove.closest('.home-link-row')!.remove();
@@ -48,16 +50,20 @@ export function initHomeLinks(): void {
     const controls = Array.from(root.querySelectorAll<HTMLInputElement | HTMLButtonElement>('input, button'));
     for (const control of controls) control.disabled = true;
     try {
-      const response = await POST(form.action, {data});
+      const response = await POST(form.action, {data, headers: {'X-GitSSS-Partial': '1'}});
       if (!response.ok) throw new Error(root.getAttribute(response.status === 409 ? 'data-conflict' : response.status === 400 ? 'data-invalid' : 'data-error')!);
       const next = new DOMParser().parseFromString(await response.text(), 'text/html').querySelector<HTMLElement>('[data-home-links]');
       if (!next) throw new Error(root.getAttribute('data-error')!);
       // Refresh the saved scope only so another open editor keeps its unsaved draft.
-      root.querySelector('.home-links-grid')!.replaceChildren(...Array.from(next.querySelector('.home-links-grid')!.childNodes));
+      const results = root.querySelector('[data-home-links-results]');
+      const nextResults = next.querySelector('[data-home-links-results]');
+      if (results && nextResults) results.replaceChildren(...Array.from(nextResults.childNodes));
+      else root.querySelector('.home-links-grid')!.replaceChildren(...Array.from(next.querySelector('.home-links-grid')!.childNodes));
       enhanceHomeLinkCards(root);
       const scope = form.querySelector<HTMLInputElement>('[name="scope"]')!.value;
       const saved = next.querySelector<HTMLInputElement>(`[name="scope"][value="${CSS.escape(scope)}"]`)!.form!;
       form.replaceChildren(...Array.from(saved.childNodes));
+      form.setAttribute('data-scope-total', saved.getAttribute('data-scope-total') || '0');
       form.classList.remove('dirty');
     } catch (error) {
       showErrorToast(error instanceof Error ? error.message : root.getAttribute('data-error')!);

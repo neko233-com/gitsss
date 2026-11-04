@@ -19,15 +19,26 @@ import (
 	"github.com/neko233-com/gitsss/routers/api/packages/helper"
 	"github.com/neko233-com/gitsss/services/context"
 	packages_service "github.com/neko233-com/gitsss/services/packages"
+
+	"golang.org/x/mod/module"
 )
 
 func apiError(ctx *context.Context, status int, obj any) {
+	name, _ := module.UnescapePath(ctx.PathParam("name"))
+	if status == http.StatusNotFound && helper.TryServeMirror(ctx, "go", name) {
+		return
+	}
 	message := helper.ProcessErrorForUser(ctx, status, obj)
 	ctx.PlainText(status, message)
 }
 
 func EnumeratePackageVersions(ctx *context.Context) {
-	pvs, err := packages_model.GetVersionsByPackageName(ctx, ctx.Package.Owner.ID, packages_model.TypeGo, ctx.PathParam("name"))
+	name, err := module.UnescapePath(ctx.PathParam("name"))
+	if err != nil {
+		apiError(ctx, http.StatusBadRequest, err)
+		return
+	}
+	pvs, err := packages_model.GetVersionsByPackageName(ctx, ctx.Package.Owner.ID, packages_model.TypeGo, name)
 	if err != nil {
 		apiError(ctx, http.StatusInternalServerError, err)
 		return
@@ -119,6 +130,10 @@ func DownloadPackageFile(ctx *context.Context) {
 }
 
 func resolvePackage(ctx *context.Context, ownerID int64, name, version string) (*packages_model.PackageVersion, error) {
+	name, err := module.UnescapePath(name)
+	if err != nil {
+		return nil, err
+	}
 	var pv *packages_model.PackageVersion
 
 	if version == "latest" {

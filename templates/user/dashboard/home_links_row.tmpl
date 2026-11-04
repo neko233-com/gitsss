@@ -1,5 +1,7 @@
 <div class="home-link-row">
+	<input type="hidden" name="item_index" value="{{.Index}}">
 	<label>{{ctx.Locale.Tr "home.links.name"}}<input name="title" value="{{.Title}}" required maxlength="120" autocomplete="off"></label>
 	<label>{{ctx.Locale.Tr "home.links.url"}}<input name="url" type="url" value="{{.URL}}" required maxlength="2048" placeholder="https://" autocomplete="off"></label>
+	<noscript><label><input type="checkbox" name="delete_index" value="{{.Index}}"> {{ctx.Locale.Tr "remove"}}</label></noscript>
 	<button type="button" class="ui basic button" data-home-link-remove aria-label="{{ctx.Locale.Tr "remove"}}">{{svg "octicon-x"}}</button>
 </div>

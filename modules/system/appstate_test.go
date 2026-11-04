@@ -9,10 +9,46 @@ import (
 	"github.com/neko233-com/gitsss/models/unittest"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMain(m *testing.M) {
 	unittest.MainTest(m, &unittest.TestOptions{FixtureFiles: []string{ /* load nothing */ }})
+}
+
+type testVersionedItem struct{ Value string }
+
+func (*testVersionedItem) Name() string { return "test-versioned-item" }
+
+func TestAppStateCompareAndSet(t *testing.T) {
+	store := &DBStore{}
+	item := &testVersionedItem{Value: "first"}
+	revision, exists, err := store.GetVersioned(t.Context(), item)
+	require.NoError(t, err)
+	require.False(t, exists)
+	changed, err := store.CompareAndSet(t.Context(), item, revision, exists)
+	require.NoError(t, err)
+	require.True(t, changed)
+	changed, err = store.CompareAndSet(t.Context(), item, revision, exists)
+	require.NoError(t, err)
+	assert.False(t, changed)
+	revision, exists, err = store.Revision(t.Context(), item.Name())
+	require.NoError(t, err)
+	require.True(t, exists)
+	assert.EqualValues(t, 1, revision)
+	item.Value = "second"
+	changed, err = store.CompareAndSet(t.Context(), item, revision, exists)
+	require.NoError(t, err)
+	assert.True(t, changed)
+	changed, err = store.CompareAndSet(t.Context(), item, revision, exists)
+	require.NoError(t, err)
+	assert.False(t, changed)
+	loaded := &testVersionedItem{}
+	next, exists, err := store.GetVersioned(t.Context(), loaded)
+	require.NoError(t, err)
+	assert.True(t, exists)
+	assert.EqualValues(t, 2, next)
+	assert.Equal(t, "second", loaded.Value)
 }
 
 type testItem1 struct {

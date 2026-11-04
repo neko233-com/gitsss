@@ -4,7 +4,10 @@
  <header class="workspace-heading ui container"><div><h1>{{if .PageIsHomeLinks}}{{ctx.Locale.Tr "home.links.title"}}{{else if .OrganizationHome}}{{ctx.Locale.Tr "explore.organizations"}}{{else}}{{ctx.Locale.Tr "home.personal_dashboard"}}{{end}}</h1><p>{{ctx.Locale.Tr "workspace.home_help"}}</p></div>{{if .SignedUser.CanCreateOrganization}}<a class="ui primary button" href="{{AppSubUrl}}/org/create">{{svg "octicon-plus"}} {{ctx.Locale.Tr "new_org"}}</a>{{end}}</header>{{end}}
 
 	{{if .PageIsHomeLinks}}
-	<div class="ui container home-links-container">{{template "user/dashboard/home_links" .}}</div>
+	<div class="ui container home-links-container">
+		{{template "user/dashboard/home_links" .}}
+		{{template "user/dashboard/package_registries" .}}
+	</div>
 	{{else if .OrganizationHome}}
 	<div class="ui container">
 		{{template "base/alert" .}}
