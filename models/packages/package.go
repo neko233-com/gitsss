@@ -74,6 +74,16 @@ var TypeList = []Type{
 	TypeVagrant,
 }
 
+// IsRetiredLanguageType identifies package APIs that are no longer served.
+func IsRetiredLanguageType(packageType Type) bool {
+	switch Type(strings.ToLower(string(packageType))) {
+	case TypeGo, TypeNpm, TypePyPI, TypeMaven, TypeCargo, TypeNuGet, TypeComposer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Name gets the name of the package type
 func (pt Type) Name() string {
 	switch pt {

@@ -68,6 +68,10 @@ func packageAssignment(ctx *packageAssignmentCtx, errCb func(int, string)) *Pack
 		AccessMode: accessMode,
 	}
 	packageType := ctx.PathParam("type")
+	if packages_model.IsRetiredLanguageType(packages_model.Type(packageType)) {
+		errCb(http.StatusNotFound, "package type is not available")
+		return nil
+	}
 	name := ctx.PathParam("name")
 	if packageType == "" || name == "" {
 		return pkg

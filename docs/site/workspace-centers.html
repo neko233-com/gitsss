@@ -69,7 +69,7 @@
 <h2 id="organization-links">组织超链接</h2><p>组织导航入口位于“仓库列表”下方，图标使用颜色区分。服务卡片显示名称、目标地址、公共或个人来源及新标签页跳转动作。目标图标由访问者浏览器延迟读取目标源的 <code>/favicon.ico</code>，不附带跳转链接中的查询参数、凭据或 Referer；GitSSS 服务端不抓取或代理目标。图标不可用、HTTPS 页面指向 HTTP 服务或 JavaScript 未启用时保留本地图标。保存后原地更新卡片，不丢失另一个编辑器的草稿。</p>
 <p>公共链接和每位用户的个人链接各支持 10,000 条，公共链接仍由站点管理员维护，个人链接仅属于当前用户。名称和地址支持不区分大小写的搜索，每页合计最多显示 24 条；编辑只影响当前页当前范围，其他页保留不变。多人同时修改时，过期的编辑器需要刷新。关闭 JavaScript 后仍可提交并返回列表，每次可新增一条或勾选删除。</p>
 <p>升级继续使用原有 app-state 键和 JSON 格式，无需迁移数据库。进程内使用有上限的缓存，并通过数据库版本检查其他进程的修改。回滚会保留数据，但旧版本仍限制每次保存 32 条且可能一次渲染全部链接；需要在旧版本继续编辑时，应先缩减列表，或保留数据待重新升级。</p>
-<h2 id="package-registry-removal">语言软件包接口关闭</h2><p>Go、npm、PyPI、Maven、Cargo、NuGet 和 Composer 的软件包客户端接口及中央镜像功能已移除；容器、通用软件包和其他既有类型继续使用。此变更会使这些语言的原有上传下载地址失效，但保留已有软件包元数据和文件，不自动删除缓存，不改变 Git、LFS 或存储路径。恢复旧二进制及对应配置可恢复旧接口，回滚时应保留数据库和软件包存储。</p>
+<h2 id="package-registry-removal">语言软件包接口关闭</h2><p>Go、npm、PyPI、Maven、Cargo、NuGet 和 Composer 的软件包客户端接口及中央镜像功能已移除，这些类型的管理和详情地址也返回 404；容器、通用软件包和其他既有类型继续使用。已有元数据和文件会保留，通用历史列表中仍可能显示旧记录；不会自动删除缓存，也不会改变 Git、LFS 或存储路径。恢复旧二进制及对应配置可恢复旧接口，回滚时应保留数据库和软件包存储。</p>
 <h2 id="registry">Docker / OCI 镜像中心</h2><p>GitSSS 已包含 OCI Distribution /v2/ 服务，不需要部署另一个 Registry。镜像位于组织软件包中，使用已有软件包访问权限和内容去重存储。</p><pre><code>docker login git.example.com
 docker tag app:latest git.example.com/engineering/app:latest
 docker push git.example.com/engineering/app:latest
