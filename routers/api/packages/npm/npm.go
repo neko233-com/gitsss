@@ -33,9 +33,6 @@ import (
 var errInvalidTagName = errors.New("The tag name is invalid")
 
 func apiError(ctx *context.Context, status int, obj any) {
-	if status == http.StatusNotFound && helper.TryServeMirror(ctx, "npm", packageNameFromParams(ctx)) {
-		return
-	}
 	message := helper.ProcessErrorForUser(ctx, status, obj)
 	ctx.JSON(status, map[string]string{
 		"error": message,

@@ -135,9 +135,6 @@ func PackageMetadata(ctx *context.Context) {
 		return
 	}
 	if len(pvs) == 0 {
-		if helper.TryServeMirror(ctx, "composer", vendorName+"/"+projectName) {
-			return
-		}
 		apiError(ctx, http.StatusNotFound, packages_model.ErrPackageNotExist)
 		return
 	}

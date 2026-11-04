@@ -200,7 +200,7 @@ func (m *Migrator) copyReleaseAssets(ctx context.Context, ref RepositoryRef, rel
 		if err != nil {
 			return copied, fmt.Errorf("download source release asset %s/%s: %w", ref, asset.Name, err)
 		}
-		err = m.target.uploadStream(ctx, http.MethodPost, m.target.apiURL+repoPath(ref)+"/releases/"+strconv.FormatInt(releaseID, 10)+"/assets?name="+url.QueryEscape(asset.Name), "application/octet-stream", file, size, http.StatusCreated)
+		err = m.target.uploadStream(ctx, http.MethodPost, m.target.apiURL+repoPath(ref)+"/releases/"+strconv.FormatInt(releaseID, 10)+"/assets?name="+url.QueryEscape(asset.Name), "application/octet-stream", file, size)
 		_ = os.Remove(file)
 		if err != nil {
 			return copied, fmt.Errorf("upload target release asset %s/%s: %w", ref, asset.Name, err)
@@ -224,7 +224,7 @@ func (m *Migrator) copyGenericFile(ctx context.Context, ref RepositoryRef, pkg P
 	}
 	defer os.Remove(downloaded)
 	targetURL := strings.TrimSuffix(m.target.baseURL, "/") + "/api/packages/" + url.PathEscape(ref.Owner) + "/generic/" + url.PathEscape(pkg.Name) + "/" + url.PathEscape(pkg.Version) + "/" + url.PathEscape(file.Name)
-	if err := m.target.uploadStream(ctx, http.MethodPut, targetURL, "application/octet-stream", downloaded, size, http.StatusCreated); err != nil {
+	if err := m.target.uploadStream(ctx, http.MethodPut, targetURL, "application/octet-stream", downloaded, size); err != nil {
 		return fmt.Errorf("upload target package file %s/%s: %w", ref, file.Name, err)
 	}
 	return nil
@@ -444,7 +444,7 @@ func (c *apiClient) downloadFile(ctx context.Context, rawURL string, limit int64
 	return downloadedFile{Path: file.Name(), Size: copied, ContentType: resp.Header.Get("Content-Type")}, nil
 }
 
-func (c *apiClient) uploadStream(ctx context.Context, method, rawURL, contentType, filePath string, size, expected int64) error {
+func (c *apiClient) uploadStream(ctx context.Context, method, rawURL, contentType, filePath string, size int64) error {
 	if err := sameOrigin(c.baseURL, rawURL, true); err != nil {
 		return err
 	}
@@ -465,7 +465,7 @@ func (c *apiClient) uploadStream(ctx context.Context, method, rawURL, contentTyp
 		return err
 	}
 	defer resp.Body.Close()
-	if int64(resp.StatusCode) != expected {
+	if resp.StatusCode != http.StatusCreated {
 		message, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return c.redact(&APIError{Method: method, URL: rawURL, StatusCode: resp.StatusCode, Body: strings.TrimSpace(string(message))})
 	}

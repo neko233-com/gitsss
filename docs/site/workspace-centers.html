@@ -69,60 +69,7 @@
 <h2 id="organization-links">组织超链接</h2><p>组织导航入口位于“仓库列表”下方，图标使用颜色区分。服务卡片显示名称、目标地址、公共或个人来源及新标签页跳转动作。目标图标由访问者浏览器延迟读取目标源的 <code>/favicon.ico</code>，不附带跳转链接中的查询参数、凭据或 Referer；GitSSS 服务端不抓取或代理目标。图标不可用、HTTPS 页面指向 HTTP 服务或 JavaScript 未启用时保留本地图标。保存后原地更新卡片，不丢失另一个编辑器的草稿。</p>
 <p>公共链接和每位用户的个人链接各支持 10,000 条，公共链接仍由站点管理员维护，个人链接仅属于当前用户。名称和地址支持不区分大小写的搜索，每页合计最多显示 24 条；编辑只影响当前页当前范围，其他页保留不变。多人同时修改时，过期的编辑器需要刷新。关闭 JavaScript 后仍可提交并返回列表，每次可新增一条或勾选删除。</p>
 <p>升级继续使用原有 app-state 键和 JSON 格式，无需迁移数据库。进程内使用有上限的缓存，并通过数据库版本检查其他进程的修改。回滚会保留数据，但旧版本仍限制每次保存 32 条且可能一次渲染全部链接；需要在旧版本继续编辑时，应先缩减列表，或保留数据待重新升级。</p>
-<h2 id="package-registries">Maven / Go Modules / PyPI / npm 内网仓库</h2>
-<p>组织超链接页提供 Maven、Go、PyPI、npm、Cargo、NuGet 和 Composer 内网仓库的地址、复制按钮、客户端接入配置和中央镜像的启用状态。同一地址可发布私有包、下载依赖；私有包优先，启用镜像后未命中的公共包从中央仓库下载并缓存到内网。</p>
-<table><thead><tr><th>客户端</th><th>仓库地址（示例组织 acme）</th><th>发布方式</th></tr></thead><tbody>
-<tr><td>Maven / Gradle</td><td><code>https://git.example.com/api/packages/acme/maven</code></td><td>Maven deploy；上传地址不变</td></tr>
-<tr><td>Go Modules</td><td><code>https://git.example.com/api/packages/acme/go</code></td><td><code>PUT .../go/upload</code> 上传模块 ZIP</td></tr>
-<tr><td>PyPI / pip</td><td><code>https://git.example.com/api/packages/acme/pypi/simple/</code></td><td>Twine 上传到 <code>.../pypi</code></td></tr>
-<tr><td>npm / pnpm</td><td><code>https://git.example.com/api/packages/acme/npm/</code></td><td><code>npm publish --registry=...</code></td></tr>
-</tbody></table>
-<p>站点管理员在 <code>app.ini</code> 启用并重启服务。默认关闭，保留已有安装的网络行为。可替换为兼容的中央镜像地址；URL 不允许携带凭据、查询参数或片段。</p>
-<pre><code>[packages.mirror]
-ENABLED = true
-MAVEN_URL = https://repo.maven.apache.org/maven2
-GO_URL = https://proxy.golang.org
-; 主站为 HTTP 时，填写 Go 客户端使用的受信任 HTTPS 入口
-GO_CLIENT_BASE_URL = https://git.example.com:3443
-GO_FILE_HOSTS = storage.googleapis.com
-PYPI_URL = https://pypi.org/simple
-NPM_URL = https://registry.npmjs.org
-CARGO_INDEX_URL = https://index.crates.io
-CARGO_FILES_URL = https://static.crates.io/crates
-NUGET_URL = https://api.nuget.org/v3-flatcontainer
-COMPOSER_URL = https://repo.packagist.org
-COMPOSER_FILE_HOSTS = api.github.com,codeload.github.com,github.com,gitlab.com,bitbucket.org
-PYPI_FILE_HOSTS = files.pythonhosted.org
-NPM_FILE_HOSTS =
-PRIVATE_PATTERNS = github.com/your-company/**,com.yourcompany:*,@your-company/*
-METADATA_TTL = 5m
-ARTIFACT_TTL = 168h
-TIMEOUT = 2m
-MAX_SIZE = 10737418240
-MAX_FILE_SIZE = 536870912
-MAX_ENTRIES = 50000</code></pre>
-<p><code>PRIVATE_PATTERNS</code> 使用 GitSSS glob（<code>**</code> 可跨路径段），为尚未发布的私有名称保留空间；启用前填好公司的 Go 路径、Maven 坐标和 Python 包名。组织同名 npm scope 和本站域名下的 Go 路径自动保留。已发布的私有包名称不会回源寻找其他版本或缺失文件。上游主机自动允许；额外下载/CDN 主机必须逐个填写 <code>*_FILE_HOSTS</code>，可带端口，不接受通配符。跳转也受同一白名单限制；站点凭据和 Cookie 不会发给上游，出站代理沿用站点设置。</p>
-<p>Maven 在 <code>settings.xml</code> 的 <code>&lt;settings&gt;</code> 中添加以下配置；私有依赖的 repository 和 distributionManagement 使用同一仓库地址。</p>
-<pre><code>&lt;mirrors&gt;
-  &lt;mirror&gt;
-    &lt;id&gt;gitsss&lt;/id&gt;
-    &lt;mirrorOf&gt;central&lt;/mirrorOf&gt;
-    &lt;url&gt;https://git.example.com/api/packages/acme/maven&lt;/url&gt;
-  &lt;/mirror&gt;
-&lt;/mirrors&gt;
-
-go env -w GOPROXY=https://git.example.com/api/packages/acme/go
-python -m pip config set global.index-url https://git.example.com/api/packages/acme/pypi/simple/
-npm config set registry https://git.example.com/api/packages/acme/npm/</code></pre>
-<p>私有组织需要账号和软件包读取令牌，发布需要写入权限。Maven 的 <code>&lt;server&gt;</code> ID 对应 mirror/repository ID；npm 把路径限定的 <code>_authToken</code> 存在用户 <code>.npmrc</code>；pip 使用 keyring 或受保护的 <code>.netrc</code>；Composer 使用受保护的 <code>auth.json</code> 或 <code>COMPOSER_AUTH</code>；NuGet 可使用凭据提供器。Go 的 <code>.netrc</code> 与 <code>GOAUTH</code> 仅向 HTTPS 发送凭据，认证 HTTP GOPROXY 无法使用，<code>GOINSECURE</code> 也不会改变该行为。主站为 HTTP 时应配置受信任的 HTTPS 反向代理，并将其基础地址（含应用子路径）填入 <code>GO_CLIENT_BASE_URL</code>；各客户端需信任其证书。凭据不要写进仓库 URL、项目源码或日志。HTTP pip 仓库需显式设置 trusted-host，页面会提供相应配置。</p>
-<p>Go 1.27 使用非默认端口时，<code>.netrc</code> 的 machine 需要匹配完整主机和端口，例如 <code>machine git.example.com:3443</code>。<code>GO_CLIENT_BASE_URL</code> 只改变页面展示的 Go 客户端地址；反向代理必须转发软件包路径及认证头，不得缓存私有响应。</p>
-<p>Go 私有模块配置 <code>GOPRIVATE</code>/<code>GONOSUMDB</code>；若私有模块也走这个代理，设置 <code>GONOPROXY=none</code>。公共模块继续验证 checksum；内网代理转发 <code>sumdb/sum.golang.org</code> 的签名校验协议。pip 使用单一内网 index，不为私有依赖附加公共 extra-index-url。npm/PyPI 下载链接会改写成绑定组织且带签名的内网地址，下载时仍检查组织权限，保留 integrity、文件 hash、Python 版本约束和撤回标记；PyPI 的 PEP 658 元数据也走缓存。Cargo 使用 sparse 索引并保留 crate 校验值，私有组织使用 <code>cargo login --registry gitsss</code> 配置凭据。NuGet 镜像覆盖 v3 flat-container 的版本列表和包文件；搜索及注册元数据仍来自本地仓库。</p>
-<p>Composer v2 元数据中的发布压缩包改写为绑定组织的签名地址，并缓存到内网；下载及重定向的域名必须在 <code>COMPOSER_FILE_HOSTS</code> 白名单中，未授权域名会被拒绝。Composer 回退到 source 方式时仍可能直接访问原始 Git 主机；需要全部依赖流量留在内网时应配置网络限制。</p>
-<p>响应头 <code>X-GitSSS-Mirror</code> 的 MISS 表示首次回源，HIT 表示缓存命中，STALE 表示上游故障或限流时使用已过期缓存。没有缓存时透传 429 和 Retry-After；中央仓库限制出口 IP 时，可配置兼容镜像或站点出站代理。Go 默认允许官方代理跳转到 storage.googleapis.com 下载 ZIP。404/410 不缓存、不恢复旧条目；有效期到期后重新回源。它是按需缓存，不是全量同步。npm 搜索、审计和发布仍使用原有本地仓库行为。</p>
-<h3>兼容、容量与回滚</h3>
-<p>没有数据库迁移，既有包地址、权限和存储不变。缓存只新增 layout v1 的 package-mirror reservation 和 <code>APP_DATA_PATH/gitsss/extensions/package-mirror/</code>；不会改写 Git、refs、LFS 或已发布软件包。未知 layout 版本会在创建缓存前拒绝写入。默认成品缓存上限 10 GiB、50,000 项（每项含 4 KiB 头部），单文件 512 MiB，元数据另有 32 MiB 上限，按写入时间淘汰旧项；进程首次建立缓存索引，之后增量维护。每个缓存目录只使用一个 GitSSS 写入进程，多个独立进程不协调配额。最多四个同时下载，相同 URL 合并回源。另为临时文件预留最多四倍单文件上限的空间。命中后从磁盘流式读取，支持 HEAD/Range。缓存公共字节可共享，每次访问仍检查权限。</p>
-<p>关闭 ENABLED 或回滚旧二进制即可停用，已有私有包照常访问；停服后可删除缓存目录，不需迁移 Git/LFS/数据库。单元测试、SQLite 两种构建、真实客户端与中央网络验证分别记录。详见 <a href="../features/workspace-centers.md">行为及兼容报告</a>。协议参考：<a href="https://maven.apache.org/guides/mini/guide-mirror-settings.html">Maven mirrors</a>、<a href="https://go.dev/ref/mod#goproxy-protocol">Go proxy</a>、<a href="https://packaging.python.org/en/latest/specifications/simple-repository-api/">PyPI Simple API</a>、<a href="https://docs.npmjs.com/cli/v11/using-npm/registry/">npm registry</a>。</p>
-<p><a href="../verification/package-mirrors-2026-11-04.md">2026-11-04 分层验收记录</a>：真实客户端两轮下载的产物 SHA-256 一致，缓存命中成立，CGO / pure-Go SQLite 与 race 检查分层记录。Maven 官方源对当前出口限流，使用可配置中央镜像完成下载并与官方产物比对。桌面浅色、深色和窄窗页面已查看；200% 浏览器缩放复核未完成。记录中的本地测试不代表线上验收。</p>
+<h2 id="package-registry-removal">语言软件包接口关闭</h2><p>Go、npm、PyPI、Maven、Cargo、NuGet 和 Composer 的软件包客户端接口及中央镜像功能已移除；容器、通用软件包和其他既有类型继续使用。此变更会使这些语言的原有上传下载地址失效，但保留已有软件包元数据和文件，不自动删除缓存，不改变 Git、LFS 或存储路径。恢复旧二进制及对应配置可恢复旧接口，回滚时应保留数据库和软件包存储。</p>
 <h2 id="registry">Docker / OCI 镜像中心</h2><p>GitSSS 已包含 OCI Distribution /v2/ 服务，不需要部署另一个 Registry。镜像位于组织软件包中，使用已有软件包访问权限和内容去重存储。</p><pre><code>docker login git.example.com
 docker tag app:latest git.example.com/engineering/app:latest
 docker push git.example.com/engineering/app:latest

@@ -4,62 +4,19 @@
 package giteahttpmigration
 
 import (
-	"bytes"
-	"encoding/base64"
-	"io"
 	"testing"
-
-	"github.com/neko233-com/gitsss/modules/json"
-	"github.com/neko233-com/gitsss/modules/packages/cargo"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestPackageProtocolPaths(t *testing.T) {
-	npmPath, err := npmPackagePath("alice", "@scope/widget", "1.2.3", "widget-1.2.3.tgz")
-	require.NoError(t, err)
-	assert.Equal(t, "/api/packages/alice/npm/@scope/widget/-/1.2.3/widget-1.2.3.tgz", npmPath)
-
-	mavenPath, err := mavenFilePath("alice", "com.example:app", "1.0.0", "app-1.0.0.jar")
-	require.NoError(t, err)
-	assert.Equal(t, "/api/packages/alice/maven/com/example/app/1.0.0/app-1.0.0.jar", mavenPath)
-	_, err = mavenFilePath("alice", "not-coordinates", "1.0.0", "app.jar")
-	require.Error(t, err)
-}
-
-func TestNpmPublishDocumentHasIntegrity(t *testing.T) {
-	document, err := npmPublishDocument("widget", "1.0.0", "widget-1.0.0.tgz", []byte("tarball"))
-	require.NoError(t, err)
-	var parsed struct {
-		Name     string `json:"name"`
-		Versions map[string]struct {
-			Dist struct {
-				Integrity string `json:"integrity"`
-			} `json:"dist"`
-		} `json:"versions"`
-		Attachments map[string]struct {
-			Data string `json:"data"`
-		} `json:"_attachments"`
+func TestSupportedPackageProtocols(t *testing.T) {
+	for _, kind := range []string{"go", "npm", "maven", "pypi", "cargo", "composer", "nuget"} {
+		assert.False(t, packageProtocolSupported(kind), kind)
 	}
-	require.NoError(t, json.Unmarshal(document, &parsed))
-	assert.Equal(t, "widget", parsed.Name)
-	assert.Greater(t, len(parsed.Versions["1.0.0"].Dist.Integrity), len("sha512-"))
-	raw, err := base64.StdEncoding.DecodeString(parsed.Attachments["widget-1.0.0.tgz"].Data)
-	require.NoError(t, err)
-	assert.Equal(t, "tarball", string(raw))
-}
-
-func TestCargoPublishBodyRoundTrip(t *testing.T) {
-	body, err := cargoPublishBody("widget", "1.0.0", []byte("crate-bytes"))
-	require.NoError(t, err)
-	parsed, err := cargo.ParsePackage(bytes.NewReader(body))
-	require.NoError(t, err)
-	assert.Equal(t, "widget", parsed.Name)
-	assert.Equal(t, "1.0.0", parsed.Version)
-	content, err := io.ReadAll(parsed.Content)
-	require.NoError(t, err)
-	assert.Equal(t, "crate-bytes", string(content))
+	for _, kind := range []string{"generic", "container", "helm", "debian", "alpine", "rubygems"} {
+		assert.True(t, packageProtocolSupported(kind), kind)
+	}
 }
 
 func TestDebianAndAlpineCoordinates(t *testing.T) {

@@ -36,12 +36,12 @@ Imported:
   release notes, release attachment bytes up to 512 MiB, wiki pages, and
   generic packages linked to those repositories.
 
-npm, Maven, PyPI, Helm, Cargo, Debian, Composer, Alpine, NuGet, RubyGems,
-and container images are copied with their own upload protocols. Debian and
-Alpine use the file `composite_key` (`distribution|component` or
-`branch|repository|architecture`) exposed by the package file API. Conan and
-Swift stay listed only: their publish APIs are multi-request handshakes, not
-one package file.
+Helm, Debian, Alpine, RubyGems and container images are copied with their own
+upload protocols. Debian and Alpine use the file `composite_key`
+(`distribution|component` or `branch|repository|architecture`) exposed by the
+package file API. Go, npm, Maven, PyPI, Cargo, Composer and NuGet packages are
+listed and skipped because their target registry interfaces are disabled. Conan
+and Swift remain listed and skipped.
 
 Not imported: webhooks,
 Actions secrets, access tokens, SSH keys, TOTP secrets, OAuth grants, or

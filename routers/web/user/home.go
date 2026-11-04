@@ -94,7 +94,6 @@ func Dashboard(ctx *context.Context) {
 		if !prepareHomeLinks(ctx) {
 			return
 		}
-		preparePackageRegistries(ctx, ctxUser)
 		ctx.Data["Title"] = ctx.Tr("home.links.title")
 		ctx.Data["PageIsDashboard"] = true
 		ctx.Data["PageIsHomeLinks"] = true

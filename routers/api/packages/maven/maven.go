@@ -48,11 +48,6 @@ var (
 )
 
 func apiError(ctx *context.Context, status int, obj any) {
-	if status == http.StatusNotFound {
-		if params, err := extractPathParameters(ctx); err == nil && helper.TryServeMirror(ctx, "maven", params.toInternalPackageName()) {
-			return
-		}
-	}
 	message := helper.ProcessErrorForUser(ctx, status, obj)
 	// Maven client doesn't present the error message to end users; site admin can check the server logs that outputted by ProcessErrorForUser
 	ctx.PlainText(status, message)

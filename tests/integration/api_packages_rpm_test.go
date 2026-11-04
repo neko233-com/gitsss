@@ -225,7 +225,7 @@ gpgkey=%sapi/packages/%s/rpm/repository.key`,
 					}
 
 					var result Repomd
-					decodeXML(t, resp, &result)
+					require.NoError(t, xml.NewDecoder(resp.Body).Decode(&result))
 
 					assert.Len(t, result.Data, 3)
 					for _, d := range result.Data {
@@ -235,18 +235,23 @@ gpgkey=%sapi/packages/%s/rpm/repository.key`,
 						assert.NotEmpty(t, d.OpenChecksum.Value)
 						assert.NotEqual(t, d.Checksum.Value, d.OpenChecksum.Value)
 						assert.Greater(t, d.OpenSize, d.Size)
+						metadata := MakeRequest(t, NewRequest(t, "GET", url+"/"+strings.TrimPrefix(d.Location.Href, "repodata/")), http.StatusOK)
+						assert.EqualValues(t, d.Size, metadata.Body.Len())
+						reader, err := gzip.NewReader(bytes.NewReader(metadata.Body.Bytes()))
+						require.NoError(t, err)
+						decoded, err := io.ReadAll(reader)
+						require.NoError(t, err)
+						require.NoError(t, reader.Close())
+						assert.Len(t, decoded, int(d.OpenSize))
 
 						switch d.Type {
 						case "primary":
-							assert.EqualValues(t, 722, d.Size)
 							assert.EqualValues(t, 1759, d.OpenSize)
 							assert.Equal(t, "repodata/primary.xml.gz", d.Location.Href)
 						case "filelists":
-							assert.EqualValues(t, 257, d.Size)
 							assert.EqualValues(t, 326, d.OpenSize)
 							assert.Equal(t, "repodata/filelists.xml.gz", d.Location.Href)
 						case "other":
-							assert.EqualValues(t, 306, d.Size)
 							assert.EqualValues(t, 394, d.OpenSize)
 							assert.Equal(t, "repodata/other.xml.gz", d.Location.Href)
 						}

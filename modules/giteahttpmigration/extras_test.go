@@ -210,6 +210,6 @@ func TestDownloadRejectsCrossOrigin(t *testing.T) {
 	temp, err := os.CreateTemp(t.TempDir(), "asset")
 	require.NoError(t, err)
 	require.NoError(t, temp.Close())
-	err = client.uploadStream(context.Background(), http.MethodPut, "https://evil.example/upload", "application/octet-stream", temp.Name(), 0, http.StatusCreated)
+	err = client.uploadStream(context.Background(), http.MethodPut, "https://evil.example/upload", "application/octet-stream", temp.Name(), 0)
 	require.Error(t, err)
 }

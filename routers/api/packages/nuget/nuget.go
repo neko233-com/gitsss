@@ -383,9 +383,6 @@ func EnumeratePackageVersionsV3(ctx *context.Context) {
 		return
 	}
 	if len(pvs) == 0 {
-		if helper.TryServeMirror(ctx, "nuget", packageName) {
-			return
-		}
 		apiError(ctx, http.StatusNotFound, err)
 		return
 	}
@@ -417,9 +414,6 @@ func DownloadPackageFile(ctx *context.Context) {
 	)
 	if err != nil {
 		if errors.Is(err, packages_model.ErrPackageNotExist) || errors.Is(err, packages_model.ErrPackageFileNotExist) {
-			if helper.TryServeMirror(ctx, "nuget", packageName) {
-				return
-			}
 			apiError(ctx, http.StatusNotFound, err)
 			return
 		}
