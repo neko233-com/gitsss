@@ -28,12 +28,17 @@ func TestPackageMirrorSettings(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, loadPackageMirrorFrom(cfg))
 	assert.True(t, PackageMirror.Enabled)
+	cfg, err = NewConfigProviderFromData("[packages.mirror]\nGO_CLIENT_BASE_URL=https://mirror.example:3443/git\n")
+	require.NoError(t, err)
+	require.NoError(t, loadPackageMirrorFrom(cfg))
+	assert.Equal(t, "https://mirror.example:3443/git", PackageMirror.GoClientBaseURL)
 	for _, invalid := range []string{
 		"MAVEN_URL = file:///etc/passwd",
 		"NPM_URL = https://user:password@registry.example.org",
 		"CARGO_INDEX_URL = file:///etc/passwd",
 		"NUGET_URL = https://user:password@registry.example.org",
 		"GO_URL = https://example.org?key=secret",
+		"GO_CLIENT_BASE_URL = http://example.org",
 		"METADATA_TTL = -1s",
 		"MAX_FILE_SIZE = 999999999999999",
 		"MAX_ENTRIES = 0",

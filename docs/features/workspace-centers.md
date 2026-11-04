@@ -19,6 +19,8 @@ An administrator enables central mirroring in `app.ini` and restarts GitSSS:
 ENABLED = true
 MAVEN_URL = https://repo.maven.apache.org/maven2
 GO_URL = https://proxy.golang.org
+; Optional externally reachable HTTPS base for Go clients when the main site uses HTTP.
+GO_CLIENT_BASE_URL = https://git.example.com:3443
 GO_FILE_HOSTS = storage.googleapis.com
 PYPI_URL = https://pypi.org/simple
 NPM_URL = https://registry.npmjs.org
@@ -52,7 +54,9 @@ The default is **disabled** to preserve existing installations' network and miss
 | NuGet / dotnet | `https://git.example.com/api/packages/acme/nuget/index.json` | Add a NuGet v3 source. Package versions and package files use the flat-container mirror. |
 | Composer | `https://git.example.com/api/packages/acme/composer` | Configure a Composer v2 repository and disable direct Packagist access for the project. |
 
-Use a package-read token for authenticated downloads and a package-write token for publishing. Store credentials in the client's normal credential file/environment, never in registry URLs, project source or logs. Maven uses a `<server>` whose ID matches the mirror/repository ID. npm uses the registry-path-scoped `_authToken` in the user `.npmrc`; pip uses a keyring or a protected `.netrc`. Composer supports a protected `auth.json` or `COMPOSER_AUTH`; NuGet supports its credential providers. Go also supports a protected `.netrc` for HTTPS. For internal Go modules set `GOPRIVATE`/`GONOSUMDB` to the private module patterns and `GONOPROXY=none` if those modules are served by this proxy. Public modules retain checksum verification; the proxy forwards the signed `sumdb/sum.golang.org` protocol. HTTP-only Go private registries require the Go client's explicit `GOINSECURE` setting; HTTPS is preferred. An HTTP pip registry requires `--trusted-host` (shown in the page's configuration).
+Use a package-read token for authenticated downloads and a package-write token for publishing. Store credentials in the client's normal credential file/environment, never in registry URLs, project source or logs. Maven uses a `<server>` whose ID matches the mirror/repository ID. npm uses the registry-path-scoped `_authToken` in the user `.npmrc`; pip uses a keyring or a protected `.netrc`. Composer supports a protected `auth.json` or `COMPOSER_AUTH`; NuGet supports its credential providers. Go's `.netrc` and `GOAUTH` apply only to HTTPS: an authenticated HTTP `GOPROXY` will not work, and `GOINSECURE` does not change this proxy behavior. If the main site uses HTTP, configure a trusted HTTPS reverse proxy and set `GO_CLIENT_BASE_URL` to its HTTPS base, including any application subpath. Trust its certificate on each client before use. For internal Go modules set `GOPRIVATE`/`GONOSUMDB` to the private module patterns and `GONOPROXY=none` if those modules are served by this proxy. Public modules retain checksum verification; the proxy forwards the signed `sumdb/sum.golang.org` protocol. An HTTP pip registry requires `--trusted-host` (shown in the page's configuration).
+
+For Go 1.27, a `.netrc` entry for a proxy using a non-default port must match the full host and port, for example `machine git.example.com:3443`. Keep the token in the protected credential file. `GO_CLIENT_BASE_URL` only changes the displayed Go client address; the reverse proxy must forward the package path and authorization headers to GitSSS without caching private responses.
 
 Maven example in `settings.xml` (inside `<settings>`):
 

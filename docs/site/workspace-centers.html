@@ -82,6 +82,8 @@
 ENABLED = true
 MAVEN_URL = https://repo.maven.apache.org/maven2
 GO_URL = https://proxy.golang.org
+; 主站为 HTTP 时，填写 Go 客户端使用的受信任 HTTPS 入口
+GO_CLIENT_BASE_URL = https://git.example.com:3443
 GO_FILE_HOSTS = storage.googleapis.com
 PYPI_URL = https://pypi.org/simple
 NPM_URL = https://registry.npmjs.org
@@ -112,7 +114,8 @@ MAX_ENTRIES = 50000</code></pre>
 go env -w GOPROXY=https://git.example.com/api/packages/acme/go
 python -m pip config set global.index-url https://git.example.com/api/packages/acme/pypi/simple/
 npm config set registry https://git.example.com/api/packages/acme/npm/</code></pre>
-<p>私有组织需要账号和软件包读取令牌，发布需要写入权限。Maven 的 <code>&lt;server&gt;</code> ID 对应 mirror/repository ID；npm 把路径限定的 <code>_authToken</code> 存在用户 <code>.npmrc</code>；pip 使用 keyring 或受保护的 <code>.netrc</code>；Composer 使用受保护的 <code>auth.json</code> 或 <code>COMPOSER_AUTH</code>；NuGet 可使用凭据提供器；Go HTTPS 可使用受保护的 <code>.netrc</code>。凭据不要写进仓库 URL、项目源码或日志。HTTP pip 仓库需显式设置 trusted-host，页面会提供相应配置。HTTP Go 私有仓库需显式配置 GOINSECURE，优先使用 HTTPS。</p>
+<p>私有组织需要账号和软件包读取令牌，发布需要写入权限。Maven 的 <code>&lt;server&gt;</code> ID 对应 mirror/repository ID；npm 把路径限定的 <code>_authToken</code> 存在用户 <code>.npmrc</code>；pip 使用 keyring 或受保护的 <code>.netrc</code>；Composer 使用受保护的 <code>auth.json</code> 或 <code>COMPOSER_AUTH</code>；NuGet 可使用凭据提供器。Go 的 <code>.netrc</code> 与 <code>GOAUTH</code> 仅向 HTTPS 发送凭据，认证 HTTP GOPROXY 无法使用，<code>GOINSECURE</code> 也不会改变该行为。主站为 HTTP 时应配置受信任的 HTTPS 反向代理，并将其基础地址（含应用子路径）填入 <code>GO_CLIENT_BASE_URL</code>；各客户端需信任其证书。凭据不要写进仓库 URL、项目源码或日志。HTTP pip 仓库需显式设置 trusted-host，页面会提供相应配置。</p>
+<p>Go 1.27 使用非默认端口时，<code>.netrc</code> 的 machine 需要匹配完整主机和端口，例如 <code>machine git.example.com:3443</code>。<code>GO_CLIENT_BASE_URL</code> 只改变页面展示的 Go 客户端地址；反向代理必须转发软件包路径及认证头，不得缓存私有响应。</p>
 <p>Go 私有模块配置 <code>GOPRIVATE</code>/<code>GONOSUMDB</code>；若私有模块也走这个代理，设置 <code>GONOPROXY=none</code>。公共模块继续验证 checksum；内网代理转发 <code>sumdb/sum.golang.org</code> 的签名校验协议。pip 使用单一内网 index，不为私有依赖附加公共 extra-index-url。npm/PyPI 下载链接会改写成绑定组织且带签名的内网地址，下载时仍检查组织权限，保留 integrity、文件 hash、Python 版本约束和撤回标记；PyPI 的 PEP 658 元数据也走缓存。Cargo 使用 sparse 索引并保留 crate 校验值，私有组织使用 <code>cargo login --registry gitsss</code> 配置凭据。NuGet 镜像覆盖 v3 flat-container 的版本列表和包文件；搜索及注册元数据仍来自本地仓库。</p>
 <p>Composer v2 元数据中的发布压缩包改写为绑定组织的签名地址，并缓存到内网；下载及重定向的域名必须在 <code>COMPOSER_FILE_HOSTS</code> 白名单中，未授权域名会被拒绝。Composer 回退到 source 方式时仍可能直接访问原始 Git 主机；需要全部依赖流量留在内网时应配置网络限制。</p>
 <p>响应头 <code>X-GitSSS-Mirror</code> 的 MISS 表示首次回源，HIT 表示缓存命中，STALE 表示上游故障或限流时使用已过期缓存。没有缓存时透传 429 和 Retry-After；中央仓库限制出口 IP 时，可配置兼容镜像或站点出站代理。Go 默认允许官方代理跳转到 storage.googleapis.com 下载 ZIP。404/410 不缓存、不恢复旧条目；有效期到期后重新回源。它是按需缓存，不是全量同步。npm 搜索、审计和发布仍使用原有本地仓库行为。</p>

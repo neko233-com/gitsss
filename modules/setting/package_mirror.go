@@ -18,6 +18,7 @@ var PackageMirror struct {
 	Enabled           bool
 	MavenURL          string
 	GoURL             string
+	GoClientBaseURL   string
 	PyPIURL           string
 	NpmURL            string
 	CargoIndexURL     string
@@ -43,6 +44,7 @@ func loadPackageMirrorFrom(rootCfg ConfigProvider) error {
 	PackageMirror.Enabled = ConfigSectionKeyBool(sec, "ENABLED")
 	PackageMirror.MavenURL = sec.Key("MAVEN_URL").MustString("https://repo.maven.apache.org/maven2")
 	PackageMirror.GoURL = sec.Key("GO_URL").MustString("https://proxy.golang.org")
+	PackageMirror.GoClientBaseURL = sec.Key("GO_CLIENT_BASE_URL").String()
 	PackageMirror.PyPIURL = sec.Key("PYPI_URL").MustString("https://pypi.org/simple")
 	PackageMirror.NpmURL = sec.Key("NPM_URL").MustString("https://registry.npmjs.org")
 	PackageMirror.CargoIndexURL = sec.Key("CARGO_INDEX_URL").MustString("https://index.crates.io")
@@ -67,6 +69,12 @@ func loadPackageMirrorFrom(rootCfg ConfigProvider) error {
 		u, err := url.Parse(raw)
 		if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 			return fmt.Errorf("packages.mirror %s must be an HTTP(S) URL without credentials, query or fragment", name)
+		}
+	}
+	if PackageMirror.GoClientBaseURL != "" {
+		u, err := url.Parse(PackageMirror.GoClientBaseURL)
+		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+			return errors.New("packages.mirror GO_CLIENT_BASE_URL must be an HTTPS URL without credentials, query or fragment")
 		}
 	}
 	if PackageMirror.MetadataTTL <= 0 || PackageMirror.ArtifactTTL <= 0 || PackageMirror.Timeout <= 0 || PackageMirror.MaxSize <= 0 || PackageMirror.MaxFileSize <= 0 || PackageMirror.MaxFileSize > PackageMirror.MaxSize || PackageMirror.MaxEntries <= 0 {

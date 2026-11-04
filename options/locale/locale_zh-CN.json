@@ -4150,6 +4150,7 @@
 	"packages.mirror.upstream": "中央仓库：",
 	"packages.mirror.auth": "沿用组织软件包权限；私有组织需要配置账号和软件包访问令牌。",
 	"packages.mirror.guide": "发布、认证与镜像配置指南",
+	"packages.mirror.go_https_required": "当前站点为 HTTP。Go 客户端无法安全地向此地址发送仓库认证；请配置受信任的 HTTPS 入口和 GO_CLIENT_BASE_URL，再使用 .netrc 登录。",
 	"home.links.services": "常用服务",
 	"home.links.open": "打开服务",
 	"home.links.help": "在新标签页打开常用内网服务。",
