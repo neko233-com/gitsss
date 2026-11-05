@@ -101,6 +101,9 @@ func (c ResponsesClient) Summarize(ctx context.Context, input string) (string, e
 	}
 	base.Path = strings.TrimRight(base.Path, "/") + "/responses"
 	payload := map[string]any{"model": c.Model, "input": input, "instructions": summaryInstructions, "max_output_tokens": 2048}
+	if strings.EqualFold(base.Hostname(), "api.deepseek.com") {
+		payload["reasoning"] = map[string]string{"effort": "none"}
+	}
 	if !c.OmitStore {
 		payload["store"] = false
 	}

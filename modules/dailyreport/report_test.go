@@ -89,6 +89,24 @@ func TestResponsesProviderWithoutStoreParameter(t *testing.T) {
 	}
 }
 
+func TestDeepSeekDisablesReasoningForBoundedSummaries(t *testing.T) {
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		var payload struct {
+			Reasoning struct {
+				Effort string `json:"effort"`
+			} `json:"reasoning"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || payload.Reasoning.Effort != "none" {
+			t.Fatal("DeepSeek must receive a non-thinking summary request")
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"ok"}]}]}`)), Header: make(http.Header)}, nil
+	})}
+	_, err := (ResponsesClient{HTTP: client, BaseURL: "https://api.deepseek.com", APIKey: "test-only", Model: "deepseek-flash"}).Summarize(context.Background(), "commit")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestFeishuCardAcceptance(t *testing.T) {
 	for _, tt := range []struct {
 		body      string

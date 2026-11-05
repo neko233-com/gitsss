@@ -138,11 +138,14 @@ func groupOrganization(ctx context.Context, orgID int64, cfg dailyreport.Config,
 }
 
 // AnalyzeOrganization returns previews without sending or updating delivery receipts.
-func AnalyzeOrganization(ctx context.Context, orgID int64, now time.Time, selection ManualSelection) ([]Analysis, error) {
+func AnalyzeOrganization(ctx context.Context, orgID int64, now time.Time, selection ManualSelection) (analyses []Analysis, runErr error) {
 	if len(selection.AccountIDs) == 0 && len(selection.RoleLabels) == 0 {
 		return nil, errors.New("select at least one member or role")
 	}
 	cfg, err := LoadOrgConfig(orgID)
+	defer func() {
+		runErr = notifyReportFailure(ctx, cfg.Webhook, orgID, now, "手动分析", dailyreport.RunResult{}, runErr)
+	}()
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +207,7 @@ func historicalReportTime(date string, now time.Time) (time.Time, error) {
 	return day.AddDate(0, 0, 1).Add(-time.Second), nil
 }
 
-func executeOrganization(ctx context.Context, orgID int64, now time.Time, automatic bool) (dailyreport.RunResult, error) {
+func executeOrganization(ctx context.Context, orgID int64, now time.Time, automatic bool) (result dailyreport.RunResult, runErr error) {
 	var empty dailyreport.RunResult
 	if _, err := org_model.GetOrgByID(ctx, orgID); err != nil {
 		return empty, err
@@ -218,6 +221,13 @@ func executeOrganization(ctx context.Context, orgID int64, now time.Time, automa
 	}
 	defer release()
 	cfg, err := LoadOrgConfig(orgID)
+	defer func() {
+		mode := "手动补发"
+		if automatic {
+			mode = "定时任务"
+		}
+		runErr = notifyReportFailure(ctx, cfg.Webhook, orgID, now, mode, result, runErr)
+	}()
 	if err != nil {
 		return empty, err
 	}
