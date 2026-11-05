@@ -4651,5 +4651,9 @@
 	"admin.daily_report.saved": "Daily report settings saved.",
 	"admin.daily_report.invalid": "Settings could not be saved. Check required fields, date format, calendar years and provider URLs.",
 	"admin.daily_report.done": "Report complete: %d sent, %d already sent.",
-	"admin.daily_report.failed": "Report failed: %d sent, %d already sent, %d failed. Check the server logs."
+	"admin.daily_report.failed": "Report failed: %d sent, %d already sent, %d failed. Check the server logs.",
+	"org.daily_report.run_date": "Send a past daily report",
+	"org.daily_report.run_date_help": "Choose a past date in Beijing time. Saved account and role filters apply; previously delivered cards are skipped.",
+	"org.daily_report.aliases": "Git author aliases",
+	"org.daily_report.aliases_help": "One author name per line; a trailing * matches a prefix. Aliases take precedence over registered email. Duplicate or overlapping prefixes are rejected."
 }

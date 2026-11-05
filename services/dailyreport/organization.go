@@ -121,7 +121,7 @@ func groupOrganization(ctx context.Context, orgID int64, cfg dailyreport.Config,
 			return "", err
 		}
 		return user.Name, nil
-	})
+	}, cfg.AuthorAliases)
 	if err != nil {
 		return nil, err
 	}
@@ -180,6 +180,31 @@ func AnalyzeOrganization(ctx context.Context, orgID int64, now time.Time, select
 
 // ExecuteOrganization runs one organization's scheduled report with isolated receipts.
 func ExecuteOrganization(ctx context.Context, orgID int64, now time.Time) (dailyreport.RunResult, error) {
+	return executeOrganization(ctx, orgID, now, true)
+}
+
+// ExecuteOrganizationDate sends a historical report using saved classifications and receipts.
+func ExecuteOrganizationDate(ctx context.Context, orgID int64, date string, now time.Time) (dailyreport.RunResult, error) {
+	at, err := historicalReportTime(date, now)
+	if err != nil {
+		return dailyreport.RunResult{}, err
+	}
+	return executeOrganization(ctx, orgID, at, false)
+}
+
+func historicalReportTime(date string, now time.Time) (time.Time, error) {
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		return time.Time{}, err
+	}
+	day, err := time.ParseInLocation("2006-01-02", date, loc)
+	if err != nil || day.Format("2006-01-02") != date || !day.Before(time.Date(now.In(loc).Year(), now.In(loc).Month(), now.In(loc).Day(), 0, 0, 0, 0, loc)) {
+		return time.Time{}, errors.New("select a past date in YYYY-MM-DD format")
+	}
+	return day.AddDate(0, 0, 1).Add(-time.Second), nil
+}
+
+func executeOrganization(ctx context.Context, orgID int64, now time.Time, automatic bool) (dailyreport.RunResult, error) {
 	var empty dailyreport.RunResult
 	if _, err := org_model.GetOrgByID(ctx, orgID); err != nil {
 		return empty, err
@@ -196,9 +221,13 @@ func ExecuteOrganization(ctx context.Context, orgID int64, now time.Time) (daily
 	if err != nil {
 		return empty, err
 	}
-	due, err := cfg.Schedule.Due(now)
-	if err != nil || !due {
-		return empty, err
+	if automatic {
+		due, err := cfg.Schedule.Due(now)
+		if err != nil || !due {
+			return empty, err
+		}
+	} else if cfg.BaseURL == "" || cfg.APIKey == "" || cfg.Model == "" || cfg.Webhook == "" {
+		return empty, errors.New("daily report provider and webhook are not configured")
 	}
 	grouped, err := groupOrganization(ctx, orgID, cfg, now, nil)
 	if err != nil {

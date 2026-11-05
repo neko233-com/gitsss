@@ -65,3 +65,15 @@ func TestFilterRoleAccounts(t *testing.T) {
 		t.Fatal("role lookup failures must stop the run")
 	}
 }
+func TestHistoricalReportTimeUsesWholeBeijingDay(t *testing.T) {
+	now := time.Date(2026, 11, 5, 2, 0, 0, 0, time.UTC)
+	at, err := historicalReportTime("2026-11-04", now)
+	if err != nil || at.Format(time.RFC3339) != "2026-11-04T23:59:59+08:00" {
+		t.Fatalf("unexpected report cutoff %v: %v", at, err)
+	}
+	for _, value := range []string{"2026-11-05", "2026-11-06", "2026-11-4", "invalid"} {
+		if _, err := historicalReportTime(value, now); err == nil {
+			t.Fatalf("accepted invalid historical date %q", value)
+		}
+	}
+}

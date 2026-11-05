@@ -118,7 +118,7 @@ func collectPushes(ctx context.Context, orgID int64, start, end time.Time) ([]da
 			if commit == nil {
 				return nil, errors.New("push activity contains invalid commit")
 			}
-			push.Commits = append(push.Commits, dailyreport.Commit{ID: commit.Sha1, AuthorEmail: commit.AuthorEmail, Message: commit.Message})
+			push.Commits = append(push.Commits, dailyreport.Commit{ID: commit.Sha1, AuthorEmail: commit.AuthorEmail, AuthorName: commit.AuthorName, Message: commit.Message})
 		}
 		pushes = append(pushes, push)
 	}

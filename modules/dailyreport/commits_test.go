@@ -36,3 +36,27 @@ func TestMatchesRoleLabels(t *testing.T) {
 		t.Fatal("unlabeled user matched")
 	}
 }
+
+func TestAuthorAliases(t *testing.T) {
+	aliases := map[string][]string{"tandeqing": {"zaixiao", "yideqing"}, "luohaojun": {"neko233*"}, "other": {"neko233-special"}}
+	for name, want := range map[string]string{"ZAIXIAO": "tandeqing", "yideqing": "tandeqing", "neko233-dev": "luohaojun", "neko233-special": "other", "unknown": ""} {
+		if got := MatchAuthorAlias(name, aliases); got != want {
+			t.Fatalf("%s: got %s, want %s", name, got, want)
+		}
+	}
+	pushes := []Push{{RepositoryID: 1, Total: 3, Commits: []Commit{{ID: "1", AuthorName: "zaixiao", AuthorEmail: "wrong@example.com"}, {ID: "2", AuthorName: "neko233-dev", AuthorEmail: "unknown@example.com"}, {ID: "3", AuthorName: "none", AuthorEmail: "registered@example.com"}}}}
+	grouped, err := GroupCommits(pushes, map[string]string{"tandeqing": "person", "luohaojun": "person"}, func(email string) (string, error) {
+		if email == "registered@example.com" {
+			return "tandeqing", nil
+		}
+		return "", nil
+	}, aliases)
+	if err != nil || len(grouped["tandeqing"]) != 2 || len(grouped["luohaojun"]) != 1 {
+		t.Fatalf("unexpected grouping: %v %v", grouped, err)
+	}
+	for _, bad := range []map[string][]string{{"a": {"same"}, "b": {"SAME"}}, {"a": {"abc*"}, "b": {"abcd*"}}, {"a": {"*"}}} {
+		if (Config{Schedule: Schedule{Time: "21:00"}, AuthorAliases: bad}).Validate() == nil {
+			t.Fatalf("accepted %v", bad)
+		}
+	}
+}

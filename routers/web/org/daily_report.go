@@ -53,8 +53,8 @@ func reportRoles(ctx *context.Context, rows []dailyReportAccount, cfg dailyrepor
 }
 
 type dailyReportAccount struct {
-	ID                   int64
-	Name, FullName, Kind string
+	ID                            int64
+	Name, FullName, Kind, Aliases string
 }
 
 func reportAccounts(ctx *context.Context, cfg dailyreport.Config) ([]dailyReportAccount, error) {
@@ -64,7 +64,7 @@ func reportAccounts(ctx *context.Context, cfg dailyreport.Config) ([]dailyReport
 	}
 	rows := make([]dailyReportAccount, 0, len(users))
 	for _, user := range users {
-		rows = append(rows, dailyReportAccount{user.ID, user.Name, user.FullName, cfg.Accounts[user.Name]})
+		rows = append(rows, dailyReportAccount{user.ID, user.Name, user.FullName, cfg.Accounts[user.Name], strings.Join(cfg.AuthorAliases[user.Name], "\n")})
 	}
 	return rows, nil
 }
@@ -175,8 +175,15 @@ func DailyReportPost(ctx *context.Context) {
 		cfg.Schedule.CalendarYears = append(cfg.Schedule.CalendarYears, year)
 	}
 	cfg.Accounts = make(map[string]string)
+	cfg.AuthorAliases = make(map[string][]string)
 	for _, row := range rows {
-		kind := ctx.FormString("account_" + strconv.FormatInt(row.ID, 10))
+		id := strconv.FormatInt(row.ID, 10)
+		for _, line := range strings.Split(strings.ReplaceAll(ctx.FormString("aliases_"+id), "\r\n", "\n"), "\n") {
+			if alias := strings.TrimSpace(line); alias != "" {
+				cfg.AuthorAliases[row.Name] = append(cfg.AuthorAliases[row.Name], alias)
+			}
+		}
+		kind := ctx.FormString("account_" + id)
 		if kind != "" {
 			cfg.Accounts[row.Name] = kind
 		}
@@ -233,4 +240,16 @@ func DailyReportAnalyze(ctx *context.Context) {
 	ctx.Data["ReportAnalyzed"] = true
 	ctx.Data["ReportAnalyses"] = results
 	renderDailyReport(ctx, cfg, http.StatusOK)
+}
+
+// DailyReportRunDate sends an organization's historical report with delivery deduplication.
+func DailyReportRunDate(ctx *context.Context) {
+	result, err := dailyreport_service.ExecuteOrganizationDate(ctx, ctx.Org.Organization.ID, ctx.FormString("date"), time.Now())
+	if err != nil {
+		log.Error("Organization historical daily report failed: %v", err)
+		ctx.Flash.Error(string(ctx.Tr("admin.daily_report.failed", result.Sent, result.Skipped, result.Failed)) + " " + err.Error())
+	} else {
+		ctx.Flash.Success(ctx.Tr("admin.daily_report.done", result.Sent, result.Skipped))
+	}
+	ctx.Redirect(ctx.Org.Organization.OrganisationLink() + "/settings/daily-report")
 }

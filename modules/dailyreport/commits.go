@@ -13,6 +13,7 @@ import (
 type Commit struct {
 	ID          string
 	AuthorEmail string
+	AuthorName  string
 	Message     string
 }
 
@@ -32,7 +33,7 @@ type AttributedCommit struct {
 
 // GroupCommits attributes complete push records and removes repeat pushes.
 // An empty account from resolve denotes an email without a matching account.
-func GroupCommits(pushes []Push, accounts map[string]string, resolve func(string) (string, error)) (map[string][]AttributedCommit, error) {
+func GroupCommits(pushes []Push, accounts map[string]string, resolve func(string) (string, error), aliases ...map[string][]string) (map[string][]AttributedCommit, error) {
 	if resolve == nil {
 		return nil, errors.New("missing commit author resolver")
 	}
@@ -51,7 +52,14 @@ func GroupCommits(pushes []Push, accounts map[string]string, resolve func(string
 				continue
 			}
 			seen[key] = true
-			account, err := resolve(commit.AuthorEmail)
+			account := ""
+			if len(aliases) > 0 {
+				account = MatchAuthorAlias(commit.AuthorName, aliases[0])
+			}
+			var err error
+			if account == "" {
+				account, err = resolve(commit.AuthorEmail)
+			}
 			if err != nil {
 				return nil, errors.New("cannot resolve commit author")
 			}
@@ -77,4 +85,26 @@ func MatchesRoleLabels(enabled bool, selected, userLabels []string) bool {
 		}
 	}
 	return false
+}
+
+// MatchAuthorAlias resolves exact names before a trailing-star prefix.
+func MatchAuthorAlias(name string, aliases map[string][]string) string {
+	name = strings.ToLower(strings.TrimSpace(name))
+	var exact, prefix string
+	for account, patterns := range aliases {
+		for _, pattern := range patterns {
+			pattern = strings.ToLower(pattern)
+			if strings.HasSuffix(pattern, "*") {
+				if strings.HasPrefix(name, strings.TrimSuffix(pattern, "*")) {
+					prefix = account
+				}
+			} else if name == pattern {
+				exact = account
+			}
+		}
+	}
+	if exact != "" {
+		return exact
+	}
+	return prefix
 }

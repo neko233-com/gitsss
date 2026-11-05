@@ -1045,6 +1045,7 @@ func registerWebRoutes(m *web.Router, webAuth *AuthMiddleware) {
 				m.Combo("/team-rules").Get(org.RepoTeamRules).Post(org.RepoTeamRulesPost)
 				m.Combo("/daily-report").Get(org.DailyReport).Post(org.DailyReportPost)
 				m.Post("/daily-report/analyze", org.DailyReportAnalyze)
+				m.Post("/daily-report/run-date", org.DailyReportRunDate)
 				m.Combo("").Get(org.Settings).
 					Post(web.Bind(forms.UpdateOrgSettingForm{}), org.SettingsPost)
 				m.Post("/avatar", web.Bind(forms.AvatarForm{}), org.SettingsAvatar)

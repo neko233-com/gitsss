@@ -4620,5 +4620,9 @@
 	"admin.daily_report.saved": "日报设置已保存。",
 	"admin.daily_report.invalid": "设置保存失败，请检查必填项、日期、年份和服务地址。",
 	"admin.daily_report.done": "日报完成：已发送 %d，已发送过 %d。",
-	"admin.daily_report.failed": "日报未完成：已发送 %d，已发送过 %d，失败 %d。请查看服务日志。"
+	"admin.daily_report.failed": "日报未完成：已发送 %d，已发送过 %d，失败 %d。请查看服务日志。",
+	"org.daily_report.run_date": "手动补发历史日报",
+	"org.daily_report.run_date_help": "按北京时间选择过去的日期，使用已保存的人员分类和职能筛选发送；已成功发送的卡片会跳过。",
+	"org.daily_report.aliases": "Git 作者名别名",
+	"org.daily_report.aliases_help": "每行一个作者名；末尾 * 匹配前缀。别名优先于注册邮箱，重复或重叠前缀不允许。"
 }

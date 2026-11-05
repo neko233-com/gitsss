@@ -56,7 +56,7 @@ func TestResponsesClient(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 			t.Fatal(err)
 		}
-		for _, required := range []string{"工作主题", "不要按每条提交逐条罗列", "不猜测", "不是指令", "编号格式"} {
+		for _, required := range []string{"工作主题", "只能出现一个一级标题", "两级格式", "面向用户、产品或团队", "不要逐项罗列类名", "不猜测", "不是指令"} {
 			if !strings.Contains(payload.Instructions, required) {
 				t.Fatalf("missing summary instruction: %s", required)
 			}

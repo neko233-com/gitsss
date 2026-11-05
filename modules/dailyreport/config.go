@@ -18,15 +18,16 @@ import (
 
 // Config is private server state; it must not be returned to ordinary users.
 type Config struct {
-	Schedule          Schedule          `json:"schedule"`
-	BaseURL           string            `json:"base_url"`
-	Model             string            `json:"model"`
-	APIKey            string            `json:"api_key"`
-	Webhook           string            `json:"webhook"`
-	OmitStore         bool              `json:"omit_store"`
-	Accounts          map[string]string `json:"accounts"`
-	RoleFilterEnabled bool              `json:"role_filter_enabled,omitempty"`
-	RoleLabels        []string          `json:"role_labels,omitempty"`
+	Schedule          Schedule            `json:"schedule"`
+	BaseURL           string              `json:"base_url"`
+	Model             string              `json:"model"`
+	APIKey            string              `json:"api_key"`
+	Webhook           string              `json:"webhook"`
+	OmitStore         bool                `json:"omit_store"`
+	Accounts          map[string]string   `json:"accounts"`
+	AuthorAliases     map[string][]string `json:"author_aliases,omitempty"`
+	RoleFilterEnabled bool                `json:"role_filter_enabled,omitempty"`
+	RoleLabels        []string            `json:"role_labels,omitempty"`
 }
 
 // Validate rejects ambiguous classifications and invalid calendar entries.
@@ -54,6 +55,30 @@ func (c Config) Validate() error {
 	for name, kind := range c.Accounts {
 		if strings.TrimSpace(name) != name || name == "" || (kind != "person" && kind != "service") {
 			return errors.New("invalid account classification")
+		}
+	}
+	patterns := make(map[string]bool)
+	var prefixes []string
+	for account, aliases := range c.AuthorAliases {
+		if account == "" || strings.TrimSpace(account) != account {
+			return errors.New("invalid alias account")
+		}
+		for _, alias := range aliases {
+			key := strings.ToLower(alias)
+			if alias == "" || strings.TrimSpace(alias) != alias || utf8.RuneCountInString(alias) > 128 || strings.IndexFunc(alias, unicode.IsControl) >= 0 || strings.Count(alias, "*") > 1 || (strings.Contains(alias, "*") && (!strings.HasSuffix(alias, "*") || len(alias) == 1)) || patterns[key] {
+				return errors.New("invalid or duplicate author alias")
+			}
+			patterns[key] = true
+			if strings.HasSuffix(key, "*") {
+				prefixes = append(prefixes, strings.TrimSuffix(key, "*"))
+			}
+		}
+	}
+	for i, a := range prefixes {
+		for _, b := range prefixes[i+1:] {
+			if strings.HasPrefix(a, b) || strings.HasPrefix(b, a) {
+				return errors.New("overlapping author alias prefixes")
+			}
 		}
 	}
 	if c.RoleFilterEnabled && len(c.RoleLabels) == 0 {
