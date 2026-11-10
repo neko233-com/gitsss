@@ -97,7 +97,8 @@ func TestOrganizationDailyReportAnalysisIsolation(t *testing.T) {
 		serial++
 		raw, err := json.Marshal(repository.PushCommits{Len: 1, Commits: []*repository.PushCommit{{Sha1: fmt.Sprintf("%040d", serial), AuthorEmail: email, Message: message}}})
 		require.NoError(t, err)
-		require.NoError(t, db.Insert(t.Context(), &activities_model.Action{UserID: 2, ActUserID: 2, RepoID: repoID, OpType: activities_model.ActionCommitRepo, Content: string(raw), CreatedUnix: timeutil.TimeStamp(at.Unix())}))
+		_, err = db.GetEngine(t.Context()).NoAutoTime().Insert(&activities_model.Action{UserID: 2, ActUserID: 2, RepoID: repoID, OpType: activities_model.ActionCommitRepo, Content: string(raw), CreatedUnix: timeutil.TimeStamp(at.Unix())})
+		require.NoError(t, err)
 	}
 	add(3, 2, "user2@example.com", "ORG_ONE", now.Add(-time.Minute))
 	add(3, 4, "user4@example.com", "ORG_TWO", now.Add(-time.Minute))
