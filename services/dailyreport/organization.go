@@ -34,7 +34,7 @@ func LoadOrgConfig(orgID int64) (dailyreport.Config, error) {
 	}
 	cfg, err := dailyreport.LoadConfig(orgPath(orgID, "config.json"))
 	if errors.Is(err, os.ErrNotExist) {
-		return dailyreport.Config{Schedule: dailyreport.Schedule{Time: "21:00"}, Accounts: make(map[string]string)}, nil
+		return dailyreport.Config{Schedule: dailyreport.Schedule{Time: "18:30"}, Accounts: make(map[string]string)}, nil
 	}
 	return cfg, err
 }
@@ -102,13 +102,11 @@ func groupOrganization(ctx context.Context, orgID int64, cfg dailyreport.Config,
 			kinds[member.Name] = "person"
 		}
 	}
-	loc, err := time.LoadLocation("Asia/Shanghai")
+	start, end, err := dailyreport.ReportWindow(now)
 	if err != nil {
 		return nil, errors.New("cannot load report timezone")
 	}
-	local := now.In(loc)
-	start := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
-	pushes, err := collectPushes(ctx, orgID, start, now.Add(time.Second))
+	pushes, err := collectPushes(ctx, orgID, start, end)
 	if err != nil {
 		return nil, err
 	}
@@ -235,6 +233,13 @@ func executeOrganization(ctx context.Context, orgID int64, now time.Time, automa
 		due, err := cfg.Schedule.Due(now)
 		if err != nil || !due {
 			return empty, err
+		}
+		_, end, err := dailyreport.ReportWindow(now)
+		if err != nil {
+			return empty, err
+		}
+		if end.Format("2006-01-02") != now.In(end.Location()).Format("2006-01-02") {
+			return empty, errors.New("daily report must run at or after 18:30 Shanghai time")
 		}
 	} else if cfg.BaseURL == "" || cfg.APIKey == "" || cfg.Model == "" || cfg.Webhook == "" {
 		return empty, errors.New("daily report provider and webhook are not configured")

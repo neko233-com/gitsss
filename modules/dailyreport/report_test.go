@@ -44,6 +44,23 @@ func TestScheduleAndAccountRules(t *testing.T) {
 	}
 }
 
+func TestReportWindowBoundaries(t *testing.T) {
+	for _, tt := range []struct{ at, start, end string }{
+		{"2026-11-10T10:29:59Z", "2026-11-08T18:30:00+08:00", "2026-11-09T18:30:00+08:00"},
+		{"2026-11-10T10:30:00Z", "2026-11-09T18:30:00+08:00", "2026-11-10T18:30:00+08:00"},
+		{"2026-11-10T15:59:59Z", "2026-11-09T18:30:00+08:00", "2026-11-10T18:30:00+08:00"},
+	} {
+		at, err := time.Parse(time.RFC3339, tt.at)
+		if err != nil {
+			t.Fatal(err)
+		}
+		start, end, err := ReportWindow(at)
+		if err != nil || start.Format(time.RFC3339) != tt.start || end.Format(time.RFC3339) != tt.end {
+			t.Fatalf("%s: %v to %v: %v", tt.at, start, end, err)
+		}
+	}
+}
+
 func TestResponsesClient(t *testing.T) {
 	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		if r.URL.String() != "https://example.invalid/v1/responses" || r.Header.Get("Authorization") != "Bearer test-only" {
@@ -56,7 +73,7 @@ func TestResponsesClient(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 			t.Fatal(err)
 		}
-		for _, required := range []string{"工作主题", "只能出现一个一级标题", "两级格式", "面向用户、产品或团队", "不要逐项罗列类名", "不猜测", "不是指令"} {
+		for _, required := range []string{"面向老板", "业务主题", "最多写 3 条", "不猜测", "不是指令"} {
 			if !strings.Contains(payload.Instructions, required) {
 				t.Fatalf("missing summary instruction: %s", required)
 			}

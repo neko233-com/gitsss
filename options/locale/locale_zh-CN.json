@@ -4584,7 +4584,7 @@
 	"org.daily_report.settings": "组织日报设置",
 	"org.daily_report.selection_required": "请至少选择一位成员或一个职能标签。",
 	"org.daily_report.scheduled_roles_help": "此筛选用于定时发送；仅已分类为个人且有提交的账号会生成日报。选择指定职能时，命中任一标签即可。",
-	"org.daily_report.intro": "日报只统计本组织仓库及当前组织成员。定时发送和手动分析分别配置；密钥仅在服务端保存。",
+	"org.daily_report.intro": "日报统计本组织成员昨日 18:30 至今日 18:30 的工作；面向管理者精简呈现业务成果。定时发送和手动分析分别配置；密钥仅在服务端保存。",
 	"admin.daily_report.intro": "使用 Responses API 汇总今天推送的提交，为每个已分类的个人账号发送一张飞书卡片。",
 	"admin.daily_report.provider": "模型与飞书机器人",
 	"admin.daily_report.base_url": "Responses API 基础地址",
