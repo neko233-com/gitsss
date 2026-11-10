@@ -71,7 +71,9 @@ func TestOrganizationDailyReportAnalysisIsolation(t *testing.T) {
 	setting.AppDataPath = t.TempDir()
 	t.Cleanup(func() { setting.AppDataPath = oldPath })
 	require.NoError(t, user_model.SetUserSettingJSON(t.Context(), 4, user_model.SettingsKeyRoleLabels, []string{"策划"}))
-	now := time.Now()
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	require.NoError(t, err)
+	now := time.Date(2026, 11, 10, 18, 30, 0, 0, loc)
 	var payloads []string
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var input struct {
@@ -90,15 +92,20 @@ func TestOrganizationDailyReportAnalysisIsolation(t *testing.T) {
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 	cfg := dailyreport.Config{Schedule: dailyreport.Schedule{Time: "21:00"}, BaseURL: server.URL, Model: "test", APIKey: "test", Accounts: map[string]string{"user2": "person", "user4": "person"}}
 	require.NoError(t, dailyreport_service.SaveOrgConfig(3, cfg))
-	add := func(repoID, authorID int64, email, message string) {
-		raw, err := json.Marshal(repository.PushCommits{Len: 1, Commits: []*repository.PushCommit{{Sha1: fmt.Sprintf("%040d", repoID*100+authorID), AuthorEmail: email, Message: message}}})
+	serial := int64(0)
+	add := func(repoID, authorID int64, email, message string, at time.Time) {
+		serial++
+		raw, err := json.Marshal(repository.PushCommits{Len: 1, Commits: []*repository.PushCommit{{Sha1: fmt.Sprintf("%040d", serial), AuthorEmail: email, Message: message}}})
 		require.NoError(t, err)
-		require.NoError(t, db.Insert(t.Context(), &activities_model.Action{UserID: 2, ActUserID: 2, RepoID: repoID, OpType: activities_model.ActionCommitRepo, Content: string(raw), CreatedUnix: timeutil.TimeStamp(now.Unix())}))
+		require.NoError(t, db.Insert(t.Context(), &activities_model.Action{UserID: 2, ActUserID: 2, RepoID: repoID, OpType: activities_model.ActionCommitRepo, Content: string(raw), CreatedUnix: timeutil.TimeStamp(at.Unix())}))
 	}
-	add(3, 2, "user2@example.com", "ORG_ONE")
-	add(3, 4, "user4@example.com", "ORG_TWO")
-	add(1, 2, "user2@example.com", "OTHER_REPOSITORY")
-	add(23, 2, "user2@example.com", "OTHER_ORGANIZATION")
+	add(3, 2, "user2@example.com", "ORG_ONE", now.Add(-time.Minute))
+	add(3, 4, "user4@example.com", "ORG_TWO", now.Add(-time.Minute))
+	add(1, 2, "user2@example.com", "OTHER_REPOSITORY", now.Add(-time.Minute))
+	add(23, 2, "user2@example.com", "OTHER_ORGANIZATION", now.Add(-time.Minute))
+	add(3, 2, "user2@example.com", "WINDOW_START_INCLUDED", now.AddDate(0, 0, -1))
+	add(3, 2, "user2@example.com", "BEFORE_WINDOW", now.AddDate(0, 0, -1).Add(-time.Second))
+	add(3, 2, "user2@example.com", "WINDOW_END_EXCLUDED", now)
 	results, err := dailyreport_service.AnalyzeOrganization(t.Context(), 3, now, dailyreport_service.ManualSelection{AccountIDs: []int64{2}, RoleLabels: []string{"策划"}})
 	require.NoError(t, err)
 	require.Len(t, results, 2)
@@ -106,6 +113,9 @@ func TestOrganizationDailyReportAnalysisIsolation(t *testing.T) {
 	assert.Equal(t, "user4", results[1].Account)
 	assert.Contains(t, strings.Join(payloads, " "), "ORG_ONE")
 	assert.Contains(t, strings.Join(payloads, " "), "ORG_TWO")
+	assert.Contains(t, strings.Join(payloads, " "), "WINDOW_START_INCLUDED")
+	assert.NotContains(t, strings.Join(payloads, " "), "BEFORE_WINDOW")
+	assert.NotContains(t, strings.Join(payloads, " "), "WINDOW_END_EXCLUDED")
 	assert.NotContains(t, strings.Join(payloads, " "), "OTHER_REPOSITORY")
 	assert.NotContains(t, strings.Join(payloads, " "), "OTHER_ORGANIZATION")
 	_, err = dailyreport_service.AnalyzeOrganization(t.Context(), 3, now, dailyreport_service.ManualSelection{})
@@ -122,8 +132,6 @@ func TestOrganizationDailyReportAnalysisIsolation(t *testing.T) {
 		}
 		return transport.RoundTrip(r)
 	})
-	loc, err := time.LoadLocation("Asia/Shanghai")
-	require.NoError(t, err)
 	cfg.Webhook = "https://open.feishu.cn/open-apis/bot/v2/hook/test"
 	cfg.Schedule.Enabled = true
 	cfg.Schedule.Time = now.In(loc).Format("15:04")
