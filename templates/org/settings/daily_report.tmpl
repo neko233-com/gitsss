@@ -35,7 +35,7 @@
 			<div class="field"><label><input type="checkbox" name="omit_store" {{if .ReportOmitStore}}checked{{end}}> {{ctx.Locale.Tr "admin.daily_report.omit_store"}}</label></div>
 			<h4 class="ui dividing header">{{ctx.Locale.Tr "admin.daily_report.schedule"}}</h4>
 			<div class="field"><label><input type="checkbox" name="enabled" {{if .ReportSchedule.Enabled}}checked{{end}}> {{ctx.Locale.Tr "admin.daily_report.enabled"}}</label></div>
-			<div class="field"><label for="report-time">{{ctx.Locale.Tr "admin.daily_report.time"}}</label><input id="report-time" name="time" type="time" required value="{{.ReportSchedule.Time}}"></div>
+			<div class="field"><label for="report-time">{{ctx.Locale.Tr "admin.daily_report.time"}}</label><input id="report-time" type="time" readonly value="{{.ReportSchedule.Time}}"></div>
 			<div class="field"><label><input type="checkbox" name="skip_holidays" {{if .ReportSchedule.SkipHolidays}}checked{{end}}> {{ctx.Locale.Tr "admin.daily_report.skip_holidays"}}</label></div>
 			<p class="help">{{ctx.Locale.Tr "admin.daily_report.calendar_help"}}</p>
 			<div class="field"><label for="report-years">{{ctx.Locale.Tr "admin.daily_report.years"}}</label><input id="report-years" name="years" value="{{.ReportYears}}" placeholder="2026, 2027"></div>

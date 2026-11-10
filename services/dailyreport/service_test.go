@@ -10,7 +10,46 @@ import (
 	"time"
 
 	"github.com/neko233-com/gitsss/modules/dailyreport"
+	"github.com/neko233-com/gitsss/modules/setting"
 )
+
+func TestExistingOrganizationUsesReportCutoff(t *testing.T) {
+	previous := setting.AppDataPath
+	setting.AppDataPath = t.TempDir()
+	t.Cleanup(func() { setting.AppDataPath = previous })
+
+	old := dailyreport.Config{Schedule: dailyreport.Schedule{Time: "21:00"}, Accounts: map[string]string{"alice": "person"}}
+	path := orgPath(7, "config.json")
+	if err := dailyreport.SaveConfig(path, old); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadOrgConfig(7)
+	if err != nil || got.Schedule.Time != "18:30" || got.Accounts["alice"] != "person" {
+		t.Fatalf("upgraded configuration: %#v, %v", got.Schedule, err)
+	}
+	stored, err := dailyreport.LoadConfig(path)
+	if err != nil || stored.Schedule.Time != "21:00" {
+		t.Fatal("reading the old configuration must not rewrite it")
+	}
+	if err := SaveOrgConfig(7, old); err != nil {
+		t.Fatal(err)
+	}
+	stored, err = dailyreport.LoadConfig(path)
+	if err != nil || stored.Schedule.Time != "18:30" || stored.Accounts["alice"] != "person" {
+		t.Fatal("saving must retain settings and fix the report time")
+	}
+	loc := time.FixedZone("CST", 8*60*60)
+	got.Schedule.Enabled = true
+	for _, tc := range []struct {
+		hour, minute int
+		want         bool
+	}{{18, 29, false}, {18, 30, true}, {21, 0, false}} {
+		due, err := got.Schedule.Due(time.Date(2026, 11, 10, tc.hour, tc.minute, 0, 0, loc))
+		if err != nil || due != tc.want {
+			t.Fatalf("%02d:%02d due=%v err=%v", tc.hour, tc.minute, due, err)
+		}
+	}
+}
 
 func TestComparisonIDsRejectsRefsAndMalformedURLs(t *testing.T) {
 	a, b := strings.Repeat("a", 40), strings.Repeat("b", 40)

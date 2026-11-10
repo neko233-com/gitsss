@@ -23,6 +23,8 @@ import (
 	"github.com/neko233-com/gitsss/modules/setting"
 )
 
+const organizationReportTime = "18:30"
+
 func orgPath(orgID int64, name string) string {
 	return filepath.Join(setting.AppDataPath, "daily-report", "organizations", strconv.FormatInt(orgID, 10), name)
 }
@@ -34,7 +36,11 @@ func LoadOrgConfig(orgID int64) (dailyreport.Config, error) {
 	}
 	cfg, err := dailyreport.LoadConfig(orgPath(orgID, "config.json"))
 	if errors.Is(err, os.ErrNotExist) {
-		return dailyreport.Config{Schedule: dailyreport.Schedule{Time: "18:30"}, Accounts: make(map[string]string)}, nil
+		return dailyreport.Config{Schedule: dailyreport.Schedule{Time: organizationReportTime}, Accounts: make(map[string]string)}, nil
+	}
+	// Existing configurations adopt the reporting cutoff without rewriting secrets on reads.
+	if err == nil {
+		cfg.Schedule.Time = organizationReportTime
 	}
 	return cfg, err
 }
@@ -43,6 +49,7 @@ func SaveOrgConfig(orgID int64, cfg dailyreport.Config) error {
 	if orgID <= 0 {
 		return errors.New("invalid organization")
 	}
+	cfg.Schedule.Time = organizationReportTime
 	return dailyreport.SaveConfig(orgPath(orgID, "config.json"), cfg)
 }
 

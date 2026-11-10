@@ -161,7 +161,6 @@ func DailyReportPost(ctx *context.Context) {
 	}
 	cfg.OmitStore = ctx.FormBool("omit_store")
 	cfg.Schedule.Enabled = ctx.FormBool("enabled")
-	cfg.Schedule.Time = strings.TrimSpace(ctx.FormString("time"))
 	cfg.Schedule.SkipHolidays = ctx.FormBool("skip_holidays")
 	cfg.Schedule.Holidays = reportLines(ctx.FormString("holidays"))
 	cfg.Schedule.Workdays = reportLines(ctx.FormString("workdays"))
