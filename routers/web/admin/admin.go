@@ -171,13 +171,19 @@ func Dashboard(ctx *context.Context) {
 	ctx.Data["RemoteVersion"] = updatechecker.GetRemoteVersion(ctx)
 	ctx.Data["SysStatus"] = readSystemStatus()
 	ctx.Data["SSH"] = setting.SSH
-	if storageService, err := storageawareness.Get(); err == nil {
-		ctx.Data["StorageSnapshot"] = storageService.Snapshot()
-	} else {
-		ctx.Data["StorageAwarenessError"] = err.Error()
-	}
 	prepareStartupProblemsAlert(ctx)
 	ctx.HTML(http.StatusOK, tplDashboard)
+}
+
+// DashboardStorage loads the potentially expensive inventory independently of the dashboard.
+func DashboardStorage(ctx *context.Context) {
+	storageService, err := storageawareness.Get()
+	if err != nil {
+		ctx.ServerError("StorageAwareness", err)
+		return
+	}
+	ctx.Data["StorageSnapshot"] = storageService.Snapshot()
+	ctx.HTML(http.StatusOK, "admin/dashboard_storage")
 }
 
 func SystemStatus(ctx *context.Context) {

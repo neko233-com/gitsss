@@ -28,6 +28,31 @@ func TestAdminViewUsers(t *testing.T) {
 	session.MakeRequest(t, req, http.StatusForbidden)
 }
 
+func TestAdminUserListSearchAndActions(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+
+	session := loginUser(t, "user1")
+	resp := session.MakeRequest(t, NewRequest(t, "GET", "/-/admin/users?q=EIGhT"), http.StatusOK)
+	body := resp.Body.String()
+	assert.Contains(t, body, "User Eight")
+	assert.Contains(t, body, `id="delete-user-8"`)
+	assert.Contains(t, body, `action="/-/admin/users/8/delete"`)
+	allUsers := session.MakeRequest(t, NewRequest(t, "GET", "/-/admin/users"), http.StatusOK).Body.String()
+	assert.NotContains(t, allUsers, `id="delete-user-1"`)
+	assert.Regexp(t, `class="admin-user-date">\d{4}-\d{2}-\d{2}</td>`, allUsers)
+}
+
+func TestAdminDashboardStorageLoadsSeparately(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+
+	session := loginUser(t, "user1")
+	resp := session.MakeRequest(t, NewRequest(t, "GET", "/-/admin"), http.StatusOK)
+	assert.Contains(t, resp.Body.String(), `data-fetch-url="/-/admin/dashboard_storage"`)
+	assert.NotContains(t, resp.Body.String(), `class="storage-dashboard-stats"`)
+	session.MakeRequest(t, NewRequest(t, "GET", "/-/admin/dashboard_storage"), http.StatusOK)
+	loginUser(t, "user2").MakeRequest(t, NewRequest(t, "GET", "/-/admin/dashboard_storage"), http.StatusForbidden)
+}
+
 func TestAdminViewUser(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 

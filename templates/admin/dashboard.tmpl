@@ -1,22 +1,8 @@
 {{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin dashboard")}}
 <div class="admin-setting-content">
-	{{if .StorageSnapshot}}
-	<div class="ui segment">
-		<div class="flex-text-block tw-justify-between">
-			<div><strong>{{ctx.Locale.Tr "admin.storage_awareness.title"}}</strong> · {{FileSize .StorageSnapshot.AvailableBytes}} {{ctx.Locale.Tr "admin.storage_awareness.available"}}</div>
-			<a href="{{AppSubUrl}}/-/admin/storage">{{ctx.Locale.Tr "view"}}</a>
-		</div>
-		<div class="storage-dashboard-stats">
-			<div><span>{{ctx.Locale.Tr "admin.storage_awareness.capacity"}}</span><strong>{{FileSize .StorageSnapshot.CapacityBytes}}</strong></div>
-			<div><span>{{ctx.Locale.Tr "admin.storage_awareness.used"}}</span><strong>{{FileSize .StorageSnapshot.UsedBytes}}</strong></div>
-			<div><span>{{ctx.Locale.Tr "admin.storage_awareness.available"}}</span><strong>{{FileSize .StorageSnapshot.AvailableBytes}}</strong></div>
-			<div><span>{{ctx.Locale.Tr "admin.storage_awareness.git_lfs"}}</span><strong>{{if or .StorageSnapshot.InventoryTruncated .StorageSnapshot.InventoryError}}≥ {{end}}{{FileSize .StorageSnapshot.GitLFSBytes}}</strong></div>
-		</div>
-		{{template "admin/usage_meter" (dict "Label" (ctx.Locale.Tr "admin.storage_awareness.used") "Used" .StorageSnapshot.UsedBytes "Capacity" .StorageSnapshot.CapacityBytes "Warning" .StorageSnapshot.Warning "Critical" .StorageSnapshot.WriteProtected)}}
-		{{if .StorageSnapshot.MeasurementError}}<p class="storage-measurement-note">{{ctx.Locale.Tr "admin.storage_awareness.measurement_failed"}}</p>{{end}}
-		{{if .StorageSnapshot.WriteProtected}}<div class="ui negative message">{{ctx.Locale.Tr "admin.storage_awareness.protected"}}</div>{{else if .StorageSnapshot.Warning}}<div class="ui warning message">{{ctx.Locale.Tr "admin.storage_awareness.warning"}}</div>{{end}}
+	<div class="ui segment admin-dashboard-storage" data-fetch-url="{{AppSubUrl}}/-/admin/dashboard_storage" data-fetch-trigger="load" aria-live="polite">
+		{{ctx.Locale.Tr "admin.storage_awareness.loading"}} · <a href="{{AppSubUrl}}/-/admin/storage">{{ctx.Locale.Tr "view"}}</a>
 	</div>
-	{{end}}
 	<div class="admin-quick-actions">
 		<a class="admin-quick-action" href="{{AppSubUrl}}/-/admin/users">
 			{{svg "octicon-people" 22}}
