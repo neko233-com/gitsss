@@ -313,6 +313,39 @@ func DeleteUser(ctx *context.APIContext) {
 	ctx.Status(http.StatusNoContent)
 }
 
+// SafeDeleteUser removes memberships before deleting a user without purging owned assets.
+func SafeDeleteUser(ctx *context.APIContext) {
+	// swagger:operation DELETE /admin/users/{username}/safe admin adminSafeDeleteUser
+	// ---
+	// summary: Safely delete a user and remove organization memberships
+	// parameters:
+	// - name: username
+	//   in: path
+	//   type: string
+	//   required: true
+	// responses:
+	//   "204":
+	//     "$ref": "#/responses/empty"
+	//   "422":
+	//     "$ref": "#/responses/validationError"
+	if ctx.ContextUser.IsOrganization() || ctx.ContextUser.ID == ctx.Doer.ID {
+		ctx.APIError(http.StatusUnprocessableEntity, "target must be another user")
+		return
+	}
+	if err := user_service.SafeDeleteUser(ctx, ctx.ContextUser); err != nil {
+		if repo_model.IsErrUserOwnRepos(err) || org_model.IsErrLastOrgOwner(err) ||
+			org_model.IsErrUserHasOrgs(err) || packages_model.IsErrUserOwnPackages(err) ||
+			user_model.IsErrDeleteLastAdminUser(err) {
+			ctx.APIError(http.StatusUnprocessableEntity, err.Error())
+		} else {
+			ctx.APIErrorInternal(err)
+		}
+		return
+	}
+	log.Trace("Account safely deleted by admin(%s): %s", ctx.Doer.Name, ctx.ContextUser.Name)
+	ctx.Status(http.StatusNoContent)
+}
+
 // CreatePublicKey api for creating a public key to a user
 func CreatePublicKey(ctx *context.APIContext) {
 	// swagger:operation POST /admin/users/{username}/keys admin adminCreatePublicKey

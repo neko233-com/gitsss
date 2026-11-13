@@ -1285,6 +1285,31 @@
         }
       }
     },
+    "/admin/users/{username}/safe": {
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Safely delete a user and remove organization memberships",
+        "operationId": "adminSafeDeleteUser",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "username",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "$ref": "#/responses/empty"
+          },
+          "422": {
+            "$ref": "#/responses/validationError"
+          }
+        }
+      }
+    },
     "/gitignore/templates": {
       "get": {
         "produces": [

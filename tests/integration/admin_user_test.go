@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"testing"
 
+	auth_model "github.com/neko233-com/gitsss/models/auth"
+	"github.com/neko233-com/gitsss/models/organization"
 	"github.com/neko233-com/gitsss/models/unittest"
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/tests"
@@ -26,6 +28,22 @@ func TestAdminViewUsers(t *testing.T) {
 	session = loginUser(t, "user2")
 	req = NewRequest(t, "GET", "/-/admin/users")
 	session.MakeRequest(t, req, http.StatusForbidden)
+}
+
+func TestAPISafeDeleteUser(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	admin := getUserToken(t, "user1", auth_model.AccessTokenScopeWriteAdmin)
+	user := getUserToken(t, "user2", auth_model.AccessTokenScopeWriteAdmin)
+	request := func(name, token string, status int) {
+		req := NewRequest(t, "DELETE", "/api/v1/admin/users/"+name+"/safe").AddTokenAuth(token)
+		MakeRequest(t, req, status)
+	}
+	request("user4", user, http.StatusForbidden)
+	request("user1", admin, http.StatusUnprocessableEntity)
+	request("user5", admin, http.StatusUnprocessableEntity)
+	request("user4", admin, http.StatusNoContent)
+	unittest.AssertNotExistsBean(t, &user_model.User{ID: 4})
+	unittest.AssertNotExistsBean(t, &organization.OrgUser{UID: 4, OrgID: 3})
 }
 
 func TestAdminUserListSearchAndActions(t *testing.T) {

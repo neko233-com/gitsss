@@ -12430,6 +12430,33 @@
         ]
       }
     },
+    "/admin/users/{username}/safe": {
+      "delete": {
+        "operationId": "adminSafeDeleteUser",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "username",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "$ref": "#/components/responses/empty"
+          },
+          "422": {
+            "$ref": "#/components/responses/validationError"
+          }
+        },
+        "summary": "Safely delete a user and remove organization memberships",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/gitignore/templates": {
       "get": {
         "operationId": "listGitignoresTemplates",
@@ -14902,6 +14929,14 @@
           {
             "in": "query",
             "name": "q",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter files by Windows, macOS, iOS, Android, all, or unknown. Directories remain visible for navigation.",
+            "in": "query",
+            "name": "platform",
             "schema": {
               "type": "string"
             }

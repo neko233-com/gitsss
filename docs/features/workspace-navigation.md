@@ -8,6 +8,8 @@ Organization links sit directly below Repositories in the organization sidebar, 
 
 The dashboard renders independently of the storage inventory; the disk summary loads separately and can take longer on large storage trees. Account management searches usernames, full names and primary email addresses by case-insensitive substring, retains server-side filtering and pagination, and displays full names and dates in `yyyy-MM-dd` using the configured UI timezone. Administrators can open a confirmation from each account row and optionally purge owned data. The existing deletion checks and permissions still apply; the current administrator cannot delete their own account.
 
+Site administrators can call `DELETE /api/v1/admin/users/{username}/safe` to remove a user's organization and team memberships and delete the account without purging owned assets. It rejects the current administrator, organizations, the last site administrator, users who own repositories or packages, and the last owner of an organization. Membership changes are transactional; account deletion runs afterward with ownership checks repeated. If deletion fails after membership removal, resolve the reported conflict and retry. Existing user deletion APIs retain their behavior.
+
 ## Global search
 
 Press **Ctrl+K** or **⌘K** from a signed-in desktop page, or click the header search. Native dialog focus management and GitHub's MIT-licensed `@github/combobox-nav` provide Escape, Tab, arrow keys and Enter behavior. Slash retains the existing header focus shortcut. Opening search does not discard an editor draft; another active dialog keeps its focus.

@@ -104,6 +104,7 @@ func TestFilterRoleAccounts(t *testing.T) {
 		t.Fatal("role lookup failures must stop the run")
 	}
 }
+
 func TestHistoricalReportTimeUsesWholeBeijingDay(t *testing.T) {
 	now := time.Date(2026, 11, 5, 2, 0, 0, 0, time.UTC)
 	at, err := historicalReportTime("2026-11-04", now)

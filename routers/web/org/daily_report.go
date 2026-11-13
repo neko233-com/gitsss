@@ -177,7 +177,7 @@ func DailyReportPost(ctx *context.Context) {
 	cfg.AuthorAliases = make(map[string][]string)
 	for _, row := range rows {
 		id := strconv.FormatInt(row.ID, 10)
-		for _, line := range strings.Split(strings.ReplaceAll(ctx.FormString("aliases_"+id), "\r\n", "\n"), "\n") {
+		for line := range strings.SplitSeq(strings.ReplaceAll(ctx.FormString("aliases_"+id), "\r\n", "\n"), "\n") {
 			if alias := strings.TrimSpace(line); alias != "" {
 				cfg.AuthorAliases[row.Name] = append(cfg.AuthorAliases[row.Name], alias)
 			}

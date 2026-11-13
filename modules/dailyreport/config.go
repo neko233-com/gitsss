@@ -69,8 +69,8 @@ func (c Config) Validate() error {
 				return errors.New("invalid or duplicate author alias")
 			}
 			patterns[key] = true
-			if strings.HasSuffix(key, "*") {
-				prefixes = append(prefixes, strings.TrimSuffix(key, "*"))
+			if prefix, ok := strings.CutSuffix(key, "*"); ok {
+				prefixes = append(prefixes, prefix)
 			}
 		}
 	}

@@ -1846,6 +1846,7 @@ func Routes() *web.Router {
 				m.Group("/{username}", func() {
 					m.Combo("").Patch(bind(api.EditUserOption{}), admin.EditUser).
 						Delete(admin.DeleteUser)
+					m.Delete("/safe", admin.SafeDeleteUser)
 					m.Group("/keys", func() {
 						m.Post("", bind(api.CreateKeyOption{}), admin.CreatePublicKey)
 						m.Delete("/{id}", admin.DeleteUserPublicKey)

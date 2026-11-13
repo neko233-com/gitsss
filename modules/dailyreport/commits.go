@@ -94,8 +94,8 @@ func MatchAuthorAlias(name string, aliases map[string][]string) string {
 	for account, patterns := range aliases {
 		for _, pattern := range patterns {
 			pattern = strings.ToLower(pattern)
-			if strings.HasSuffix(pattern, "*") {
-				if strings.HasPrefix(name, strings.TrimSuffix(pattern, "*")) {
+			if aliasPrefix, ok := strings.CutSuffix(pattern, "*"); ok {
+				if strings.HasPrefix(name, aliasPrefix) {
 					prefix = account
 				}
 			} else if name == pattern {
