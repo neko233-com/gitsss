@@ -2,6 +2,7 @@
 
 ## [GitSSS 1.19.3](https://github.com/neko233-com/gitsss/releases/tag/v1.19.3) - 2026-11-17
 
+* Analyze bounded commit diffs for daily reports so summaries reflect code changes rather than commit messages alone.
 * Exclude Git merge commits and clearly marked integration-only commits from personal daily reports so merged work is not attributed to the merger.
 * Shorten reports to one to three completed business outcomes for managers, with a test preview that never sends Feishu cards or delivery receipts.
 * No database or Git/LFS migration is required; rollback uses the previous binary and matching assets.
