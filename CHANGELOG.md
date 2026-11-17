@@ -1,5 +1,9 @@
 # Changelog
 
+## [GitSSS 1.19.4](https://github.com/neko233-com/gitsss/releases/tag/v1.19.4) - 2026-11-18
+
+* Report every independently confirmed completed business outcome in concise manager-facing language, without a fixed item-count or character limit.
+
 ## [GitSSS 1.19.3](https://github.com/neko233-com/gitsss/releases/tag/v1.19.3) - 2026-11-17
 
 * Analyze bounded commit diffs for daily reports so summaries reflect code changes rather than commit messages alone.
