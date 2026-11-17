@@ -26,9 +26,11 @@ type Push struct {
 
 // AttributedCommit omits author email from the provider input.
 type AttributedCommit struct {
-	RepositoryID int64  `json:"repository_id"`
-	ID           string `json:"id"`
-	Message      string `json:"message"`
+	RepositoryID  int64  `json:"repository_id"`
+	ID            string `json:"id"`
+	Message       string `json:"message"`
+	Diff          string `json:"diff"`
+	DiffTruncated bool   `json:"diff_truncated,omitempty"`
 }
 
 // GroupCommits attributes complete push records and removes repeat pushes.

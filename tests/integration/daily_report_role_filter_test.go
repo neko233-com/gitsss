@@ -10,14 +10,18 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	activities_model "github.com/neko233-com/gitsss/models/activities"
 	"github.com/neko233-com/gitsss/models/db"
+	repo_model "github.com/neko233-com/gitsss/models/repo"
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/dailyreport"
+	"github.com/neko233-com/gitsss/modules/git/gitcmd"
 	"github.com/neko233-com/gitsss/modules/json"
 	"github.com/neko233-com/gitsss/modules/repository"
 	"github.com/neko233-com/gitsss/modules/setting"
@@ -92,15 +96,30 @@ func TestOrganizationDailyReportAnalysisIsolation(t *testing.T) {
 	t.Cleanup(func() { http.DefaultTransport = previousTransport })
 	cfg := dailyreport.Config{Schedule: dailyreport.Schedule{Time: "21:00"}, BaseURL: server.URL, Model: "test", APIKey: "test", Accounts: map[string]string{"user2": "person", "user4": "person"}}
 	require.NoError(t, dailyreport_service.SaveOrgConfig(3, cfg))
-	serial := int64(0)
-	add := func(repoID, authorID int64, email, message string, at time.Time) {
-		serial++
-		raw, err := json.Marshal(repository.PushCommits{Len: 1, Commits: []*repository.PushCommit{{Sha1: fmt.Sprintf("%040d", serial), AuthorEmail: email, Message: message}}})
+	add := func(repoID, authorID int64, email, message string, at time.Time) int64 {
+		repo, err := repo_model.GetRepositoryByID(t.Context(), repoID)
 		require.NoError(t, err)
-		_, err = db.GetEngine(t.Context()).NoAutoTime().Insert(&activities_model.Action{UserID: 2, ActUserID: 2, RepoID: repoID, OpType: activities_model.ActionCommitRepo, Content: string(raw), CreatedUnix: timeutil.TimeStamp(at.Unix())})
+		path := repo.RepoPath()
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+			require.NoError(t, gitcmd.NewCommand("init", "--bare").AddDynamicArguments(path).Run(t.Context()))
+		}
+		blob, _, err := gitcmd.NewCommand("hash-object", "-w", "--stdin").WithDir(path).WithStdinBytes([]byte("DIFF_" + message + "\n")).RunStdString(t.Context())
 		require.NoError(t, err)
+		tree, _, err := gitcmd.NewCommand("mktree").WithDir(path).WithStdinBytes([]byte("100644 blob " + strings.TrimSpace(blob) + "\tchange.txt\n")).RunStdString(t.Context())
+		require.NoError(t, err)
+		commit, _, err := gitcmd.NewCommand("commit-tree").AddDynamicArguments(strings.TrimSpace(tree)).WithDir(path).
+			WithEnv(append(os.Environ(), "GIT_AUTHOR_NAME=Fixture", "GIT_AUTHOR_EMAIL=fixture@example.invalid", "GIT_COMMITTER_NAME=Fixture", "GIT_COMMITTER_EMAIL=fixture@example.invalid")).
+			WithStdinBytes([]byte(message + "\n")).RunStdString(t.Context())
+		require.NoError(t, err)
+		raw, err := json.Marshal(repository.PushCommits{Len: 1, Commits: []*repository.PushCommit{{Sha1: strings.TrimSpace(commit), AuthorEmail: email, Message: message}}})
+		require.NoError(t, err)
+		action := &activities_model.Action{UserID: 2, ActUserID: 2, RepoID: repoID, OpType: activities_model.ActionCommitRepo, Content: string(raw), CreatedUnix: timeutil.TimeStamp(at.Unix())}
+		_, err = db.GetEngine(t.Context()).NoAutoTime().Insert(action)
+		require.NoError(t, err)
+		return action.ID
 	}
-	add(3, 2, "user2@example.com", "ORG_ONE", now.Add(-time.Minute))
+	firstAction := add(3, 2, "user2@example.com", "ORG_ONE", now.Add(-time.Minute))
 	add(3, 4, "user4@example.com", "ORG_TWO", now.Add(-time.Minute))
 	add(1, 2, "user2@example.com", "OTHER_REPOSITORY", now.Add(-time.Minute))
 	add(23, 2, "user2@example.com", "OTHER_ORGANIZATION", now.Add(-time.Minute))
@@ -114,6 +133,9 @@ func TestOrganizationDailyReportAnalysisIsolation(t *testing.T) {
 	assert.Equal(t, "user4", results[1].Account)
 	assert.Contains(t, strings.Join(payloads, " "), "ORG_ONE")
 	assert.Contains(t, strings.Join(payloads, " "), "ORG_TWO")
+	assert.Contains(t, strings.Join(payloads, " "), "+DIFF_ORG_ONE")
+	assert.Contains(t, strings.Join(payloads, " "), "+DIFF_ORG_TWO")
+	assert.NotContains(t, strings.Join(payloads, " "), "+DIFF_OTHER_ORGANIZATION")
 	assert.Contains(t, strings.Join(payloads, " "), "WINDOW_START_INCLUDED")
 	assert.NotContains(t, strings.Join(payloads, " "), "BEFORE_WINDOW")
 	assert.NotContains(t, strings.Join(payloads, " "), "WINDOW_END_EXCLUDED")
@@ -141,6 +163,10 @@ func TestOrganizationDailyReportAnalysisIsolation(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, run.Sent)
 	assert.Equal(t, 2, sent)
+	missing, err := json.Marshal(repository.PushCommits{Len: 1, Commits: []*repository.PushCommit{{Sha1: strings.Repeat("a", 40), AuthorEmail: "user2@example.com", Message: "missing object"}}})
+	require.NoError(t, err)
+	_, err = db.GetEngine(t.Context()).ID(firstAction).Cols("content").Update(&activities_model.Action{Content: string(missing)})
+	require.NoError(t, err)
 	run, err = dailyreport_service.ExecuteOrganization(t.Context(), 3, now)
 	require.NoError(t, err)
 	assert.Equal(t, 2, run.Skipped)

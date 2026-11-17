@@ -142,6 +142,21 @@ func groupOrganization(ctx context.Context, orgID int64, cfg dailyreport.Config,
 	return grouped, err
 }
 
+func summarizeWithDiff(ctx context.Context, orgID int64, provider dailyreport.ResponsesClient, input string) (string, error) {
+	var commits []dailyreport.AttributedCommit
+	if err := json.Unmarshal([]byte(input), &commits); err != nil {
+		return "", errors.New("cannot prepare report commits")
+	}
+	if err := addCommitDiffs(ctx, orgID, map[string][]dailyreport.AttributedCommit{"report": commits}); err != nil {
+		return "", err
+	}
+	payload, err := json.Marshal(commits)
+	if err != nil {
+		return "", errors.New("cannot prepare report diff input")
+	}
+	return provider.Summarize(ctx, string(payload))
+}
+
 // AnalyzeOrganization returns previews without sending or updating delivery receipts.
 func AnalyzeOrganization(ctx context.Context, orgID int64, now time.Time, selection ManualSelection) (analyses []Analysis, runErr error) {
 	if len(selection.AccountIDs) == 0 && len(selection.RoleLabels) == 0 {
@@ -173,7 +188,7 @@ func AnalyzeOrganization(ctx context.Context, orgID int64, now time.Time, select
 		if err != nil {
 			return nil, errors.New("cannot prepare report input")
 		}
-		summary, err := client.Summarize(ctx, string(input))
+		summary, err := summarizeWithDiff(ctx, orgID, client, string(input))
 		if err != nil {
 			return nil, err
 		}
@@ -263,7 +278,9 @@ func executeOrganization(ctx context.Context, orgID int64, now time.Time, automa
 	httpClient := &http.Client{Timeout: 60 * time.Second}
 	provider := dailyreport.ResponsesClient{HTTP: httpClient, BaseURL: cfg.BaseURL, APIKey: cfg.APIKey, Model: cfg.Model, OmitStore: cfg.OmitStore}
 	store := dailyreport.FileDeliveryStore{Path: orgPath(orgID, "deliveries.json")}
-	return dailyreport.Run(ctx, local.Format("2006-01-02"), grouped, store, provider.Summarize, func(ctx context.Context, account, summary string) error {
+	return dailyreport.Run(ctx, local.Format("2006-01-02"), grouped, store, func(ctx context.Context, input string) (string, error) {
+		return summarizeWithDiff(ctx, orgID, provider, input)
+	}, func(ctx context.Context, account, summary string) error {
 		user, err := user_model.GetUserByName(ctx, account)
 		if err != nil {
 			return errors.New("cannot read report account")
