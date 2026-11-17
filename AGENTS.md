@@ -24,6 +24,8 @@
 - Before publishing a release, cross-compile and package the supported Linux, macOS, and Windows targets locally, verify checksums and any configured signatures locally, then publish the tag and packages directly with `gh`
 - Do not publish a tag, package, or GitHub Release until all required local gates pass; fix failures locally and rebuild the artifacts
 - Do not publish per-feature or incremental releases. Complete the full requested product scope and requirement-by-requirement verification first, then create one consolidated tag and package release
+- Keep only one active packaging output set in one output directory; multi-platform artifacts for that run stay in that single directory. Do not create duplicate output directories or retain backups of historical packages.
+- Never back up historical package artifacts. Before starting a new packaging run, verify the exact resolved output path is inside the repository and contains only generated packages, then remove the prior output. After local verification and publishing finish, delete the local package outputs and temporary duplicates. Never remove source or user data.
 
 ## Compatibility baseline
 
