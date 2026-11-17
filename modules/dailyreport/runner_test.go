@@ -86,3 +86,15 @@ func TestRunRetriesOnlyUnsentCards(t *testing.T) {
 		t.Fatalf("retry: %+v %v", second, err)
 	}
 }
+
+func TestRunDoesNotSendOrRecordIntegrationOnlyAccount(t *testing.T) {
+	store := memoryDelivery{}
+	sent := false
+	result, err := Run(context.Background(), "2026-01-01", map[string][]AttributedCommit{"person": {{ID: "merge"}}}, store,
+		func(context.Context, string) (string, error) { return "", ErrNoReportableCommits },
+		func(context.Context, string, string) error { sent = true; return nil },
+	)
+	if err != nil || sent || result.Sent != 0 || result.Skipped != 0 || result.Failed != 0 || len(store) != 0 {
+		t.Fatalf("integration-only report was processed: result=%+v err=%v sent=%v receipts=%v", result, err, sent, store)
+	}
+}

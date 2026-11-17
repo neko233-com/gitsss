@@ -22,6 +22,26 @@ func TestGroupCommits(t *testing.T) {
 	}
 }
 
+func TestGroupCommitsIgnoresIntegrationOnlyMessages(t *testing.T) {
+	push := Push{RepositoryID: 1, Total: 6, Commits: []Commit{
+		{ID: "merge", AuthorEmail: "person@example.invalid", Message: "Merge pull request #12 from feature"},
+		{ID: "cherry", AuthorEmail: "person@example.invalid", Message: "cherry-picked from commit abc"},
+		{ID: "sync", AuthorEmail: "person@example.invalid", Message: "sync branch release"},
+		{ID: "backfill", AuthorEmail: "person@example.invalid", Message: "Backfill from staging"},
+		{ID: "business-sync", AuthorEmail: "person@example.invalid", Message: "feature: improve account synchronization"},
+		{ID: "business-merge", AuthorEmail: "person@example.invalid", Message: "fix: merge adjacent inventory stacks"},
+	}}
+	grouped, err := GroupCommits([]Push{push}, map[string]string{"person": "person"}, func(string) (string, error) {
+		return "person", nil
+	})
+	if err != nil || len(grouped["person"]) != 2 {
+		t.Fatalf("unexpected integration filtering: %v %v", grouped, err)
+	}
+	if grouped["person"][0].ID != "business-sync" || grouped["person"][1].ID != "business-merge" {
+		t.Fatalf("business commits were not retained: %v", grouped["person"])
+	}
+}
+
 func TestMatchesRoleLabels(t *testing.T) {
 	if !MatchesRoleLabels(false, nil, nil) {
 		t.Fatal("all roles must include unlabeled users")

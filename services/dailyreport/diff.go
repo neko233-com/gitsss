@@ -43,20 +43,29 @@ func (w *cappedDiff) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-func readCommitDiff(ctx context.Context, repo gitrepo.Repository, commitID string, limit int) (string, bool, error) {
+func readCommitDiff(ctx context.Context, repo gitrepo.Repository, commitID string, limit int) (string, bool, bool, error) {
 	if !objectIDPattern.MatchString(commitID) || limit <= 0 {
-		return "", false, errors.New("invalid commit diff request")
+		return "", false, false, errors.New("invalid commit diff request")
 	}
-	output := &cappedDiff{limit: limit}
-	cmd := gitcmd.NewCommand("show", "--format=", "--first-parent", "-m", "--root", "--stat=120,80,80", "--patch", "--unified=2", "--no-ext-diff", "--no-textconv", "--no-color", "--no-renames").
+	output := &cappedDiff{limit: limit + 66}
+	cmd := gitcmd.NewCommand("show", "--format=%P", "--root", "--stat=120,80,80", "--patch", "--unified=2", "--no-ext-diff", "--no-textconv", "--no-color", "--no-renames").
 		AddDynamicArguments(commitID + "^{commit}").AddDashesAndList().WithTimeout(30 * time.Second).WithStdoutCopy(output)
 	if err := gitrepo.RunCmdWithStderr(ctx, repo, cmd); err != nil {
-		return "", false, errors.New("cannot read commit diff")
+		return "", false, false, errors.New("cannot read commit diff")
 	}
-	if !utf8.Valid(output.buffer.Bytes()) {
-		output.truncated = true
+	raw := output.buffer.Bytes()
+	header, diff, found := bytes.Cut(raw, []byte{'\n'})
+	if !found {
+		return "", false, false, errors.New("cannot read commit parents")
 	}
-	return strings.ToValidUTF8(output.buffer.String(), ""), output.truncated, nil
+	if len(strings.Fields(string(header))) > 1 {
+		return "", false, true, nil
+	}
+	truncated := output.truncated || len(diff) > limit || !utf8.Valid(diff)
+	if len(diff) > limit {
+		diff = diff[:limit]
+	}
+	return strings.ToValidUTF8(string(diff), ""), truncated, false, nil
 }
 
 func addCommitDiffs(ctx context.Context, orgID int64, grouped map[string][]dailyreport.AttributedCommit) error {
@@ -75,6 +84,7 @@ func addCommitDiffs(ctx context.Context, orgID int64, grouped map[string][]daily
 			continue
 		}
 		limit := min(maxCommitDiffBytes, maxReportDiffBytes/len(commits))
+		filtered := make([]dailyreport.AttributedCommit, 0, len(commits))
 		for i := range commits {
 			repo := repos[commits[i].RepositoryID]
 			if repo == nil {
@@ -85,11 +95,20 @@ func addCommitDiffs(ctx context.Context, orgID int64, grouped map[string][]daily
 				}
 				repos[repo.ID] = repo
 			}
-			diff, truncated, err := readCommitDiff(ctx, repo, commits[i].ID, limit)
+			diff, truncated, merge, err := readCommitDiff(ctx, repo, commits[i].ID, limit)
 			if err != nil {
 				return fmt.Errorf("cannot read report diff for repository %d commit %s", repo.ID, commits[i].ID)
 			}
+			if merge {
+				continue
+			}
 			commits[i].Diff, commits[i].DiffTruncated = diff, truncated
+			filtered = append(filtered, commits[i])
+		}
+		if len(filtered) == 0 {
+			delete(grouped, account)
+		} else {
+			grouped[account] = filtered
 		}
 	}
 	return nil

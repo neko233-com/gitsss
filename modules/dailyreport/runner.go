@@ -57,6 +57,9 @@ func Run(ctx context.Context, date string, grouped map[string][]AttributedCommit
 			return result, errors.New("cannot prepare daily report input")
 		}
 		summary, err := summarize(ctx, string(input))
+		if errors.Is(err, ErrNoReportableCommits) {
+			continue
+		}
 		if err != nil {
 			err = fmt.Errorf("summarize: %w", err)
 		} else if err = send(ctx, account, summary); err != nil {

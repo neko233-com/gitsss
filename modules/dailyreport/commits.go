@@ -9,6 +9,9 @@ import (
 	"strings"
 )
 
+// ErrNoReportableCommits means the report window contained only integration commits.
+var ErrNoReportableCommits = errors.New("no reportable commits")
+
 // Commit contains the information needed to attribute and summarize a commit.
 type Commit struct {
 	ID          string
@@ -49,6 +52,9 @@ func GroupCommits(pushes []Push, accounts map[string]string, resolve func(string
 			if commit.ID == "" || commit.AuthorEmail == "" {
 				return nil, errors.New("invalid commit record")
 			}
+			if isIntegrationOnlyCommit(commit.Message) {
+				continue
+			}
 			key := fmt.Sprintf("%d:%s", push.RepositoryID, commit.ID)
 			if seen[key] {
 				continue
@@ -72,6 +78,24 @@ func GroupCommits(pushes []Push, accounts map[string]string, resolve func(string
 		}
 	}
 	return result, nil
+}
+
+func isIntegrationOnlyCommit(message string) bool {
+	firstLine, _, _ := strings.Cut(strings.TrimSpace(message), "\n")
+	line := strings.ToLower(strings.TrimSpace(firstLine))
+	if line == "merge" || strings.HasPrefix(line, "merge ") || strings.HasPrefix(line, "merge:") || strings.HasPrefix(line, "merge(") || strings.HasPrefix(line, "merged ") {
+		return true
+	}
+	for _, prefix := range []string{
+		"cherry-pick", "cherry pick", "chore(sync)", "chore: sync ", "chore(backfill)", "chore: backfill ",
+		"sync from ", "sync branch ", "sync remote ", "sync commit ", "sync commits ",
+		"backfill ", "backfill:", "backfill(", "回灌", "同步上游", "同步分支", "同步提交", "合并分支", "合并提交", "合入分支", "合入提交",
+	} {
+		if strings.HasPrefix(line, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // MatchesRoleLabels matches any selected label; disabled filtering includes unlabeled users.

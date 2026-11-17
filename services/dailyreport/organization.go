@@ -147,8 +147,13 @@ func summarizeWithDiff(ctx context.Context, orgID int64, provider dailyreport.Re
 	if err := json.Unmarshal([]byte(input), &commits); err != nil {
 		return "", errors.New("cannot prepare report commits")
 	}
-	if err := addCommitDiffs(ctx, orgID, map[string][]dailyreport.AttributedCommit{"report": commits}); err != nil {
+	grouped := map[string][]dailyreport.AttributedCommit{"report": commits}
+	if err := addCommitDiffs(ctx, orgID, grouped); err != nil {
 		return "", err
+	}
+	commits = grouped["report"]
+	if len(commits) == 0 {
+		return "", dailyreport.ErrNoReportableCommits
 	}
 	payload, err := json.Marshal(commits)
 	if err != nil {
@@ -158,14 +163,11 @@ func summarizeWithDiff(ctx context.Context, orgID int64, provider dailyreport.Re
 }
 
 // AnalyzeOrganization returns previews without sending or updating delivery receipts.
-func AnalyzeOrganization(ctx context.Context, orgID int64, now time.Time, selection ManualSelection) (analyses []Analysis, runErr error) {
+func AnalyzeOrganization(ctx context.Context, orgID int64, now time.Time, selection ManualSelection) ([]Analysis, error) {
 	if len(selection.AccountIDs) == 0 && len(selection.RoleLabels) == 0 {
 		return nil, errors.New("select at least one member or role")
 	}
 	cfg, err := LoadOrgConfig(orgID)
-	defer func() {
-		runErr = notifyReportFailure(ctx, cfg.Webhook, orgID, now, "手动分析", dailyreport.RunResult{}, runErr)
-	}()
 	if err != nil {
 		return nil, err
 	}
@@ -189,6 +191,9 @@ func AnalyzeOrganization(ctx context.Context, orgID int64, now time.Time, select
 			return nil, errors.New("cannot prepare report input")
 		}
 		summary, err := summarizeWithDiff(ctx, orgID, client, string(input))
+		if errors.Is(err, dailyreport.ErrNoReportableCommits) {
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}
