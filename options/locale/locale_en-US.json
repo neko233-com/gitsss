@@ -4323,7 +4323,7 @@
 	"contribution.period": "Period",
 	"contribution.range_limit": "Choose a date range within 10 years.",
 	"contribution.truncated": "Result reached the 50,000 commit limit and omits older commits in this range. Choose a shorter date range for complete totals.",
-	"contribution.disclaimer": "Counts describe Git changes, not productivity or code quality. Merge commits are excluded; renames count as delete/add. Binary files count as file changes with no line totals. Generated and vendored code is included. Weeks start Monday in the selected browser timezone. Reports cover at most 10 years. Contributor totals follow mailmap identities; name totals merge identical names.",
+	"contribution.disclaimer": "Counts describe Git changes, not productivity or code quality. Additions and deletions use Git numstat for all line-countable files, including documentation, configuration, generated, and vendored files; binary files count as file changes with no line totals. Merge commits are excluded; renames count as delete/add. Weeks start Monday in the selected browser timezone. Reports cover at most 10 years. Contributor totals follow mailmap identities; name totals merge identical names.",
 	"software.title": "Software center",
 	"software.platform": "System",
 	"software.platform_all": "All platforms",
