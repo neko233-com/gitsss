@@ -156,3 +156,20 @@ long names have a title. The combined distribution bar, language order, percenta
 and backend language statistics are unchanged. These presentation changes require
 no Git, LFS, database or storage migration; rollback restores the previous binary
 and its embedded assets.
+
+## Contribution report
+
+Repository activity offers daily, Monday-based weekly, monthly and annual
+contribution views, plus totals by canonical mailmap contributor or by visible
+author name. The name view merges exact same-name identities; use contributor
+totals to keep mailmap identities distinct. Each view includes commits, additions,
+deletions, file changes, binary file changes, total changed lines and net lines
+(additions minus deletions). Search filters contributors without rescanning Git;
+CSV export includes all filtered rows and protects spreadsheet formulas.
+
+Reports use non-merge commits on the default branch and committer timestamps in
+the selected browser timezone. The inclusive date range can span at most ten years,
+with at most 50,000 commits processed. If the commit cap is reached, the report
+marks the result as incomplete. Renames count as delete/add; binary files do not
+contribute line counts. Generated and vendored changes are included. These values
+measure Git changes, not productivity or code quality.

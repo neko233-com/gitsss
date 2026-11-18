@@ -14,6 +14,12 @@ import (
 	repository_service "github.com/neko233-com/gitsss/services/repository"
 )
 
+const contributionReportRangeYears = 10
+
+func contributionReportRangeWithinLimit(from, to time.Time) bool {
+	return from.Before(to) && !to.After(from.AddDate(contributionReportRangeYears, 0, 0))
+}
+
 func ContributionReport(ctx *context.Context) {
 	ctx.Data["Title"] = ctx.Tr("contribution.title")
 	ctx.Data["PageIsActivity"] = true
@@ -39,8 +45,8 @@ func ContributionReportData(ctx *context.Context) {
 	}
 	from, err := time.ParseInLocation(time.DateOnly, cmp.Or(ctx.FormString("from"), to.AddDate(0, 0, -29).Format(time.DateOnly)), zone)
 	to = to.AddDate(0, 0, 1)
-	if err != nil || !from.Before(to) || to.After(from.AddDate(0, 0, 366)) {
-		ctx.JSON(http.StatusBadRequest, "choose a range within 366 days")
+	if err != nil || !contributionReportRangeWithinLimit(from, to) {
+		ctx.JSON(http.StatusBadRequest, ctx.Tr("contribution.range_limit"))
 		return
 	}
 	report, err := repository_service.GetContributionReport(ctx, ctx.Cache, ctx.Repo.GitRepo, ctx.Repo.Repository.DefaultBranch, from, to, zone)
