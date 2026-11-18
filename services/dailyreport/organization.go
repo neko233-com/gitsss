@@ -16,6 +16,9 @@ import (
 
 	"github.com/neko233-com/gitsss/models/db"
 	org_model "github.com/neko233-com/gitsss/models/organization"
+	access_model "github.com/neko233-com/gitsss/models/perm/access"
+	repo_model "github.com/neko233-com/gitsss/models/repo"
+	"github.com/neko233-com/gitsss/models/unit"
 	user_model "github.com/neko233-com/gitsss/models/user"
 	"github.com/neko233-com/gitsss/modules/dailyreport"
 	"github.com/neko233-com/gitsss/modules/globallock"
@@ -24,6 +27,12 @@ import (
 )
 
 const organizationReportTime = "18:30"
+
+var (
+	ErrDailyReportNotOrganizationMember = errors.New("user is not a member of the organization")
+	ErrDailyReportAgentNotConfigured    = errors.New("daily report agent is not configured")
+	ErrDailyReportAnalysisInProgress    = errors.New("daily report analysis is already running")
+)
 
 func orgPath(orgID int64, name string) string {
 	return filepath.Join(setting.AppDataPath, "daily-report", "organizations", strconv.FormatInt(orgID, 10), name)
@@ -62,10 +71,15 @@ func OrgMembers(ctx context.Context, orgID int64) ([]*user_model.User, error) {
 
 // ManualSelection matches explicit members or any selected role; empty is rejected.
 type ManualSelection struct {
-	AccountIDs []int64
-	RoleLabels []string
+	AccountIDs    []int64
+	RoleLabels    []string
+	RepositoryIDs []int64
 }
-type Analysis struct{ Account, FullName, Summary string }
+type Analysis struct {
+	Account  string `json:"account"`
+	FullName string `json:"full_name"`
+	Summary  string `json:"summary"`
+}
 
 func groupOrganization(ctx context.Context, orgID int64, cfg dailyreport.Config, now time.Time, selection *ManualSelection) (map[string][]dailyreport.AttributedCommit, error) {
 	if orgID <= 0 {
@@ -113,7 +127,12 @@ func groupOrganization(ctx context.Context, orgID int64, cfg dailyreport.Config,
 	if err != nil {
 		return nil, errors.New("cannot load report timezone")
 	}
-	pushes, err := collectPushes(ctx, orgID, start, end)
+	var pushes []dailyreport.Push
+	if selection != nil && selection.RepositoryIDs != nil {
+		pushes, err = collectPushesForRepositories(ctx, orgID, selection.RepositoryIDs, start, end)
+	} else {
+		pushes, err = collectPushes(ctx, orgID, start, end)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -174,6 +193,10 @@ func AnalyzeOrganization(ctx context.Context, orgID int64, now time.Time, select
 	if cfg.BaseURL == "" || cfg.Model == "" || cfg.APIKey == "" {
 		return nil, errors.New("report provider is not configured")
 	}
+	return analyzeOrganization(ctx, orgID, now, cfg, selection)
+}
+
+func analyzeOrganization(ctx context.Context, orgID int64, now time.Time, cfg dailyreport.Config, selection ManualSelection) ([]Analysis, error) {
 	grouped, err := groupOrganization(ctx, orgID, cfg, now, &selection)
 	if err != nil {
 		return nil, err
@@ -204,6 +227,72 @@ func AnalyzeOrganization(ctx context.Context, orgID int64, now time.Time, select
 		result = append(result, Analysis{Account: name, FullName: user.FullName, Summary: summary})
 	}
 	return result, nil
+}
+
+// AnalyzeOwnOrganization analyzes only the authenticated member's commits in repositories they can read.
+func AnalyzeOwnOrganization(ctx context.Context, orgID int64, member *user_model.User, now time.Time) (Analysis, error) {
+	var empty Analysis
+	if member == nil || member.ID <= 0 {
+		return empty, ErrDailyReportNotOrganizationMember
+	}
+	members, err := OrgMembers(ctx, orgID)
+	if err != nil {
+		return empty, err
+	}
+	isMember := false
+	for _, candidate := range members {
+		if candidate.ID == member.ID {
+			isMember = true
+			break
+		}
+	}
+	if !isMember {
+		return empty, ErrDailyReportNotOrganizationMember
+	}
+
+	locked, release, err := globallock.TryLock(ctx, fmt.Sprintf("daily_report_analyze_%d_%d", orgID, member.ID))
+	if err != nil {
+		return empty, errors.New("cannot lock daily report analysis")
+	}
+	if !locked {
+		return empty, ErrDailyReportAnalysisInProgress
+	}
+	defer release()
+
+	cfg, err := LoadOrgConfig(orgID)
+	if err != nil {
+		return empty, err
+	}
+	if cfg.BaseURL == "" || cfg.Model == "" || cfg.APIKey == "" {
+		return empty, ErrDailyReportAgentNotConfigured
+	}
+
+	repositories, err := repo_model.GetOrgRepositories(ctx, orgID)
+	if err != nil {
+		return empty, errors.New("cannot read organization repositories")
+	}
+	repositoryIDs := make([]int64, 0, len(repositories))
+	for _, repository := range repositories {
+		permission, err := access_model.GetDoerRepoPermission(ctx, repository, member)
+		if err != nil {
+			return empty, errors.New("cannot read repository permissions")
+		}
+		if permission.CanRead(unit.TypeCode) {
+			repositoryIDs = append(repositoryIDs, repository.ID)
+		}
+	}
+
+	results, err := analyzeOrganization(ctx, orgID, now, cfg, ManualSelection{
+		AccountIDs:    []int64{member.ID},
+		RepositoryIDs: repositoryIDs,
+	})
+	if err != nil {
+		return empty, err
+	}
+	if len(results) == 0 {
+		return Analysis{Account: member.Name, FullName: member.FullName, Summary: "无可确认的个人业务成果"}, nil
+	}
+	return results[0], nil
 }
 
 // ExecuteOrganization runs one organization's scheduled report with isolated receipts.

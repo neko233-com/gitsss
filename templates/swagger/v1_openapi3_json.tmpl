@@ -32889,6 +32889,77 @@
         ]
       }
     },
+    "/user/daily-report/analyze": {
+      "post": {
+        "operationId": "userAnalyzeDailyReport",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "organization_id": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "organization_id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "account": {
+                      "type": "string"
+                    },
+                    "full_name": {
+                      "type": "string"
+                    },
+                    "organization_id": {
+                      "format": "int64",
+                      "type": "integer"
+                    },
+                    "summary": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Analysis of the authenticated user's own commits"
+          },
+          "400": {
+            "$ref": "#/components/responses/error"
+          },
+          "401": {
+            "$ref": "#/components/responses/error"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/conflict"
+          },
+          "503": {
+            "$ref": "#/components/responses/error"
+          }
+        },
+        "summary": "Analyze the authenticated user's own commits with an organization agent",
+        "tags": [
+          "user"
+        ]
+      }
+    },
     "/user/emails": {
       "delete": {
         "operationId": "userDeleteEmail",

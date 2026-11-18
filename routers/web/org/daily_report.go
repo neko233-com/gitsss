@@ -4,7 +4,6 @@
 package org
 
 import (
-	"errors"
 	"net/http"
 	"sort"
 	"strconv"
@@ -53,8 +52,8 @@ func reportRoles(ctx *context.Context, rows []dailyReportAccount, cfg dailyrepor
 }
 
 type dailyReportAccount struct {
-	ID                            int64
-	Name, FullName, Kind, Aliases string
+	ID                      int64
+	Name, FullName, Aliases string
 }
 
 func reportAccounts(ctx *context.Context, cfg dailyreport.Config) ([]dailyReportAccount, error) {
@@ -64,7 +63,7 @@ func reportAccounts(ctx *context.Context, cfg dailyreport.Config) ([]dailyReport
 	}
 	rows := make([]dailyReportAccount, 0, len(users))
 	for _, user := range users {
-		rows = append(rows, dailyReportAccount{user.ID, user.Name, user.FullName, cfg.Accounts[user.Name], strings.Join(cfg.AuthorAliases[user.Name], "\n")})
+		rows = append(rows, dailyReportAccount{user.ID, user.Name, user.FullName, strings.Join(cfg.AuthorAliases[user.Name], "\n")})
 	}
 	return rows, nil
 }
@@ -87,22 +86,12 @@ func renderDailyReport(ctx *context.Context, cfg dailyreport.Config, status int)
 		ctx.Data["ReportManualRoles"] = map[string]bool{}
 	}
 	ctx.Data["ReportRoles"] = roles
-	ctx.Data["ReportRoleFilterEnabled"] = cfg.RoleFilterEnabled
-	years := make([]string, 0, len(cfg.Schedule.CalendarYears))
-	for _, year := range cfg.Schedule.CalendarYears {
-		years = append(years, strconv.Itoa(year))
-	}
 	ctx.Data["Title"] = ctx.Tr("admin.daily_report")
 	ctx.Data["PageIsOrgDailyReport"] = true
-	ctx.Data["ReportSchedule"] = cfg.Schedule
 	ctx.Data["ReportBaseURL"] = cfg.BaseURL
 	ctx.Data["ReportModel"] = cfg.Model
 	ctx.Data["ReportOmitStore"] = cfg.OmitStore
 	ctx.Data["ReportHasKey"] = cfg.APIKey != ""
-	ctx.Data["ReportHasWebhook"] = cfg.Webhook != ""
-	ctx.Data["ReportYears"] = strings.Join(years, ", ")
-	ctx.Data["ReportHolidays"] = strings.Join(cfg.Schedule.Holidays, "\n")
-	ctx.Data["ReportWorkdays"] = strings.Join(cfg.Schedule.Workdays, "\n")
 	ctx.Data["ReportAccounts"] = rows
 	ctx.HTML(status, templates.TplName("org/settings/daily_report"))
 }
@@ -115,10 +104,6 @@ func DailyReport(ctx *context.Context) {
 		return
 	}
 	renderDailyReport(ctx, cfg, http.StatusOK)
-}
-
-func reportLines(value string) []string {
-	return strings.FieldsFunc(value, func(r rune) bool { return r == '\n' || r == '\r' || r == ',' || r == ' ' || r == '\t' })
 }
 
 // DailyReportPost validates and saves settings; blank secret fields retain their values.
@@ -138,42 +123,14 @@ func DailyReportPost(ctx *context.Context) {
 	if value := strings.TrimSpace(ctx.FormString("api_key")); value != "" {
 		cfg.APIKey = value
 	}
-	if value := strings.TrimSpace(ctx.FormString("webhook")); value != "" {
-		cfg.Webhook = value
-	}
 	if ctx.FormBool("clear_api_key") {
 		cfg.APIKey = ""
 	}
-	if ctx.FormBool("clear_webhook") {
-		cfg.Webhook = ""
-	}
-	if mode := ctx.FormString("role_filter_mode"); mode != "" {
-		switch mode {
-		case "all":
-			cfg.RoleFilterEnabled = false
-			cfg.RoleLabels = nil
-		case "selected":
-			cfg.RoleFilterEnabled = true
-			cfg.RoleLabels = ctx.FormStrings("role_filter")
-		default:
-			err = errors.New("invalid role filter mode")
-		}
-	}
+	cfg.Webhook = ""
+	cfg.Schedule.Enabled = false
+	cfg.RoleFilterEnabled = false
+	cfg.RoleLabels = nil
 	cfg.OmitStore = ctx.FormBool("omit_store")
-	cfg.Schedule.Enabled = ctx.FormBool("enabled")
-	cfg.Schedule.SkipHolidays = ctx.FormBool("skip_holidays")
-	cfg.Schedule.Holidays = reportLines(ctx.FormString("holidays"))
-	cfg.Schedule.Workdays = reportLines(ctx.FormString("workdays"))
-	cfg.Schedule.CalendarYears = nil
-	for _, value := range reportLines(ctx.FormString("years")) {
-		year, parseErr := strconv.Atoi(value)
-		if parseErr != nil {
-			err = errors.New("invalid calendar year")
-			break
-		}
-		cfg.Schedule.CalendarYears = append(cfg.Schedule.CalendarYears, year)
-	}
-	cfg.Accounts = make(map[string]string)
 	cfg.AuthorAliases = make(map[string][]string)
 	for _, row := range rows {
 		id := strconv.FormatInt(row.ID, 10)
@@ -182,14 +139,8 @@ func DailyReportPost(ctx *context.Context) {
 				cfg.AuthorAliases[row.Name] = append(cfg.AuthorAliases[row.Name], alias)
 			}
 		}
-		kind := ctx.FormString("account_" + id)
-		if kind != "" {
-			cfg.Accounts[row.Name] = kind
-		}
 	}
-	if err == nil {
-		err = dailyreport_service.SaveOrgConfig(ctx.Org.Organization.ID, cfg)
-	}
+	err = dailyreport_service.SaveOrgConfig(ctx.Org.Organization.ID, cfg)
 	if err != nil {
 		ctx.Flash.Error(ctx.Tr("admin.daily_report.invalid"), true)
 		renderDailyReport(ctx, cfg, http.StatusBadRequest)
@@ -239,16 +190,4 @@ func DailyReportAnalyze(ctx *context.Context) {
 	ctx.Data["ReportAnalyzed"] = true
 	ctx.Data["ReportAnalyses"] = results
 	renderDailyReport(ctx, cfg, http.StatusOK)
-}
-
-// DailyReportRunDate sends an organization's historical report with delivery deduplication.
-func DailyReportRunDate(ctx *context.Context) {
-	result, err := dailyreport_service.ExecuteOrganizationDate(ctx, ctx.Org.Organization.ID, ctx.FormString("date"), time.Now())
-	if err != nil {
-		log.Error("Organization historical daily report failed: %v", err)
-		ctx.Flash.Error(string(ctx.Tr("admin.daily_report.failed", result.Sent, result.Skipped, result.Failed)) + " " + err.Error())
-	} else {
-		ctx.Flash.Success(ctx.Tr("admin.daily_report.done", result.Sent, result.Skipped))
-	}
-	ctx.Redirect(ctx.Org.Organization.OrganisationLink() + "/settings/daily-report")
 }

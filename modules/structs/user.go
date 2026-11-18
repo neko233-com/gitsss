@@ -136,3 +136,19 @@ type UserBadgeOption struct {
 	// example: ["badge1","badge2"]
 	BadgeSlugs []string `json:"badge_slugs" binding:"Required"`
 }
+
+// DailyReportAnalyzeOption selects the organization agent for the authenticated user's own analysis.
+// swagger:model
+type DailyReportAnalyzeOption struct {
+	// ID of an organization the authenticated user belongs to.
+	OrganizationID int64 `json:"organization_id" binding:"Required"`
+}
+
+// DailyReportAnalysis contains an analysis of the authenticated user's own commits.
+// swagger:model
+type DailyReportAnalysis struct {
+	OrganizationID int64  `json:"organization_id"`
+	Account        string `json:"account"`
+	FullName       string `json:"full_name"`
+	Summary        string `json:"summary"`
+}

@@ -20322,6 +20322,78 @@
         }
       }
     },
+    "/user/daily-report/analyze": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Analyze the authenticated user's own commits with an organization agent",
+        "operationId": "userAnalyzeDailyReport",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "organization_id"
+              ],
+              "properties": {
+                "organization_id": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Analysis of the authenticated user's own commits",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "account": {
+                  "type": "string"
+                },
+                "full_name": {
+                  "type": "string"
+                },
+                "organization_id": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "summary": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/responses/error"
+          },
+          "401": {
+            "$ref": "#/responses/error"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          },
+          "409": {
+            "$ref": "#/responses/conflict"
+          },
+          "503": {
+            "$ref": "#/responses/error"
+          }
+        }
+      }
+    },
     "/user/emails": {
       "get": {
         "produces": [

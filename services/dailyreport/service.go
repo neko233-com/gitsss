@@ -89,10 +89,20 @@ func CollectPushes(ctx context.Context, start, end time.Time) ([]dailyreport.Pus
 }
 
 func collectPushes(ctx context.Context, orgID int64, start, end time.Time) ([]dailyreport.Push, error) {
+	return collectPushesForRepositories(ctx, orgID, nil, start, end)
+}
+
+func collectPushesForRepositories(ctx context.Context, orgID int64, repositoryIDs []int64, start, end time.Time) ([]dailyreport.Push, error) {
+	if repositoryIDs != nil && len(repositoryIDs) == 0 {
+		return []dailyreport.Push{}, nil
+	}
 	var actions []activities_model.Action
 	query := db.GetEngine(ctx).Where("op_type = ? AND user_id = act_user_id AND created_unix >= ? AND created_unix < ?", activities_model.ActionCommitRepo, start.Unix(), end.Unix())
 	if orgID > 0 {
 		query = query.And("repo_id IN (SELECT id FROM repository WHERE owner_id = ?)", orgID)
+	}
+	if repositoryIDs != nil {
+		query = query.In("repo_id", repositoryIDs)
 	}
 	err := query.Limit(10001).Find(&actions)
 	if err != nil {

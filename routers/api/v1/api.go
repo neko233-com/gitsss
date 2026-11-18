@@ -1122,6 +1122,7 @@ func Routes() *web.Router {
 		// Users (requires user scope)
 		m.Group("/user", func() {
 			m.Get("", user.GetAuthenticatedUser)
+			m.Post("/daily-report/analyze", bind(api.DailyReportAnalyzeOption{}), user.AnalyzeDailyReport)
 			m.Group("/settings", func() {
 				m.Get("", user.GetUserSettings)
 				m.Patch("", bind(api.UserSettingsOptions{}), user.UpdateUserSettings)
