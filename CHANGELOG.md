@@ -5,6 +5,7 @@
 * Report every independently confirmed completed business outcome in concise manager-facing language, without a fixed item-count or character limit; preview generation does not send Feishu cards or write delivery receipts.
 * Remove automatic daily delivery and historical resend; add an authenticated API for users to analyze only their own work in repositories they can read.
 * Extend contribution reports with annual, per-contributor and exact-name totals, up to ten-year ranges, changed-line and net-line counts. Clarify that line counts include all Git-numstat line-countable files, including documentation, configuration, generated and vendored files.
+* Use gzip level 9 for source and native release archives while keeping the existing archive format and supported platforms.
 
 ## [GitSSS 1.19.3](https://github.com/neko233-com/gitsss/releases/tag/v1.19.3) - 2026-11-17
 

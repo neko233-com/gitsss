@@ -25,7 +25,7 @@ def main():
         instructions = ('Keep gitsss and gitsss-hook in the same directory, using these fixed filenames.\n'
                         'Preserve existing configuration and repository/LFS paths when upgrading.\n'
                         'See docs/features/push-throughput.md for the Linux CGO WAL/NORMAL profile.\n').encode()
-        with output.open('wb') as target, gzip.GzipFile(fileobj=target, mode='wb', compresslevel=3, mtime=0) as compressed:
+        with output.open('wb') as target, gzip.GzipFile(fileobj=target, mode='wb', compresslevel=9, mtime=0) as compressed:
             with tarfile.open(fileobj=compressed, mode='w', format=tarfile.USTAR_FORMAT) as archive:
                 for source, name in [(binary, 'gitsss'+extension), (hook, 'gitsss-hook'+extension), (root/'LICENSE', 'LICENSE')]:
                     info = tarfile.TarInfo(name)

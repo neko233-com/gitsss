@@ -22,7 +22,7 @@ def main():
     root = Path(__file__).resolve().parents[1]
     prefix = f'gitsss-src-{version}'
     output = folder / f'{prefix}.tar.gz'
-    with output.open('wb') as raw, gzip.GzipFile(fileobj=raw, mode='wb', compresslevel=6, mtime=0) as compressed:
+    with output.open('wb') as raw, gzip.GzipFile(fileobj=raw, mode='wb', compresslevel=9, mtime=0) as compressed:
         with tarfile.open(fileobj=compressed, mode='w', format=tarfile.PAX_FORMAT) as archive:
             for relative in tracked(root):
                 source = root / relative
