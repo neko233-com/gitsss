@@ -7,10 +7,14 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
 
+python=${PYTHON:-python3}
 dry=0
 if [ "${1:-}" = "--dry-run" ]; then
 	dry=1
 fi
+
+out_dir=${DIST:-dist}/release
+go run ./build/releaseoutput --check-only "$out_dir"
 
 version=${VERSION:-}
 if [ -z "$version" ]; then
@@ -30,11 +34,20 @@ if [ "$dry" -eq 0 ]; then
 		exit 1
 	fi
 	node tools/frontend-build.mjs
+	for command in go "$python" sha256sum; do
+		if ! command -v "$command" >/dev/null 2>&1; then
+			echo "$command is required to build and verify release packages" >&2
+			exit 1
+		fi
+	done
+	if ! command -v xz >/dev/null 2>&1 && ! "$python" -c 'import lzma' >/dev/null 2>&1; then
+		echo "xz or Python lzma support is required to compress release packages" >&2
+		exit 1
+	fi
 fi
 jobs=${RELEASE_JOBS:-2}
 xz_level=${XZ_LEVEL:-6}
 gogit=${RELEASE_GOGIT:-0}
-out_dir=${DIST:-dist}/release
 tags="bindata sqlite sqlite_unlock_notify timetzdata netgo osusergo"
 # Go no longer records -X flags in build info; a version tag keeps artifacts verifiable.
 version_tag="gitsss_release_$(printf '%s' "$version" | sed 's/[^A-Za-z0-9]/_/g')"
@@ -85,9 +98,10 @@ build_one() {
 }
 
 if [ "$dry" -eq 0 ]; then
+	go test ./build/releaseoutput
+	go run ./build/releaseoutput "$out_dir"
 	mkdir -p "$out_dir"
-	find "$out_dir" -maxdepth 1 -type f \( -name "gitsss-${version}-*" -o -name "gitsss-src-${version}.tar.gz*" -o -name SHA256SUMS \) -delete
-	"${PYTHON:-python3}" build/package-source.py "$out_dir" "$version"
+	"$python" build/package-source.py "$out_dir" "$version"
 fi
 
 status=0
@@ -173,12 +187,12 @@ for pid in "${pids[@]}"; do
 	wait "$pid" || status=1
 done
 if [ "$status" -eq 0 ]; then
-	"${PYTHON:-python3}" build/package-native.py "$out_dir" "$version" || status=1
+	"$python" build/package-native.py "$out_dir" "$version" || status=1
 	if [ "$status" -eq 0 ]; then
 		if [ "$gogit" = "1" ]; then
-			"${PYTHON:-python3}" build/verify-release.py "$out_dir" "$version" --gogit || status=1
+			"$python" build/verify-release.py "$out_dir" "$version" --gogit || status=1
 		else
-			"${PYTHON:-python3}" build/verify-release.py "$out_dir" "$version" || status=1
+			"$python" build/verify-release.py "$out_dir" "$version" || status=1
 		fi
 	fi
 fi
